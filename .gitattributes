@@ -1,5 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 *.lean text
-tests/golden/** binary
-tests/corpus/** binary
+testdata/golden/** binary
+testdata/corpus/** binary

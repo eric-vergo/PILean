@@ -1,4 +1,4 @@
-# tests/py — Pillow oracle scripts
+# testdata/py — Pillow oracle scripts
 
 Python side of PILean's correctness oracle. Pillow 11.3.0 is the ground
 truth for "what should this file format decode to"; everything here is
@@ -13,24 +13,24 @@ byte.
   image -> `.praw` args) and `resolve_rgba` (mode+data+palette -> a flat
   list of `(r,g,b,a)` pixels, mirroring `PILean.Image.getPixel!`'s
   promotion — this is what "pixel-exact" means throughout PILean's tests).
-- **`pngsuite_truth.py`** — generates `tests/corpus/pngsuite-truth/*.praw`
-  from the vendored `tests/corpus/pngsuite/*.png`. See its module
+- **`pngsuite_truth.py`** — generates `testdata/corpus/pngsuite-truth/*.praw`
+  from the vendored `testdata/corpus/pngsuite/*.png`. See its module
   docstring for PILean's exact 16-bit-to-8-bit normalization rules
   (truncate to the high byte, never round).
 - **`gen_golden.py`** — the main entry point. Regenerates every fixture
-  under `tests/golden/` (the pattern matrix, the zlib corpus, the JPEG
-  photo, the animated GIF) and, if `tests/corpus/pngsuite/` is vendored,
-  also refreshes `tests/corpus/pngsuite-truth/`. Every random draw is
-  seeded; see `tests/golden/MANIFEST.md` (which this script also
+  under `testdata/golden/` (the pattern matrix, the zlib corpus, the JPEG
+  photo, the animated GIF) and, if `testdata/corpus/pngsuite/` is vendored,
+  also refreshes `testdata/corpus/pngsuite-truth/`. Every random draw is
+  seeded; see `testdata/golden/MANIFEST.md` (which this script also
   regenerates) for the exact seed table and rationale for every
   non-obvious choice (why RGBA has no `.bmp` fixture, why the JPEG photo
   is 64×64 not the usual 33×17, why `random200k` became `random100k`, …).
 - **`crosscheck.py`** — verifies PILean's *own* codec output. Run after
-  PILean's encoders have written files into `tests/out/` (gitignored
+  PILean's encoders have written files into `testdata/out/` (gitignored
   scratch space — nothing does yet, at WP8 time): for each output file
   named `<goldenname>.<ext>`, opens it with Pillow and compares against
-  `tests/golden/<goldenname>.praw` (or
-  `tests/corpus/pngsuite-truth/<goldenname>.praw`). Exact pixel match for
+  `testdata/golden/<goldenname>.praw` (or
+  `testdata/corpus/pngsuite-truth/<goldenname>.praw`). Exact pixel match for
   png/bmp/ppm/pgm/gif/qoi, PSNR ≥ 30 dB for jpg. Handles a missing/empty
   `--dir` gracefully (prints a warning, exits 0).
 
@@ -40,11 +40,11 @@ byte.
 # Regenerate every golden fixture and the PngSuite truth corpus.
 # Always review `git status`/`git diff --stat` afterward — goldens are
 # checked in and never regenerated in CI.
-python3 tests/py/gen_golden.py
+python3 testdata/py/gen_golden.py
 
-# After PILean's codecs write files into tests/out/:
-python3 tests/py/crosscheck.py
-python3 tests/py/crosscheck.py --dir some/other/dir
+# After PILean's codecs write files into testdata/out/:
+python3 testdata/py/crosscheck.py
+python3 testdata/py/crosscheck.py --dir some/other/dir
 ```
 
 ## Design notes

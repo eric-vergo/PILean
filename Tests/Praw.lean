@@ -6,7 +6,7 @@ import PILean.Binary.Writer
 # `.praw` fixture format
 
 `.praw` is the test-only pixel-truth interchange format shared with the
-Python oracle (`tests/py/praw.py`): a minimal container that stores exactly
+Python oracle (`testdata/py/praw.py`): a minimal container that stores exactly
 what a `PILean.Image` holds in memory, so any codec's decoder output can be
 compared byte-for-byte against a fixed value without depending on any
 *other* PILean codec.
@@ -25,7 +25,7 @@ offset  size  field
               row-major, top-to-bottom, tightly packed (no row padding)
 ```
 
-This must match the Python writer in `tests/py/praw.py` byte-for-byte.
+This must match the Python writer in `testdata/py/praw.py` byte-for-byte.
 -/
 
 namespace Tests.Praw
@@ -35,7 +35,7 @@ open PILean PILean.Binary
 /-- The `.praw` magic bytes, ASCII `"PRAW"`. -/
 def magic : ByteArray := ByteArray.mk #[0x50, 0x52, 0x41, 0x57]
 
-/-- The one-byte mode code used on disk. Must match `tests/py/praw.py`'s
+/-- The one-byte mode code used on disk. Must match `testdata/py/praw.py`'s
 `MODE_*` constants and PILean's `Mode` order. -/
 def modeCode : Mode → UInt8
   | .gray => 0

@@ -1,9 +1,9 @@
 """
 Generate pixel-truth .praw fixtures for the vendored PngSuite corpus
-(`tests/corpus/pngsuite/*.png`) into `tests/corpus/pngsuite-truth/*.praw`.
+(`testdata/corpus/pngsuite/*.png`) into `testdata/corpus/pngsuite-truth/*.praw`.
 
 Corrupt files (named `x*.png` by PngSuite convention) get no truth; see
-`tests/corpus/pngsuite/CORRUPT.txt`.
+`testdata/corpus/pngsuite/CORRUPT.txt`.
 
 ## PILean's "v1 normalization"
 
@@ -105,7 +105,7 @@ def generate(corpus_dir: Path, truth_dir: Path) -> tuple[int, int]:
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parent.parent  # tests/
+    root = Path(__file__).resolve().parent.parent  # testdata/
     corpus_dir = root / "corpus" / "pngsuite"
     truth_dir = root / "corpus" / "pngsuite-truth"
     if not corpus_dir.exists() or not any(corpus_dir.glob("*.png")):

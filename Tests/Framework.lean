@@ -108,9 +108,9 @@ def assertImagesEq (actual expected : Image) (label : String := "image") : IO Un
       s!"  mismatch map ({cols}×{rows}):{map}")
 
 /-- Directory of committed golden fixtures. -/
-def goldenDir : System.FilePath := System.FilePath.mk "tests" / "golden"
+def goldenDir : System.FilePath := System.FilePath.mk "testdata" / "golden"
 
-/-- Compare `actual` against the committed fixture `tests/golden/<name>`.
+/-- Compare `actual` against the committed fixture `testdata/golden/<name>`.
 With `UPDATE_GOLDEN=1` the fixture is (re)written instead and the test
 passes. A missing fixture without the env var fails with instructions. -/
 def golden (name : String) (actual : ByteArray) : IO Unit := do

@@ -6,15 +6,15 @@ import Tests.Prng
 
 PPM/PGM/PBM encode + decode, golden files, comments, ASCII variants. Owned by WP4.
 
-Fixtures live under `tests/golden/netpbm/` and are generated (and cross-checked
-against Pillow 11.3.0) by `tests/golden/netpbm/gen.py`.
+Fixtures live under `testdata/golden/netpbm/` and are generated (and cross-checked
+against Pillow 11.3.0) by `testdata/golden/netpbm/gen.py`.
 -/
 
 namespace Tests.NetpbmTests
 
 open PILean PILean.Netpbm
 
-/-- Read a committed fixture from `tests/golden/netpbm/`. -/
+/-- Read a committed fixture from `testdata/golden/netpbm/`. -/
 private def fixture (name : String) : IO ByteArray :=
   IO.FS.readBinFile (Tests.goldenDir / "netpbm" / name)
 

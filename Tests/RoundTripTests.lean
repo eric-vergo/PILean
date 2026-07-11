@@ -17,7 +17,7 @@ namespace Tests.RoundTripTests
 
 open PILean
 
-/-- `tests/out/` is gitignored scratch space shared by every suite that
+/-- `testdata/out/` is gitignored scratch space shared by every suite that
 needs a real file on disk. -/
 def scratchDir : System.FilePath := System.FilePath.mk "tests" / "out"
 
@@ -43,8 +43,8 @@ def prawRoundTripTests : List TestCase :=
       assertImagesEq img' img "pixel-exact (RGBA promotion)"
 
 /-- `Tests.Praw.load` on a committed golden fixture matches specific pixel
-values recorded by `tests/py/gen_golden.py` (see
-`tests/golden/MANIFEST.md`, "Hardcoded pixel values" — regenerate that
+values recorded by `testdata/py/gen_golden.py` (see
+`testdata/golden/MANIFEST.md`, "Hardcoded pixel values" — regenerate that
 table and update this test together if the pattern generator ever
 changes). -/
 def goldenLoadTest : TestCase :=

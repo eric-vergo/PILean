@@ -3,11 +3,11 @@
 Cross-check PILean's own encoder output against the Pillow oracle.
 
 CLI:
-    python3 tests/py/crosscheck.py [--dir tests/out]
+    python3 testdata/py/crosscheck.py [--dir testdata/out]
 
 For every image file under `--dir` whose stem matches a fixture name (i.e.
-named `<goldenname>.<ext>` where `tests/golden/<goldenname>.praw` — or
-`tests/corpus/pngsuite-truth/<goldenname>.praw` — exists), this opens it
+named `<goldenname>.<ext>` where `testdata/golden/<goldenname>.praw` — or
+`testdata/corpus/pngsuite-truth/<goldenname>.praw` — exists), this opens it
 with Pillow and compares its decoded pixels against that `.praw` ground
 truth:
 
@@ -34,7 +34,7 @@ a failure — not every golden fixture is meant to be pixel-compared this
 way.
 
 Exits nonzero (and prints a per-file report) if anything fails. Handles a
-missing/empty `--dir` gracefully (nothing has been written to `tests/out/`
+missing/empty `--dir` gracefully (nothing has been written to `testdata/out/`
 by any codec yet at WP8 time — that's fine, not a failure).
 """
 from __future__ import annotations
@@ -49,7 +49,7 @@ from PIL import Image, UnidentifiedImageError
 
 import praw
 
-ROOT = Path(__file__).resolve().parent.parent  # tests/
+ROOT = Path(__file__).resolve().parent.parent  # testdata/
 GOLDEN = ROOT / "golden"
 PNGSUITE_TRUTH = ROOT / "corpus" / "pngsuite-truth"
 
@@ -68,8 +68,8 @@ _QUALITY_SUFFIX = re.compile(r"_q\d+$")
 
 
 def find_truth(stem: str) -> Path | None:
-    """Look up `<stem>.praw` in `tests/golden/` then
-    `tests/corpus/pngsuite-truth/`. JPEG fixtures are named
+    """Look up `<stem>.praw` in `testdata/golden/` then
+    `testdata/corpus/pngsuite-truth/`. JPEG fixtures are named
     `<base>_q<N>.jpg` for several quality levels sharing one
     `<base>.praw` truth (the pre-compression source pixels — JPEG is
     compared by PSNR, not exact match, so every quality level legitimately
@@ -190,7 +190,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                   formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dir", default=str(ROOT / "out"),
-                     help="directory of PILean-written files to verify (default: tests/out)")
+                     help="directory of PILean-written files to verify (default: testdata/out)")
     args = ap.parse_args()
     out_dir = Path(args.dir)
 

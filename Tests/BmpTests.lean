@@ -6,15 +6,15 @@ import Tests.Prng
 
 BMP encode + decode, row padding, top-down and bottom-up. Owned by WP4.
 
-Fixtures live under `tests/golden/bmp/` and are generated (and cross-checked
-against Pillow 11.3.0) by `tests/golden/bmp/gen.py`.
+Fixtures live under `testdata/golden/bmp/` and are generated (and cross-checked
+against Pillow 11.3.0) by `testdata/golden/bmp/gen.py`.
 -/
 
 namespace Tests.BmpTests
 
 open PILean PILean.Bmp
 
-/-- Read a committed fixture from `tests/golden/bmp/`. -/
+/-- Read a committed fixture from `testdata/golden/bmp/`. -/
 private def fixture (name : String) : IO ByteArray :=
   IO.FS.readBinFile (Tests.goldenDir / "bmp" / name)
 

@@ -5,7 +5,7 @@ Pure Lean 4 imaging library (PIL/Pillow functional port). Zero dependencies, no 
 ## Build & test
 - `lake build` — builds library + tests executable
 - `lake exe tests` — run test suite; `lake exe tests --filter <substring>` to narrow
-- `UPDATE_GOLDEN=1 lake exe tests` — (re)write golden fixtures under `tests/golden/`
+- `UPDATE_GOLDEN=1 lake exe tests` — (re)write golden fixtures under `testdata/golden/`
 
 ## Project law (enforced in review)
 - Coordinates are `Int` in public APIs and **clip silently** (drawing/geometry never fails). Sizes are `Nat`.
@@ -21,5 +21,5 @@ Pure Lean 4 imaging library (PIL/Pillow functional port). Zero dependencies, no 
 ## Layout
 - `PILean/` library source (Core, Draw, Font, Transform, Filter, Binary, Compress, Codec, Color, IO)
 - `Tests/` Lean test suites (one file per work package, registered in `Tests/Main.lean`)
-- `tests/` fixtures: `golden/` (committed binaries), `corpus/` (vendored test corpora), `py/` (Pillow oracle scripts), `out/` (gitignored scratch output)
-- Correctness oracle: Pillow 11.3.0 via `tests/py/` scripts; goldens are checked in, never regenerated in CI.
+- `testdata/` fixtures: `golden/` (committed binaries), `corpus/` (vendored test corpora), `py/` (Pillow oracle scripts), `out/` (gitignored scratch output). Named `testdata` (not `tests`) deliberately: macOS filesystems are case-insensitive and `tests/` would collide with `Tests/`.
+- Correctness oracle: Pillow 11.3.0 via `testdata/py/` scripts; goldens are checked in, never regenerated in CI.
