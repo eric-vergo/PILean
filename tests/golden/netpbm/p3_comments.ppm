@@ -1,0 +1,9 @@
+P3
+# a leading comment
+3 2 # trailing comment on the dimensions line
+255
+255 0 0   0 255 0  # two pixels
+0 0 255
+10 20 30  40 50 60
+# comment before the last pixel
+70 80 90

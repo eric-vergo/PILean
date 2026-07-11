@@ -1,0 +1,19 @@
+# Files with no pixel truth: PngSuite's 'x' naming convention marks
+# intentionally corrupt/erroneous test files (regardless of whether
+# a lenient decoder happens to open them). PILean's decoders must
+# reject these with an Except .error, never panic or hang.
+
+xc1n0g08.png
+xc9n2c08.png
+xcrn0g04.png
+xcsn0g01.png
+xd0n2c08.png
+xd3n2c08.png
+xd9n2c08.png
+xdtn0g01.png
+xhdn0g08.png
+xlfn0g04.png
+xs1n0g01.png
+xs2n0g01.png
+xs4n0g01.png
+xs7n0g01.png
