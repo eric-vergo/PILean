@@ -3,8 +3,6 @@ import PILean.Core.Color
 import PILean.Core.Geometry
 import PILean.Core.Palette
 
-set_option linter.unusedVariables false  -- stub file; remove when implementing
-
 /-!
 # The Image type
 
@@ -144,7 +142,55 @@ def setIndex (img : Image) (x y : Int) (i : UInt8) : Image :=
 /-- Apply `f` to every pixel via RGBA promotion. On `.palette` images this
 maps the palette entries, not the pixels. -/
 def map (img : Image) (f : Color → Color) : Image :=
-  panic! "PILean.Image.map: not implemented yet (WP1)"
+  match img.mode, img.palette? with
+  | .palette, some p =>
+    let entries := Id.run do
+      let mut e := ByteArray.emptyWithCapacity p.entries.size
+      for i in [0:p.size] do
+        let c := f (p.get! i)
+        e := e.push c.r |>.push c.g |>.push c.b |>.push c.a
+      return e
+    { img with palette? := some { entries := entries } }
+  | .palette, none => img
+  | .gray, _ =>
+    img.modifyData fun data => Id.run do
+      let mut d := data
+      for i in [0:d.size] do
+        d := d.set! i (f (Color.gray (d.get! i))).luma
+      return d
+  | .grayAlpha, _ =>
+    img.modifyData fun data => Id.run do
+      let mut d := data
+      let n := d.size / 2
+      for i in [0:n] do
+        let off := 2 * i
+        let c := f ⟨d.get! off, d.get! off, d.get! off, d.get! (off + 1)⟩
+        d := d.set! off c.luma
+        d := d.set! (off + 1) c.a
+      return d
+  | .rgb, _ =>
+    img.modifyData fun data => Id.run do
+      let mut d := data
+      let n := d.size / 3
+      for i in [0:n] do
+        let off := 3 * i
+        let c := f ⟨d.get! off, d.get! (off + 1), d.get! (off + 2), 255⟩
+        d := d.set! off c.r
+        d := d.set! (off + 1) c.g
+        d := d.set! (off + 2) c.b
+      return d
+  | .rgba, _ =>
+    img.modifyData fun data => Id.run do
+      let mut d := data
+      let n := d.size / 4
+      for i in [0:n] do
+        let off := 4 * i
+        let c := f ⟨d.get! off, d.get! (off + 1), d.get! (off + 2), d.get! (off + 3)⟩
+        d := d.set! off c.r
+        d := d.set! (off + 1) c.g
+        d := d.set! (off + 2) c.b
+        d := d.set! (off + 3) c.a
+      return d
 
 end Image
 
