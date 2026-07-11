@@ -1,0 +1,8 @@
+PILean
+Copyright 2026 Eric Vergo
+
+This product is an independent, from-specification implementation of imaging
+functionality. It is not derived from the Pillow/PIL source code.
+
+Third-party attributions (embedded data):
+(none yet — font attribution is added when the bitmap font is embedded)
