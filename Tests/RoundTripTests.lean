@@ -19,7 +19,7 @@ open PILean
 
 /-- `testdata/out/` is gitignored scratch space shared by every suite that
 needs a real file on disk. -/
-def scratchDir : System.FilePath := System.FilePath.mk "tests" / "out"
+def scratchDir : System.FilePath := System.FilePath.mk "testdata" / "out"
 
 /-- `Tests.Praw.save` then `Tests.Praw.load` reconstructs an image with
 identical dimensions, mode, pixel data, and (for `.palette`) palette —
