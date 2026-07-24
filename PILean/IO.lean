@@ -64,4 +64,22 @@ def Image.save (img : Image) (path : System.FilePath)
     | .error e => throw (IO.userError s!"PILean: {e}")
   | none => throw (IO.userError s!"PILean: no codec for '{path}'")
 
+/-- Write the image to a temporary PNG file and open it with the operating
+system's default viewer (macOS `open`, Windows `start`, otherwise
+`xdg-open`) — the PILean equivalent of PIL's `im.show()`, for interactive
+visual debugging. Returns the temp-file path (the file is not cleaned up,
+matching PIL). -/
+def Image.show (img : Image) : IO System.FilePath := do
+  let tmpBase := (← IO.getEnv "TMPDIR").getD
+    (if System.Platform.isWindows then "." else "/tmp")
+  let stamp ← IO.monoNanosNow
+  let path : System.FilePath := System.FilePath.mk tmpBase / s!"pilean-{stamp}.png"
+  img.save path
+  let (cmd, args) :=
+    if System.Platform.isOSX then ("open", #[path.toString])
+    else if System.Platform.isWindows then ("cmd", #["/c", "start", "", path.toString])
+    else ("xdg-open", #[path.toString])
+  let _ ← IO.Process.spawn { cmd, args }
+  return path
+
 end PILean
