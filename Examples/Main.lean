@@ -1,0 +1,110 @@
+import PILean
+
+/-!
+# PILean demo gallery
+
+Run with `lake exe examples`. Writes a small gallery into `Examples/out/`:
+shapes and text, a Mandelbrot render, a sine plot, and an animated GIF —
+the visual-debugging loop PILean exists for, applied to itself.
+-/
+
+open PILean
+
+def outDir : System.FilePath := System.FilePath.mk "Examples" / "out"
+
+/-- Every drawing primitive on one canvas. -/
+def shapesDemo : Image := Id.run do
+  let mut img := Image.new 320 240 .rgb (Color.rgb 24 26 33)
+  -- background grid
+  for i in [1:8] do
+    let x : Int := Int.ofNat (i * 40)
+    img := Draw.line img ⟨x, 0⟩ ⟨x, 239⟩ (Color.rgb 40 44 55)
+  for j in [1:6] do
+    let y : Int := Int.ofNat (j * 40)
+    img := Draw.line img ⟨0, y⟩ ⟨319, y⟩ (Color.rgb 40 44 55)
+  img := Draw.rect img ⟨20, 20, 120, 100⟩ (fill := some (Color.rgb 66 133 244))
+    (outline := some Color.white)
+  img := Draw.ellipse img ⟨140, 20, 240, 100⟩ (fill := some (Color.rgb 219 68 55))
+    (outline := some Color.white)
+  img := Draw.polygon img #[⟨260, 100⟩, ⟨285, 20⟩, ⟨310, 100⟩]
+    (fill := some (Color.rgb 244 180 0)) (outline := some Color.white)
+  img := Draw.line img ⟨20, 130⟩ ⟨310, 190⟩ (Color.rgb 15 157 88) (width := 3)
+  img := Draw.ellipse img ⟨40, 145, 100, 215⟩ (outline := some (Color.rgb 171 71 188))
+    (width := 4)
+  img := Draw.text img ⟨120, 200⟩ "PILean: shapes + text" Color.white
+  return img
+
+/-- Escape-time Mandelbrot with a smooth cosine palette. -/
+def mandelbrot (w h : Nat) (maxIter : Nat := 96) : Image := Id.run do
+  let mut img := Image.new w h .rgb Color.black
+  for py in [0:h] do
+    for px in [0:w] do
+      let cr := -2.2 + 3.0 * px.toFloat / w.toFloat
+      let ci := -1.2 + 2.4 * py.toFloat / h.toFloat
+      let mut zr := 0.0
+      let mut zi := 0.0
+      let mut it := 0
+      let mut escaped := false
+      for _ in [0:maxIter] do
+        if !escaped then
+          let zr' := zr * zr - zi * zi + cr
+          zi := 2.0 * zr * zi + ci
+          zr := zr'
+          if zr * zr + zi * zi > 4.0 then
+            escaped := true
+          else
+            it := it + 1
+      if escaped then
+        let t := it.toFloat / maxIter.toFloat
+        let chan (phase : Float) : UInt8 :=
+          let v := (0.5 + 0.5 * Float.cos (6.28318 * (2.5 * t + phase))) * 255.0
+          UInt8.ofNat (min 255 v.toUInt64.toNat)
+        img := img.putPixel px py ⟨chan 0.0, chan 0.15, chan 0.3, 255⟩
+  return img
+
+/-- A sine curve with axes and a label — the classic math-viz debug plot. -/
+def sinePlot : Image := Id.run do
+  let w := 360
+  let h := 200
+  let mut img := Image.new w h .rgb (Color.rgb 250 250 248)
+  let midY : Int := h / 2
+  -- axes
+  img := Draw.line img ⟨0, midY⟩ ⟨w - 1, midY⟩ (Color.gray 170)
+  img := Draw.line img ⟨20, 0⟩ ⟨20, h - 1⟩ (Color.gray 170)
+  -- curve: two full periods, drawn as connected segments
+  let ptAt (x : Nat) : Point :=
+    let t := (x - 20).toFloat / (w - 20).toFloat * 2.0 * 6.28318
+    let y := midY.toNat.toFloat - Float.sin t * 70.0
+    ⟨Int.ofNat x, Int.ofNat y.toUInt64.toNat⟩
+  let mut prev := ptAt 20
+  for x in [21:w] do
+    let cur := ptAt x
+    img := Draw.line img prev cur (Color.rgb 66 133 244) (width := 2)
+    prev := cur
+  img := Draw.text img ⟨28, 8⟩ "sin(x), two periods" (Color.gray 60)
+  return img
+
+/-- A bouncing-ball animation (few colors, so the GIF palette is exact). -/
+def bounceFrames : Array Gif.Frame := Id.run do
+  let n := 24
+  let mut frames : Array Gif.Frame := Array.emptyWithCapacity n
+  for i in [0:n] do
+    let t := i.toFloat / n.toFloat
+    let x := 12.0 + 72.0 * t
+    let y := 14.0 + 58.0 * Float.abs (Float.sin (t * 6.28318))
+    let mut img := Image.new 96 96 .rgb (Color.rgb 15 18 32)
+    img := Draw.line img ⟨0, 88⟩ ⟨95, 88⟩ (Color.rgb 90 90 100) (width := 2)
+    let ballX : Int := Int.ofNat x.toUInt64.toNat
+    let ballY : Int := Int.ofNat y.toUInt64.toNat
+    img := Draw.ellipse img ⟨ballX - 8, ballY - 8, ballX + 8, ballY + 8⟩
+      (fill := some (Color.rgb 244 180 0))
+    frames := frames.push { image := img, durationMs := 50 }
+  return frames
+
+def main : IO Unit := do
+  IO.FS.createDirAll outDir
+  shapesDemo.save (outDir / "shapes.png")
+  (mandelbrot 400 300).save (outDir / "mandelbrot.png")
+  sinePlot.save (outDir / "sine.png")
+  Gif.saveGif (outDir / "bounce.gif") bounceFrames
+  IO.println s!"gallery written to {outDir}/: shapes.png mandelbrot.png sine.png bounce.gif"

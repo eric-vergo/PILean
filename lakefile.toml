@@ -3,7 +3,7 @@ version = "0.1.0"
 description = "Pure Lean 4 imaging library — create, draw on, transform, and encode/decode raster images with zero dependencies. A functional port of Python's PIL/Pillow."
 keywords = ["image", "graphics", "png", "jpeg", "gif", "bmp", "pillow", "pil", "drawing"]
 license = "Apache-2.0"
-defaultTargets = ["PILean", "tests"]
+defaultTargets = ["PILean", "tests", "examples"]
 testDriver = "tests"
 
 [[lean_lib]]
@@ -15,3 +15,7 @@ name = "Tests"
 [[lean_exe]]
 name = "tests"
 root = "Tests.Main"
+
+[[lean_exe]]
+name = "examples"
+root = "Examples.Main"
