@@ -12,3 +12,12 @@ jobs:
       - uses: leanprover/lean-action@v1
         with:
           test: true
+
+  gallery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+        with:
+          use-mathlib-cache: true
+          lake-package-directory: Gallery
