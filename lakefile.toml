@@ -16,6 +16,10 @@ name = "Tests"
 name = "tests"
 root = "Tests.Main"
 
+[[lean_lib]]
+name = "Examples"
+globs = ["Examples.+"]
+
 [[lean_exe]]
 name = "examples"
 root = "Examples.Main"
