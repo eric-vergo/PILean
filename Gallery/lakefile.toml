@@ -17,3 +17,7 @@ globs = ["GalleryLib.+"]
 [[lean_exe]]
 name = "gallery"
 root = "GalleryLib.Main"
+
+[[lean_exe]]
+name = "tdcsg-carrier-lines"
+root = "GalleryLib.TDCSG.CarrierLines.Main"
