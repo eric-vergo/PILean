@@ -26,6 +26,7 @@ import PILean.Codec.Jpeg
 import PILean.Codec.Tiff
 import PILean.Color.Quantize
 import PILean.Draw.Basic
+import PILean.Draw.Path
 import PILean.Draw.Text
 import PILean.Font.Bitmap
 import PILean.Transform.Basic

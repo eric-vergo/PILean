@@ -7,6 +7,7 @@ import Tests.HuffmanTests
 import Tests.NetpbmTests
 import Tests.BmpTests
 import Tests.DrawTests
+import Tests.PathTests
 import Tests.FontTests
 import Tests.TransformTests
 import Tests.FilterTests
@@ -43,6 +44,7 @@ def main (args : List String) : IO UInt32 :=
     Tests.NetpbmTests.suite,
     Tests.BmpTests.suite,
     Tests.DrawTests.suite,
+    Tests.PathTests.suite,
     Tests.FontTests.suite,
     Tests.TransformTests.suite,
     Tests.FilterTests.suite,
