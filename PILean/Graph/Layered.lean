@@ -443,9 +443,10 @@ def routeOne (pl : Plan) (k i : Nat) (e : Graph.Edge) : RoutedEdge :=
         let h := pl.band.getD d 0
         if pl.routing == .spline && h > 0.5 then (⟨cx, cy - h⟩, ⟨cx, cy + h⟩)
         else (⟨cx, cy⟩, ⟨cx, cy⟩)) ++ #[(last, last)]
-    let pts : Array Point := stations.foldl (init := #[]) fun acc (p, q) =>
-      if p.x == q.x && p.y == q.y then acc.push p else (acc.push p).push q
-    let shortened := pts
+    -- the points of the route: its two ends on the outlines and the centres of its dummy nodes
+    let pts : Array Point := #[⟨sx, sy⟩] ++ (c.extract 1 (c.size - 1)).map (fun d =>
+      (⟨pl.across.getD d 0, pl.along.getD d 0⟩ : Point)) ++ #[⟨ex, ey⟩]
+    let shortened : Array Point := stations.map (·.1)
     let runs := pl.runs.getD k #[]
     let path : Path := match pl.routing with
       | .spline =>

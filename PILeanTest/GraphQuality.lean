@@ -233,6 +233,73 @@ def report (dir? : Option String) : IO Unit := do
       IO.FS.writeFile s!"{dir}/{name}.time" s!"{ms} {← Graphs.loadAverage}\n"
       IO.FS.writeFile s!"{dir}/{name}.svg" (g.toSvg)
 
+/-- The bounds the checks hold the measures to, by graph: crossings, edge length (pixels) and
+area (square pixels), each about a tenth above the values measured when they were set. -/
+def bounds : Array (String × Nat × Float × Float) :=
+  #[("own-imports", 255, 104000, 4.6e6), ("project-imports", 172, 46700, 2.4e6),
+    ("blueprint-a", 345, 74200, 2.8e6), ("blueprint-a-chapters", 460, 147400, 4.0e6),
+    ("blueprint-a-nested", 470, 187600, 6.0e6), ("blueprint-b", 112, 37700, 2.4e6),
+    ("blueprint-b-chapters", 220, 88200, 5.3e6), ("module-800", 9380, 1.1e6, 3.0e7),
+    ("dense-dag", 935, 90900, 2.5e6), ("sparse-dag", 390, 70400, 4.5e6),
+    ("tree", 0, 13700, 2.4e6), ("chain", 0, 7900, 5.3e5)]
+
+/-- A small graph whose clusters invite overlap: two clusters whose members sit in the same
+layers, a node outside both between them in a middle layer, a nested cluster, a cluster with a
+parent listed after it (taken as a top cluster) and a member that is not a node. -/
+def awkwardClusters : Graph :=
+  { nodes := (Array.range 9).map fun v => { label := s!"n{v}" },
+    edges := #[(0, 1), (1, 2), (3, 4), (4, 5), (0, 4), (3, 1), (6, 7), (2, 8), (5, 8), (6, 1)].map
+      fun (a, b) => { src := a, dst := b },
+    clusters := #[{ name := "Left", members := #[0, 2] }, { name := "Right", members := #[3, 5] },
+      { name := "Inner", members := #[1], parent := some 0 },
+      { name := "Late", members := #[7, 99], parent := some 5 }] }
+
+/-- The checks of the cluster rules and of the checkers themselves. -/
+def clusterChecks : Array (String × Bool) :=
+  let g := awkwardClusters
+  let l := g.layout
+  let t := ClusterTree.of g
+  let into := fun (nb : NodeBox) => match l.clusters.find? (·.index == 0) with
+    | some cb => { nb with box := ⟨cb.box.x0 + 1, cb.box.y0 + 1, cb.box.x0 + 5, cb.box.y0 + 5⟩ }
+    | none => nb
+  let moved : Layout := { l with nodes := l.nodes.modify 6 into }
+  #[("clusters: a parent listed later is ignored", t.parent.getD 3 none == none),
+    ("clusters: a node belongs to its deepest cluster", t.nodeCluster.getD 1 none == some 2),
+    ("clusters: the nested cluster is held by its parent", t.holds 0 2 && !t.holds 1 2),
+    ("clusters: the lowest common cluster", t.lca (some 2) (some 0) == some 0 &&
+      t.lca (some 2) (some 1) == none),
+    ("clusters: every cluster with nodes has a box", l.clusters.size == 4),
+    ("clusters: boxes contain exactly their nodes and nest", (clusterProblems g l).isEmpty),
+    ("clusters: no edge passes a node", ((clearanceProblems g l).filter
+      (Graphs.has · "passes node")).isEmpty),
+    ("clusters: a node moved into a box it does not belong to is reported",
+      (clusterProblems g moved).any (Graphs.has · "overlaps node 6")),
+    ("clusters: the same layout twice", g.toSvg == g.toSvg),
+    ("clusters: left to right too", (clusterProblems g (g.layout { direction := .leftToRight
+      })).isEmpty),
+    ("segmentHitsBox: through, beside, touching",
+      segmentHitsBox ⟨0, 5⟩ ⟨10, 5⟩ ⟨4, 0, 6, 10⟩ && !segmentHitsBox ⟨0, 20⟩ ⟨10, 20⟩ ⟨4, 0, 6, 10⟩ &&
+      segmentHitsBox ⟨6, 0⟩ ⟨6, 10⟩ ⟨4, 0, 6, 10⟩)]
+
+/-- The quality checks (see the module docstring): every graph of `bounds` within its bounds,
+and no graph with an edge that passes a node or a cluster box that breaks the cluster rules. -/
+def checks : Array (String × Bool) := Id.run do
+  let mut out : Array (String × Bool) := clusterChecks
+  for (name, g) in graphs do
+    if name == "module-3000" then continue
+    let l := g.layout
+    let m := measure g l
+    out := out.push (s!"graph quality {name}: cluster boxes contain exactly their nodes and nest",
+      m.clusterViolations == 0)
+    out := out.push (s!"graph quality {name}: no edge passes a node it does not end at",
+      m.clearanceViolations == 0)
+    if let some (_, c, len, a) := bounds.find? (·.1 == name) then
+      out := out.push (s!"graph quality {name}: crossings {m.crossings} at most {c}",
+        m.crossings ≤ c)
+      out := out.push (s!"graph quality {name}: edge length within bound", m.length ≤ len)
+      out := out.push (s!"graph quality {name}: area within bound", m.area ≤ a)
+  return out
+
 /-- Prints the violations of the cluster and clearance rules in the layout of the graph named
 `name` (one of `graphs`). -/
 def problems (name : String) : IO Unit := do
