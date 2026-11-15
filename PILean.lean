@@ -7,6 +7,8 @@ import PILean.Geometry
 import PILean.Path
 import PILean.Svg
 import PILean.Png
+import PILean.Image.Basic
+import PILean.Image.Ops
 import PILean.Plot.Ticks
 import PILean.Plot.Figure
 
