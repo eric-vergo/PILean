@@ -36,7 +36,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes) and the built-in single-stroke lettering that draws text into images; a typesetting library can implement the interface later | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline or orthogonal edges, arrowheads, edge labels and clusters, circular and tree layouts, drawing on the canvas as SVG and PNG | done; layering proved, see below |
-| `PILean.Trust` | done: SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). Later: fingerprints of figure specifications and the theorems that tie a figure to its Lean object | partly done |
+| `PILean.Trust` | done: SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`. Later: the theorems that tie a figure to its Lean object | partly done |
 
 ## Public API in Pillow's spirit
 
@@ -125,14 +125,15 @@ full-image background and the canvas's 16-bit stores.
 
 Four parts:
 
-1. **Source.** Every image records the Lean file and declaration that built it: SVG `<metadata>`
-   (and a `data-source` attribute on the root), a PNG `iTXt` chunk; galleries show a "Source"
-   link beside each image.
-2. **Built by the build.** Images in a published site are produced only by the site build, never
-   committed by hand; the manifest makes a hand edit detectable.
-3. **Fingerprint.** A SHA-256 (pure Lean) of the figure specification's canonical encoding and of
-   the source declaration's text, written into the file and into a manifest; a checker
-   re-renders and compares.
+1. **Source.** Every image records the Lean file and declaration that built it: SVG `<title>`,
+   `<desc>` and `<metadata>` elements, a PNG `iTXt` chunk, a GIF comment (there is no `data-source`
+   attribute); a site can show a "Source" link beside each image from the record or the manifest.
+2. **Built by the build.** Images in a published site are produced only by the site build
+   (`pilean-build`), never committed by hand; `manifest.json` and `pilean-verify` make a hand edit
+   detectable, and `pilean-build --check` shows that committed files are what the build produces.
+3. **Fingerprint.** A SHA-256 (pure Lean) of the figure specification's canonical encoding, of the
+   source declaration's text and of where it is, written into the file and into the manifest; a
+   checker re-renders and compares (`pilean-build --check`).
 4. **Theorems.** A `Figure` holds the Lean objects it shows (the function, the data term, the
    relation of a graph), and the renderer's sampling and drawing functions are stated over them:
    the plotted function is the definition; each data point is the evaluated term; each drawn edge

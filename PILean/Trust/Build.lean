@@ -104,8 +104,9 @@ def sameFile (p : System.FilePath) (bytes : ByteArray) : IO Bool := do
 
 /-- The lines `check` prints for a directory: `missing: PATH` for a file of the build that is not
 there, `stale: PATH` for one whose bytes differ (the manifest included), `extra: PATH` for a file
-below the directory that the build does not make (other than `manifest.json`); the files of the build come in the order of their paths, the
-manifest last, then the extra files sorted; empty if the directory holds exactly what the build makes. -/
+below the directory that the build does not make (other than `manifest.json`). The files of the
+build come in the order of their paths, the manifest last, then the extra files sorted; the
+result is empty if the directory holds exactly what the build makes. -/
 def checkLines (files : Array BuiltFile) (manifest : ByteArray) (outDir : System.FilePath) :
     IO (Array String) := do
   let mut lines : Array String := #[]

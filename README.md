@@ -25,7 +25,8 @@ PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program
 | Animations: one `Animation` (a drawing as a function of time, frame rate, duration, loops) written as animated SVG (SMIL only, interpolated attributes or frame switching), APNG and GIF, with a poster frame for reduced motion | done; outputs read back by PILean's readers and opened by macOS's ImageIO |
 | Graphs: nodes, edges and clusters; layered (Sugiyama) layout with cycle removal, crossing reduction and Brandes–Köpf coordinates, spline or orthogonal edges, arrowheads, edge labels; circular and tree layouts; SVG and PNG | done; layers and edge indices proved; about 0.2 s for 3000 nodes; compared with Graphviz in [`docs/DESIGN.md`](docs/DESIGN.md) |
 | Source information: the Lean declaration, file, line, repository, commit and version recorded in SVG (`<metadata>`, `<title>`, `<desc>`), PNG and APNG (`iTXt`) and GIF (comment) files and read back by a size-capped reader; `lake exe pilean-info FILE` prints it; SHA-256 in pure Lean | done; see [`docs/TRUST.md`](docs/TRUST.md); round trips tested on every format with hostile input, SHA-256 against FIPS and NIST vectors and `shasum`, padding and digest size proved |
-| Traceability beyond that (fingerprints of figure specifications, theorems tying a figure to its Lean object) | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
+| Traceable builds: the attribute `@[figure]` and the term `figures%` collect the figures of a project; fingerprints (SHA-256 of the drawing's SVG encoding, the declaration's source text and position, and the version); `lake exe pilean-build` renders them deterministically with a `manifest.json` (`--check` compares a directory with the build), `lake exe pilean-verify DIR` checks a directory against its manifest | done; see [`docs/TRUST.md`](docs/TRUST.md) (including use in CI); tested end to end with damaged, missing, extra and hostile files |
+| Theorems tying a figure to its Lean object | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
 
 ## Use
 
@@ -109,10 +110,10 @@ path) by crossings, edge length and area.
 
 PILean treats what it is given as untrusted: text in a figure (titles, labels) is escaped before
 it reaches SVG, characters XML cannot carry are dropped, element and attribute names are checked,
-and every loop is bounded by its input (curve flattening has a cap per curve). The planned
-traceability layer records in each image the Lean file and declaration that produced it, a
-fingerprint of the specification, and a manifest with a checker; theorems tie a figure to the
-Lean object it shows. PNG and DEFLATE data read from files are untrusted: every length is
+and every loop is bounded by its input (curve flattening has a cap per curve). The traceability layer
+records in each image the Lean file and declaration that produced it and a fingerprint of the
+drawing and the declaration, with a manifest and two checkers (`pilean-build --check`,
+`pilean-verify`); planned theorems tie a figure to the Lean object it shows. PNG and DEFLATE data read from files are untrusted: every length is
 checked, the output size is capped, and mutated files end in clean errors. The rasteriser
 computes coverage in integers, so its output is the same on every machine.
 `docs/DESIGN.md` has the details and the open choices.

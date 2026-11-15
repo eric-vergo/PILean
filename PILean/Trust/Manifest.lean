@@ -86,8 +86,8 @@ def safePath (p : String) : Bool :=
 as the file stem, and the format's extension; everything outside `nameChar` replaced, and the
 result must be `safePath`. -/
 def outputPath (e : SourceData) (o : Output) : Except String String := do
-  let decl := if e.decl.startsWith (e.module ++ ".") then (e.decl.drop (e.module.length + 1)).toString
-    else e.decl
+  let decl := if e.decl.startsWith (e.module ++ ".") then
+      (e.decl.drop (e.module.length + 1)).toString else e.decl
   let dirs := (e.module.splitOn ".").map sanitize
   let stem := sanitize decl ++ sanitize o.name ++ "." ++ o.format.ext
   let p := "/".intercalate (dirs ++ [stem])

@@ -3,6 +3,8 @@
 An image can say which Lean declaration made it. PILean writes this into SVG, PNG, APNG and GIF
 files and reads it back; `lake exe pilean-info FILE` prints it. The code is in
 `PILean/Trust/Provenance.lean`; the SHA-256 used for fingerprints is `PILean/Trust/Sha256.lean`.
+The sections from "Renderable figures" on say how a build produces the files with their source
+record, a fingerprint and a manifest, and how to check them.
 
 ## The record
 
@@ -109,3 +111,179 @@ prints one `key: value` line per field, in the order of the table above, values 
 characters escaped. Exit status 0 on success; 1, with a message on standard error, if the file
 cannot be read, is larger than 64 MiB, or has no valid source information; 2 on a wrong command
 line. The function behind it is `PILean.Trust.infoLines`.
+
+## Renderable figures
+
+`PILean/Trust/Figure.lean`. A type with an instance of `ToOutputs` can be rendered to files:
+`ToOutputs.outputs : α → Array Output`, each `Output` with a file-name suffix (`name`: `""`,
+`"-dark"`, `"-poster"`), a `Format` (`svg`, `png`, `apng`, `gif`), the bytes (a function of
+`Unit`, so nothing is computed before it is called; it can fail with a message) and `spec`, the
+canonical encoding of what is drawn.
+
+| Type | Outputs |
+|---|---|
+| `Plot.Figure` | SVG; PNG |
+| `Graph` (default layered layout, light style, scale 1), or `GraphFigure` (graph, layout options, style, PNG scale) | SVG; PNG |
+| `Animation` | animated SVG; APNG (file extension `png`); GIF; poster frame (PNG, suffix `-poster`) |
+
+### The specification encoding
+
+The specification of an output is the SVG document that PILean's deterministic writer
+(`Svg.render`) makes from the figure's drawing, as UTF-8, before any source information is added:
+
+* SVG outputs: the SVG document of the output itself, with text as `<text>`.
+* PNG outputs of a figure or a graph: the SVG document with text drawn as shapes, which is the
+  drawing the PNG is rasterised from (the rasteriser itself is not part of the specification; it
+  is part of the library version).
+* An animation's APNG and GIF: the animated SVG document, which holds every frame; the poster:
+  the SVG document of the poster frame.
+
+The specification covers what is drawn: the sampled values of a function (the points the figure
+takes), data, colours, sizes, text and layout. It does not cover the function's code, nor
+anything that does not change the drawing. The declaration's source text is covered separately,
+by the source hash.
+
+## The attribute `figure` and `figures%`
+
+`PILean/Trust/Attr.lean` (the only part of PILean that imports `Lean`; the library proper does
+not). `@[figure]` on a definition whose type has a `ToOutputs` instance (it is an error
+otherwise, and for a private declaration) records in an environment extension, which is exported
+with the module:
+
+* the module, the declaration's name, and the file (the module's name with `/` for `.` and
+  `.lean`: `PILeanTest/Examples.lean`; never an absolute path);
+* the line (from 1) and column where the declaration starts, taken from the range Lean stores for
+  it: the start of its doc comment when it has one;
+* the SHA-256 (hexadecimal) of the declaration's source text, the text of that range, taken from
+  the file being elaborated.
+
+Lean stores the range only after the attributes are applied, so the attribute adds a command
+elaborator for declarations and `attribute` commands that mention `figure`, which elaborates the
+command as usual and then records its figures.
+
+The term `figures%` becomes, where it is used, an `Array FigureEntry`: one entry for every
+registered declaration of the environment (imported modules included, and the declarations above
+it in the same module), sorted by module and then declaration name, each holding the recorded
+data and `fun _ => ToOutputs.outputs decl`.
+
+## The fingerprint
+
+`PILean/Trust/Fingerprint.lean`. `fingerprint spec src` is the lowercase hexadecimal SHA-256 of
+this byte string:
+
+1. the header `PILean fingerprint 1` and a line feed;
+2. eight fields in this order: module, declaration, file, line, column, library version
+   (`PILean.version`), source-text hash, specification;
+3. each field as its length in bytes (a 64-bit unsigned number, big-endian) followed by its
+   bytes; the text fields are UTF-8, the line and the column are decimal digits, the source-text
+   hash is its 64 hexadecimal digits.
+
+The file's `Source` record carries this fingerprint, so changing the specification, the source
+text, the position or the library version changes it. The repository and the commit are not part
+of it (the same figure built at two commits has the same fingerprint if neither its drawing nor
+its declaration changed, apart from the line). Output formats of one animation share one
+fingerprint, because they share the specification; the SHA-256 of each file is in the manifest.
+
+## `pilean-build`
+
+A project's driver is three lines:
+
+```lean
+import MyFigures
+import PILean.Trust.Build
+def main (args : List String) : IO UInt32 := PILean.Trust.buildMain figures% args
+```
+
+(with `lean_exe` in the project's lakefile). PILean's own driver is `lake exe pilean-build`; it
+renders the gallery figures that carry `@[figure]`.
+
+```
+pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check]
+```
+
+* Without `--check`, every output of every entry is rendered, the source record (with the
+  fingerprint, and `--repo` and `--commit` if given) is written into it, and the file is written
+  to `DIR/<module with / for .>/<declaration without the module prefix><suffix>.<extension>`
+  (`--out` defaults to `figures`), then `DIR/manifest.json`. The output is deterministic: the
+  same entries, options and library give the same bytes. Nothing is written if any figure fails
+  to render. File names have only `[A-Za-z0-9._-]` (every other character becomes `_`); an empty
+  component, `.` or `..` in a path is refused, so nothing is written outside `DIR`.
+* `--repo` must be an `http` or `https` link (`safeLink?`), `--commit` 4 to 64 lowercase
+  hexadecimal digits.
+* With `--check`, the output is rendered in memory and compared byte for byte with `DIR`
+  (give the same `--repo` and `--commit` as the build). It prints `stale: PATH` (different
+  bytes, the manifest included), `missing: PATH`, and `extra: PATH` (a file under `DIR` that is
+  neither in the manifest nor the manifest itself), and `ok: N files match` if all is well.
+* Exit status 0 on success, 1 if a file is stale, missing or extra or a figure cannot be
+  rendered, 2 on a wrong command line.
+* Bounds: at most 4096 figures, 256 MiB for each output file.
+
+### The manifest
+
+`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-1","files":[ ... ]}`, with one
+line for each output, sorted by `path`, every object with the keys in this order:
+
+| Key | Meaning |
+|---|---|
+| `path` | the file below `DIR`, `/` as separator |
+| `format` | `svg`, `png`, `apng` or `gif` |
+| `bytes` | the size of the file |
+| `sha256` | the SHA-256 of the file's bytes |
+| `fingerprint` | the fingerprint recorded in the file |
+| `module`, `decl`, `file`, `line`, `column`, `version` | the source record |
+| `repo`, `commit` | only if the build was given them |
+
+Strings are escaped as in JSON (`\"`, `\\`, `\n`, `\r`, `\t`, `\u00XX` for other control
+characters).
+
+## `pilean-verify`
+
+```
+lake exe pilean-verify DIR
+```
+
+reads `DIR/manifest.json` as untrusted input: at most 16 MiB, read by a small bounded JSON reader
+(`PILean/Trust/Json.lean`: nesting at most 8, strings at most 64 KiB, integers of at most 15
+digits only, no repeated key, nothing after the value). The manifest is rejected as a whole, before
+any file is touched, if a path is empty, longer than 1024 bytes, absolute, has `..` or `.` or an
+empty component, a backslash, a colon or any character outside `[A-Za-z0-9._/-]`, if a path is
+listed twice, a format is unknown or a hash is not 64 lowercase hexadecimal digits. Then each
+listed file gets one line:
+
+| Line | Meaning |
+|---|---|
+| `ok: PATH` | a regular file of the listed size and SHA-256, whose source record agrees with the manifest (module, declaration, file, line, column, version, repository, commit and fingerprint) |
+| `missing: PATH` | the file does not exist |
+| `changed: PATH` | not a regular file (a link or directory), or another size or hash |
+| `source differs: PATH` | the source record in the file differs from the manifest |
+| `no source: PATH` | the file has no readable source record |
+
+Exit status 0 only if every line is `ok`; 1 otherwise, or if the manifest is missing or invalid; 2
+on a wrong command line. `pilean-verify` does not render anything: it proves that the directory is
+what its manifest says. `pilean-build --check` proves that it is what the build produces now.
+
+## Use in CI
+
+Figures are never committed by hand. Either of two set-ups:
+
+1. **Build into the site.** CI runs the project's build driver and the site uses the folder:
+   `lake exe my-figures --out site/figures --repo URL --commit "$COMMIT"`. Nothing under
+   `site/figures` is in version control.
+2. **Keep them committed and prove them.** The folder is in version control, written by
+   the driver only, and CI runs `--check` with the same `--repo` and `--commit` (or none, if
+   the committed files were built without), which fails when a committed file is not what the
+   build produces (edited by hand, outdated, missing, or left over).
+
+A workflow as plain shell steps:
+
+```sh
+lake build
+lake exe my-figures --out site/figures --repo "$REPO_URL" --commit "$(git rev-parse HEAD)"
+lake exe pilean-verify site/figures        # the folder agrees with its manifest
+# keeping the folder in version control instead:
+lake exe my-figures --out figures --check   # fails on any stale, missing or extra file
+```
+
+A change to a figure's declaration changes its source hash and so its fingerprint, and a change to
+a sampled value or to the drawing changes the specification; either way `--check` reports the files
+as stale until the build writes them again.

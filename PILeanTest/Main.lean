@@ -13,13 +13,14 @@ import PILeanTest.Plots
 import PILeanTest.Lettering
 import PILeanTest.Graphs
 import PILeanTest.Trust
+import PILeanTest.TrustBuild
 
 /-!
 # The test driver
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
 `PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Anim`, `PILeanTest.Plots`,
-`PILeanTest.Graphs`, `PILeanTest.Trust`) and compares
+`PILeanTest.Graphs`, `PILeanTest.Trust`, `PILeanTest.TrustBuild`) and compares
 every gallery figure's SVG and PNG, every gallery graph's SVG and PNG, and every gallery
 animation's SVG, APNG, GIF and poster, with
 its files in `examples/` (the goldens), byte for byte; it also renders each figure twice to check
@@ -55,7 +56,8 @@ def main (args : List String) : IO UInt32 := do
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++
     Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
-    Graphs.checks ++ Trust.checks ++ (← Trust.ioChecks)
+    Graphs.checks ++ Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
+    (← TrustBuild.ioChecks)
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"
