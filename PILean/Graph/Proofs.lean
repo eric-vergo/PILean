@@ -170,7 +170,8 @@ theorem acyclicEdges_ok (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
 
 /-- `compactGroups` keeps the size of the layers. -/
 theorem compactGroups_size (n : Nat) (es : List (Nat × Nat)) (group : Array (Option Nat))
-    (layer : Array Nat) (rounds : Nat) : (compactGroups n es group layer rounds).size = layer.size := by
+    (layer : Array Nat) (rounds : Nat) :
+    (compactGroups n es group layer rounds).size = layer.size := by
   simp only [compactGroups]
   split <;> simp_all
 

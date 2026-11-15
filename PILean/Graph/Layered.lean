@@ -260,7 +260,8 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         goesRight == rightward).sortStable fun i i' =>
           let (lo, hi, _, _) := segs.getD i (0, 0, 0, 0)
           let (lo', hi', _, _) := segs.getD i' (0, 0, 0, 0)
-          if rightward then lo > lo' || (lo == lo' && hi < hi') else hi < hi' || (hi == hi' && lo > lo')
+          if rightward then lo > lo' || (lo == lo' && hi < hi')
+          else hi < hi' || (hi == hi' && lo > lo')
       let mut placed : Array (Float × Float × Nat) := #[]
       let mut out : Array (Nat × Nat) := #[]
       let mut depth := 0

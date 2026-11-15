@@ -52,14 +52,16 @@ def readChecks : Array (String × Bool) :=
       ("dot: a chain of edges is one edge per step, with the defaults",
         d.edges.size == 7 && (d.edges.getD 2 (0, 0, #[])).2.2.get? "label" == some "uses" &&
         (d.edges.getD 0 (0, 0, #[])).2.2.get? "color" == some "gray"),
-      ("dot: a quoted label with escaped quotes", (g.nodes.getD 0 default).label == "Alpha \"one\""),
+      ("dot: a quoted label with escaped quotes",
+        (g.nodes.getD 0 default).label == "Alpha \"one\""),
       ("dot: \\N is the node's name", (g.nodes.getD 7 default).label == "h"),
       ("dot: shapes and colours", (g.nodes.getD 0 default).style.shape == some .round &&
         (g.nodes.getD 2 default).style.shape == some .ellipse &&
         (g.nodes.getD 2 default).style.stroke == Rgba.ofHex? "#336699" &&
         (g.nodes.getD 1 default).style.fill == Rgba.ofHex? "#eef2ff"),
       ("dot: clusters nest, a plain subgraph is no cluster", g.clusters.size == 2 &&
-        (g.clusters.getD 1 default).parent == some 0 && (g.clusters.getD 0 default).name == "Part one"
+        (g.clusters.getD 1 default).parent == some 0 &&
+        (g.clusters.getD 0 default).name == "Part one"
         && (g.clusters.getD 1 default).name == "Inner"),
       ("dot: a node belongs to the cluster it was first named in",
         (g.clusters.getD 0 default).members == #[idx "d", idx "e"] &&

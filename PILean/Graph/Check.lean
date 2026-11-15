@@ -89,8 +89,9 @@ def clearanceProblems (g : Graph) (l : Layout) (margin : Float := 2) : Array Str
       ++ l.clusters.map fun cb => (false, cb.index, cb.box.inset 1 1 1 1)
   for e in entries do
     let b := e.2.2
-    for i in [(b.x0 / cell).floor.toInt64.toInt.toNat:(b.x1 / cell).floor.toInt64.toInt.toNat + 1] do
-      for j in [(b.y0 / cell).floor.toInt64.toInt.toNat:(b.y1 / cell).floor.toInt64.toInt.toNat + 1] do
+    let at_ := fun (f : Float) => (f / cell).floor.toInt64.toInt.toNat
+    for i in [at_ b.x0:at_ b.x1 + 1] do
+      for j in [at_ b.y0:at_ b.y1 + 1] do
         grid := grid.insert (key i j) ((grid.getD (key i j) #[]).push e)
   let mut out : Array String := #[]
   for e in l.edges do

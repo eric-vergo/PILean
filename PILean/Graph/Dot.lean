@@ -171,7 +171,8 @@ def tokenize (s : String) (lim : Limits) : Except String (Array Tok) := Id.run d
           else
             acc := acc.push d
             j := j + 1
-          if acc.size > lim.maxString then return .error s!"string longer than {lim.maxString} at {i}"
+          if acc.size > lim.maxString then
+            return .error s!"string longer than {lim.maxString} at {i}"
         if !closed then return .error s!"unterminated string at {i}"
         out := out.push (.id (String.ofList acc.toList) true)
         i := j + 1
@@ -395,7 +396,8 @@ def quote (s : String) : String :=
   let keywords := ["graph", "digraph", "subgraph", "node", "edge", "strict"]
   let plain := !s.isEmpty && s.all nameChar && !s.front.isDigit &&
     !keywords.contains s.toLower
-  let numeral := !s.isEmpty && s.all (fun c => c.isDigit || c == '.') && (s.splitOn ".").length ≤ 2
+  let numeral := !s.isEmpty && s.all (fun c => c.isDigit || c == '.') &&
+    (s.splitOn ".").length ≤ 2
   if plain || numeral then s
   else
     -- backslashes stay as they are (DOT reads them so), except one at the very end, which

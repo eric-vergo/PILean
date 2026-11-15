@@ -215,7 +215,8 @@ def dotText (g : Graph) (o : LayeredOptions) (st : Style) : String := Id.run do
 def report (dir? : Option String) : IO Unit := do
   if let some dir := dir? then IO.FS.createDirAll dir
   IO.println s!"load {← Graphs.loadAverage}"
-  IO.println "graph                  nodes edges   ms  crossings   length(px)   area(Mpx2) clu clr ent"
+  IO.println ("graph                  nodes edges   ms  crossings   length(px)   area(Mpx2) " ++
+    "clu clr ent")
   for (name, g) in graphs do
     let t0 ← IO.monoNanosNow
     let l ← IO.lazyPure fun _ => g.layout
@@ -224,7 +225,8 @@ def report (dir? : Option String) : IO Unit := do
     let pad := fun (s : String) (w : Nat) => String.ofList (List.replicate (w - s.length) ' ') ++ s
     IO.println s!"{name}{pad "" (22 - name.length)} {pad (toString g.nodes.size) 5} \
       {pad (toString g.edges.size) 5} {pad (toString ms) 4} {pad (toString m.crossings) 10} \
-      {pad (toString m.length.round.toUInt64) 12} {pad (toString (m.area / 1e6).round.toUInt64) 12} \
+      {pad (toString m.length.round.toUInt64) 12} \
+      {pad (toString (m.area / 1e6).round.toUInt64) 12} \
       {pad (toString m.clusterViolations) 3} {pad (toString m.clearanceViolations) 3} \
       {pad (toString m.clusterEntries) 3}"
     if let some dir := dir? then
@@ -278,7 +280,8 @@ def clusterChecks : Array (String × Bool) :=
     ("clusters: left to right too", (clusterProblems g (g.layout { direction := .leftToRight
       })).isEmpty),
     ("segmentHitsBox: through, beside, touching",
-      segmentHitsBox ⟨0, 5⟩ ⟨10, 5⟩ ⟨4, 0, 6, 10⟩ && !segmentHitsBox ⟨0, 20⟩ ⟨10, 20⟩ ⟨4, 0, 6, 10⟩ &&
+      segmentHitsBox ⟨0, 5⟩ ⟨10, 5⟩ ⟨4, 0, 6, 10⟩ &&
+      !segmentHitsBox ⟨0, 20⟩ ⟨10, 20⟩ ⟨4, 0, 6, 10⟩ &&
       segmentHitsBox ⟨6, 0⟩ ⟨6, 10⟩ ⟨4, 0, 6, 10⟩)]
 
 /-- The quality checks (see the module docstring): every graph of `bounds` within its bounds,

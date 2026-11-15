@@ -210,8 +210,9 @@ def compactGroups (n : Nat) (es : List (Nat × Nat)) (group : Array (Option Nat)
 the layers of `acyclicEdges` of least total span by network simplex (`simplexLayers`) from the
 longest-path layers (within the work `work`), then balanced (`balanceLayers`) and each group's
 nodes pulled together (`compactGroups`, `group` as there); a result of the wrong size is
-replaced by the previous one, which never happens. Every acyclic edge pointing to a larger layer here is
-not proved; the tests check it on their graphs (`fixLayers` leaves these layers unchanged). -/
+replaced by the previous one, which never happens. Every acyclic edge pointing to a larger layer
+here is not proved; the tests check it on their graphs (`fixLayers` leaves these layers
+unchanged). -/
 def layersBeforeRepair (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
     (work : Nat := 100000000) (group : Array (Option Nat) := #[]) : Array Nat :=
   let es := acyclicEdges pos edges
