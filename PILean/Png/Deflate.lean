@@ -64,22 +64,26 @@ structure BitWriter where
 
 namespace BitWriter
 
-/-- Moves every complete byte of the pending bits to the output (at most `fuel` of them). -/
-def flushBytes (w : BitWriter) : Nat → BitWriter
-  | 0 => w
-  | k + 1 =>
-    if w.n ≥ 8 then
-      flushBytes { out := w.out.push w.acc.toUInt8, acc := w.acc >>> 8, n := w.n - 8 } k
-    else w
+/-- Moves every complete byte of the pending bits to the output (at most `fuel` of them). The
+structure is taken apart so that the output array is updated in place. -/
+def flushBytes : BitWriter → Nat → BitWriter
+  | w, 0 => w
+  | ⟨out, acc, n⟩, k + 1 =>
+    if n ≥ 8 then flushBytes ⟨out.push acc.toUInt8, acc >>> 8, n - 8⟩ k else ⟨out, acc, n⟩
 
 /-- Appends the low `bits` bits of `v` (`bits ≤ 32`), least significant first. -/
-def put (w : BitWriter) (v : Nat) (bits : Nat) : BitWriter :=
-  let v' := v.toUInt64 &&& ((1 <<< bits.toUInt64) - 1)
-  flushBytes { w with acc := w.acc ||| (v' <<< w.n.toUInt64), n := w.n + bits } 5
+def put : BitWriter → Nat → Nat → BitWriter
+  | ⟨out, acc, n⟩, v, bits =>
+    let v' := v.toUInt64 &&& ((1 <<< bits.toUInt64) - 1)
+    flushBytes ⟨out, acc ||| (v' <<< n.toUInt64), n + bits⟩ 5
 
 /-- Pads with zero bits to the next byte boundary. -/
-def align (w : BitWriter) : BitWriter :=
-  if w.n > 0 then { out := w.out.push w.acc.toUInt8, acc := 0, n := 0 } else w
+def align : BitWriter → BitWriter
+  | ⟨out, acc, n⟩ => if n > 0 then ⟨out.push acc.toUInt8, 0, 0⟩ else ⟨out, acc, n⟩
+
+/-- Appends whole bytes (the writer must be at a byte boundary). -/
+def append : BitWriter → ByteArray → BitWriter
+  | ⟨out, acc, n⟩, bytes => ⟨out ++ bytes, acc, n⟩
 
 /-- The number of bits written so far. -/
 def bitCount (w : BitWriter) : Nat := w.out.size * 8 + w.n
@@ -261,21 +265,16 @@ def lzParams (level : Nat) : LzParams :=
   let v := (byteAt d i).toNat <<< 16 ||| (byteAt d (i + 1)).toNat <<< 8 ||| (byteAt d (i + 2)).toNat
   ((v * 2654435761) &&& 0xFFFFFFFF) >>> 17
 
-/-- The hash tables: `head` maps a hash to the latest position (plus one, 0 for none) and
-`prev` links a position (modulo the window) to the previous one with the same hash. -/
-structure Chains where
-  /-- Latest position plus one per hash. -/
-  head : Array Nat := Array.replicate 32768 0
-  /-- Previous position plus one per position modulo the window. -/
-  prev : Array Nat := Array.replicate 32768 0
-
-/-- Records position `i` in the chains (nothing within two bytes of the end). -/
-@[inline] def Chains.insert (c : Chains) (d : ByteArray) (i : Nat) : Chains :=
+/-- Records position `i` in the hash tables (`head` maps a hash to the latest position plus one,
+0 for none; `prev` links a position, modulo the window, to the previous one with the same hash);
+nothing is recorded within two bytes of the end. -/
+@[inline] def insertPos (head prev : Array Nat) (d : ByteArray) (i : Nat) :
+    Array Nat × Array Nat :=
   if i + 3 ≤ d.size then
     let h := hash3 d i
-    { head := c.head.setIfInBounds h (i + 1)
-      prev := c.prev.setIfInBounds (i &&& 32767) (c.head.getD h 0) }
-  else c
+    let old := head.getD h 0
+    (head.setIfInBounds h (i + 1), prev.setIfInBounds (i &&& 32767) old)
+  else (head, prev)
 
 /-- The length of the common prefix of the data at `a` and at `b` (`a < b`), at most `limit`. -/
 def matchLength (d : ByteArray) (a b limit : Nat) : Nat := Id.run do
@@ -286,12 +285,13 @@ def matchLength (d : ByteArray) (a b limit : Nat) : Nat := Id.run do
 
 /-- The longest match for position `i` in the chain, as (length, distance); length 0 if none of
 length 3 or more. At most `maxChain` links are followed. -/
-def findMatch (d : ByteArray) (c : Chains) (i : Nat) (p : LzParams) : Nat × Nat := Id.run do
+def findMatch (d : ByteArray) (head prev : Array Nat) (i : Nat) (p : LzParams) :
+    Nat × Nat := Id.run do
   let limit := min maxMatch (d.size - i)
   if limit < 3 then return (0, 0)
   let mut best := 0
   let mut bestDist := 0
-  let mut cand := c.head.getD (hash3 d i) 0
+  let mut cand := head.getD (hash3 d i) 0
   for _ in [0:p.maxChain] do
     if cand == 0 then break
     let pos := cand - 1
@@ -302,7 +302,7 @@ def findMatch (d : ByteArray) (c : Chains) (i : Nat) (p : LzParams) : Nat × Nat
         best := l
         bestDist := i - pos
         if l ≥ p.niceLen || l == limit then break
-    let nxt := c.prev.getD (pos &&& 32767) 0
+    let nxt := prev.getD (pos &&& 32767) 0
     if nxt == 0 || nxt - 1 ≥ pos then break
     cand := nxt
   if best < 3 then return (0, 0)
@@ -319,22 +319,21 @@ structure Block where
   distFreq : Array Nat := Array.replicate 30 0
 
 /-- Adds a literal. -/
-def Block.addLit (b : Block) (v : UInt8) : Block :=
-  { b with toks := b.toks.push v.toUInt32, litFreq := b.litFreq.modify v.toNat (· + 1) }
+def Block.addLit : Block → UInt8 → Block
+  | ⟨toks, lf, df⟩, v => ⟨toks.push v.toUInt32, lf.modify v.toNat (· + 1), df⟩
 
 /-- Adds a match of length `len` and distance `dist`. -/
-def Block.addMatch (b : Block) (len dist : Nat) : Block :=
-  let ls := 257 + lenIndexTable.getD len 0
-  { toks := b.toks.push ((1 : UInt32) <<< 31 ||| len.toUInt32 <<< 16 ||| dist.toUInt32)
-    litFreq := b.litFreq.modify ls (· + 1)
-    distFreq := b.distFreq.modify (distIndex dist) (· + 1) }
+def Block.addMatch : Block → Nat → Nat → Block
+  | ⟨toks, lf, df⟩, len, dist =>
+    ⟨toks.push ((1 : UInt32) <<< 31 ||| len.toUInt32 <<< 16 ||| dist.toUInt32),
+      lf.modify (257 + lenIndexTable.getD len 0) (· + 1),
+      df.modify (distIndex dist) (· + 1)⟩
 
 /-! ### Writing blocks -/
 
 /-- The index of the last element satisfying `p` (0 if there is none). -/
 def lastIdx (a : Array Nat) (p : Nat → Bool) : Nat :=
   (List.range a.size).foldl (fun r i => if p (a.getD i 0) then i else r) 0
-
 
 /-- The exact number of bits of the body of a compressed block (all symbols and the end of
 block) under the given code lengths. -/
@@ -365,7 +364,7 @@ def writeStored (w : BitWriter) (data : ByteArray) (start stop : Nat) (final : B
     let last := pos + len ≥ stop
     w := (w.put (if last && final then 1 else 0) 1).put 0 2 |>.align
     w := (w.put len 16).put (len ^^^ 0xFFFF) 16
-    w := { w with out := w.out ++ data.extract pos (pos + len) }
+    w := w.append (data.extract pos (pos + len))
     pos := pos + len
     if last then break
   return w
@@ -433,17 +432,18 @@ def deflate (data : ByteArray) (level : Nat := 6) : ByteArray := Id.run do
   let p := lzParams level
   let n := data.size
   let mut w : BitWriter := {}
-  let mut chains : Chains := {}
+  let mut head : Array Nat := Array.replicate 32768 0
+  let mut prev : Array Nat := Array.replicate 32768 0
   let mut blk : Block := {}
   let mut blockStart := 0
   let mut i := 0
   for _ in [0:n + 1] do
     if i ≥ n then break
-    let (len, dist) := findMatch data chains i p
-    chains := chains.insert data i
+    let (len, dist) := findMatch data head prev i p
+    (head, prev) := insertPos head prev data i
     let mut takeMatch : Bool := decide (len ≥ 3)
     if takeMatch && p.lazy && len < p.niceLen && i + 1 < n then
-      let (len2, _) := findMatch data chains (i + 1) p
+      let (len2, _) := findMatch data head prev (i + 1) p
       if len2 > len then takeMatch := false
     if blk.toks.size ≥ blockSymbols then
       w := writeBlock w data blockStart i blk false
@@ -452,7 +452,7 @@ def deflate (data : ByteArray) (level : Nat := 6) : ByteArray := Id.run do
     if takeMatch then
       blk := blk.addMatch len dist
       for k in [1:len] do
-        chains := chains.insert data (i + k)
+        (head, prev) := insertPos head prev data (i + k)
       i := i + len
     else
       blk := blk.addLit (byteAt data i)

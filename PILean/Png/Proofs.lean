@@ -263,7 +263,8 @@ theorem adlerFold_spec (l : List UInt8) :
 theorem adler32_eq_adlerSpec (data : ByteArray) :
     (adler32 data).toNat =
       (adlerSpec data.data.toList).2 * 65536 + (adlerSpec data.data.toList).1 := by
-  have e : adler32 data = ((adlerFold data.data.toList).2 <<< 16) + (adlerFold data.data.toList).1 := by
+  have e : adler32 data =
+      ((adlerFold data.data.toList).2 <<< 16) + (adlerFold data.data.toList).1 := by
     unfold adler32 adlerFold
     rw [bytearray_foldl_eq]
   obtain ⟨h1, h2⟩ := adlerFold_spec data.data.toList

@@ -265,7 +265,8 @@ def buildImage (h : Header) (palette trns raw : ByteArray) : Except PngError Raw
   return { width := h.width, height := h.height, mode, data := out }
 
 /-- The text of a Latin-1 byte string. -/
-def latin1String (b : ByteArray) : String := String.ofList (b.toList.map fun x => Char.ofNat x.toNat)
+def latin1String (b : ByteArray) : String :=
+  String.ofList (b.toList.map fun x => Char.ofNat x.toNat)
 
 /-- The index of the first zero byte at or after `i`, if any. -/
 def findNul (d : ByteArray) (i : Nat) : Option Nat := Id.run do
