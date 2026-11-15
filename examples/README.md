@@ -30,6 +30,21 @@ same everywhere.
 
 The PNG of each figure has the same name with `.png`.
 
+## Graphs
+
+Graphs are Lean values (`PILeanTest/Examples.lean`, `GraphFigures`), laid out by
+`PILean.Graph` and drawn on the vector canvas, so the SVG and the PNG (through the rasteriser,
+text as shapes) show the same picture. Each is written light and dark (`-dark`).
+
+| Graph | SVG | PNG |
+|---|---|---|
+| **Modules of a small compiler** — a layered layout with two clusters and a labelled edge (`compiler`) | ![compiler modules, SVG](graph-compiler.svg) | ![compiler modules, PNG](graph-compiler.png) |
+| **A module graph of 120 nodes** — layers, long edges as straight runs of dummy nodes (`modules`) | ![120 modules, SVG](graph-modules.svg) | ![120 modules, PNG](graph-modules.png) |
+| **A ring of seven nodes** — the circular layout of an undirected graph (`ring`) | ![ring, SVG](graph-ring.svg) | ![ring, PNG](graph-ring.png) |
+| **A tree** — the tree layout (`tree`) | ![tree, SVG](graph-tree.svg) | ![tree, PNG](graph-tree.png) |
+
+`graph-build`, among the animations below, is the compiler graph appearing layer by layer.
+
 ## Animations
 
 Each animation is written four ways from one `Animation` value: an animated SVG (declarative SMIL
@@ -40,6 +55,7 @@ also shows instead of the motion when the viewer asks for reduced motion.
 |---|---|---|---|---|
 | **A travelling wave** — the path's points interpolated by the viewer between 30 keyframes (`wave`) | ![](wave.svg) | ![](wave.png) | ![](wave.gif) | ![](wave-poster.png) |
 | **Growing bars**, played once (`growing-bars`) | ![](growing-bars.svg) | ![](growing-bars.png) | ![](growing-bars.gif) | ![](growing-bars-poster.png) |
+| **A graph building up**, layer by layer: every element in every frame, only opacities change, so the SVG interpolates (`graph-build`) | ![](graph-build.svg) | ![](graph-build.png) | ![](graph-build.gif) | ![](graph-build-poster.png) |
 
 ## Checks against other software
 
