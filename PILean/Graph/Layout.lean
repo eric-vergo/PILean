@@ -56,8 +56,11 @@ structure LayeredOptions where
   /-- The most rounds of weighted-median sweeps (each followed by transposition) of the
   crossing reduction. -/
   sweeps : Nat := 24
-  /-- The number of passes that straighten edges after the coordinates are assigned. -/
+  /-- The number of passes that straighten edges before the network simplex assignment starts. -/
   refine : Nat := 8
+  /-- The work allowed to the network simplex coordinate assignment (see `simplexBreadth`): about
+  this many steps in all; when it is used up the best assignment so far is kept. -/
+  coordinateWork : Nat := 12000000
   /-- The height of a node box. -/
   nodeHeight : Float := 28
   /-- The space between a node's label and its outline on each side. -/

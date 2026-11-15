@@ -27,13 +27,21 @@ nodes of long edges straight:
    each node takes the mean of its two median values; the separation of the neighbours
    holds for each alignment, hence for the mean of two order statistics.
 
-Work: `O(V + E)` per alignment up to the sorting of each node's neighbours.
+Work: `O(V + E)` per alignment up to the sorting of each node's neighbours. The four alignments
+are the start of the last step:
 
 5. **Refinement** (`refineBreadth`): a fixed number of passes that move each *unit* (a node, or
    a straight run of dummy nodes of one long edge, moved as one) towards the median of the
    positions of the nodes it is connected to, as far as the separations from its neighbours in
    the layers allow, alternately from the left and from the right. Straight runs stay straight,
    the order never changes, and the separations keep holding. Work: `O(passes × (V log V + E))`.
+6. **Network simplex** (`simplexBreadth`): the coordinates that minimise the weighted total
+   horizontal length of the edges' segments (Gansner et al., section 4.2), found by the network
+   simplex of `PILean.Graph.Simplex` from the refined coordinates, on an auxiliary graph with a
+   node for each segment and an edge for each pair of neighbours in a layer. Segments between
+   dummy nodes weigh most, so the chains of long edges stay straight where they can. The search
+   improves the coordinates with every exchange, and it has a bound on the exchanges and on the
+   work: on a large graph it stops early and returns the improved coordinates it has.
 
 ## References
 
@@ -192,17 +200,19 @@ def assignBreadth (size n : Nat) (order : Array (Array Nat)) (up down : Array (A
 
 /-- The coordinates that minimise the weighted total horizontal length of the segments of the
 chains, by network simplex (Gansner et al., section 4.2), starting from the coordinates `x`:
-every segment `(a, b)` of a chain becomes a node `s` with edges `s → a` and `s → b` of length `0`
-(so that `s` sits at the least of the two and the cost of the segment is `|x a - x b|`), the
+every segment `(a, b)` of a chain becomes a node `s` with edges `s → a` and `s → b` of length
+`0` (so that `s` sits at the least of the two and the cost of the segment is `|x a - x b|`), the
 weight `1` for two real nodes, `2` for one dummy node and `8` for two (long edges stay straight);
 neighbours `u`, `v` in a layer get an edge `u → v` of length `sep u v` and weight `0`.
 
 Coordinates are whole numbers of half pixels (the separation is rounded up to half pixels). The
-start is `x` rounded and moved right where a separation would be violated. The method never makes a coordinate assignment worse, so
-it stops after `rounds m + 50` exchanges for `m` variables, or when the work (`budget`, in the
-units of `simplexComponent`) is used up, and returns what it has. -/
+start is `x` rounded and moved right where a separation would be violated. The method never
+makes a coordinate assignment worse, so it stops after `rounds m + 50` exchanges for `m`
+nodes of the problem, or when the work (`budget`, in the units of `simplexComponent`) is used up,
+and returns what it has, shifted so that the leftmost edge of any node (widths `bw`) is at
+`0`. -/
 def simplexBreadth (size n : Nat) (chains order : Array (Array Nat)) (sep : Nat → Nat → Float)
-    (x : Array Float) (rounds budget : Nat) : Array Float := Id.run do
+    (bw : Array Float) (x : Array Float) (rounds budget : Nat) : Array Float := Id.run do
   let toHalf := fun (f : Float) => Int.ofNat (f * 2).ceil.toUInt64.toNat
   -- the start: positions in half pixels, repaired layer by layer
   let mut pos : Array Int := x.map fun f => Int.ofNat (f * 2).round.toUInt64.toNat
@@ -236,10 +246,11 @@ def simplexBreadth (size n : Nat) (chains order : Array (Array Nat)) (sep : Nat 
       minlen := (minlen.push 0).push 0
       weight := (weight.push w).push w
       total := total + 1
-  let (r, pv) := simplexSolve total tails heads minlen weight start rounds budget
-  let r := dbgTrace s!"simplex x: nodes {total} edges {tails.size} pivots {pv}" fun _ => r
+  let (r, _) := simplexSolve total tails heads minlen weight start rounds budget
   if r.size != total then return x
-  return (Array.range size).map fun v => (r.getD v 0).toNat.toFloat / 2
+  let xs := (Array.range size).map fun v => (r.getD v 0).toNat.toFloat / 2
+  let left := (Array.range size).foldl (fun m v => min m (xs.getD v 0 - bw.getD v 0 / 2)) 1e300
+  return xs.map (· - left)
 
 /-- The median of a list of numbers (the mean of the two middle ones for an even count), `none`
 for no numbers. -/

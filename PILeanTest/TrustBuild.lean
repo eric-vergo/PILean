@@ -31,10 +31,12 @@ open PILean PILean.Trust
 /-- A small tagged animation of three frames. -/
 @[figure] def sampleAnimation : Animation :=
   { width := 24, height := 16, fps := 5, duration := 0.6, loops := 1,
-    frame := fun t => .path (Canvas.rect 0 0 (4 + 20 * t) 16) (some (.solid ⟨200, 30, 30, 255⟩)) none,
+    frame := fun t =>
+      .path (Canvas.rect 0 0 (4 + 20 * t) 16) (some (.solid ⟨200, 30, 30, 255⟩)) none,
     text := Style.light.text }
 
-/-- error: @[figure] needs a type with a ToOutputs instance, but PILeanTest.TrustBuild.notAFigure has type Nat -/
+/-- error: @[figure] needs a type with a ToOutputs instance,
+but PILeanTest.TrustBuild.notAFigure has type Nat -/
 #guard_msgs (error) in
 /-- Not a figure. -/
 @[figure] def notAFigure : Nat := 3
@@ -105,7 +107,8 @@ def checks : Array (String × Bool) :=
         o.format == .svg && o.spec == (match o.bytes () with | .ok b => b | .error _ => .empty))
         == some true),
     ("outputs: the formats and suffixes of a figure, a graph and an animation",
-      (mine.map fun e => (e.decl, (e.outputs ()).toList.map fun o => o.format.name ++ o.name)).toList
+      (mine.map fun e =>
+        (e.decl, (e.outputs ()).toList.map fun o => o.format.name ++ o.name)).toList
         == [("PILeanTest.TrustBuild.sampleAnimation", ["svg", "apng", "gif", "png-poster"]),
           ("PILeanTest.TrustBuild.sampleFigure", ["svg", "png"]),
           ("PILeanTest.TrustBuild.sampleGraph", ["svg", "png"])]),
@@ -130,7 +133,8 @@ def checks : Array (String × Bool) :=
       !safePath "../x" && !safePath "a/../x" && !safePath "/etc/passwd" && !safePath "a\\b" &&
       !safePath "a//b" && !safePath "" && !safePath "C:/x" && !safePath "a b" && !safePath "./a"
       && !safePath "a/" && !safePath "."),
-    ("json: values", (Json.parse "{\"a\":[1,true,null,\"x\\n\\u00e9\\ud83d\\ude00\"]}".toUTF8).toOption.isSome),
+    ("json: values",
+      (Json.parse "{\"a\":[1,true,null,\"x\\n\\u00e9\\ud83d\\ude00\"]}".toUTF8).toOption.isSome),
     ("json: string escapes decode",
       match Json.parse "\"a\\n\\u00e9\\ud83d\\ude00\\\"\"".toUTF8 with
       | .ok (.str s) => s == "a\né😀\""
@@ -198,8 +202,10 @@ def ioChecks : IO (Array (String × Bool)) := do
     | .ok s => if !m.matches s || m.sha256 != Sha256.hex (Sha256.hash x) || m.bytes != x.size then
         sourcesOk := false
     | .error _ => sourcesOk := false
-  let withSrc ← build mine (root / "c") { repo := some "https://example.org/r", commit := some "abc1234" }
-  let cEntries := (Manifest.parse (← IO.FS.readBinFile (root / "c" / manifestName))).toOption.getD #[]
+  let withSrc ←
+    build mine (root / "c") { repo := some "https://example.org/r", commit := some "abc1234" }
+  let cEntries :=
+    (Manifest.parse (← IO.FS.readBinFile (root / "c" / manifestName))).toOption.getD #[]
   let me ← IO.FS.readFile "PILeanTest/TrustBuild.lean"
   let figLine := lineOf me "/-- A small tagged figure of a function plot."
   let figText := "\n".intercalate (((me.splitOn "\n").drop (figLine - 1)).take 4)
@@ -256,7 +262,8 @@ def ioChecks : IO (Array (String × Bool)) := do
   for p in ["../x", "/etc/passwd", "a\\b", "a/../b", "", "C:/x", "a/./b"] do
     IO.FS.writeFile (hostile / manifestName) (Manifest.render #[{ first with path := p }])
     if (← verdicts hostile) != ["error"] then hostileOk := false
-  for t in ["garbage", "{}", "[]", "{\"format\":\"pilean-manifest-1\"}", "{\"format\":\"x\",\"files\":[]}",
+  for t in ["garbage", "{}", "[]", "{\"format\":\"pilean-manifest-1\"}",
+      "{\"format\":\"x\",\"files\":[]}",
       "{\"format\":\"pilean-manifest-1\",\"files\":[1]}",
       "{\"format\":\"pilean-manifest-1\",\"files\":[{}]}"] do
     IO.FS.writeFile (hostile / manifestName) t
@@ -290,11 +297,13 @@ def ioChecks : IO (Array (String × Bool)) := do
         "PILeanTest/TrustBuild/sampleGraph.svg"]),
     ("build: each file's source record matches the manifest, size and hash", sourcesOk),
     ("build: the repository and commit are recorded",
-      cEntries.size == entries.size && cEntries.all (fun m => m.repo == some "https://example.org/r" &&
-        m.commit == some "abc1234") && withSrc == 0),
+      cEntries.size == entries.size &&
+        cEntries.all (fun m => m.repo == some "https://example.org/r" &&
+          m.commit == some "abc1234") && withSrc == 0),
     ("check: a fresh build matches", report0 == [] && manifestText.endsWith "]}\n"),
     ("verify: a fresh build is ok", allOk && verdict0.length == entries.size),
-    ("check: a changed byte is stale", reportChanged == ["stale: PILeanTest/TrustBuild/sampleGraph.svg"]),
+    ("check: a changed byte is stale",
+      reportChanged == ["stale: PILeanTest/TrustBuild/sampleGraph.svg"]),
     ("verify: a changed byte is changed",
       verdictChanged.contains "changed PILeanTest/TrustBuild/sampleGraph.svg" &&
         (verdictChanged.filter (·.startsWith "ok ")).length == entries.size - 1),

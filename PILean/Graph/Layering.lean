@@ -13,16 +13,18 @@ The first two phases of the layered layout (Sugiyama, Tagawa and Toda; Gansner e
   feedback arc set. It orders the nodes so that few edges point backwards; an edge is reversed
   (for layout only) when it does. Work: `O(V + E)` plus one `O(V)` scan for each time no node is
   a source or sink, so at most `O(V² + E)`; the loop runs at most `3 V + 2` times.
-* **Layer assignment** (`assignLayers`): longest-path layering of the acyclic edges, from the
-  sources, then a few balancing passes (`balanceLayers`) that move nodes between the layers their
-  neighbours leave free, to shorten edges (fewer dummy nodes) and to even out the layers, then
-  `fixLayers` once more. Work: `O(V log V + E)` for the layering, `O(V (log V + L) + E)` for
-  each balancing pass.
+* **Layer assignment** (`assignLayers`): the layers that minimise the total span of the edges,
+  found by network simplex (`PILean.Graph.Simplex`, Gansner et al.) from the longest-path
+  layering, then `balanceLayers`: two passes that move nodes between the layers their neighbours
+  leave free to even out the layers without lengthening any edge, then `fixLayers` once more.
+  Work: `O(E log V)` for the start of the simplex, `O(V + E)` per exchange at worst (at most
+  `8 V + 50` exchanges), and `O(V (log V + L) + E)` for each balancing pass.
 
 The edges are first oriented by the order of the nodes (`orient`: a pair `(u, v)` stays when `u`
 comes before `v`, else it is turned) and sorted by the order of their source (`acyclicEdges`).
 Relaxing the edges in that order (`fixLayers`) gives every edge `layer src < layer dst`, whatever
-layers it starts from: `PILean.Graph.Proofs` proves this for the function the layout calls.
+layers it starts from, so that the final relaxation makes the layering valid whatever the simplex
+returned: `PILean.Graph.Proofs` proves this for the function the layout calls.
 
 ## References
 
@@ -162,10 +164,10 @@ def balanceLayers (n : Nat) (es : List (Nat × Nat)) (layer : Array Nat) (rounds
   return l
 
 /-- The layer of each of the `n` nodes for the edges `edges` (pairs of node numbers below `n`)
-and the node order `pos`: longest-path layers of `acyclicEdges`, balanced, then relaxed once
-more with `fixLayers` (the balancing is used only if it kept the number of nodes, which it
-always does), so that every acyclic edge points to a larger layer
-(`PILean.Graph.Proofs`). -/
+and the node order `pos`: the layers of `acyclicEdges` of least total span by network simplex
+(`simplexLayers`) from the longest-path layers, balanced, then relaxed once more with
+`fixLayers` (a result of the wrong size is replaced by the previous one, which never happens), so
+that every acyclic edge points to a larger layer (`PILean.Graph.Proofs`). -/
 def assignLayers (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) : Array Nat :=
   let es := acyclicEdges pos edges
   let start := fixLayers es (Array.replicate n 0)

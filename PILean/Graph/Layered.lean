@@ -6,6 +6,7 @@ import PILean.Graph.Layout
 import PILean.Graph.Layering
 import PILean.Graph.Ordering
 import PILean.Graph.Coordinates
+import PILean.Graph.Simplex
 
 /-!
 # The layered layout
@@ -15,15 +16,18 @@ five phases, each with its work bounded by its input:
 
 1. **Cycle removal** (`elsPositions`, `PILean.Graph.Layering`): edges that point backwards in a
    greedy order are reversed for the layout; self-loops are set aside.
-2. **Layers** (`assignLayers`): longest paths from the sources, balanced, and relaxed by
-   `fixLayers` so that every edge points to a deeper layer. When an edge has a label, the layers
+2. **Layers** (`assignLayers`): the layers of least total edge span by network simplex
+   (`PILean.Graph.Simplex`), balanced, and relaxed by `fixLayers` so that every edge points to a
+   deeper layer. When an edge has a label, the layers
    are doubled so that the label has a layer of its own half-way along its edge.
 3. **Crossing reduction** (`orderLayers`, `PILean.Graph.Ordering`): long edges are cut into
-   chains of dummy nodes; barycenter sweeps and transposition, counting crossings in
-   `O(E log V)` per sweep.
-4. **Coordinates** (`assignBreadth`, `PILean.Graph.Coordinates`): Brandes and Köpf's four
-   alignments, balanced, which keep the chains of long edges straight; node widths come from
-   the labels measured with the style's text engine.
+   chains of dummy nodes; weighted-median sweeps and transposition from a depth-first and a
+   breadth-first start, counting crossings in `O(E log V)` per round.
+4. **Coordinates** (`assignBreadth`, `refineBreadth`, `simplexBreadth`,
+   `PILean.Graph.Coordinates`): Brandes and Köpf's four alignments, balanced, which keep the
+   chains of long edges straight, refined, then improved by network simplex on the weighted
+   horizontal length of the edges within a bound on the work; node widths come from the labels
+   measured with the style's text engine.
 5. **Edges**: through the points of their chains as smooth cubic Bézier curves, monotone in the
    direction of the layers with ends perpendicular to them (`Routing.spline`), or as
    horizontal and vertical segments with rounded corners (`Routing.orthogonal`); reversed edges
@@ -166,7 +170,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let sep := separation n bw o.nodeGap o.edgeGap 28 clusterAll
   let x0 := assignBreadth size n order up down sep bw
   let x1 := refineBreadth size n chains order up down sep bw x0 o.refine
-  let x := simplexBreadth size n chains order sep x1 8 20000000
+  let x := simplexBreadth size n chains order sep bw x1 8 o.coordinateWork
   let gap := if hasLabels then o.layerGap / 2 else o.layerGap
   let mut levels : Array Float := Array.replicate order.size 0
   let mut t : Float := 0

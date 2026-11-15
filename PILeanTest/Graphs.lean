@@ -258,8 +258,65 @@ def simple : Array (String × Bool) :=
     ("simple layouts are deterministic",
       (ring.circularLayout {} {}).nodes.map (·.box) == c.nodes.map (·.box))]
 
+/-- The total span of the edges `es` for the layers `lay`. -/
+def spanOf (es : List (Nat × Nat)) (lay : Array Nat) : Nat :=
+  es.foldl (fun s e => s + (lay.getD e.2 0 - lay.getD e.1 0)) 0
+
+/-- The least total span of any layering of `n` nodes into layers below `n` in which every edge
+points to a deeper layer, by trying them all. -/
+def bruteSpan (n : Nat) (es : List (Nat × Nat)) : Nat := Id.run do
+  let mut best := n * es.length + 1
+  let mut lay : Array Nat := Array.replicate n 0
+  for code in [0:n ^ n] do
+    let mut c := code
+    for v in [0:n] do
+      lay := lay.setIfInBounds v (c % n)
+      c := c / n
+    if es.all fun e => lay.getD e.1 0 < lay.getD e.2 0 then
+      best := min best (spanOf es lay)
+  return best
+
+/-- The checks of the network simplex layering and coordinates. -/
+def optimising : Array (String × Bool) :=
+  let minimal := fun (seed n : Nat) =>
+    let g := moduleGraph seed n (near := 3) (far := false)
+    let pairs := g.edges.toList.map fun e => (e.src, e.dst)
+    let pos := elsPositions n pairs.toArray
+    let es := acyclicEdges pos pairs
+    spanOf es (assignLayers pos n pairs) == bruteSpan n es
+  let bigG := moduleGraph 5 400
+  let bigPairs := bigG.edges.toList.map fun e => (e.src, e.dst)
+  let bigPos := elsPositions 400 bigPairs.toArray
+  let bigEs := acyclicEdges bigPos bigPairs
+  let start := fixLayers bigEs (Array.replicate 400 0)
+  let simplex := simplexLayers 400 bigEs start
+  -- a weighted problem: `b` is pulled to `a` by weight 1 and to `c` by weight 3
+  let (w, _) := simplexSolve 3 #[0, 1, 0] #[1, 2, 2] #[1, 1, 5] #[1, 3, 0] #[0, 1, 5]
+  let chain := Graph.ofPairs [(0, 3), (0, 1), (1, 2), (2, 3)]
+  let bigLayout := bigG.layout {} {}
+  #[("simplex: the total span is the least possible (random small graphs, all layerings tried)",
+      [(1, 6), (2, 6), (3, 7), (4, 6), (5, 5), (6, 7)].all fun (s, n) => minimal s n),
+    ("simplex: every edge points to a deeper layer and the span is below longest-path's",
+      bigEs.all (fun e => simplex.getD e.1 0 < simplex.getD e.2 0) &&
+        spanOf bigEs simplex ≤ spanOf bigEs start),
+    ("simplex: a weighted problem keeps the heavy edges short",
+      w.size == 3 && w.getD 2 0 - w.getD 1 0 == 1 && w.getD 1 0 - w.getD 0 0 == 3),
+    ("simplex: the layering and the layout are the same twice",
+      simplexLayers 400 bigEs start == simplex &&
+        (bigG.layout {} {}).edges.map (·.points) == bigLayout.edges.map (·.points)),
+    ("simplex: a long edge in a layered chain stays straight",
+      match (chain.layout {} {}).edges[0]? with
+      | some e =>
+        let x0 := (e.points.getD 0 ⟨0, 0⟩).x
+        e.points.size == 4 && e.points.all fun p => (p.x - x0).abs < 1
+      | none => false),
+    ("simplex: a spent work budget still gives a layout with boxes apart",
+      disjoint (bigG.layout { coordinateWork := 1000 } {}) &&
+        disjoint (bigG.layout { coordinateWork := 0, refine := 0 } {}))]
+
 /-- All the pure checks. -/
-def checks : Array (String × Bool) := layering ++ counting ++ layouts ++ written ++ simple
+def checks : Array (String × Bool) :=
+  layering ++ optimising ++ counting ++ layouts ++ written ++ simple
 
 /-- The load averages of the machine (`sysctl -n vm.loadavg`), or a note when unavailable. -/
 def loadAverage : IO String := do
@@ -315,8 +372,11 @@ def bench : IO Unit := do
     let x1 ← IO.lazyPure fun _ => refineBreadth size n chains order up down sep bw x0 o.refine
     let refined ← msSince t4b
     let t4c ← IO.monoNanosNow
-    let _ ← IO.lazyPure fun _ => simplexBreadth size n chains order sep x1 8 20000000
+    let _ ← IO.lazyPure fun _ => simplexBreadth size n chains order sep bw x1 8 o.coordinateWork
     let simplexMs ← msSince t4c
+    let t4d ← IO.monoNanosNow
+    let _ ← IO.lazyPure fun _ => simplexBreadth size n chains order sep bw x1 8 0
+    let treeMs ← msSince t4d
     let t5 ← IO.monoNanosNow
     let l ← IO.lazyPure fun _ => g.layout o st
     let total ← msSince t5
@@ -334,7 +394,8 @@ def bench : IO Unit := do
     IO.println s!"{n} nodes, {g.edges.size} edges, {size - n} dummy nodes, {crossingsNow} \
       crossings, picture {l.width} × {l.height}"
     IO.println s!"  layout {total} ms (cycles {cycles}, layers {layers}, chains {chainMs}, \
-      ordering {ordering}, coordinates {coords}, refine {refined}, simplex {simplexMs}); SVG {svgMs} ms \
+      ordering {ordering}, coordinates {coords}, refine {refined}, simplex {simplexMs} (tree \
+      {treeMs})); SVG {svgMs} ms \
       ({svg.length} bytes); PNG at scale {scale}: draw {rasterMs} ms, encode {pngMs} ms \
       ({match png with | .ok b => b.size | .error _ => 0} bytes)"
   IO.println s!"load average after: {← loadAverage}"

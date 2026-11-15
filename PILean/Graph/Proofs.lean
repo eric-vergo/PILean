@@ -176,7 +176,8 @@ theorem assignLayers_start_size (n : Nat) (es : List (Nat × Nat)) :
      (if l1.size = n then l1 else l0)).size = n := by
   dsimp only
   by_cases h0 : (simplexLayers n es (fixLayers es (Array.replicate n 0))).size = n
-  · by_cases h : (balanceLayers n es (simplexLayers n es (fixLayers es (Array.replicate n 0))) 2).size = n
+  · by_cases h : (balanceLayers n es
+        (simplexLayers n es (fixLayers es (Array.replicate n 0))) 2).size = n
     · simp [h0, h]
     · simp [h0, h]
   · by_cases h : (balanceLayers n es (fixLayers es (Array.replicate n 0)) 2).size = n

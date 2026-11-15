@@ -11,23 +11,28 @@ Long edges are cut into chains of dummy nodes, one per layer crossed (`buildChai
 every edge joins nodes of adjacent layers. The order of the nodes inside each layer is then
 improved to reduce the crossings between adjacent layers (`orderLayers`):
 
-* **Sweeps**: layer by layer, first downwards, then upwards, each node is placed by the
-  barycenter (mean position) of its neighbours in the previous layer, compared exactly as a
-  fraction of whole numbers; nodes without such neighbours keep their position; ties go to the
-  current position, then the node number. A fixed number of sweeps is run.
+* **Initial orders** (`initialLayers`, `initialLayersBfs`): the nodes of each layer in the order
+  of a depth-first or of a breadth-first search from the nodes without neighbours above.
+* **Sweeps** (`reorderMedian`): layer by layer, first downwards, then upwards, the nodes that have
+  neighbours in the previous layer are sorted by the *weighted median* of their positions
+  (Gansner et al.: the middle position, the mean of the two for two, otherwise the two middle
+  positions weighted by the spread on the other side); nodes without such neighbours keep their
+  places; ties go to the current position, then the node number.
+* **Transposition** (`transposePass`): after each sweep adjacent nodes of a layer are swapped
+  while that lowers the crossings of their edges with both neighbouring layers; pairs whose
+  degrees make the count costly are skipped, and the passes are bounded.
 * **Crossing count** (`crossings`): between two adjacent layers, the crossings are the
   inversions of the sequence of target positions taken in order of source position, counted with
   a Fenwick tree (the accumulator tree of Barth, Jünger and Mutzel, in an array): `O(E log V)`.
-* **Best order**: after every sweep the order is kept when it has strictly fewer crossings than
-  the best so far.
+* **Best order** (`reduceFrom`): after every round the order is kept when it has strictly fewer
+  crossings than the best so far; the rounds stop after a run without improvement or at the
+  bound. `orderLayers` runs it from both initial orders (from the depth-first one only on large
+  graphs) and keeps the better result.
 * **Clusters** (`groupClusters`): the members of a cluster are gathered, and the clusters stand
   in the same order in every layer.
-* **Transposition**: finally, adjacent nodes of a layer are swapped while that lowers the
-  crossings of their edges (`transposePasses`); pairs whose degrees make the count costly are
-  skipped, and the number of passes is fixed.
 
-Work: `sweeps × (E log V + V log V)` for the sweeps, and at most `passes × (V + E × cap)` for
-the transposition, where the cap bounds the pair of degrees compared.
+Work: at most `sweeps × (E log V + V log V + passes × (V + E × cap))`, where the cap bounds the
+pair of degrees compared in a transposition.
 
 ## References
 
@@ -178,20 +183,6 @@ def totalCrossings (order : Array (Array Nat)) (down : Array (Array Nat)) (pos :
     total := total + crossings (order.getD i #[]) (order.getD (i + 1) #[]).size down pos
   return total
 
-/-- A layer sorted by the barycenter of the neighbours listed in `nbr`, compared exactly (as the
-fractions `sum / count`); a node without neighbours counts at its own position; ties go to the
-current position, then the node number. -/
-def reorder (layer : Array Nat) (nbr : Array (Array Nat)) (pos : Array Nat) : Array Nat :=
-  let keyed : Array (Nat × Nat × Nat × Nat) := layer.map fun v =>
-    let ns := nbr.getD v #[]
-    if ns.isEmpty then (pos.getD v 0, 1, pos.getD v 0, v)
-    else (ns.foldl (fun s u => s + pos.getD u 0) 0, ns.size, pos.getD v 0, v)
-  let lt := fun (a b : Nat × Nat × Nat × Nat) =>
-    let l := a.1 * b.2.1
-    let r := b.1 * a.2.1
-    l < r || (l == r && (a.2.2.1 < b.2.2.1 || (a.2.2.1 == b.2.2.1 && a.2.2.2 < b.2.2.2)))
-  (keyed.qsort lt).map (·.2.2.2)
-
 /-- The weighted median of the sorted positions `ps` of a node's neighbours (Gansner et al.): the
 middle position for an odd count, the mean of the two middle ones for two, and otherwise the
 mean of the two middle positions weighted by the spread of the neighbours on the other side
@@ -269,11 +260,12 @@ def transposePass (order : Array (Array Nat)) (pos : Array Nat) (up down : Array
     order := order.setIfInBounds i layer
   return (order, pos, changed)
 
-/-- The order of the nodes inside the layers and its crossings, from the initial `layers`: at most `sweeps` rounds
-of a weighted-median sweep (down on even rounds, up on odd ones) followed by transposition until
-no adjacent swap helps (at most `8` passes), the order with the fewest crossings kept; the search
-stops after `4` rounds in a row that found nothing better. `up` and `down` list each node's
-neighbours in the layers above and below; the result has the same nodes in the same layers. -/
+/-- The order of the nodes inside the layers and its crossings, from the initial `layers`: at
+most `sweeps` rounds of a weighted-median sweep (down on even rounds, up on odd ones) followed
+by transposition until no adjacent swap helps (at most `8` passes), the order with the fewest
+crossings kept; the search stops after `4` rounds in a row that found nothing better. `up` and
+`down` list each node's neighbours in the layers above and below; the result has the same nodes
+in the same layers. -/
 def reduceFrom (size : Nat) (layers : Array (Array Nat)) (up down : Array (Array Nat))
     (sweeps : Nat) : Array (Array Nat) × Nat := Id.run do
   let count := layers.size
@@ -309,12 +301,13 @@ def reduceFrom (size : Nat) (layers : Array (Array Nat)) (up down : Array (Array
   return (best, bestC)
 
 /-- The order of the nodes inside the layers: `reduceFrom` the depth-first and from the
-breadth-first initial orders, the one with fewer crossings (the depth-first on a tie). -/
+breadth-first initial orders, the one with fewer crossings (the depth-first on a tie; only the
+depth-first for more than 6000 nodes, real and dummy). -/
 def orderLayers (layerAll : Array Nat) (up down : Array (Array Nat)) (sweeps : Nat) :
     Array (Array Nat) :=
   let size := layerAll.size
   let a := reduceFrom size (initialLayers layerAll up down) up down sweeps
-  if a.2 == 0 then a.1
+  if a.2 == 0 || size > 6000 then a.1
   else
     let b := reduceFrom size (initialLayersBfs layerAll up down) up down sweeps
     if b.2 < a.2 then b.1 else a.1

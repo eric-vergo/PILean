@@ -4,45 +4,46 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 
 /-!
-# Network simplex layering
+# Network simplex
 
-The layer assignment of Gansner, Koutsofios, North and Vo: the layers of an acyclic graph that
-minimise the total span of the edges (every edge of length at least one, each edge counting
-once), found by the network simplex method on a spanning tree of tight edges.
+The network simplex method of Gansner, Koutsofios, North and Vo for ranking the nodes of a
+directed graph: integer ranks in which every edge `u → v` is at least `minlen` long
+(`rank v - rank u ≥ minlen`) and the total weighted length is least. With length `1` and weight
+`1` this is the layer assignment that minimises the total span of the edges (`simplexLayers`);
+with other lengths and weights it assigns coordinates (`simplexBreadth` in
+`PILean.Graph.Coordinates`). The graph need not be connected (`simplexSolve` solves each
+component), and the start must be feasible.
 
-* A start (`start`, any assignment in which every edge points to a deeper layer) is turned into
-  a *feasible tree* (`feasibleTree`): a spanning tree of the component whose edges are tight
-  (span exactly one), by growing a tree along tight edges and, when it cannot grow, shifting it
-  by the least slack of an edge that leaves it.
-* The *cut value* of a tree edge is the number of edges that cross the cut it defines in its own
-  direction minus those that cross against it. It is the change of the total span per unit that
-  the subtree below the edge moves up; a tree edge with a negative cut value can be exchanged
-  for a non-tree edge (`entering`: the edge of least slack that crosses the cut against the
-  tree edge) and the total span does not grow.
-* The cut values come from sums over the subtrees (`Σ out-degree - in-degree`), recomputed from
-  the tree after every exchange, so no pivot depends on stale values.
+* A start is turned into a *feasible tree* (`simplexComponent`): a spanning tree of tight edges
+  (edges of exactly their least length). The tight edges give a forest; its components are
+  joined smallest first, each moved by the least slack of an edge that leaves it, so that a node
+  moves `O(log V)` times.
+* The *cut value* of a tree edge is the weight of the edges that cross the cut it defines in its
+  own direction minus those that cross against it. A tree edge with a negative cut value can be
+  exchanged for the non-tree edge of least slack that crosses the cut against it, and the total
+  weighted length does not grow; the edge of the most negative cut value leaves.
+* The cut values come from sums over the subtrees (`simplexWalk`) once, and are then updated
+  along the cycle of each exchange by the rule of the paper. The smaller side of the cut is
+  searched for the entering edge and moved.
 
-Each component of the graph is solved separately and shifted so that its top layer is `0`.
-The number of exchanges is bounded (`8 V + 50`): if the bound is reached, the layering found so
-far, which is feasible, is returned. Ties are decided by node and edge numbers, so the result is
-deterministic. Work: `O(E log V)` for the feasible tree and `O(V + E)` per exchange at worst.
+The number of exchanges is bounded (`rounds V + 50`, and by a budget of work): when a bound is
+reached, the ranks found so far, which are feasible and no worse than the start, are returned.
+Each component is shifted so that its least rank is `0`. Ties are decided by node and edge
+numbers, so the result is deterministic. Work: `O(E log V)` for the feasible tree and `O(V + E)`
+per exchange at worst, usually the smaller side of a cut.
 
 ## References
 
 * Gansner, Koutsofios, North, Vo, *A technique for drawing directed graphs*, IEEE Transactions
-  on Software Engineering 19 (1993), section 4.
+  on Software Engineering 19 (1993), sections 2.3 and 4.
 -/
 
 namespace PILean.Graph
 
-/-- The state of the search after a walk of the tree. -/
+/-- What a walk of the tree finds. -/
 structure SimplexWalk where
   /-- The nodes in a depth-first preorder from node `0`. -/
   order : Array Nat
-  /-- The place of every node in `order`. -/
-  pre : Array Nat
-  /-- The number of nodes in the subtree of every node. -/
-  size : Array Nat
   /-- The tree edge above every node (the number of edges for the root). -/
   up : Array Nat
   /-- The sum over the subtree of every node of the weight of the edges out of a node minus
@@ -73,21 +74,15 @@ def simplexWalk (m : Nat) (tadj : Array (Array Nat)) (tails heads : Array Nat)
           seen := seen.setIfInBounds w true
           up := up.setIfInBounds w e
           stack := stack.push w
-  let mut pre : Array Nat := Array.replicate m 0
-  for i in [0:order.size] do
-    pre := pre.setIfInBounds (order.getD i 0) i
-  let mut size : Array Nat := Array.replicate m 1
   let mut net : Array Int := deg
   for k in [0:order.size] do
     let v := order.getD (order.size - 1 - k) 0
     let e := up.getD v noEdge
     if e < noEdge then
       let p := if tails.getD e 0 == v then heads.getD e 0 else tails.getD e 0
-      let sv := size.getD v 0
       let nv := net.getD v 0
-      size := size.modify p (· + sv)
       net := net.modify p (· + nv)
-  return { order, pre, size, up, net }
+  return { order, up, net }
 
 /-- Inserts `x` into the binary min-heap `h`. -/
 def heapPush (h : Array Nat) (x : Nat) : Array Nat := Id.run do
@@ -126,7 +121,8 @@ def heapPop (h : Array Nat) : Option Nat × Array Nat := Id.run do
 /-- The ranks of a connected graph of `m` nodes and the edges `tails[k] → heads[k]` (each of
 length at least `minlen[k]`, and weight `weight[k] ≥ 0`) that minimise the total weighted length,
 from feasible ranks `start`, and the number of exchanges made. The result is shifted so that the
-least rank is `0`, and every edge still has its length. Runs at most `rounds m + 50` exchanges, and at most `budget / (m + e) + 1` where `e` is the number of
+least rank is `0`, and every edge still has its length. Runs at most `rounds m + 50` exchanges,
+and at most `budget / (m + e) + 1` where `e` is the number of
 edges (each exchange costs `O(m + e)` at worst, usually the smaller side of a cut). -/
 def simplexComponent (m : Nat) (tails heads : Array Nat) (minlen weight : Array Int)
     (start : Array Int) (rounds : Nat := 8) (budget : Nat := 1000000000000) : Array Int × Nat :=
@@ -297,8 +293,8 @@ def simplexComponent (m : Nat) (tails heads : Array Nat) (minlen weight : Array 
         for g in adj.getD x #[] do
           if !isTree.getD g true then
             let y := other g x
-            if mk.getD y 0 != sm && (if smallIsTail then heads.getD g 0 == x else tails.getD g 0 == x)
-            then
+            let towards := if smallIsTail then heads.getD g 0 == x else tails.getD g 0 == x
+            if mk.getD y 0 != sm && towards then
               let s := slack rank g
               if enter == ne || s < es || (s == es && g < enter) then
                 enter := g
@@ -312,18 +308,26 @@ def simplexComponent (m : Nat) (tails heads : Array Nat) (minlen weight : Array 
       let delta : Int := if mk.getD fa 0 == sm then es else -es
       for x in small do rank := rank.modify x (· + delta)
       -- cut values along the cycle
+      anc := (anc.setIfInBounds fa cm).setIfInBounds fb pm
       let mut x := fa
+      let mut z := fb
+      let mut lca := ne + m
       for _ in [0:m + 1] do
-        anc := anc.setIfInBounds x cm
-        let g := pe.getD x ne
-        if g == ne then break
-        x := other g x
-      let mut lca := fb
-      for _ in [0:m + 1] do
-        if anc.getD lca 0 == cm then break
-        let g := pe.getD lca ne
-        if g == ne then break
-        lca := other g lca
+        let gx := pe.getD x ne
+        if gx < ne then
+          x := other gx x
+          if anc.getD x 0 == pm then
+            lca := x
+            break
+          anc := anc.setIfInBounds x cm
+        let gz := pe.getD z ne
+        if gz < ne then
+          z := other gz z
+          if anc.getD z 0 == cm then
+            lca := z
+            break
+          anc := anc.setIfInBounds z pm
+        if gx == ne && gz == ne then break
       let mut y := fa
       for _ in [0:m + 1] do
         if y == lca then break
