@@ -7,6 +7,7 @@ import PILean.Geometry
 import PILean.Path
 import PILean.Svg
 import PILean.Png
+import PILean.Anim
 import PILean.Image.Basic
 import PILean.Image.Ops
 import PILean.Image.Proofs
