@@ -27,6 +27,14 @@ parsing). No Pillow code is used.
 The single-stroke lettering (`PILean/Text/Lettering*.lean`) is PILean's own design, drawn for it;
 it copies no font's data.
 
+## The package `pilean-leantex` (`leantex/`)
+
+It requires [LeAnTeX](https://github.com/eric-vergo/LeAnTeX) (Apache License 2.0) at a fixed
+commit, and reads at run time the New Computer Modern fonts LeAnTeX carries (GUST Font License,
+see LeAnTeX's `fonts/README.md`); none of LeAnTeX's code or fonts is copied into this
+repository. The images of `leantex/examples/` contain glyph shapes of New Computer Modern drawn
+as paths, as any document typeset in a font does.
+
 ## PILean's own test data
 
 `PILeanTest/png/*.png` and `manifest.txt` are PILean's own files, written by

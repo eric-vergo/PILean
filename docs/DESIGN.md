@@ -8,8 +8,8 @@ outline, what is exact and what is floating point, and the open choices.
 ## Principles
 
 1. **Pure Lean, `Init` and `Std` only.** No FFI, no Mathlib, no large dependencies. Text in
-   images goes through an interface (`TextEngine`) with a built-in lettering; a typesetting
-   library can implement the interface.
+   images goes through an interface (`TextEngine`) with a built-in lettering; LeAnTeX implements
+   it in a separate package of this repository (`leantex/`, "Text in images").
 2. **Values first.** An image, a figure, a drawing or a graph is a Lean value; output is a
    function of it. The same value gives the same bytes on every machine (deterministic number
    formatting, stable ordering, no clocks or randomness).
@@ -33,7 +33,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`; the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Anim` | a `FrameSeq` (equally sized RGBA frames, a rational delay each, a loop count) and its codecs. APNG: writer (frame differencing to the changed rectangle, equal frames merged, delays as reduced fractions) and reader (composes `dispose_op` and `blend_op`, any PNG colour type, caps on size, frames and bytes). GIF89a: writer (LZW, one global palette by median cut or the exact colours, optional Floyd–Steinberg dithering, differencing with a transparent index, delays in centiseconds with exact cumulative time, loop extension) and reader (global and local tables, interlacing, disposal 0–3, transparency, caps) | done |
 | `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark` | done |
-| `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes) and the built-in single-stroke lettering that draws text into images; a typesetting library can implement the interface later | done |
+| `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline or orthogonal edges, arrowheads, edge labels and clusters, circular and tree layouts, drawing on the canvas as SVG and PNG | done; layering proved, see below |
 | `PILean.Trust` | done: SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`. Later: the theorems that tie a figure to its Lean object | partly done |
@@ -330,12 +330,35 @@ rasteriser's full-image background and curve strokes.
 ## Text in images
 
 Text reaches images through an interface, `TextEngine` (measure, ascent, descent, and shapes:
-outlines to fill and centre lines to stroke), with one implementation built in: a single-stroke
-lettering drawn for PILean (430 characters: ASCII, Latin-1, Greek, scripts, math signs, arrows;
-tabular digits; stroke 78/1000 of the size, drawn at least a pixel wide). SVG output keeps real `<text>` elements in the style's font family
-(selectable, small); the layout measures text with the engine, so an SVG font may run a little
-wider or narrower than the measurement. `Figure.toSvg (outlines := true)` writes the lettering's
-shapes into SVG instead.
+outlines to fill and centre lines to stroke; an identity; whether its strings are plain text),
+with one implementation built in: a single-stroke lettering drawn for PILean (430 characters:
+ASCII, Latin-1, Greek, scripts, math signs, arrows; tabular digits; stroke 78/1000 of the size,
+drawn at least a pixel wide). With the lettering, SVG output keeps real `<text>` elements in the
+style's font family (selectable, small); the layout measures text with the engine, so an SVG font
+may run a little wider or narrower than the measurement. `Figure.toSvg (outlines := true)` writes
+the lettering's shapes into SVG instead.
+
+**LaTeX labels through LeAnTeX.** The package `pilean-leantex` in the folder `leantex/`
+(`leantex/README.md`) implements the interface with [LeAnTeX](https://github.com/eric-vergo/LeAnTeX):
+every title, axis label, tick label, legend entry and node label is LaTeX, set on one line by
+LeAnTeX's text layer with formulas in `$…$` by its KaTeX-compatible math layout, and drawn as
+New Computer Modern's glyph outlines. Such an engine is not `native`, so SVG writes its text as
+paths (no font needed, and the document stays inert: no `text`, `use` or font reference), and
+PNG goes through PILean's rasteriser. A string LeAnTeX rejects, or one longer than 1,000
+characters, is drawn by the lettering instead; each string is typeset under tight caps on
+tokens, expansions, nesting and line-breaking work, and the tests run hostile labels in child
+processes under CPU and memory bounds. The engine's identity names the LeAnTeX commit and the
+SHA-256 of every font file it reads; the fingerprint of a figure drawn with it covers that
+identity (`Trust.rendererWith`), so a new LeAnTeX revision or a changed font changes the
+fingerprint. Reading the fonts and hashing them takes a few seconds once per program run.
+
+*Why a separate package and not a dependency of PILean itself:* PILean's first principle is
+`Init` and `Std` only, so that any Lean program can use it without a large dependency. LeAnTeX
+is a large library with about 20 MB of fonts that a program reads at run time; making it a
+dependency of the core would put that weight on every user, including those who need no LaTeX.
+The interface was designed for this split: the core knows only `TextEngine`, and the package in
+`leantex/` (as `verso/` does for Verso) adds the dependency for those who ask for it. The
+built-in lettering stays the default and needs nothing.
 
 ## Animations
 
@@ -367,7 +390,8 @@ Each question has a current default, which the code follows until the question i
    font, but are larger and not selectable; `<text>` is smaller and selectable. *Default:*
    `<text>` in SVG, outlines in PNG (and in SVG on request, `outlines := true`).
 2. **Default text family.** *Default:* the built-in lettering in images, a system sans-serif stack
-   in SVG.
+   in SVG; LaTeX labels in New Computer Modern with the `pilean-leantex` engine, drawn as
+   outlines in both.
 3. **Pixel model.** Straight or premultiplied alpha in `Image`. *Default:* straight alpha in the
    public `Image` (as Pillow's `RGBA`), premultiplied inside the rasteriser.
 4. **Anti-aliasing.** Analytic area coverage or sub-row sampling. *Default:* analytic coverage
