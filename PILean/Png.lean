@@ -6,6 +6,9 @@ import PILean.Png.Checksum
 import PILean.Png.Tables
 import PILean.Png.Deflate
 import PILean.Png.Inflate
+import PILean.Png.Types
+import PILean.Png.Write
+import PILean.Png.Read
 import PILean.Png.Proofs
 
 /-!
