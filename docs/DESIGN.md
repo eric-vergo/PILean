@@ -143,7 +143,7 @@ Four parts:
 ## Graph layout
 
 `PILean.Graph` draws a `Graph` (labelled nodes, edges with optional labels, clusters) in layers
-(`Graph.layout`, files `Graph/Layering`, `Ordering`, `Coordinates`, `Layered`), or on a circle
+(`Graph.layout`, files `Graph/Layering`, `Simplex`, `Ordering`, `Coordinates`, `Layered`), or on a circle
 (`circularLayout`) or as a tree (`treeLayout`), and draws the `Layout` on the vector canvas
 (`Graph/Draw`), so that the SVG and the PNG show the same picture. Nothing in it depends on
 Mathlib or on any other library; it follows the published algorithms, listed in the module
@@ -156,25 +156,37 @@ spans of the edges, at most `E (L - 1)`):
    the resulting order are reversed for the layout and drawn in their own direction. At most
    `3V + 2` steps, `O(V + E)` plus a scan of the nodes each time no source or sink is left.
    Self-loops are set aside and drawn as small loops.
-2. *Layers*: longest paths from the sources, a few balancing passes (each node moves within the
-   layers its neighbours leave free: down when it has more out-edges, up when it has more
-   in-edges, otherwise to the emptiest layer), and `fixLayers`, which relaxes the edges sorted
-   by the order of their source. `O(V log V + E)` and `O(V (log V + L) + E)` per balancing pass.
-   When an edge has a label the layers are doubled so that the label has a layer half-way along
-   its edge.
-3. *Crossing reduction*: long edges become chains of `D` dummy nodes; a depth-first start order,
-   `sweeps` (8 by default) barycenter sweeps down and up (Sugiyama, Tagawa, Toda) keeping the
-   order with the fewest crossings, crossings counted per sweep in `O(E log V)` with a Fenwick
-   tree (the accumulator tree of Barth, Jünger and Mutzel), then at most twelve passes of
-   adjacent swaps (skipped for pairs whose degrees multiply to more than 400); ties go to the
-   position, then the node number. The members of a cluster are gathered afterwards and the
-   clusters put in one order in every layer.
-4. *Coordinates*: Brandes and Köpf's four alignments with type 1 conflict marking, compacted by
-   a longest path through the block graph (the class shifts of the paper are left out: the
-   blocks never move against each other, so they cannot overlap), balanced by the mean of the
-   two median values; then `refine` (8) passes that move a node, or a straight run of dummy
-   nodes, towards the median of its neighbours within the room the layers leave it. Straight runs
-   of long edges stay straight. `O(V + E)` per alignment plus sorting of neighbours.
+2. *Layers*: the layers of least total edge span by network simplex (Gansner, Koutsofios, North
+   and Vo, 1993; `Graph/Simplex`) from the longest-path layering: a feasible tree of tight edges
+   (the tight forest, its components joined smallest first), cut values updated along the cycle
+   of every exchange, the edge of the most negative cut value leaving and the edge of least
+   slack across its cut entering, each component alone; at most `8 V + 50` exchanges. Then two
+   balancing passes (each node moves within the layers its neighbours leave free, never
+   lengthening an edge) and `fixLayers`, which relaxes the edges sorted by the order of their
+   source and so makes every edge point down whatever came before. `O(E log V)` for the start,
+   `O(V + E)` per exchange at worst. When an edge has a label the layers are doubled so that the
+   label has a layer half-way along its edge.
+3. *Crossing reduction*: long edges become chains of `D` dummy nodes; from a depth-first start
+   order (and, up to 6000 nodes, a breadth-first and a bottom-up one, keeping the best) at most
+   `sweeps` (24) rounds of weighted-median sweeps down and up (Gansner et al.; the middle
+   position, the mean of two, otherwise the two middle ones weighted by the spread on the other
+   side) each followed by transposition (adjacent swaps, at most eight passes, skipped for pairs
+   whose degrees multiply to more than 2500), the order with the fewest crossings kept and the
+   rounds stopped after four without improvement. Crossings are counted per round in
+   `O(E log V)` with a Fenwick tree (the accumulator tree of Barth, Jünger and Mutzel); ties go
+   to the position, then the node number. The members of a cluster are gathered afterwards and
+   the clusters put in one order in every layer.
+4. *Coordinates*: Brandes and Köpf's four alignments with type 1 conflict marking (a segment
+   between two dummy nodes always wins against a crossing segment), compacted by a longest path
+   through the block graph, balanced by the mean of the two median values; then `refine` (8)
+   passes that move a node, or a straight run of dummy nodes, towards the median of its
+   neighbours; then network simplex on the weighted horizontal length of the edges (Gansner et
+   al., section 4.2: a node for each segment between adjacent layers, weight 1 for two real
+   nodes, 2 for one dummy, 8 for two, and an edge of the least separation between neighbours in
+   a layer) started from that result. Every exchange improves the coordinates, so the search has
+   a bound on the work (`coordinateWork`, 9 million steps) and returns what it has when that is
+   used up: a graph of 800 nodes finishes (about 800 exchanges), a graph of 3000 nodes (about
+   200 of the 4700 it needs) does not. `O(V + E)` per alignment plus sorting of neighbours.
 5. *Edges*: cubic Bézier curves through the dummy points, monotone along the layers (no
    overshoot) and perpendicular to them at the ends, or horizontal and vertical segments with
    rounded corners whose horizontal runs share a gap on separate tracks; ends spread along the
@@ -192,40 +204,71 @@ other nodes out of them, so a box may hold nodes that are not members and boxes 
 **Proved** (`PILean.Graph.Proofs`, axioms `propext`, `Classical.choice`, `Quot.sound` only):
 `fixLayers_lt` (relaxing edges in an order in which no later edge ends where an earlier one
 starts puts every target below its source, from any starting layers), `assignLayers_lt` and
-`assignLayers_lt_input` (for the function the layout calls, every acyclic edge, and so every
+`assignLayers_lt_input` (for the function the layout calls, which now runs the network simplex first and
+relaxes its result, every acyclic edge, and so every
 input edge turned to point from the node that comes first, has `layer src < layer dst`), and
 `layout_edge_indices`, `layout_edges_nodup`, `layout_edges_complete` (the routed edges are
 exactly the valid input edges, in order, each once, by index).
 
 **Measured** (`lake exe pilean-test --graph-bench`; random module graphs from a fixed generator,
 each node depending on one or two others, a few back edges; the machine's load average was
-about 19 during the run, so the times are upper bounds; the PNG is scaled to at most 2500
+17 to 19 during the run, so the times are upper bounds; the PNG is scaled to at most 2500
 pixels on its longer side):
 
 | Nodes | Edges | Dummy nodes | Layout | SVG string | PNG: draw, encode |
 |---|---|---|---|---|---|
-| 100 | 134 | 146 | 8 ms | 4 ms | 737 ms, 736 ms |
-| 800 | 1077 | 2503 | 39 ms | 36 ms | 1681 ms, 377 ms |
-| 3000 | 4019 | 9987 | 164 ms | 137 ms | 3378 ms, 229 ms |
+| 100 | 134 | 107 | 12 ms | 4 ms | 1077 ms, 1020 ms |
+| 800 | 1077 | 1329 | 282 ms | 40 ms | 4865 ms, 1130 ms |
+| 3000 | 4019 | 5571 | 671 ms | 132 ms | 4876 ms, 313 ms |
 
-In the layout of the 3000-node graph the crossing reduction takes 55 ms and the coordinates 20 ms
-(the Brandes–Köpf alignments), the rest is the refinement, the ports and the routes; writing
-the PNG is dominated by the rasteriser, which strokes every curve and shapes every label.
+In the layout of the 800-node graph the layers take 5 ms, the crossing reduction 120 ms, the
+Brandes–Köpf alignments 8 ms, the refinement 6 ms and the network simplex coordinates 126 ms
+(about 800 exchanges, to the optimum); in the 3000-node layout 108, 177, 16, 25 and 275 ms (the
+simplex stopped by its work bound after about 200 exchanges of the 4700 it needs). The rest is
+the ports and the routes. Writing the PNG is dominated by the rasteriser, which strokes every
+curve and shapes every label.
 
 **Against Graphviz `dot`** (`tools/graph-compare.py`; the same node sizes and gaps, curves
-flattened the same way, edges that share a node not counted as crossing):
+flattened the same way, edges that share a node not counted as crossing). Reproduce with
 
-| Graph | Nodes, edges | Crossing edge pairs | Edge length | Area |
-|---|---|---|---|---|
-| hand-made, acyclic | 7, 11 | 1 (dot 1) | 850 px (dot 638) | 48 000 px² (dot 49 000) |
-| hand-made, cycles | 7, 11 | 1 (dot 0) | 957 px (dot 1334) | 63 000 px² (dot 94 000) |
-| module graph | 100, 134 | 163 (dot 132) | 58 700 px (dot 33 900) | 3.2 M px² (dot 2.6 M) |
-| module graph | 800, 1077 | 9 882 (dot 6 190) | 2.2 M px (dot 0.99 M) | 58 M px² (dot 42 M) |
+```
+lake exe pilean-test --graph-compare-out /tmp/pilean-graphs
+python3 -I tools/graph-compare.py /tmp/pilean-graphs
+```
 
-On small graphs the two agree. On the random graphs dot's drawings are tighter: dot needs fewer
-crossings and shorter edges, because it places nodes by network simplex and so draws edges
-shorter and the layers narrower. Closing that gap would need a network simplex layering and
-coordinate assignment.
+The graphs are the hand-made ones, the random module graphs of 100, 800 and 3000 nodes, the
+import graph of this library and its tests (`own-imports`, 92 nodes, 205 edges) and the import
+graph of a project of 89 modules (`project-imports`, 88 nodes with an edge, 173 edges; module
+names replaced by neutral ids; both are edge lists in `PILeanTest/GraphFixtures.lean`). Each cell
+is PILean before the work on the layering, the ordering and the coordinates, PILean now, and
+`dot`:
+
+| Graph | Crossing pairs | Edge length (px) | Area (M px²) |
+|---|---|---|---|
+| hand-made, acyclic (7, 11) | 1 / 1 / 1 | 850 / 913 / 638 | 0.05 / 0.05 / 0.05 |
+| hand-made, cycles (7, 11) | 1 / 1 / 0 | 957 / 969 / 1334 | 0.06 / 0.06 / 0.09 |
+| module graph (100, 134) | 163 / 147 / 132 | 58 700 / 30 400 / 33 900 | 3.2 / 2.1 / 2.6 |
+| module graph (800, 1077) | 9 882 / 8 553 / 6 190 | 2.22 M / 0.96 M / 0.99 M | 58 / 23 / 42 |
+| module graph (3000, 4019) | 150 073 / 113 378 / 106 605 | 34.2 M / 20.8 M / 12.7 M | 282 / 207 / 125 |
+| own imports (92, 205) | 336 / 229 / 213 | 154 800 / 90 400 / 108 100 | 7.2 / 3.9 / 5.5 |
+| project imports (88, 173) | 164 / 169 / 140 | 56 200 / 40 600 / 46 400 | 3.7 / 2.1 / 3.5 |
+
+Layout time in milliseconds, PILean before / PILean now / `dot` (wall clock of the `dot` process,
+which starts in about 20 ms): 7 / 6 / 20, 6 / 6 / 20, 8 / 13 / 29, 45 / 275 / 550,
+198 / 678 / 4891, 29 / 37 / 49 and 16 / 20 / 40. The "before" run had a load average of 22 to
+28, the "now" run 19 to 21.
+
+PILean now needs at most 1.15 times the edge length of `dot` on every graph except the
+7-node acyclic one (1.4 times) and the 3000-node one (1.65 times), and at most 1.15 times its
+crossings on the 100-node, the 3000-node and the own-imports graphs (1.11, 1.06 and 1.08 times);
+on the project imports it needs 1.21 times and on the 800-node graph 1.38 times the crossings,
+so the aim of 1.15 times at 800 nodes is met for edge length (0.97) and area (0.55) but not for
+crossings. Its drawings are shorter and smaller than `dot`'s except at 3000 nodes. The layerings
+differ: `dot` draws the 800-node graph in 51 layers (total span of the edges 3 488), PILean in
+33 (the least possible total span for its own cycle removal); taller drawings probably leave
+more room to untangle the edges. At 3000 nodes the network simplex of the coordinates is stopped
+by its work bound (see the phases), which is why the edge length there is 1.65 times that of
+`dot`; the layout takes about a seventh of the time `dot` needs.
 
 ## Plots
 
@@ -283,7 +326,10 @@ same text between their numbers (path data with the same commands, coordinates, 
 steps otherwise (then every frame is a keyframe); when the frames' structure differs, each frame is
 its own group shown in turn. Every animation has a poster frame (the last frame by default),
 written as still SVG and PNG, and contained in the animated SVG, where a style rule shows it
-instead of the motion under `prefers-reduced-motion: reduce`.
+instead of the motion under `prefers-reduced-motion: reduce`. `tools/anim-browser-check.py` loads
+the wave and the graph-build animations in headless Chromium (through Playwright): the pictures at
+0 s and 1.3 s differ, and with `prefers-reduced-motion: reduce` the motion is hidden, the picture
+does not change with time and it matches the poster PNG.
 
 A 120-frame animation of 640 × 360 pixels (the travelling wave, `lake exe pilean-test
 --anim-bench`, load average about 14.5): drawing the frames 5.6 s; animated SVG 0.1 s (134,789

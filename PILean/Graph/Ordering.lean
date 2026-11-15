@@ -310,7 +310,9 @@ def orderLayers (layerAll : Array Nat) (up down : Array (Array Nat)) (sweeps : N
   if a.2 == 0 || size > 6000 then a.1
   else
     let b := reduceFrom size (initialLayersBfs layerAll up down) up down sweeps
-    if b.2 < a.2 then b.1 else a.1
+    let c := reduceFrom size (initialLayers layerAll down up) up down sweeps
+    let best := if b.2 < a.2 then b else a
+    if c.2 < best.2 then c.1 else best.1
 
 /-- Gathers the members of each cluster: every cluster gets one place across the whole drawing,
 the mean of its members' relative positions in their layers (position plus a half, over the

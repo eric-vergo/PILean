@@ -168,7 +168,7 @@ def main():
         try:
             with open(os.path.join(directory, name + ".time")) as f:
                 ours_ms, load = f.read().split(None, 1)
-                load = load.strip()
+                load = " ".join(load.strip("{} \n").split()[:3])
         except OSError:
             ours_ms, load = "?", ""
         for label, m, ms in (("PILean", ours, ours_ms), ("dot", theirs, f"{seconds * 1000:.0f}")):
