@@ -138,7 +138,47 @@ def animation : Array (String × Bool) :=
       | _, _ => false),
     ("animation: deterministic", sw.toSvg == sw.toSvg && sw.toGif.toOption == sw.toGif.toOption)]
 
+/-- Whether values ascend strictly and lie in `[lo, hi]` (up to a relative 1e-9). -/
+def ordered (vs : Array Float) (lo hi : Float) : Bool :=
+  let eps := 1e-9 * max 1 (max lo.abs hi.abs)
+  vs.all (fun v => v ≥ min lo hi - eps && v ≤ max lo hi + eps) &&
+    (List.range (vs.size - 1)).all fun i => (vs[i]?.getD 0) < (vs[i + 1]?.getD 0)
+
+/-- On every axis of every gallery figure, the ticks ascend strictly and lie in the axis's
+range. -/
+def galleryTicks : Array (String × Bool) :=
+  gallery.map fun (name, fig) =>
+    (s!"ticks of {name}: ascending, inside the axes",
+      fig.layout.all fun l => ordered l.sx.major l.sx.lo l.sx.hi &&
+        ordered l.sy.major l.sy.lo l.sy.hi && ordered l.sy.minor l.sy.lo l.sy.hi)
+
+/-- Times a 120-frame animation (the travelling wave, 640 × 360, four seconds at 30 frames a
+second) in each format: animated SVG, APNG and GIF, and drawing the frames alone; prints the
+times and sizes with the load average. -/
+def animBench : IO Unit := do
+  let a : Animation := { Animations.wave with duration := 4 }
+  let load ← try (IO.Process.output { cmd := "sysctl", args := #["-n", "vm.loadavg"] })
+    catch _ => pure { exitCode := 1, stdout := "", stderr := "" }
+  let time := fun {α : Type} (f : Unit → α) => do
+    let t0 ← IO.monoNanosNow
+    let r ← IO.lazyPure f
+    let t1 ← IO.monoNanosNow
+    return (r, (t1 - t0) / 1000000)
+  let (frames, tf) ← time fun _ => a.frameSeq
+  let (svg, ts) ← time fun _ => a.toSvg
+  let (apng, ta) ← time fun _ => frames.toApng
+  let (gif, tg) ← time fun _ => frames.toGif
+  IO.println s!"{a.frameCount} frames of {a.width} × {a.height} (load {load.stdout.trimAscii}):"
+  IO.println s!"  draw the frames {tf} ms; SVG {ts} ms, {svg.utf8ByteSize} bytes"
+  IO.println s!"  APNG encode {ta} ms, {(apng.toOption.map (·.size)).getD 0} bytes"
+  IO.println s!"  GIF encode {tg} ms, {(gif.toOption.map (·.size)).getD 0} bytes"
+
 /-- All the checks. -/
-def checks : Array (String × Bool) := scales ++ sampler ++ figures ++ canvas ++ animation
+def checks : Array (String × Bool) :=
+  scales ++ sampler ++ figures ++ canvas ++ animation ++ galleryTicks
 
 end PILeanTest.Plots
+
+#print axioms PILean.Plot.tickMultipliers_strictlyIncreasing
+#print axioms PILean.Plot.mem_tickMultipliers
+#print axioms PILean.Plot.tickMultipliers_length
