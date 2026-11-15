@@ -7,8 +7,8 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 # What the example's figures show
 
 The triangular numbers, defined in a module of their own, as a manual's subject would be: the
-figure that plots them (`ManualExample.trianglePlot`) is in another module, and the theorem it is
-linked to speaks of `triangle`, not of the figure.
+figure that plots them (`ManualExample.trianglePlot`) is in another module, and links to a theorem
+of its own module that applies `two_mul_triangle` to the points it draws.
 -/
 
 namespace ManualExample

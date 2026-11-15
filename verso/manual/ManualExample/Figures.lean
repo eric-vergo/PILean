@@ -11,7 +11,7 @@ import ManualExample.Defs
 # The example manual's figures
 
 * `trianglePlot`: the triangular numbers 0 to 12, from `ManualExample.triangle` (another
-  module), linked to `two_mul_triangle`;
+  module), linked to `trianglePoints_spec`, which applies `two_mul_triangle` to its points;
 * `divisorGraph`: the divisors of 12 joined by the covering relation of divisibility;
 * `marks`: two numbered marks drawn over a picture of the site (`backdrop`), in each theme.
 -/
@@ -23,6 +23,15 @@ open PILean PILean.Plot PILean.Trust
 /-- The points `(n, triangle n)` for `n` from 0 to 12. -/
 def trianglePoints : List (Int × Int) :=
   (List.range 13).map fun n => (Int.ofNat n, Int.ofNat (triangle n))
+
+/-- Every point of `trianglePlot` satisfies the closed form of `two_mul_triangle`: twice its
+height is `n (n + 1)`. -/
+theorem trianglePoints_spec : ∀ p ∈ trianglePoints, 2 * p.2 = p.1 * (p.1 + 1) := by
+  intro p hp
+  simp only [trianglePoints, List.mem_map, List.mem_range] at hp
+  obtain ⟨n, -, rfl⟩ := hp
+  show (2 : Int) * (triangle n : Int) = (n : Int) * ((n : Int) + 1)
+  exact_mod_cast two_mul_triangle n
 
 /-- The triangular numbers 0 to 12. -/
 @[figure]

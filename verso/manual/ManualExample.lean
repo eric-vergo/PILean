@@ -23,7 +23,7 @@ tag := "manual-example"
 
 # Numbers
 
-:::figure ManualExample.trianglePlot (label := "triangle") (alt := "A line through the points (n, n(n+1)/2) for n from 0 to 12, rising from 0 to 78.") (proves := ManualExample.two_mul_triangle)
+:::figure ManualExample.trianglePlot (label := "triangle") (alt := "A line through the points (n, n(n+1)/2) for n from 0 to 12, rising from 0 to 78.") (proves := ManualExample.trianglePoints_spec)
 The triangular numbers, $`0 + 1 + \cdots + n`.
 :::
 

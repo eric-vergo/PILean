@@ -45,10 +45,11 @@ the name as code and the file linked to the repository when the build names one 
 ## What the build checks
 
 * When the chapter is elaborated: the declaration has `@[figure]`; the text alternative is given;
-  the theorem named by `proves` exists, is a theorem, depends on no `sorry` and no axiom beyond
-  `propext`, `Classical.choice` and `Quot.sound`, and its statement mentions the figure or
-  something it is built from: a declaration the figure's definition uses, directly or through
-  definitions of its own module, that is neither part of Lean's libraries nor of PILean;
+  the theorem named by `proves` passes PILean's rule (`figure_proves`): it is a theorem, depends
+  on no `sorry` and no axiom beyond `propext`, `Classical.choice` and `Quot.sound`, and its
+  statement mentions the figure or a declaration of the figure's module that the figure uses
+  directly (a theorem about a function from elsewhere is linked through one of the figure's module
+  that applies it to the figure's values);
   `format`, `width` and `backdrop` are valid.
 * When the manual is generated: every figure is rendered with PILean, every SVG must be inert
   (`PILean.Svg.inertProblem?`), and the figures folder the generator wrote

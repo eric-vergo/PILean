@@ -83,7 +83,7 @@ def main : IO UInt32 := do
     check (has numbers "alt=\"A line through the points") "the text alternative is the given one"
     check (has numbers "pilean-figure-has-dark" && has numbers "trianglePlot-dark.svg")
       "a figure has its dark picture"
-    check (has numbers "Proved by" && has numbers "ManualExample.two_mul_triangle")
+    check (has numbers "Proved by" && has numbers "ManualExample.trianglePoints_spec")
       "the theorem is named"
     check (has numbers "ManualExample/Figures.lean:") "the source line names the file and line"
     check (has numbers "class=\"pilean-figref\"") "the reference links to the figure"

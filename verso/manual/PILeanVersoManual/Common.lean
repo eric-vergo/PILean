@@ -2,7 +2,6 @@
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
-import Lean.Util.CollectAxioms
 import VersoManual
 import PILean.Trust.Attr
 import PILeanVersoManual.Render
@@ -20,7 +19,7 @@ add the numbering and the way a declaration's name is shown.
 ## Main definitions
 
 * `FigureData`, `FigureConfig`: what a figure block records, and its directive's arguments
-* `checkTheorem`: the check of the theorem named by `proves :=`
+* `checkTheorem`: the check of the theorem named by `proves :=` (PILean's own rule)
 * `Placed`, `Registry`, `traverseFigureWith`: numbers, anchors and files during traversal
 * `figureHtmlWith`, `figureListHtmlWith`: the HTML of a figure and of the figures page
 * `withFiguresFor`: the generator wrapper's work, given the figures a document uses
@@ -120,9 +119,6 @@ end
 
 /-! ### Checks made when the directive is elaborated -/
 
-/-- The axioms a theorem about a figure may depend on. -/
-def standardAxioms : List Name := [``propext, ``Classical.choice, ``Quot.sound]
-
 /-- Whether `s` is a CSS length a figure accepts for `width`: a number of at most six digits with
 an optional fraction, then `%`, `px`, `rem`, `em`, `ch` or `vw`. -/
 def isCssLength (s : String) : Bool :=
@@ -175,66 +171,15 @@ def declRef (n : Name) : CoreM DeclRef := do
 /-- The module a declaration is in (`none` for the current module). -/
 def moduleOf? (env : Environment) (n : Name) : Option ModuleIdx := env.getModuleIdxFor? n
 
-/-- Whether a module belongs to Lean's own libraries or to PILean, whose declarations a figure
-uses to draw rather than to say what it shows. -/
-def isToolModule (m : Name) : Bool :=
-  [`Init, `Std, `Lean, `PILean].any (·.isPrefixOf m)
-
-/-- What the figure `fig` is built from: the declarations its definition uses directly, and,
-when `outside` is set, also the declarations of other modules (not Lean's libraries nor PILean)
-that the definitions of `fig`'s own module it uses reach, following those definitions at most
-`depth` steps. -/
-def figureIngredients (env : Environment) (fig : Name) (outside : Bool) (depth : Nat := 8) :
-    Array Name := Id.run do
-  let home := moduleOf? env fig
-  let uses (n : Name) : Array Name :=
-    (env.find? n).bind (·.value?) |>.map (·.getUsedConstants) |>.getD #[]
-  let direct := uses fig
-  let mut found : Array Name := direct.filter fun c => moduleOf? env c == home
-  if !outside then return found
-  let mut frontier : Array Name := #[fig]
-  let mut seen : Std.HashSet Name := ({} : Std.HashSet Name).insert fig
-  for _ in [0:depth] do
-    let mut next : Array Name := #[]
-    for n in frontier do
-      for c in uses n do
-        if seen.contains c then continue
-        seen := seen.insert c
-        if moduleOf? env c == home then
-          found := found.push c
-          next := next.push c
-        else
-          let mod := (moduleOf? env c).map fun i => env.header.moduleNames[i.toNat]!
-          if let some m := mod then
-            if !isToolModule m then found := found.push c
-    if next.isEmpty then break
-    frontier := next
-  return found
-
-/-- Checks the theorem `thm` named by `proves :=` for the figure `fig`: it exists, is a theorem,
-depends on no `sorry` and no axiom beyond `standardAxioms`, and its statement mentions `fig` or
-what `fig` is built from (`figureIngredients`; with `outside`, declarations of other modules
-count too). -/
-def checkTheorem (fig : Name) (thm : Ident) (outside : Bool := false) : CoreM Name := do
-  let env ← getEnv
+/-- Checks the theorem `thm` named by `proves :=` for the figure `fig`, by PILean's own rule
+(`PILean.Trust.figureTheoremProblem?`, the check of `figure_proves`): it is a theorem, depends on
+no `sorry` and no axiom beyond `propext`, `Classical.choice` and `Quot.sound`, and its statement
+mentions `fig` or a declaration of `fig`'s module that `fig`'s definition uses directly. A
+theorem about a function the figure calls from elsewhere is linked through a theorem of the
+figure's module that applies it to the values the figure draws. -/
+def checkTheorem (fig : Name) (thm : Ident) : CoreM Name := do
   let thmName ← realizeGlobalConstNoOverloadWithInfo thm
-  let some info := env.find? thmName | throwErrorAt thm "unknown declaration {thmName}"
-  unless info matches .thmInfo _ do
-    throwErrorAt thm "{thmName} is not a theorem; `proves :=` names a theorem about the figure"
-  let axioms ← collectAxioms thmName
-  if axioms.contains ``sorryAx then
-    throwErrorAt thm "{thmName} depends on `sorry`; a figure links only to a proved theorem"
-  for a in axioms do
-    unless standardAxioms.contains a do
-      throwErrorAt thm "{thmName} depends on the axiom {a}; a figure links only to theorems \
-        that use propext, Classical.choice and Quot.sound at most"
-  let used := info.type.getUsedConstants
-  let ingredients := figureIngredients env fig outside
-  unless used.contains fig || ingredients.any used.contains do
-    let what := if outside then "anything it is built from" else
-      "a declaration of its module that it uses directly"
-    throwErrorAt thm "{thmName} does not mention {fig} or {what}, so it is not a statement \
-      about this figure"
+  if let some msg ← figureTheoremProblem? fig thmName then throwErrorAt thm msg
   return thmName
 
 /-- The record of a declaration with `@[figure]`, or an error naming the declaration. -/
