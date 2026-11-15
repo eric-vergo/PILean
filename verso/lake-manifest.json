@@ -48,12 +48,21 @@
    "configFile": "lakefile.lean"
   },
   {
+   "type": "path",
+   "scope": "",
+   "name": "«pilean-verso-manual»",
+   "manifestFile": "lake-manifest.json",
+   "inherited": false,
+   "dir": "./manual",
+   "configFile": "lakefile.lean"
+  },
+  {
    "url": "https://github.com/leanprover/verso-slides",
    "type": "git",
    "subDir": null,
    "scope": "",
    "rev": "b43d452d8023773b0731899b51bc6d373c17b111",
-   "name": "\u00abverso-slides\u00bb",
+   "name": "«verso-slides»",
    "manifestFile": "lake-manifest.json",
    "inputRev": "v4.35.0",
    "inherited": true,

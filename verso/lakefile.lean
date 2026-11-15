@@ -12,7 +12,9 @@ Blueprint sites: the directive `figure`, the figures page, and the generator wra
 every figure a document uses, writes the files with a manifest and checks them.
 
 PILean itself (the package in the parent directory) has no dependencies; this package adds Verso
-and Verso Blueprint, at fixed commits.
+and Verso Blueprint, at fixed commits. What it shares with the adapter for plain Verso manuals
+(rendering, light and dark outputs, the table of figures, the stylesheet, the records, checks and
+HTML of a figure block) is the package `pilean-verso-manual` in the folder `manual/`.
 -/
 
 open Lake DSL
@@ -25,6 +27,7 @@ require verso from git "https://github.com/eric-vergo/verso" @
 require VersoBlueprint from git "https://github.com/eric-vergo/verso-blueprint.git" @
   "cd3f3c51d7907ed27a120bb7a2b8bbe5c24c6854"
 require pilean from ".."
+require «pilean-verso-manual» from "manual"
 
 package «pilean-verso» where
   leanOptions := #[⟨`linter.missingDocs, true⟩, ⟨`autoImplicit, false⟩]

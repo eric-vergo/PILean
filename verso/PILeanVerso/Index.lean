@@ -29,78 +29,11 @@ open PILean.Trust
 
 /-! ### The figures page -/
 
-/-- A link to the figure placed as `p`, if the traversal gave it an anchor. -/
-def placedLink? (st : TraverseState) (p : Placed) : Option String := do
-  let .ok (id : InternalId) := Lean.Json.parse p.key >>= fromJson? | none
-  let link ← st.resolveId id
-  pure link.link
-
-/-- The label of a file in the list of files: its format and theme. -/
-def fileLabel (f : FileInfo) : String :=
-  let fmt := match f.format with
-    | "svg" => "SVG"
-    | "png" => "PNG"
-    | "apng" => "APNG"
-    | "gif" => "GIF"
-    | other => other
-  match f.name with
-  | "" => fmt
-  | "-dark" => s!"{fmt} (dark)"
-  | "-poster" => s!"{fmt} (still)"
-  | n => s!"{fmt} ({(n.drop 1).toString})"
-
-/-- One entry of the figures page. -/
-def indexEntry (st : TraverseState) (p : Placed) : Html :=
-  let d := p.data
-  let href := (placedLink? st p).getD "#"
-  let thumb := match pick? p.files "svg" "" <|> pick? p.files "png" "" with
-    | some f => {{<a class="pilean-index-thumb" href={{href}}>
-        {{imgTag f "pilean-index-img" d.alt d.title none}}</a>}}
-    | none => .empty
-  let files := p.files.map fun f =>
-    {{<a href={{fileUrl f.path}} title={{s!"{f.bytes} bytes, SHA-256 {f.sha256}"}}>
-      {{.text true (fileLabel f)}}</a>}}
-  let thm : Html := match d.proves with
-    | some t =>
-      {{<dt>"Theorem"</dt><dd>{{declHtml t.name}} {{placeHtml t.file t.line p.theoremHref}}</dd>}}
-    | none => {{<dt>"Theorem"</dt><dd>"none named"</dd>}}
-  let caption : Html := .seq <| d.caption.map fun (m, t) =>
-    if m then {{<code class="bp_math inline">{{.text true t}}</code>}} else .text true t
-  {{<li>
-      {{thumb}}
-      <div class="pilean-index-body">
-        <p class="pilean-index-title"><a href={{href}}>{{.text true s!"Figure {p.number}"}}</a>
-          {{caption}}</p>
-        <dl class="pilean-index-facts">
-          <dt>"Source"</dt><dd>{{declHtml d.decl}} {{placeHtml d.file d.line p.sourceHref}}</dd>
-          <dt>"Fingerprint"</dt><dd>{{fingerprintHtml (shownFingerprint p)}}</dd>
-          <dt>"Files"</dt><dd class="pilean-index-files">{{files}}</dd>
-          {{thm}}
-        </dl>
-      </div>
-    </li>}}
-
-/-- The body of the figures page. -/
-def figureListHtml (st : TraverseState) : Html :=
-  let reg := Registry.get st
-  let placed := reg.placed.qsort (·.order < ·.order)
-  let intro := {{<p class="pilean-figure-index-intro">
-      "Every picture on this site was drawn by the site's build from the Lean declaration named
-      beside it. The fingerprint covers what the picture shows and the declaration's source; "
-      <a href={{fileUrl manifestName}}>"the manifest"</a>
-      " lists every file with its SHA-256, and " <code>"pilean-verify"</code>
-      " checks a copy of the folder against it."</p>}}
-  if placed.isEmpty then
-    {{<div class="pilean-figure-list">{{intro}}<p>"This document has no figures."</p></div>}}
-  else
-    {{<div class="pilean-figure-list">{{intro}}
-      <ol class="pilean-figure-index">{{placed.map (indexEntry st)}}</ol></div>}}
-
 -- The figures page's block.
 block_extension Block.figureList where
   traverse _ _ _ := pure none
   toHtml := some fun _goI _goB _id _json _contents => do
-    pure (figureListHtml (← HtmlT.state))
+    pure (figureListHtmlWith blueprintDeclStyle "bp_math inline" (← HtmlT.state))
   toTeX := some fun _ _ _ _ _ => pure (.text "The list of figures is in the HTML version.")
   extraCss := [figureCss]
 
