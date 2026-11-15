@@ -53,8 +53,9 @@ structure LayeredOptions where
   edgeGap : Float := 14
   /-- How edges are drawn. -/
   routing : Routing := .spline
-  /-- The number of barycenter sweeps of the crossing reduction. -/
-  sweeps : Nat := 8
+  /-- The most rounds of weighted-median sweeps (each followed by transposition) of the
+  crossing reduction. -/
+  sweeps : Nat := 24
   /-- The number of passes that straighten edges after the coordinates are assigned. -/
   refine : Nat := 8
   /-- The height of a node box. -/

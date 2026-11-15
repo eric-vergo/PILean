@@ -298,19 +298,25 @@ def bench : IO Unit := do
     let built ← IO.lazyPure fun _ =>
       let (chains, layerAll) := buildChains lay oriented
       let (up, down) := chainNeighbours layerAll.size chains
-      (layerAll, up, down)
+      (chains, layerAll, up, down)
     let chainMs ← msSince t2
-    let (layerAll, up, down) := built
+    let (chains, layerAll, up, down) := built
     let size := layerAll.size
     let t3 ← IO.monoNanosNow
     let order ← IO.lazyPure fun _ =>
-      orderLayers size (initialLayers layerAll up down) up down o.sweeps
+      orderLayers layerAll up down o.sweeps
     let ordering ← msSince t3
     let t4 ← IO.monoNanosNow
     let bw := (Array.range size).map fun v => if v < n then 70.0 else 0.0
     let sep := separation n bw o.nodeGap o.edgeGap 0 #[]
-    let _ ← IO.lazyPure fun _ => assignBreadth size n order up down sep bw
+    let x0 ← IO.lazyPure fun _ => assignBreadth size n order up down sep bw
     let coords ← msSince t4
+    let t4b ← IO.monoNanosNow
+    let x1 ← IO.lazyPure fun _ => refineBreadth size n chains order up down sep bw x0 o.refine
+    let refined ← msSince t4b
+    let t4c ← IO.monoNanosNow
+    let _ ← IO.lazyPure fun _ => simplexBreadth size n chains order sep x1 8 20000000
+    let simplexMs ← msSince t4c
     let t5 ← IO.monoNanosNow
     let l ← IO.lazyPure fun _ => g.layout o st
     let total ← msSince t5
@@ -328,7 +334,7 @@ def bench : IO Unit := do
     IO.println s!"{n} nodes, {g.edges.size} edges, {size - n} dummy nodes, {crossingsNow} \
       crossings, picture {l.width} × {l.height}"
     IO.println s!"  layout {total} ms (cycles {cycles}, layers {layers}, chains {chainMs}, \
-      ordering {ordering}, coordinates {coords}); SVG {svgMs} ms \
+      ordering {ordering}, coordinates {coords}, refine {refined}, simplex {simplexMs}); SVG {svgMs} ms \
       ({svg.length} bytes); PNG at scale {scale}: draw {rasterMs} ms, encode {pngMs} ms \
       ({match png with | .ok b => b.size | .error _ => 0} bytes)"
   IO.println s!"load average after: {← loadAverage}"

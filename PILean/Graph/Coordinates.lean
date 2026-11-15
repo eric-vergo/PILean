@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import Std.Data.HashSet
 import PILean.Graph.Ordering
+import PILean.Graph.Simplex
 
 /-!
 # Horizontal coordinate assignment
@@ -188,6 +189,57 @@ def assignBreadth (size n : Nat) (order : Array (Array Nat)) (up down : Array (A
   let xs := (Array.range size).map fun v => medianMean (at_ 0 v) (at_ 1 v) (at_ 2 v) (at_ 3 v)
   let left := lo xs
   return xs.map (· - left)
+
+/-- The coordinates that minimise the weighted total horizontal length of the segments of the
+chains, by network simplex (Gansner et al., section 4.2), starting from the coordinates `x`:
+every segment `(a, b)` of a chain becomes a node `s` with edges `s → a` and `s → b` of length `0`
+(so that `s` sits at the least of the two and the cost of the segment is `|x a - x b|`), the
+weight `1` for two real nodes, `2` for one dummy node and `8` for two (long edges stay straight);
+neighbours `u`, `v` in a layer get an edge `u → v` of length `sep u v` and weight `0`.
+
+Coordinates are whole numbers of half pixels (the separation is rounded up to half pixels). The
+start is `x` rounded and moved right where a separation would be violated. The method never makes a coordinate assignment worse, so
+it stops after `rounds m + 50` exchanges for `m` variables, or when the work (`budget`, in the
+units of `simplexComponent`) is used up, and returns what it has. -/
+def simplexBreadth (size n : Nat) (chains order : Array (Array Nat)) (sep : Nat → Nat → Float)
+    (x : Array Float) (rounds budget : Nat) : Array Float := Id.run do
+  let toHalf := fun (f : Float) => Int.ofNat (f * 2).ceil.toUInt64.toNat
+  -- the start: positions in half pixels, repaired layer by layer
+  let mut pos : Array Int := x.map fun f => Int.ofNat (f * 2).round.toUInt64.toNat
+  let mut pairs : Array (Nat × Nat × Int) := #[]
+  for layer in order do
+    for j in [1:layer.size] do
+      let u := layer.getD (j - 1) 0
+      let v := layer.getD j 0
+      let l := toHalf (sep u v)
+      pos := pos.setIfInBounds v (max (pos.getD v 0) (pos.getD u 0 + l))
+      pairs := pairs.push (u, v, l)
+  let mut start := pos
+  let mut tails : Array Nat := #[]
+  let mut heads : Array Nat := #[]
+  let mut minlen : Array Int := #[]
+  let mut weight : Array Int := #[]
+  for (u, v, l) in pairs do
+    tails := tails.push u
+    heads := heads.push v
+    minlen := minlen.push l
+    weight := weight.push 0
+  let mut total := size
+  for c in chains do
+    for j in [1:c.size] do
+      let a := c.getD (j - 1) 0
+      let b := c.getD j 0
+      let w : Int := if a ≥ n && b ≥ n then 8 else if a ≥ n || b ≥ n then 2 else 1
+      start := start.push (min (pos.getD a 0) (pos.getD b 0))
+      tails := (tails.push total).push total
+      heads := (heads.push a).push b
+      minlen := (minlen.push 0).push 0
+      weight := (weight.push w).push w
+      total := total + 1
+  let (r, pv) := simplexSolve total tails heads minlen weight start rounds budget
+  let r := dbgTrace s!"simplex x: nodes {total} edges {tails.size} pivots {pv}" fun _ => r
+  if r.size != total then return x
+  return (Array.range size).map fun v => (r.getD v 0).toNat.toFloat / 2
 
 /-- The median of a list of numbers (the mean of the two middle ones for an even count), `none`
 for no numbers. -/

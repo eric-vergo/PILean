@@ -105,6 +105,35 @@ def initialLayers (layerAll : Array Nat) (up down : Array (Array Nat)) : Array (
         layers := layers.modify (layerAll.getD v 0) (·.push v)
     return layers
 
+/-- The nodes by layer, in the order of a breadth-first search from the nodes without neighbours
+above (in node order, each node's lower neighbours in listed order). Nodes the search does not
+reach follow in node order. Work: `O(V + E)`. -/
+def initialLayersBfs (layerAll : Array Nat) (up down : Array (Array Nat)) : Array (Array Nat) :=
+  Id.run do
+    let size := layerAll.size
+    let count := layerAll.foldl (fun m l => max m (l + 1)) 0
+    let mut layers : Array (Array Nat) := Array.replicate count #[]
+    let mut seen : Array Bool := Array.replicate size false
+    let mut queue : Array Nat := #[]
+    for root in [0:size] do
+      if (up.getD root #[]).isEmpty then
+        seen := seen.setIfInBounds root true
+        queue := queue.push root
+    let mut head := 0
+    for _ in [0:size + 1] do
+      if head ≥ queue.size then break
+      let v := queue.getD head 0
+      head := head + 1
+      layers := layers.modify (layerAll.getD v 0) (·.push v)
+      for w in down.getD v #[] do
+        if !seen.getD w true then
+          seen := seen.setIfInBounds w true
+          queue := queue.push w
+    for v in [0:size] do
+      if !seen.getD v true then
+        layers := layers.modify (layerAll.getD v 0) (·.push v)
+    return layers
+
 /-- The position of every node in its layer. -/
 def positionsOf (size : Nat) (order : Array (Array Nat)) : Array Nat := Id.run do
   let mut pos : Array Nat := Array.replicate size 0
@@ -163,13 +192,53 @@ def reorder (layer : Array Nat) (nbr : Array (Array Nat)) (pos : Array Nat) : Ar
     l < r || (l == r && (a.2.2.1 < b.2.2.1 || (a.2.2.1 == b.2.2.1 && a.2.2.2 < b.2.2.2)))
   (keyed.qsort lt).map (·.2.2.2)
 
+/-- The weighted median of the sorted positions `ps` of a node's neighbours (Gansner et al.): the
+middle position for an odd count, the mean of the two middle ones for two, and otherwise the
+mean of the two middle positions weighted by the spread of the neighbours on the other side
+(a median leaning towards the denser side). `-1` when `ps` is empty. -/
+def weightedMedian (ps : Array Nat) : Float :=
+  let d := ps.size
+  if d == 0 then -1
+  else
+    let m := d / 2
+    let at_ := fun (i : Nat) => (ps.getD i 0).toFloat
+    if d % 2 == 1 then at_ m
+    else if d == 2 then (at_ 0 + at_ 1) / 2
+    else
+      let left := at_ (m - 1) - at_ 0
+      let right := at_ (d - 1) - at_ m
+      if left + right == 0 then at_ m
+      else (at_ (m - 1) * right + at_ m * left) / (left + right)
+
+/-- A layer reordered by the weighted medians of the positions of the neighbours listed in
+`nbr`: the nodes that have neighbours are sorted by median (ties: current position, then node
+number) into the places those nodes held; the other nodes stay where they are. -/
+def reorderMedian (layer : Array Nat) (nbr : Array (Array Nat)) (pos : Array Nat) :
+    Array Nat := Id.run do
+  let mut keyed : Array (Float × Nat × Nat) := #[]
+  let mut slots : Array Nat := #[]
+  for j in [0:layer.size] do
+    let v := layer.getD j 0
+    let ns := nbr.getD v #[]
+    if !ns.isEmpty then
+      let ps := (ns.map fun u => pos.getD u 0).qsort (· < ·)
+      keyed := keyed.push (weightedMedian ps, j, v)
+      slots := slots.push j
+  let lt := fun (a b : Float × Nat × Nat) =>
+    a.1 < b.1 || (a.1 == b.1 && (a.2.1 < b.2.1 || (a.2.1 == b.2.1 && a.2.2 < b.2.2)))
+  let sorted := keyed.qsort lt
+  let mut out := layer
+  for i in [0:slots.size] do
+    out := out.setIfInBounds (slots.getD i 0) (sorted.getD i (0, 0, 0)).2.2
+  return out
+
 /-- The number of crossings between the edges of two adjacent nodes `u`, `v` of one layer when
 `u` is left of `v` (counting the edges to the neighbours in `nbr`), or `none` when the
 product of the degrees is above the cap. -/
 def pairCrossings (nbr : Array (Array Nat)) (pos : Array Nat) (u v : Nat) : Option Nat :=
   let a := nbr.getD u #[]
   let b := nbr.getD v #[]
-  if a.size * b.size > 400 then none
+  if a.size * b.size > 2500 then none
   else some (a.foldl (fun acc x => acc + b.foldl (fun c y =>
     if pos.getD x 0 > pos.getD y 0 then c + 1 else c) 0) 0)
 
@@ -200,43 +269,55 @@ def transposePass (order : Array (Array Nat)) (pos : Array Nat) (up down : Array
     order := order.setIfInBounds i layer
   return (order, pos, changed)
 
-/-- The order of the nodes inside the layers, from the initial `layers`, `sweeps` barycenter
-sweeps (alternating down and up), keeping the order with the fewest crossings, then at most
-three transposition passes. `up` and `down` list each node's neighbours in the layers above
-and below; the result has the same nodes in the same layers. -/
-def orderLayers (size : Nat) (layers : Array (Array Nat)) (up down : Array (Array Nat))
-    (sweeps : Nat) : Array (Array Nat) := Id.run do
+/-- The order of the nodes inside the layers and its crossings, from the initial `layers`: at most `sweeps` rounds
+of a weighted-median sweep (down on even rounds, up on odd ones) followed by transposition until
+no adjacent swap helps (at most `8` passes), the order with the fewest crossings kept; the search
+stops after `4` rounds in a row that found nothing better. `up` and `down` list each node's
+neighbours in the layers above and below; the result has the same nodes in the same layers. -/
+def reduceFrom (size : Nat) (layers : Array (Array Nat)) (up down : Array (Array Nat))
+    (sweeps : Nat) : Array (Array Nat) × Nat := Id.run do
   let count := layers.size
   let mut order := layers
   let mut pos := positionsOf size order
   let mut best := order
   let mut bestC := totalCrossings order down pos
+  let mut stall := 0
   for s in [0:sweeps] do
-    if bestC == 0 then break
+    if bestC == 0 || stall ≥ 4 then break
     if s % 2 == 0 then
       for i in [1:count] do
-        let r := reorder (order.getD i #[]) up pos
+        let r := reorderMedian (order.getD i #[]) up pos
         order := order.setIfInBounds i r
         for j in [0:r.size] do pos := pos.setIfInBounds (r.getD j 0) j
     else
       for k in [0:count - 1] do
         let i := count - 2 - k
-        let r := reorder (order.getD i #[]) down pos
+        let r := reorderMedian (order.getD i #[]) down pos
         order := order.setIfInBounds i r
         for j in [0:r.size] do pos := pos.setIfInBounds (r.getD j 0) j
+    for _ in [0:8] do
+      let (o, p, changed) := transposePass order pos up down
+      order := o
+      pos := p
+      if !changed then break
     let c := totalCrossings order down pos
     if c < bestC then
       best := order
       bestC := c
-  order := best
-  pos := positionsOf size order
-  for _ in [0:12] do
-    if bestC == 0 then break
-    let (o, p, changed) := transposePass order pos up down
-    order := o
-    pos := p
-    if !changed then break
-  return order
+      stall := 0
+    else stall := stall + 1
+  return (best, bestC)
+
+/-- The order of the nodes inside the layers: `reduceFrom` the depth-first and from the
+breadth-first initial orders, the one with fewer crossings (the depth-first on a tie). -/
+def orderLayers (layerAll : Array Nat) (up down : Array (Array Nat)) (sweeps : Nat) :
+    Array (Array Nat) :=
+  let size := layerAll.size
+  let a := reduceFrom size (initialLayers layerAll up down) up down sweeps
+  if a.2 == 0 then a.1
+  else
+    let b := reduceFrom size (initialLayersBfs layerAll up down) up down sweeps
+    if b.2 < a.2 then b.1 else a.1
 
 /-- Gathers the members of each cluster: every cluster gets one place across the whole drawing,
 the mean of its members' relative positions in their layers (position plus a half, over the

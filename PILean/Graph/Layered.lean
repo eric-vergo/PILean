@@ -142,7 +142,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
       for v in c.members do
         if v < n && (co.getD v none).isNone then co := co.setIfInBounds v (some ci)
     return co
-  let order := groupClusters (orderLayers size (initialLayers layerAll up down) up down o.sweeps)
+  let order := groupClusters (orderLayers layerAll up down o.sweeps)
     fun v => (clusterOf.getD v none)
   -- sizes: nodes, label plates
   let mut bw : Array Float := (Array.range size).map fun v =>
@@ -165,7 +165,8 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let clusterAll : Array (Option Nat) := (Array.range size).map fun v => clusterOf.getD v none
   let sep := separation n bw o.nodeGap o.edgeGap 28 clusterAll
   let x0 := assignBreadth size n order up down sep bw
-  let x := refineBreadth size n chains order up down sep bw x0 o.refine
+  let x1 := refineBreadth size n chains order up down sep bw x0 o.refine
+  let x := simplexBreadth size n chains order sep x1 8 20000000
   let gap := if hasLabels then o.layerGap / 2 else o.layerGap
   let mut levels : Array Float := Array.replicate order.size 0
   let mut t : Float := 0
