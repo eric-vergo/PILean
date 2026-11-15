@@ -81,7 +81,8 @@ inductive Series where
   density. -/
   | histogram (label : String) (values : Array Float) (bins : Option Nat := none)
       (density : Bool := false) (color : Option Rgba := none)
-  /-- The graph of `f` on `[x0, x1]`, sampled adaptively. -/
+  /-- The graph of `f` on `[x0, x1]`, sampled adaptively. Its guarantee is weaker than that of
+  `Series.ofExact`: the sampler is tested (refinement, poles, jumps), not proved. -/
   | function (label : String) (f : Float → Float) (x0 x1 : Float) (color : Option Rgba := none)
       (dash : Array Float := #[])
   /-- Points with vertical error bars, `(below, above)` each. -/
