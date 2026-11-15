@@ -36,6 +36,8 @@ import PILean.Raster.SvgRender
 import PILean.Raster.Proofs
 import PILean.Trust.Sha256
 import PILean.Trust.Sha256Proofs
+import PILean.Trust.Provenance
+import PILean.Version
 
 /-!
 # PILean
