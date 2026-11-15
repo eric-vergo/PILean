@@ -29,8 +29,9 @@ def next (s : UInt64) : UInt64 × Nat :=
 
 /-- A random graph shaped like the dependencies between modules: `n` nodes in a random order,
 each depending on one or two earlier ones, mostly near it in the order (about `4n / 3` edges),
-and `n / 60` back edges that close cycles. The same graph for the same `seed` on every run. -/
-def moduleGraph (seed n : Nat) : Graph := Id.run do
+and `n / 60` back edges that close cycles (with `far := false`, every dependency is on one of
+the `near` nodes before). The same graph for the same `seed` on every run. -/
+def moduleGraph (seed n : Nat) (near : Nat := 30) (far : Bool := true) : Graph := Id.run do
   let mut s : UInt64 := seed.toUInt64 * 2654435761 + 12345
   let mut perm := Array.range n
   for k in [0:n] do
@@ -47,9 +48,9 @@ def moduleGraph (seed n : Nat) : Graph := Id.run do
     let (s2, r2) := next s1
     let (s3, r3) := next s2
     s := s3
-    -- half of the dependencies are on one of the 30 nodes before, the rest anywhere before
+    -- half of the dependencies are on one of the `near` nodes before, the rest anywhere before
     let pick := fun (r : Nat) =>
-      if r % 2 == 0 then i - 1 - (r / 2) % (min i 30) else (r / 2) % i
+      if r % 2 == 0 || !far then i - 1 - (r / 2) % (min i near) else (r / 2) % i
     let j := pick r1
     edges := edges.push { src := perm.getD i 0, dst := perm.getD j 0 }
     if r2 % 3 == 0 then
@@ -130,7 +131,7 @@ def layering : Array (String × Bool) :=
       (cyc.edges.filter fun e => !before pos e.src e.dst).size == 1),
     ("layering: a chain gets consecutive layers",
       assignLayers #[0, 1, 2] 3 [(0, 1), (1, 2)] == #[0, 1, 2]),
-    ("layering: a source is promoted next to its successor",
+    ("layering: a source is moved next to its successor",
       assignLayers #[0, 1, 3, 2] 4 [(0, 1), (1, 2), (3, 2)] == #[0, 1, 2, 1])]
 
 /-- The checks of crossing counting. -/
@@ -301,11 +302,11 @@ def bench : IO Unit := do
     let (layerAll, up, down) := built
     let size := layerAll.size
     let t3 ← IO.monoNanosNow
-    let order ← IO.lazyPure fun _ => orderLayers size (initialLayers layerAll) up down o.sweeps
+    let order ← IO.lazyPure fun _ => orderLayers size (initialLayers layerAll up down) up down o.sweeps
     let ordering ← msSince t3
     let t4 ← IO.monoNanosNow
     let bw := (Array.range size).map fun v => if v < n then 70.0 else 0.0
-    let _ ← IO.lazyPure fun _ => assignBreadth size n order up down bw o.nodeGap o.edgeGap
+    let _ ← IO.lazyPure fun _ => assignBreadth size n order up down (separation n bw o.nodeGap o.edgeGap 0 #[]) bw
     let coords ← msSince t4
     let t5 ← IO.monoNanosNow
     let l ← IO.lazyPure fun _ => g.layout o st

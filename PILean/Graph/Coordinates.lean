@@ -28,6 +28,12 @@ nodes of long edges straight:
 
 Work: `O(V + E)` per alignment up to the sorting of each node's neighbours.
 
+5. **Refinement** (`refineBreadth`): a fixed number of passes that move each *unit* (a node, or
+   a straight run of dummy nodes of one long edge, moved as one) towards the median of the
+   positions of the nodes it is connected to, as far as the separations from its neighbours in
+   the layers allow, alternately from the left and from the right. Straight runs stay straight,
+   the order never changes, and the separations keep holding. Work: `O(passes × (V log V + E))`.
+
 ## References
 
 * Brandes, Köpf, *Fast and simple horizontal coordinate assignment*, Graph Drawing 2001,
@@ -130,6 +136,19 @@ def alignCompact (size : Nat) (marked : Std.HashSet Nat) (layers : Array (Array 
       if indeg.getD r 0 == 0 then queue := queue.push r
   return (Array.range size).map fun v => xs.getD (root.getD v v) 0
 
+/-- The least distance between the centres of `u` left of `v`: half the widths plus `nodeGap`
+(two real nodes), `edgeGap` (two dummy nodes) or their mean (one of each; the nodes numbered `n`
+and above are dummy nodes), plus `clusterGap` when the two are not in the same cluster and one
+is in a cluster (`cluster v` is the number of the cluster of `v`). -/
+def separation (n : Nat) (bw : Array Float) (nodeGap edgeGap clusterGap : Float)
+    (cluster : Array (Option Nat)) (u v : Nat) : Float :=
+  let cu := cluster.getD u none
+  let cv := cluster.getD v none
+  (bw.getD u 0 + bw.getD v 0) / 2 +
+    (if u ≥ n && v ≥ n then edgeGap else if u ≥ n || v ≥ n then (nodeGap + edgeGap) / 2
+      else nodeGap) +
+    (if cu != cv then clusterGap else 0)
+
 /-- The mean of the middle two of four numbers. -/
 def medianMean (a b c d : Float) : Float :=
   let lo := min (min a b) (min c d)
@@ -138,19 +157,14 @@ def medianMean (a b c d : Float) : Float :=
 
 /-- The coordinate of the centre of every node across the layers (`order` is the node order of
 the layers, `up` and `down` the neighbours in the layers above and below, nodes numbered `n` and
-above are dummy nodes, `bw` the widths): four alignments balanced as described in the module
-docstring, shifted so that the leftmost edge of any node is at `0`. Neighbouring nodes of a
-layer are at least `(bw u + bw v) / 2` plus `nodeGap` (two real nodes), `edgeGap` (two dummy
-nodes) or their mean (one of each) apart. -/
+above are dummy nodes, `sep u v` the least distance between the centres of `u` left of `v`, `bw`
+the widths): four alignments balanced as described in the module docstring, shifted so that the
+leftmost edge of any node is at `0`. -/
 def assignBreadth (size n : Nat) (order : Array (Array Nat)) (up down : Array (Array Nat))
-    (bw : Array Float) (nodeGap edgeGap : Float) : Array Float := Id.run do
+    (sep : Nat → Nat → Float) (bw : Array Float) : Array Float := Id.run do
   if size == 0 then return #[]
   let pos := positionsOf size order
   let marked := markConflicts size n order up pos
-  let sep := fun (u v : Nat) =>
-    (bw.getD u 0 + bw.getD v 0) / 2 +
-      (if u ≥ n && v ≥ n then edgeGap else if u ≥ n || v ≥ n then (nodeGap + edgeGap) / 2
-        else nodeGap)
   let mirror := fun (o : Array (Array Nat)) => o.map Array.reverse
   let ul := alignCompact size marked order up sep
   let ur := (alignCompact size marked (mirror order) up sep).map (- ·)
@@ -173,6 +187,74 @@ def assignBreadth (size n : Nat) (order : Array (Array Nat)) (up down : Array (A
   let at_ := fun (k v : Nat) => (shifted.getD k #[]).getD v 0
   let xs := (Array.range size).map fun v => medianMean (at_ 0 v) (at_ 1 v) (at_ 2 v) (at_ 3 v)
   let left := lo xs
+  return xs.map (· - left)
+
+/-- The median of a list of numbers (the mean of the two middle ones for an even count), `none`
+for no numbers. -/
+def medianOf (xs : Array Float) : Option Float :=
+  if xs.isEmpty then none
+  else
+    let s := xs.qsort (· < ·)
+    let k := s.size / 2
+    if s.size % 2 == 1 then s[k]? else
+      match s[k - 1]?, s[k]? with
+      | some a, some b => some ((a + b) / 2)
+      | _, _ => none
+
+/-- Moves units of the layout towards the median of their neighbours, `passes` times (see the
+module docstring). `chains` are the chains of the edges (a unit joins consecutive dummy nodes of
+one chain that are at the same position), `x` the positions to start from, the other arguments
+as in `assignBreadth`. The result satisfies the same separations as `x` does. -/
+def refineBreadth (size n : Nat) (chains order : Array (Array Nat)) (up down : Array (Array Nat))
+    (sep : Nat → Nat → Float) (bw : Array Float) (x : Array Float) (passes : Nat) :
+    Array Float := Id.run do
+  -- neighbours inside the layers
+  let mut leftN : Array Nat := Array.replicate size size
+  let mut rightN : Array Nat := Array.replicate size size
+  for layer in order do
+    for j in [0:layer.size] do
+      let v := layer.getD j 0
+      if j > 0 then leftN := leftN.setIfInBounds v (layer.getD (j - 1) 0)
+      if j + 1 < layer.size then rightN := rightN.setIfInBounds v (layer.getD (j + 1) 0)
+  -- units
+  let mut unitOf : Array Nat := Array.range size
+  for c in chains do
+    for j in [1:c.size] do
+      let v := c.getD j 0
+      let w := c.getD (j - 1) 0
+      if v ≥ n && w ≥ n && (x.getD v 0 - x.getD w 0).abs < 0.5 then
+        unitOf := unitOf.setIfInBounds v (unitOf.getD w w)
+  let mut members : Array (Array Nat) := Array.replicate size #[]
+  for v in [0:size] do
+    members := members.modify (unitOf.getD v v) (·.push v)
+  let units := (Array.range size).filter fun u => !(members.getD u #[]).isEmpty
+  let mut xs := x
+  for pass in [0:passes] do
+    let sorted := units.qsort fun a b =>
+      let xa := xs.getD ((members.getD a #[]).getD 0 0) 0
+      let xb := xs.getD ((members.getD b #[]).getD 0 0) 0
+      if pass % 2 == 0 then xa < xb || (xa == xb && a < b) else xa > xb || (xa == xb && a < b)
+    for u in sorted do
+      let ms := members.getD u #[]
+      let mut near : Array Float := #[]
+      let mut lo : Float := -1e300
+      let mut hi : Float := 1e300
+      for v in ms do
+        for w in up.getD v #[] do
+          if unitOf.getD w w != u then near := near.push (xs.getD w 0)
+        for w in down.getD v #[] do
+          if unitOf.getD w w != u then near := near.push (xs.getD w 0)
+        let l := leftN.getD v size
+        if l < size then lo := max lo (xs.getD l 0 + sep l v)
+        let r := rightN.getD v size
+        if r < size then hi := min hi (xs.getD r 0 - sep v r)
+      match medianOf near with
+      | none => pure ()
+      | some d =>
+        if lo ≤ hi then
+          let target := max lo (min hi d)
+          for v in ms do xs := xs.setIfInBounds v target
+  let left := (Array.range size).foldl (fun m v => min m (xs.getD v 0 - bw.getD v 0 / 2)) 1e300
   return xs.map (· - left)
 
 end PILean.Graph

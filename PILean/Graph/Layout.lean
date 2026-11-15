@@ -55,6 +55,8 @@ structure LayeredOptions where
   routing : Routing := .spline
   /-- The number of barycenter sweeps of the crossing reduction. -/
   sweeps : Nat := 8
+  /-- The number of passes that straighten edges after the coordinates are assigned. -/
+  refine : Nat := 8
   /-- The height of a node box. -/
   nodeHeight : Float := 28
   /-- The space between a node's label and its outline on each side. -/

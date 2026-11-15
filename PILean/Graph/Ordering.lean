@@ -2,6 +2,7 @@
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
+import Std.Data.HashMap
 
 /-!
 # The proper layered graph and crossing reduction
@@ -19,6 +20,8 @@ improved to reduce the crossings between adjacent layers (`orderLayers`):
   a Fenwick tree (the accumulator tree of Barth, Jünger and Mutzel, in an array): `O(E log V)`.
 * **Best order**: after every sweep the order is kept when it has strictly fewer crossings than
   the best so far.
+* **Clusters** (`groupClusters`): the members of a cluster are gathered, and the clusters stand
+  in the same order in every layer.
 * **Transposition**: finally, adjacent nodes of a layer are swapped while that lowers the
   crossings of their edges (`transposePasses`); pairs whose degrees make the count costly are
   skipped, and the number of passes is fixed.
@@ -74,13 +77,33 @@ def chainNeighbours (size : Nat) (chains : Array (Array Nat)) :
       up := up.modify b (·.push a)
   return (up, down)
 
-/-- The nodes by layer, each layer in the order of node numbers. -/
-def initialLayers (layerAll : Array Nat) : Array (Array Nat) := Id.run do
-  let count := layerAll.foldl (fun m l => max m (l + 1)) 0
-  let mut layers : Array (Array Nat) := Array.replicate count #[]
-  for v in [0:layerAll.size] do
-    layers := layers.modify (layerAll.getD v 0) (·.push v)
-  return layers
+/-- The nodes by layer, in the order of a depth-first search from the nodes without neighbours
+above (in node order, each node's lower neighbours in listed order): nodes that are connected
+start near each other. Nodes the search does not reach (none, when every edge runs between
+adjacent layers) follow in node order. Work: `O(V + E)`. -/
+def initialLayers (layerAll : Array Nat) (up down : Array (Array Nat)) : Array (Array Nat) :=
+  Id.run do
+    let size := layerAll.size
+    let count := layerAll.foldl (fun m l => max m (l + 1)) 0
+    let mut layers : Array (Array Nat) := Array.replicate count #[]
+    let mut seen : Array Bool := Array.replicate size false
+    for root in [0:size] do
+      if (up.getD root #[]).isEmpty && !seen.getD root true then
+        let mut stack : Array Nat := #[root]
+        for _ in [0:size + (down.foldl (fun s d => s + d.size) 0) + 1] do
+          match stack.back? with
+          | none => break
+          | some v =>
+            stack := stack.pop
+            if !seen.getD v true then
+              seen := seen.setIfInBounds v true
+              layers := layers.modify (layerAll.getD v 0) (·.push v)
+              for w in (down.getD v #[]).reverse do
+                if !seen.getD w true then stack := stack.push w
+    for v in [0:size] do
+      if !seen.getD v true then
+        layers := layers.modify (layerAll.getD v 0) (·.push v)
+    return layers
 
 /-- The position of every node in its layer. -/
 def positionsOf (size : Nat) (order : Array (Array Nat)) : Array Nat := Id.run do
@@ -207,12 +230,39 @@ def orderLayers (size : Nat) (layers : Array (Array Nat)) (up down : Array (Arra
       bestC := c
   order := best
   pos := positionsOf size order
-  for _ in [0:3] do
+  for _ in [0:12] do
     if bestC == 0 then break
     let (o, p, changed) := transposePass order pos up down
     order := o
     pos := p
     if !changed then break
   return order
+
+/-- Gathers the members of each cluster: every cluster gets one place across the whole drawing,
+the mean of its members' relative positions in their layers (position plus a half, over the
+layer's size), and in each layer its members take that place, in their old order; the other
+nodes keep their relative places. So the clusters stand side by side in the same order in every
+layer. `clusterOf v` is the number of `v`'s cluster, `none` for none (and for dummy nodes).
+Work: `O(V log V)`. -/
+def groupClusters (order : Array (Array Nat)) (clusterOf : Nat → Option Nat) :
+    Array (Array Nat) :=
+  let stats : Std.HashMap Nat (Float × Nat) := Id.run do
+    let mut m : Std.HashMap Nat (Float × Nat) := {}
+    for layer in order do
+      for i in [0:layer.size] do
+        if let some c := clusterOf (layer.getD i 0) then
+          let (sum, cnt) := m.getD c (0, 0)
+          m := m.insert c (sum + (i.toFloat + 0.5) / layer.size.toFloat, cnt + 1)
+    return m
+  order.map fun layer =>
+    let keyed : Array (Float × Nat × Nat) := (Array.range layer.size).map fun i =>
+      match clusterOf (layer.getD i 0) with
+      | some c =>
+        let (sum, cnt) := stats.getD c (0, 1)
+        (sum / cnt.toFloat, c + 1, i)
+      | none => ((i.toFloat + 0.5) / layer.size.toFloat, 0, i)
+    let lt := fun (a b : Float × Nat × Nat) =>
+      a.1 < b.1 || (a.1 == b.1 && (a.2.1 < b.2.1 || (a.2.1 == b.2.1 && a.2.2 < b.2.2)))
+    (keyed.qsort lt).map fun k => layer.getD k.2.2 0
 
 end PILean.Graph

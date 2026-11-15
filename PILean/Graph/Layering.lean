@@ -13,9 +13,10 @@ The first two phases of the layered layout (Sugiyama, Tagawa and Toda; Gansner e
   (for layout only) when it does. Work: `O(V + E)` plus one `O(V)` scan for each time no node is
   a source or sink, so at most `O(V² + E)`; the loop runs at most `3 V + 2` times.
 * **Layer assignment** (`assignLayers`): longest-path layering of the acyclic edges, from the
-  sources, then one promotion pass that moves a node down towards its successors when it has
-  more out-edges than in-edges (shorter edges, fewer dummy nodes), then `fixLayers` once more.
-  Work: `O(V log V + E)`.
+  sources, then a few balancing passes (`balanceLayers`) that move nodes between the layers their
+  neighbours leave free, to shorten edges (fewer dummy nodes) and to even out the layers, then
+  `fixLayers` once more. Work: `O(V log V + E)` for the layering, `O(V (log V + L) + E)` for
+  each balancing pass.
 
 The edges are first oriented by the order of the nodes (`orient`: a pair `(u, v)` stays when `u`
 comes before `v`, else it is turned) and sorted by the order of their source (`acyclicEdges`).
@@ -118,35 +119,56 @@ requires. -/
 def fixLayers (edges : List (Nat × Nat)) (layer : Array Nat) : Array Nat :=
   edges.foldl relax layer
 
-/-- One promotion pass over the acyclic edges `es` from the layers `layer`: in order of
-decreasing layer, a node with more out-edges than in-edges moves down to just above its nearest
-successor. Edges keep pointing downwards (a node never moves past a successor). -/
-def promote (n : Nat) (es : List (Nat × Nat)) (layer : Array Nat) : Array Nat := Id.run do
+/-- Balancing: `rounds` passes over the nodes (from the top layer down, then from the bottom
+up, alternately), each node moving within the layers its neighbours leave free (below all its
+predecessors, above all its successors): to the lowest one when it has more out-edges than
+in-edges, to the highest when it has more in-edges, and otherwise to the freest layer (fewest
+nodes, the current one on ties). Edges stay pointing downwards and the total of the edges' spans
+never grows. Work: `O(rounds × (V log V + E + V L))` for `L` layers. -/
+def balanceLayers (n : Nat) (es : List (Nat × Nat)) (layer : Array Nat) (rounds : Nat) :
+    Array Nat := Id.run do
   let mut outAdj : Array (Array Nat) := Array.replicate n #[]
-  let mut inDeg : Array Nat := Array.replicate n 0
+  let mut inAdj : Array (Array Nat) := Array.replicate n #[]
   for (u, v) in es do
     if u < n && v < n then
       outAdj := outAdj.modify u (·.push v)
-      inDeg := inDeg.modify v (· + 1)
-  let order := (Array.range n).qsort fun a b =>
-    layer.getD a 0 > layer.getD b 0 || (layer.getD a 0 == layer.getD b 0 && a < b)
+      inAdj := inAdj.modify v (·.push u)
+  let top := layer.foldl max 0
   let mut l := layer
-  for u in order do
-    let outs := outAdj.getD u #[]
-    if outs.size > inDeg.getD u 0 then
-      let m := outs.foldl (fun acc v => min acc (l.getD v 0)) (l.getD (outs.getD 0 0) 0)
-      if m ≥ 1 && m - 1 > l.getD u 0 then l := l.setIfInBounds u (m - 1)
+  let mut cnt : Array Nat := Array.replicate (top + 1) 0
+  for v in [0:n] do cnt := cnt.modify (l.getD v 0) (· + 1)
+  for r in [0:rounds] do
+    let order := (Array.range n).qsort fun a b =>
+      let la := l.getD a 0
+      let lb := l.getD b 0
+      if r % 2 == 0 then la < lb || (la == lb && a < b) else la > lb || (la == lb && a < b)
+    for u in order do
+      let outs := outAdj.getD u #[]
+      let ins := inAdj.getD u #[]
+      let lo := ins.foldl (fun a v => max a (l.getD v 0 + 1)) 0
+      let hi := outs.foldl (fun a v => min a (l.getD v 0 - 1)) top
+      let cur := l.getD u 0
+      if lo ≤ cur && cur ≤ hi then
+        let mut target := cur
+        if outs.size > ins.size then target := hi
+        else if ins.size > outs.size then target := lo
+        else
+          for t in [lo:hi + 1] do
+            if cnt.getD t 0 < cnt.getD target 0 then target := t
+        if target != cur then
+          l := l.setIfInBounds u target
+          cnt := (cnt.modify cur (· - 1)).modify target (· + 1)
   return l
 
 /-- The layer of each of the `n` nodes for the edges `edges` (pairs of node numbers below `n`)
-and the node order `pos`: longest-path layers of `acyclicEdges`, promoted, then relaxed once
-more with `fixLayers` (the promotion is used only if it kept the number of nodes, which it
+and the node order `pos`: longest-path layers of `acyclicEdges`, balanced, then relaxed once
+more with `fixLayers` (the balancing is used only if it kept the number of nodes, which it
 always does), so that every acyclic edge points to a larger layer
 (`PILean.Graph.Proofs`). -/
 def assignLayers (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) : Array Nat :=
   let es := acyclicEdges pos edges
   let l0 := fixLayers es (Array.replicate n 0)
-  let l1 := promote n es l0
+  let l1 := balanceLayers n es l0 6
   fixLayers es (if l1.size = n then l1 else l0)
 
 end PILean.Graph

@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean
+import PILeanTest.Graphs
 
 /-!
 # The example gallery
@@ -224,6 +225,71 @@ def gallery : Array (String × Figure) :=
 
 
 
+/-! ### Graphs -/
+
+namespace GraphFigures
+
+open PILean.Graph
+
+/-- The modules of a small compiler, which import each other: a directed graph with two
+clusters and a labelled edge. -/
+def compiler : PILean.Graph :=
+  let names := #["Main", "Cli", "Config", "Log", "Parser", "Lexer", "Ast", "Error", "Eval",
+    "Check", "Types", "Env", "Value", "Util", "Pretty"]
+  let el := fun (a b : Nat) (l : String) => ({ src := a, dst := b, label := l } : Graph.Edge)
+  let e := fun (a b : Nat) => el a b ""
+  { nodes := names.map fun s => { label := s },
+    edges := #[e 0 1, e 0 4, e 0 8, e 1 2, e 1 3, el 4 5 "tokens", e 4 6, e 4 7, e 8 9, e 8 11,
+      e 8 12, e 9 10, e 9 11, e 9 6, e 10 12, e 11 12, e 2 13, e 3 13, e 5 13, e 7 13,
+      e 14 6, e 0 14, e 12 13],
+    clusters := #[{ name := "Front end", members := #[4, 5, 6, 7, 14] },
+      { name := "Back end", members := #[8, 9, 10, 11, 12] }] }
+
+/-- A module graph of 120 nodes: each depends on one or two of the few before it, a few cycles. -/
+def modules : PILean.Graph := PILeanTest.Graphs.moduleGraph 5 120 (near := 8) (far := false)
+
+/-- A small undirected graph: a ring of seven nodes with chords. -/
+def ring : PILean.Graph :=
+  Graph.ofNames #["a", "b", "c", "d", "e", "f", "g"]
+    [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 0), (0, 3), (1, 5), (2, 6)]
+    (directed := false)
+
+/-- A binary tree of depth three, laid out as a tree. -/
+def tree : PILean.Graph :=
+  Graph.ofPairs [(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6), (3, 7), (3, 8), (6, 9)]
+
+end GraphFigures
+
+/-- A graph figure: how to lay it out in a style, and the scale of its PNG. -/
+structure GraphEntry where
+  /-- The file name without extension. -/
+  name : String
+  /-- The layout in a style. -/
+  layout : Style → PILean.Graph.Layout
+  /-- The scale of the PNG relative to the SVG. -/
+  scale : Float := 1
+
+/-- The graph figures by name. -/
+def graphEntries : Array GraphEntry :=
+  #[{ name := "graph-compiler", layout := fun st => GraphFigures.compiler.layout {} st },
+    { name := "graph-modules", layout := fun st => GraphFigures.modules.layout {} st,
+      scale := 0.75 },
+    { name := "graph-ring", layout := fun st => GraphFigures.ring.circularLayout {} st },
+    { name := "graph-tree", layout := fun st => GraphFigures.tree.treeLayout 0 {} st }]
+
+/-- The graph gallery: file stem, entry and style, each entry light and dark. -/
+def graphs : Array (String × GraphEntry × Style) :=
+  graphEntries.flatMap fun e => #[(e.name, e, Style.light), (e.name ++ "-dark", e, Style.dark)]
+
+/-- The SVG of a graph figure in a style. -/
+def GraphEntry.svg (e : GraphEntry) (st : Style) : String := (e.layout st).toSvg st
+
+/-- The PNG of a graph figure in a style (empty when it cannot be written). -/
+def GraphEntry.png (e : GraphEntry) (st : Style) : ByteArray :=
+  ((e.layout st).toImage st e.scale).writePng.toOption.getD ByteArray.empty
+
+
+
 /-! ### Animations -/
 
 namespace Animations
@@ -264,10 +330,42 @@ def bars : Animation :=
     frame := fun t => (barsFigure t).draw, text := Style.light.text,
     fontFamily := Style.light.fontFamily }
 
+/-- The small graph building up layer by layer: every element is in every frame and only
+opacities change (never reaching 1, so that every frame has the same shape and the SVG
+interpolates). A node appears with its layer, an edge just before the node it points into, a
+cluster with its first member. -/
+def graphBuild : Animation :=
+  let st := Style.light
+  let l := GraphFigures.compiler.layout {} st
+  let sorted := (l.nodes.map (·.box.y0)).qsort (· < ·)
+  let distinct := sorted.foldl (fun acc y => if acc.back? == some y then acc else acc.push y) #[]
+  let layerOf := fun (i : Nat) =>
+    match l.nodes[i]? with
+    | some n => (distinct.findIdx? (· == n.box.y0)).getD 0
+    | none => 0
+  let step : Float := 0.45
+  let ramp := fun (t a b : Float) => min 0.999 (max 0 ((t - a) / (b - a)))
+  let layers := distinct.size
+  { width := l.width.toUInt64.toNat, height := l.height.toUInt64.toNat, fps := 15,
+    duration := step * layers.toFloat + 1.2, loops := 1, background := st.background,
+    fontFamily := st.fontFamily, text := st.text,
+    frame := fun t =>
+      let fade := fun (a b : Float) (s : Canvas.Shape) =>
+        Canvas.Shape.group #[s] Affine.id (ramp t a b)
+      .group (#[.path (Canvas.rect 0 0 l.width l.height) (some (.solid st.background)) none] ++
+        l.clusters.map (fun c => fade (step * 0 - 0.2) 0.3 (c.draw st)) ++
+        l.edges.map (fun e =>
+          let k := (layerOf e.src).max (layerOf e.dst)
+          fade (step * k.toFloat - 0.3) (step * k.toFloat + 0.1) (e.draw st)) ++
+        l.nodes.map (fun n =>
+          let k := layerOf n.index
+          fade (step * k.toFloat) (step * k.toFloat + 0.35) (n.draw st))) }
+
 end Animations
 
 /-- The animations of the gallery by name. -/
 def animations : Array (String × Animation) :=
-  #[("wave", Animations.wave), ("growing-bars", Animations.bars)]
+  #[("wave", Animations.wave), ("growing-bars", Animations.bars),
+    ("graph-build", Animations.graphBuild)]
 
 end PILeanTest.Examples

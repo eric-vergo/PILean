@@ -15,7 +15,7 @@ five phases, each with its work bounded by its input:
 
 1. **Cycle removal** (`elsPositions`, `PILean.Graph.Layering`): edges that point backwards in a
    greedy order are reversed for the layout; self-loops are set aside.
-2. **Layers** (`assignLayers`): longest paths from the sources, promoted, and relaxed by
+2. **Layers** (`assignLayers`): longest paths from the sources, balanced, and relaxed by
    `fixLayers` so that every edge points to a deeper layer. When an edge has a label, the layers
    are doubled so that the label has a layer of its own half-way along its edge.
 3. **Crossing reduction** (`orderLayers`, `PILean.Graph.Ordering`): long edges are cut into
@@ -35,8 +35,10 @@ Everything is computed in a frame whose first coordinate runs across the layers 
 along them, and mapped to the picture at the end (swapped for `Direction.leftToRight`).
 Positions are whole pixels.
 
-**Clusters** are drawn as boxes around their members (the bounding box, padded); the layout
-does not keep the members together, so a cluster's box can contain other nodes.
+**Clusters** are drawn as boxes around their members (the bounding box, padded). After the crossing
+reduction the members of a cluster are gathered and the clusters put in the same order in every
+layer, but nothing keeps other nodes out of a cluster's box, so a box can contain nodes that are
+not members (and boxes can overlap).
 
 The number of dummy nodes is the sum of the spans of the edges, at most `E × (L - 1)` for `L`
 layers.
@@ -88,6 +90,9 @@ structure Plan where
   endOffset : Array Float
   /-- The size of the plate of every edge label in the frame (across, along). -/
   plates : Array (Float × Float)
+  /-- For orthogonal routes: for every edge and each step of its chain, where the horizontal run
+  lies between the two levels (a fraction), so that runs in one gap use different tracks. -/
+  runs : Array (Array Float) := #[]
 
 /-- The vertical offset of a node's boundary at the horizontal offset `off` from its centre
 (the half-height, less where an ellipse curves in). -/
@@ -131,7 +136,14 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let size := layerAll.size
   -- phase 3
   let (up, down) := chainNeighbours size chains
-  let order := orderLayers size (initialLayers layerAll) up down o.sweeps
+  let clusterOf : Array (Option Nat) := Id.run do
+    let mut co : Array (Option Nat) := Array.replicate n none
+    for (c, ci) in g.clusters.zipIdx do
+      for v in c.members do
+        if v < n && (co.getD v none).isNone then co := co.setIfInBounds v (some ci)
+    return co
+  let order := groupClusters (orderLayers size (initialLayers layerAll up down) up down o.sweeps)
+    fun v => (clusterOf.getD v none)
   -- sizes: nodes, label plates
   let mut bw : Array Float := (Array.range size).map fun v =>
     if v < n then nb.getD v 0 + loopExtra.getD v 0 else 0
@@ -150,7 +162,10 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         bw := bw.setIfInBounds mid pb
         thick := thick.modify (layerAll.getD mid 0) (max · pt)
   -- phase 4
-  let x := assignBreadth size n order up down bw o.nodeGap o.edgeGap
+  let clusterAll : Array (Option Nat) := (Array.range size).map fun v => clusterOf.getD v none
+  let sep := separation n bw o.nodeGap o.edgeGap 28 clusterAll
+  let x0 := assignBreadth size n order up down sep bw
+  let x := refineBreadth size n chains order up down sep bw x0 o.refine
   let gap := if hasLabels then o.layerGap / 2 else o.layerGap
   let mut levels : Array Float := Array.replicate order.size 0
   let mut t : Float := 0
@@ -188,20 +203,45 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         for j in [0:cnt] do
           off := off.setIfInBounds (ps.getD j (0, 0)).2 ((j.toFloat - (cnt.toFloat - 1) / 2) * step)
       return off
+  -- orthogonal routes: the horizontal runs of each gap get tracks (greedy interval colouring)
+  let mut runs : Array (Array Float) := chains.map fun c => Array.replicate (c.size - 1) 0.5
+  if o.routing == .orthogonal then
+    let mut gaps : Array (Array (Float × Float × Nat × Nat)) := Array.replicate order.size #[]
+    for k in [0:m] do
+      let c := chains.getD k #[]
+      for j in [0:c.size - 1] do
+        let a := across.getD (c.getD j 0) 0
+        let b := across.getD (c.getD (j + 1) 0) 0
+        if (a - b).abs > 0.5 then
+          gaps := gaps.modify (layerAll.getD (c.getD j 0) 0) (·.push (min a b, max a b, k, j))
+    for gap in gaps do
+      let segs := gap.qsort fun p q => p.1 < q.1 || (p.1 == q.1 && (p.2.2.1 < q.2.2.1))
+      let mut ends : Array Float := #[]
+      let mut assigned : Array Nat := #[]
+      for (lo, hi, _, _) in segs do
+        let mut track := ends.size
+        for i in [0:ends.size] do
+          if track == ends.size && ends.getD i 0 + 6 < lo then track := i
+        if track == ends.size then ends := ends.push hi else ends := ends.setIfInBounds track hi
+        assigned := assigned.push track
+      for i in [0:segs.size] do
+        let (_, _, k, j) := segs.getD i (0, 0, 0, 0)
+        let frac := (assigned.getD i 0).toFloat + 1
+        runs := runs.modify k fun r => r.setIfInBounds j (frac / (ends.size.toFloat + 1))
   return { dir := o.direction, routing := o.routing, directedGraph := g.directed, frameBoxes,
            shapes := g.nodes.map (·.shapeOf), chains, reversed, across, along,
-           startOffset := spread outs, endOffset := spread ins, plates }
+           startOffset := spread outs, endOffset := spread ins, plates, runs }
 
 /-- The vertices of the orthogonal route through the points: at each step across the layers a
-horizontal run half-way between the two levels. -/
-def orthVertices (pts : Array Point) : Array Point := Id.run do
+horizontal run at the given fraction of the way between the two levels. -/
+def orthVertices (pts : Array Point) (runs : Array Float) : Array Point := Id.run do
   let mut out : Array Point := #[]
   for i in [0:pts.size] do
     let p := pts.getD i ⟨0, 0⟩
     if i > 0 then
       let q := pts.getD (i - 1) ⟨0, 0⟩
       if (p.x - q.x).abs > 0.5 then
-        let mid := (p.y + q.y) / 2
+        let mid := q.y + runs.getD (i - 1) 0.5 * (p.y - q.y)
         out := (out.push ⟨q.x, mid⟩).push ⟨p.x, mid⟩
     out := out.push p
   return out
@@ -256,7 +296,7 @@ def routeOne (pl : Plan) (k i : Nat) (e : Graph.Edge) : RoutedEdge :=
         let ps := splinePieces shortened
         piecesPath (if rev then reversePieces ps else ps)
       | .orthogonal =>
-        let vs := orthVertices shortened
+        let vs := orthVertices shortened (pl.runs.getD k #[])
         roundedPolyline (if rev then vs.reverse else vs) 8
     let head : Option Path :=
       if !arrow then none

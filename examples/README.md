@@ -13,6 +13,25 @@ both files are reproduced byte for byte.
 | **Counting primes** — the prime-counting function π(n) against n / ln n (`primes`) | ![primes, SVG](primes-line-plot.svg) | ![primes, PNG](primes-line-plot.png) |
 | **Collatz stopping times** — the steps from n to 1, with markers (`collatz`) | ![Collatz, SVG](collatz-data-plot.svg) | ![Collatz, PNG](collatz-data-plot.png) |
 
+## Graphs
+
+Graphs are Lean values (`PILeanTest/Examples.lean`, `GraphFigures`), laid out by
+`PILean.Graph` and drawn on the vector canvas, so the SVG and the PNG (through the rasteriser,
+text as shapes) show the same picture. Each is written light and dark (`-dark`).
+
+| Graph | SVG | PNG |
+|---|---|---|
+| **Modules of a small compiler** — a layered layout with two clusters and a labelled edge (`compiler`) | ![compiler modules, SVG](graph-compiler.svg) | ![compiler modules, PNG](graph-compiler.png) |
+| **A module graph of 120 nodes** — layers, long edges as straight runs of dummy nodes (`modules`) | ![120 modules, SVG](graph-modules.svg) | ![120 modules, PNG](graph-modules.png) |
+| **A ring of seven nodes** — the circular layout of an undirected graph (`ring`) | ![ring, SVG](graph-ring.svg) | ![ring, PNG](graph-ring.png) |
+| **A tree** — the tree layout (`tree`) | ![tree, SVG](graph-tree.svg) | ![tree, PNG](graph-tree.png) |
+
+`graph-build` is the compiler graph appearing layer by layer: an animated SVG (every element in
+every frame, only opacities change, so the viewer interpolates), an animated PNG, a GIF and a
+poster frame.
+
+![the compiler graph appearing, animated SVG](graph-build.svg)
+
 ## The same picture twice
 
 `tools/compare-render.py` renders each SVG without its text with macOS's own SVG renderer

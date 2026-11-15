@@ -18,7 +18,7 @@ import PILeanTest.Graphs
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
 `PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Anim`, `PILeanTest.Plots`) and compares
-every gallery figure's SVG and PNG, and every gallery animation's SVG, APNG, GIF and poster, with
+every gallery figure's SVG and PNG, every gallery graph's SVG and PNG, and every gallery animation's SVG, APNG, GIF and poster, with
 its files in `examples/` (the goldens), byte for byte; it also renders each figure twice to check
 that the output is deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
@@ -79,6 +79,24 @@ def main (args : List String) : IO UInt32 := do
           the change)"
         failed := failed + 1
       else IO.println s!"golden {pngPath}: same"
+  for (stem, entry, st) in Examples.graphs do
+    let svg := entry.svg st
+    let outs : Array (String × ByteArray) :=
+      #[(s!"{stem}.svg", svg.toUTF8), (s!"{stem}.png", entry.png st)]
+    if svg != entry.svg st then
+      IO.eprintln s!"FAIL {stem}: not deterministic"; failed := failed + 1
+    for (file, bytes) in outs do
+      let path : System.FilePath := "examples" / file
+      if args == ["--update"] then
+        IO.FS.writeBinFile path bytes
+        IO.println s!"wrote {path}"
+      else
+        let golden ← if ← path.pathExists then IO.FS.readBinFile path else pure .empty
+        if golden.data != bytes.data then
+          IO.eprintln s!"FAIL {path}: differs (`lake exe pilean-test --update` after checking \
+            the change)"
+          failed := failed + 1
+        else IO.println s!"golden {path}: same"
   for (name, a) in Examples.animations do
     let outs : Array (String × ByteArray) := #[(s!"{name}.svg", a.toSvg.toUTF8),
       (s!"{name}.png", a.toApng.toOption.getD .empty), (s!"{name}.gif", a.toGif.toOption.getD .empty),

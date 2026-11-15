@@ -171,10 +171,10 @@ theorem acyclicEdges_ok (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
 /-- The layers after the guard of `assignLayers` have the size of the graph. -/
 theorem assignLayers_start_size (n : Nat) (es : List (Nat × Nat)) :
     (let l0 := fixLayers es (Array.replicate n 0)
-     let l1 := promote n es l0
+     let l1 := balanceLayers n es l0 6
      (if l1.size = n then l1 else l0)).size = n := by
   dsimp only
-  by_cases h : (promote n es (fixLayers es (Array.replicate n 0))).size = n
+  by_cases h : (balanceLayers n es (fixLayers es (Array.replicate n 0)) 6).size = n
   · simp [h]
   · simp [h, fixLayers_size]
 

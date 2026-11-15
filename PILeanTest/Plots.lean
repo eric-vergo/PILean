@@ -128,6 +128,9 @@ def animation : Array (String × Bool) :=
       !has svg "visibility"),
     ("animation: changing shapes switch frames", has sw.toSvg "attributeName=\"visibility\""),
     ("animation: no script", !has svg "<script" && !has sw.toSvg "<script"),
+    ("animation: the graph build interpolates opacities, every frame the same shape",
+      let gb := (Animations.graphBuild).toSvg
+      has gb "calcMode=\"linear\"" && !has gb "visibility" && has gb "attributeName=\"opacity\""),
     ("animation: a poster for reduced motion",
       has svg "prefers-reduced-motion: reduce" && has svg "class=\"poster\""),
     ("animation: GIF and APNG decode to every frame",
