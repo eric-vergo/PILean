@@ -30,21 +30,24 @@ five phases, each with its work bounded by its input:
    chains of long edges straight, refined, then improved by network simplex on the weighted
    horizontal length of the edges within a bound on the work; node widths come from the labels
    measured with the style's text engine.
-5. **Edges**: through the points of their chains as smooth cubic Bézier curves, monotone in the
-   direction of the layers with ends perpendicular to them (`Routing.spline`), or as
-   horizontal and vertical segments with rounded corners (`Routing.orthogonal`); reversed edges
-   are drawn in their own direction; edges meet a node's side at points spread by `portStep`;
-   directed edges end in an arrowhead at the target's outline; labels sit on plates at the
-   middle of their edges; self-loops are small loops beside the node.
+5. **Edges**: straight through the band of each layer they cross, as cubic curves across the
+   gaps that leave and enter perpendicular to the layers, or as horizontal runs on tracks of
+   their own where a step goes far sideways (`stationPieces`), so that no edge passes near a
+   node it does not end at (`clearanceProblems`); or as horizontal and vertical segments with
+   rounded corners (`Routing.orthogonal`); reversed edges are drawn in their own direction;
+   edges meet a node's side at points spread by `portStep`; directed edges end in an arrowhead
+   at the target's outline; labels sit on plates at the middle of their edges; self-loops are
+   small loops beside the node.
 
 Everything is computed in a frame whose first coordinate runs across the layers and the second
 along them, and mapped to the picture at the end (swapped for `Direction.leftToRight`).
 Positions are whole pixels.
 
-**Clusters** are drawn as boxes around their members (the bounding box, padded). After the crossing
-reduction the members of a cluster are gathered and the clusters put in the same order in every
-layer, but nothing keeps other nodes out of a cluster's box, so a box can contain nodes that are
-not members (and boxes can overlap).
+**Clusters** (`PILean.Graph.Compound`) keep their nodes together in every layer between border
+nodes whose coordinates are one per side, so that a cluster's box holds exactly its nodes and
+the boxes of two clusters nest or are apart (`PILean.Graph.Check.clusterProblems` states the
+condition; the tests check it). Their layers are pulled together first (`compactGroups`), and
+gaps grow where cluster sides and titles need room.
 
 The number of dummy nodes is the sum of the spans of the edges, at most `E × (L - 1)` for `L`
 layers; when the real and dummy nodes together would be more than
@@ -66,10 +69,12 @@ the two work budgets.
   Algorithms and Applications 8 (2004).
 * Brandes, Köpf, *Fast and simple horizontal coordinate assignment*, Graph Drawing 2001,
   Lecture Notes in Computer Science 2265.
+* Sander, *Layout of compound directed graphs*, Technical Report A/03/96, Universität des
+  Saarlandes (1996).
 
 ## Main definitions
 
-* `Graph.layout`, `Plan`, `layoutPlan`, `routeOne`, `routeAll`.
+* `Graph.layout`, `Plan`, `layoutPlan`, `stationPieces`, `routeOne`, `routeAll`.
 -/
 
 namespace PILean.Graph
