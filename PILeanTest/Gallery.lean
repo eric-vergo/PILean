@@ -8,7 +8,9 @@ import PILeanTest.Examples
 # The gallery writer
 
 `lake exe pilean-gallery` writes every figure of `PILeanTest.Examples.gallery` to `examples/`,
-as SVG and as PNG.
+as SVG and as PNG, and every animation of `PILeanTest.Examples.animations` as an animated SVG
+(`NAME.svg`), an animated PNG (`NAME.png`), a GIF (`NAME.gif`) and its poster frame
+(`NAME-poster.png`).
 -/
 
 open PILeanTest.Examples PILean.Plot
@@ -23,3 +25,9 @@ def main : IO Unit := do
       let pngName := (System.FilePath.mk name).withExtension "png"
       IO.FS.writeBinFile ("examples" / pngName) png
       IO.println s!"examples/{pngName}"
+  for (name, a) in animations do
+    IO.FS.writeFile ("examples" / s!"{name}.svg") a.toSvg
+    if let .ok b := a.toApng then IO.FS.writeBinFile ("examples" / s!"{name}.png") b
+    if let .ok b := a.toGif then IO.FS.writeBinFile ("examples" / s!"{name}.gif") b
+    if let .ok b := a.posterPng then IO.FS.writeBinFile ("examples" / s!"{name}-poster.png") b
+    IO.println s!"examples/{name}.svg, .png, .gif, -poster.png"

@@ -10,6 +10,7 @@ import PILean.Anim.Lzw
 import PILean.Anim.Quantize
 import PILean.Anim.Gif
 import PILean.Anim.GifRead
+import PILean.Anim.Animation
 
 /-!
 # Animated images

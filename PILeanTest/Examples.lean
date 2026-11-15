@@ -222,4 +222,52 @@ def gallery : Array (String × Figure) :=
   figures.map (fun (n, f) => (n ++ ".svg", f)) ++
     figures.map (fun (n, f) => (n ++ "-dark.svg", dark f))
 
+
+
+/-! ### Animations -/
+
+namespace Animations
+
+/-- The plot of a travelling wave at time `t`: fixed sampling, so that every frame has the same
+path commands and the SVG interpolates them. -/
+def waveFigure (t : Float) : Figure :=
+  let xs := (List.range 241).toArray.map fun i => i.toFloat / 240 * 4 * pi
+  let wave := fun (x : Float) => (x - 2 * pi * t / 2).sin * (-(x / 8)).exp
+  { title := "A travelling wave", width := 640, height := 360, legend := false,
+    panels := #[{
+      x := { label := "x", domain := some (0, 4 * pi) },
+      y := { label := "u(x, t)", domain := some (-1.2, 1.2) },
+      series := #[.line "u" (xs.map fun x => ⟨x, wave x⟩),
+        .line "envelope" (xs.map fun x => ⟨x, (-(x / 8)).exp⟩) (some ⟨150, 150, 158, 255⟩)
+          (dash := #[4, 4])] }] }
+
+/-- A travelling wave, two seconds, looping. -/
+def wave : Animation :=
+  { width := 640, height := 360, fps := 30, duration := 2, frame := fun t => (waveFigure t).draw,
+    text := Style.light.text, fontFamily := Style.light.fontFamily }
+
+/-- Bars growing to their values with an ease-out, holding at the end. -/
+def barsFigure (t : Float) : Figure :=
+  let p := min 1 (t / 1.4)
+  let e := 1 - (1 - p) ^ 3
+  let k := 0.02 + 0.98 * e
+  { title := "Growing bars", width := 640, height := 360,
+    panels := #[{
+      y := { label := "count", domain := some (0, 20) },
+      series := #[.bars #["Mon", "Tue", "Wed", "Thu", "Fri"]
+        #[("north", #[12, 15, 9, 17, 14].map (· * k)), ("south", #[8, 11, 13, 10, 16].map (· * k))]
+        ] }] }
+
+/-- Growing bars, two seconds, played once. -/
+def bars : Animation :=
+  { width := 640, height := 360, fps := 30, duration := 2, loops := 1,
+    frame := fun t => (barsFigure t).draw, text := Style.light.text,
+    fontFamily := Style.light.fontFamily }
+
+end Animations
+
+/-- The animations of the gallery by name. -/
+def animations : Array (String × Animation) :=
+  #[("wave", Animations.wave), ("growing-bars", Animations.bars)]
+
 end PILeanTest.Examples

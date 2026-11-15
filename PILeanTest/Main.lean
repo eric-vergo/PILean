@@ -9,14 +9,16 @@ import PILeanTest.Raster
 import PILeanTest.Png
 import PILeanTest.Image
 import PILeanTest.Anim
+import PILeanTest.Plots
 
 /-!
 # The test driver
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
-`PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Anim`) and compares every gallery figure's
-SVG and PNG with its files in `examples/` (the goldens), byte for byte; it also renders each
-figure twice to check that the output is deterministic. `lake exe pilean-test --update` rewrites
+`PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Anim`, `PILeanTest.Plots`) and compares
+every gallery figure's SVG and PNG, and every gallery animation's SVG, APNG, GIF and poster, with
+its files in `examples/` (the goldens), byte for byte; it also renders each figure twice to check
+that the output is deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
 `tools/compare-render.py`; `--bench` times a 2000 × 1200 plot.
 `lake exe pilean-test --png-out DIR` writes the PNG writer's files to `DIR` for
@@ -40,7 +42,7 @@ def main (args : List String) : IO UInt32 := do
   | _ => pure ()
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++
-    Anim.checks ++ (← Anim.ioChecks)
+    Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"
@@ -71,4 +73,20 @@ def main (args : List String) : IO UInt32 := do
           the change)"
         failed := failed + 1
       else IO.println s!"golden {pngPath}: same"
+  for (name, a) in Examples.animations do
+    let outs : Array (String × ByteArray) := #[(s!"{name}.svg", a.toSvg.toUTF8),
+      (s!"{name}.png", a.toApng.toOption.getD .empty), (s!"{name}.gif", a.toGif.toOption.getD .empty),
+      (s!"{name}-poster.png", a.posterPng.toOption.getD .empty)]
+    for (file, bytes) in outs do
+      let path : System.FilePath := "examples" / file
+      if args == ["--update"] then
+        IO.FS.writeBinFile path bytes
+        IO.println s!"wrote {path}"
+      else
+        let golden ← if ← path.pathExists then IO.FS.readBinFile path else pure .empty
+        if golden.data != bytes.data then
+          IO.eprintln s!"FAIL {path}: differs (`lake exe pilean-test --update` after checking \
+            the change)"
+          failed := failed + 1
+        else IO.println s!"golden {path}: same"
   return if failed == 0 then 0 else 1

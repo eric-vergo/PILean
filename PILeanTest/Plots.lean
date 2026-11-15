@@ -1,0 +1,144 @@
+/-
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
+-/
+import PILeanTest.Examples
+
+/-!
+# Plot, canvas and animation checks
+
+Named checks of the scales, the function sampler, histograms, the figure model on awkward data,
+the canvas and the animation model.
+-/
+
+namespace PILeanTest.Plots
+
+open PILean PILean.Plot PILean.Canvas PILeanTest.Examples
+
+/-- Whether `s` contains `t`. -/
+def has (s t : String) : Bool := (s.splitOn t).length > 1
+
+/-- The checks of scales and ticks. -/
+def scales : Array (String × Bool) :=
+  let lg := Scale.ofDomain .log 3 4000 6 false
+  let ln := Scale.ofDomain .linear 0 1 6 false
+  #[("log: decades widened to whole powers of ten",
+      lg.lo == 1 && lg.hi == 10000 && lg.major == #[1, 10, 100, 1000, 10000]),
+    ("log: minor ticks at 2–9 times each decade", lg.minor.size == 32 &&
+      lg.minor.all fun v => v > 1 && v < 10000),
+    ("log: many decades are thinned", (Scale.ofDomain .log 1e-10 1e30 6 false).major.size ≤ 8),
+    ("log: non-positive bounds are moved to positive values",
+      (Scale.ofDomain .log (-5) 100 6 false).lo > 0),
+    ("log: values at or below zero have no position", (lg.map 0 100 0).isNone &&
+      (lg.map 0 100 (-1)).isNone && (lg.map 0 100 100).isSome),
+    ("linear: minor ticks between majors, none on them",
+      ln.minor.size > 0 && ln.minor.all fun v => !ln.major.any fun m => (m - v).abs < 1e-9),
+    ("tick multipliers ascend", tickMultipliers (-3) 4 == [-3, -2, -1, 0, 1, 2, 3, 4] &&
+      tickMultipliers 5 4 == []),
+    ("labels: E-notation for huge and tiny values",
+      formatTick ln 2.5e7 == "2.5e7" && formatTick ln 3e-6 == "3e−6"),
+    ("labels: logarithmic labels", formatTick lg 1000 == "1000" && formatTick lg 1e6 == "1e6" &&
+      formatTick lg 0.01 == "0.01")]
+
+/-- The largest vertical step between neighbouring points of polylines. -/
+def maxStep (pls : Array (Array Point)) : Float :=
+  pls.foldl (fun m pl => (List.range (pl.size - 1)).foldl (fun m i =>
+    max m (((pl[i + 1]?).map (·.y)).getD 0 - ((pl[i]?).map (·.y)).getD 0 |>.abs)) m) 0
+
+/-- The number of points of polylines. -/
+def points (pls : Array (Array Point)) : Nat := pls.foldl (· + ·.size) 0
+
+/-- The checks of the function sampler. -/
+def sampler : Array (String × Bool) :=
+  let tan := sampleFunction Float.tan (-2 * pi) (2 * pi) 50 50 400 (-4) 4
+  let sqrt := sampleFunction Float.sqrt (-1) 1 300 300 300 (-1) 1
+  let floor := sampleFunction Float.floor 0 5 100 100 300 0 5
+  let sine := sampleFunction Float.sin 0 (2 * pi) 100 100 200 (-1) 1
+  let nan := sampleFunction (fun _ => 0 / 0) 0 1 100 100 100 0 1
+  #[("sampler: tan is broken at each of its four poles", tan.size == 5),
+    ("sampler: no segment of tan crosses the plot (no line through a pole)",
+      tan.all fun pl => maxStep #[pl.filter fun p => p.y.abs < 8] < 8),
+    ("sampler: √x starts where it is defined", match sqrt[0]? >>= (·[0]?) with
+      | some p => p.x ≥ 0 && p.x < 0.001
+      | none => false),
+    ("sampler: ⌊x⌋ has no risers", floor.size == 5 && maxStep floor < 0.01),
+    ("sampler: a smooth curve is one polyline with few points",
+      sine.size == 1 && points sine < 1200),
+    ("sampler: a function defined nowhere gives nothing", nan.isEmpty),
+    ("sampler: the budget bounds the work",
+      points (sampleFunction (fun x => (1 / x).sin) 0.0001 1 1000 1000 300 (-1) 1 2000) ≤ 2100),
+    ("sampler: an empty or non-finite interval gives nothing",
+      (sampleFunction Float.sin 1 0 1 1 1 0 1).isEmpty &&
+      (sampleFunction Float.sin 0 (1 / 0) 1 1 1 0 1).isEmpty)]
+
+/-- The checks of histograms and the figure model. -/
+def figures : Array (String × Bool) :=
+  let bins := histogramBins (normals 7 2000) none
+  let nanFig : Figure := { panels := #[{ series := #[.line "x" #[⟨0 / 0, 1⟩, ⟨1, 1 / 0⟩]] }] }
+  let huge : Figure := { panels := #[{ series := #[.line "x" #[⟨0, 1e300⟩, ⟨1, -1e300⟩]] }] }
+  let one : Figure := { panels := #[{ series := #[.line "only" #[⟨0, 0⟩, ⟨1, 1⟩]] }] }
+  let svg := functions.toSvg
+  #[("histogram: every value in a bin", bins.foldl (· + ·.2.2) 0 == 2000),
+    ("histogram: bins are contiguous", (List.range (bins.size - 1)).all fun i =>
+      match bins[i]?, bins[i + 1]? with
+      | some (_, b, _), some (a, _, _) => (a - b).abs < 1e-9
+      | _, _ => false),
+    ("histogram: empty and non-finite input", (histogramBins #[] none).isEmpty &&
+      (histogramBins #[0 / 0, 1 / 0] none).isEmpty),
+    ("figure: non-finite data shows the note", has nanFig.toSvg "No data"),
+    ("figure: huge values give finite output", !has huge.toSvg "NaN" && !has huge.toSvg "inf"),
+    ("figure: one series has no legend", !one.showsLegend && functions.showsLegend),
+    ("figure: deterministic", svg == functions.toSvg),
+    ("figure: text is escaped", has ({ title := "a<b & c" } : Figure).toSvg "a&lt;b &amp; c"),
+    ("figure: the dark style's page", has (dark functions).toSvg "#16181c"),
+    ("figure: an empty figure", has ({} : Figure).toSvg "<svg"),
+    ("figure: legend entries of grouped bars", groupedBars.legendEntries.size == 3)]
+
+/-- The checks of the canvas. -/
+def canvas : Array (String × Bool) :=
+  let g : Shape := .group #[.path (rect 0 0 10 10) (some (.solid ⟨255, 0, 0, 255⟩))]
+    (Affine.translate 5 5) 0.5 (some (rect 0 0 5 5))
+  let svg := g.toSvg 20 20 "sans-serif"
+  let grad : Shape := .path (rect 0 0 10 10)
+    (some (.paint (.linear ⟨0, 0⟩ ⟨10, 0⟩ #[⟨0, ⟨255, 0, 0, 255⟩⟩, ⟨1, ⟨0, 0, 255, 255⟩⟩])))
+  #[("canvas: transformations are applied to the geometry",
+      has svg "M5 5 L15 5" && !has svg "transform"),
+    ("canvas: clips become clip paths with numbered ids",
+      has svg "clipPath id=\"c0\"" && has svg "clip-path=\"url(#c0)\""),
+    ("canvas: opacity on the group", has svg "opacity=\"0.5\""),
+    ("canvas: gradients are defined once and referenced",
+      has (grad.toSvg 10 10 "x") "linearGradient id=\"p0\""),
+    ("canvas: the image has the drawing", ((g.toImage 20 20 TextEngine.lettering).getpixel 7 7).r
+      > 100),
+    ("canvas: text as SVG text or as shapes",
+      has ((Shape.text "Hi" ⟨1, 10⟩ 10 ⟨0, 0, 0, 255⟩).toSvg 20 20 "serif") "<text")]
+
+/-- The checks of the animation model. -/
+def animation : Array (String × Bool) :=
+  let a := Animations.wave
+  let svg := a.toSvg
+  let dots := fun (t : Float) => Shape.group
+    ((List.range (1 + (t * 4).toUInt64.toNat)).toArray.map fun i =>
+      .path (circle ⟨5 + 8 * i.toFloat, 15⟩ 3) (some (.solid ⟨0, 0, 0, 255⟩)))
+  let sw : Animation :=
+    { width := 40, height := 30, fps := 4, duration := 1, frame := dots,
+      text := TextEngine.lettering }
+  #[("animation: frame count from duration and rate", a.frameCount == 60),
+    ("animation: same-shaped frames are interpolated", has svg "calcMode=\"linear\"" &&
+      !has svg "visibility"),
+    ("animation: changing shapes switch frames", has sw.toSvg "attributeName=\"visibility\""),
+    ("animation: no script", !has svg "<script" && !has sw.toSvg "<script"),
+    ("animation: a poster for reduced motion",
+      has svg "prefers-reduced-motion: reduce" && has svg "class=\"poster\""),
+    ("animation: GIF and APNG decode to every frame",
+      match sw.toGif, sw.toApng with
+      | .ok g, .ok p => match Anim.readGif g, Anim.readApng p with
+        | .ok fg, .ok fp => fg.frames.size == 4 && fp.frames.size == 4
+        | _, _ => false
+      | _, _ => false),
+    ("animation: deterministic", sw.toSvg == sw.toSvg && sw.toGif.toOption == sw.toGif.toOption)]
+
+/-- All the checks. -/
+def checks : Array (String × Bool) := scales ++ sampler ++ figures ++ canvas ++ animation
+
+end PILeanTest.Plots

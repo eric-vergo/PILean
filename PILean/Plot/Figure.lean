@@ -213,11 +213,12 @@ def Series.extent (s : Series) (xk yk : ScaleKind) :
     Option (Float × Float) × Option (Float × Float) :=
   let okX := fun (v : Float) => finite v && (xk != .log || v > 0)
   let okY := fun (v : Float) => finite v && (yk != .log || v > 0)
-  let pts := s.points
-  let ex := extentOf ((pts.map (·.x)).filter okX)
   match s with
-  | .function .. => (ex, none)
-  | _ => (ex, extentOf ((pts.map (·.y)).filter okY))
+  | .function _ _ x0 x1 _ _ => (extentOf (#[x0, x1].filter okX), none)
+  | _ =>
+    -- only points with a position on both axes count
+    let pts := s.points.filter fun p => okX p.x && okY p.y
+    (extentOf (pts.map (·.x)), extentOf (pts.map (·.y)))
 
 /-- The union of two optional intervals. -/
 def unionExt : Option (Float × Float) → Option (Float × Float) → Option (Float × Float)
