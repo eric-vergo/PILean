@@ -235,14 +235,20 @@ def compositeOver (c layer : Canvas) (opacity : Float := 1) : Canvas := Id.run d
       d := blendAt d ((y * c.width + x) * 8) src op
   return { c with data := d }
 
-/-- The canvas as an 8-bit sRGB image with straight alpha (`RGBA`, or `RGB` when every pixel
-is opaque and `mode` is `.rgb`). -/
+/-- The canvas as an 8-bit sRGB image with straight alpha (`RGBA`, or `RGB` or `L` without
+the alpha, as `mode` asks). A run of equal pixels is converted once. -/
 def toImage (c : Canvas) (mode : Mode := .rgba) : Image := Id.run do
   let n := mode.channels
   let mut data := ByteArray.emptyWithCapacity (c.width * c.height * n)
+  let mut last : Lin := ⟨0, 0, 0, 0⟩
+  let mut px : Array UInt8 := Image.samplesOf mode (Lin.toRgba last)
   for y in [0:c.height] do
     for x in [0:c.width] do
-      for b in Image.samplesOf mode (c.get x y).toRgba do data := data.push b
+      let v := c.get x y
+      if v != last then
+        last := v
+        px := Image.samplesOf mode v.toRgba
+      for b in px do data := data.push b
   return { mode, width := c.width, height := c.height, data }
 
 end Canvas

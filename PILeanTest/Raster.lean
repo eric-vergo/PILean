@@ -190,21 +190,25 @@ def writeCompare (dir : System.FilePath) : IO Unit := do
     | .error e => throw (IO.userError e.toString)
     IO.println s!"{dir}/{base}-notext.svg and .png"
 
-/-- Times rendering and encoding the function plot at 2000 × 1200 (best of three). -/
+/-- Times the function plot at 2000 × 1200 (best of three): drawing its nodes on the canvas,
+converting the canvas to an 8-bit image, and encoding the PNG. -/
 def bench : IO Unit := do
   let fig := scaled PILeanTest.Examples.functions 2000 1200
-  let mut best := (0, 0, 0)
-  for i in [0:3] do
+  let mut best : Array Nat := #[]
+  let mut size := 0
+  for _ in [0:3] do
     let t0 ← IO.monoNanosNow
-    let img := fig.toImage
+    let d ← IO.lazyPure fun _ => Svg.rasterize 2000 1200 fig.render ⟨255, 255, 255, 255⟩
     let t1 ← IO.monoNanosNow
-    let png := img.writePng
+    let img ← IO.lazyPure fun _ => d.toImage .rgb
     let t2 ← IO.monoNanosNow
-    let size := match png with | .ok b => b.size | .error _ => 0
-    let r := ((t1 - t0) / 1000000, (t2 - t1) / 1000000, size)
-    if i == 0 || r.1 + r.2.1 < best.1 + best.2.1 then best := r
-  IO.println s!"2000 × 1200 function plot: render {best.1} ms, PNG encode {best.2.1} ms, \
-    {best.2.2} bytes"
+    let png ← IO.lazyPure fun _ => img.writePng
+    let t3 ← IO.monoNanosNow
+    size := match png with | .ok b => b.size | .error _ => 0
+    let r := #[(t1 - t0) / 1000000, (t2 - t1) / 1000000, (t3 - t2) / 1000000]
+    if best.isEmpty || r.foldl (· + ·) 0 < best.foldl (· + ·) 0 then best := r
+  IO.println s!"2000 × 1200 function plot: draw {best[0]?.getD 0} ms, to 8-bit image \
+    {best[1]?.getD 0} ms, PNG encode {best[2]?.getD 0} ms, {size} bytes"
 
 /-- All the pure checks. -/
 def checks : Array (String × Bool) := coverageChecks ++ strokeChecks ++ paintChecks
