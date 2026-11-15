@@ -76,6 +76,7 @@ def rendererSources : Array (String × String) :=
     ("PILean.Raster.SrgbTables", include_str "../Raster/SrgbTables.lean"),
     ("PILean.Raster.Stroke", include_str "../Raster/Stroke.lean"),
     ("PILean.Raster.SvgRender", include_str "../Raster/SvgRender.lean"),
+    ("PILean.Sort", include_str "../Sort.lean"),
     ("PILean.Style", include_str "../Style.lean"),
     ("PILean.Svg", include_str "../Svg.lean"),
     ("PILean.Text.Engine", include_str "../Text/Engine.lean"),

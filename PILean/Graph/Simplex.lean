@@ -435,11 +435,12 @@ def simplexSolve (n : Nat) (tails heads : Array Nat) (minlen weight : Array Int)
 
 /-- The layers of the `n` nodes for the acyclic edges `es` (pairs of node numbers below `n`,
 each with a larger layer for its target) from feasible layers `start`: the total span of the
-edges is minimal (`simplexSolve` with length `1` and weight `1`), each component with its top at
-layer `0`. -/
-def simplexLayers (n : Nat) (es : List (Nat × Nat)) (start : Array Nat) : Array Nat :=
+edges is minimal (`simplexSolve` with length `1` and weight `1`) when the work `budget` allows
+(otherwise the best layers found within it), each component with its top at layer `0`. -/
+def simplexLayers (n : Nat) (es : List (Nat × Nat)) (start : Array Nat)
+    (budget : Nat := 100000000) : Array Nat :=
   let ea := es.toArray
   (simplexSolve n (ea.map (·.1)) (ea.map (·.2)) (Array.replicate ea.size 1)
-    (Array.replicate ea.size 1) (start.map (Int.ofNat ·))).1.map (·.toNat)
+    (Array.replicate ea.size 1) (start.map (Int.ofNat ·)) 8 budget).1.map (·.toNat)
 
 end PILean.Graph

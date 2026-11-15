@@ -5,6 +5,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILean.Color
 import PILean.Geometry
 import PILean.Path
+import PILean.Sort
 import PILean.Svg
 import PILean.Png
 import PILean.Anim

@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Graph.Simplex
+import PILean.Sort
 
 /-!
 # Cycle removal and layer assignment
@@ -141,7 +142,7 @@ def balanceLayers (n : Nat) (es : List (Nat × Nat)) (layer : Array Nat) (rounds
   let mut cnt : Array Nat := Array.replicate (top + 1) 0
   for v in [0:n] do cnt := cnt.modify (l.getD v 0) (· + 1)
   for r in [0:rounds] do
-    let order := (Array.range n).qsort fun a b =>
+    let order := (Array.range n).sortStable fun a b =>
       let la := l.getD a 0
       let lb := l.getD b 0
       if r % 2 == 0 then la < lb || (la == lb && a < b) else la > lb || (la == lb && a < b)
@@ -165,13 +166,15 @@ def balanceLayers (n : Nat) (es : List (Nat × Nat)) (layer : Array Nat) (rounds
 
 /-- The layers network simplex and balancing give, before the final repair of `assignLayers`:
 the layers of `acyclicEdges` of least total span by network simplex (`simplexLayers`) from the
-longest-path layers, then balanced (`balanceLayers`); a result of the wrong size is replaced by
+longest-path layers (within the work `work`), then balanced (`balanceLayers`); a result of the
+wrong size is replaced by
 the previous one, which never happens. Every acyclic edge pointing to a larger layer here is
 not proved; the tests check it on their graphs (`fixLayers` leaves these layers unchanged). -/
-def layersBeforeRepair (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) : Array Nat :=
+def layersBeforeRepair (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
+    (work : Nat := 100000000) : Array Nat :=
   let es := acyclicEdges pos edges
   let start := fixLayers es (Array.replicate n 0)
-  let l0 := (let s := simplexLayers n es start; if s.size = n then s else start)
+  let l0 := (let s := simplexLayers n es start work; if s.size = n then s else start)
   let l1 := balanceLayers n es l0 2
   if l1.size = n then l1 else l0
 
@@ -180,7 +183,8 @@ and the node order `pos`: `layersBeforeRepair`, relaxed once more with `fixLayer
 relaxation is what makes every acyclic edge point to a larger layer by proof
 (`PILean.Graph.assignLayers_lt`); on the layers simplex and balancing produce it is expected to
 change nothing, which the tests check rather than prove. -/
-def assignLayers (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) : Array Nat :=
-  fixLayers (acyclicEdges pos edges) (layersBeforeRepair pos n edges)
+def assignLayers (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
+    (work : Nat := 100000000) : Array Nat :=
+  fixLayers (acyclicEdges pos edges) (layersBeforeRepair pos n edges work)
 
 end PILean.Graph

@@ -15,7 +15,7 @@ fails if the child is killed, gives the wrong answer, or uses more memory than t
 reader's documentation states (the decoded buffers plus a fixed allowance for the runtime).
 
 The large inputs are generated here, not stored: a zlib stream of zeros made of 258-byte matches,
-and PNG files that wrap it.
+and PNG files that wrap it; the hostile graphs are made by the probe (`hostileGraph`).
 
 ## Main definitions
 
@@ -179,6 +179,11 @@ structure Case where
   expect : String
   /-- The bound on peak resident memory. -/
   maxRss : Nat
+  /-- The bound on user CPU time, in milliseconds (far above what the case takes, so that a
+  loaded machine does not fail it, and far below what unbounded work would take). -/
+  maxUserMs : Nat := 30000
+  /-- The arguments of `pilean-probe` when the case is not a file (a generated graph). -/
+  argv : Option (Array String) := none
 
 /-- The memory the runtime and the probe use besides the reader's buffers. -/
 def baseRss : Nat := 32 <<< 20
@@ -203,7 +208,22 @@ def cases : Array Case :=
       maxRss := baseRss + zlibCap + (8 <<< 20) },
     { name := "gif: a 4096 x 4096 frame from 11 KB of LZW", kind := "gif",
       bytes := IO.FS.readBinFile ("PILeanTest" / "png" / "lzw-zeros-4096.gif"),
-      expect := "ok 4096x4096", maxRss := baseRss + 4096 * 4096 * (4 * 3 + 1) }]
+      expect := "ok 4096x4096", maxRss := baseRss + 4096 * 4096 * (4 * 3 + 1) },
+    { name := "graph: edges spanning thousands of layers get no dummy nodes beyond the cap",
+      kind := "graph", bytes := pure .empty, argv := some #["graph", "fan", "3000"],
+      expect := "ok 3000 nodes", maxRss := 128 <<< 20, maxUserMs := 10000 },
+    { name := "graph: every pair of 300 nodes (44850 edges)", kind := "graph",
+      bytes := pure .empty, argv := some #["graph", "dense", "300"], expect := "ok 300 nodes",
+      maxRss := 256 <<< 20, maxUserMs := 10000 },
+    { name := "graph: 20000 parallel edges between two nodes", kind := "graph",
+      bytes := pure .empty, argv := some #["graph", "multi", "20000"],
+      expect := "ok 20000 nodes", maxRss := 256 <<< 20, maxUserMs := 15000 },
+    { name := "graph: 10000 nodes with ten self-loops each", kind := "graph",
+      bytes := pure .empty, argv := some #["graph", "loops", "10000"],
+      expect := "ok 10000 nodes", maxRss := 256 <<< 20, maxUserMs := 10000 },
+    { name := "graph: 20000 nodes, 40000 random edges", kind := "graph", bytes := pure .empty,
+      argv := some #["graph", "sparse", "20000"], expect := "ok 20000 nodes",
+      maxRss := 512 <<< 20, maxUserMs := 40000 }]
 
 /-- Runs every case; each check says the child finished in time with the expected answer and
 within its memory bound. -/
@@ -213,15 +233,18 @@ def ioChecks : IO (Array (String × Bool)) := do
   try
     for c in cases do
       let f := scratch / "input"
-      IO.FS.writeBinFile f (← c.bytes)
-      let run ← runLimited "pilean-probe" #[c.kind, f.toString] 60 120000 scratch
+      let argv ← match c.argv with
+        | some a => pure a
+        | none => do IO.FS.writeBinFile f (← c.bytes); pure #[c.kind, f.toString]
+      let run ← runLimited "pilean-probe" argv 120 240000 scratch
       let mem := match run.rss with
         | some m => s!"{m / 1048576} MiB (bound {c.maxRss / 1048576} MiB)"
         | none => "memory not measured"
       let cpu := match run.userMs with | some t => s!"{t} ms" | none => "?"
       IO.println s!"bounds: {c.name}: {run.out}; {mem}; user {cpu}"
       let ok := run.status == some 0 && run.out.startsWith c.expect &&
-        (run.rss.map (fun m => decide (m ≤ c.maxRss))).getD true
+        (run.rss.map (fun m => decide (m ≤ c.maxRss))).getD true &&
+        (run.userMs.map (fun t => decide (t ≤ c.maxUserMs))).getD true
       r := r.push (s!"bounds: {c.name}", ok)
   finally
     IO.FS.removeDirAll scratch

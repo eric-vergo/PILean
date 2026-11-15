@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Png.Tables
 import Std.Data.HashMap
+import PILean.Sort
 
 /-!
 # Palette quantisation
@@ -121,7 +122,7 @@ def Box.mean (b : Box) : UInt32 :=
 
 /-- Splits a box with at least two colours at the median pixel along its widest channel. -/
 def Box.split (b : Box) : Box × Box := Id.run do
-  let sorted := b.items.qsort fun x y =>
+  let sorted := b.items.sortStable fun x y =>
     let cx := chan x.1 b.ch
     let cy := chan y.1 b.ch
     cx < cy || (cx == cy && x.1 < y.1)
@@ -164,7 +165,7 @@ def quantize (frames : Array ByteArray) (maxColors : Nat := 256) : Palette := Id
           (Png.byteAt f (4 * i + 2)).toNat
         hist := hist.insert c (hist.getD c 0 + 1)
   let cap := maxColors - if transparent then 1 else 0
-  let items := hist.toArray.qsort fun x y => x.1 < y.1
+  let items := hist.toArray.sortStable fun x y => x.1 < y.1
   if items.size ≤ cap then
     return { colors := items.map (·.1), hasTransparent := transparent, exact := true }
   return { colors := medianCut items cap, hasTransparent := transparent, exact := false }

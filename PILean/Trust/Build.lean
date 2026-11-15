@@ -14,6 +14,7 @@ directory holds what a build produces. A project's driver is three lines:
 ```lean
 import MyFigures
 import PILean.Trust.Build
+import PILean.Sort
 def main (args : List String) : IO UInt32 := PILean.Trust.buildMain figures% args
 ```
 
@@ -82,7 +83,7 @@ def renderAll (entries : Array FigureEntry) (opts : BuildOptions := {}) :
       match renderOutput e o opts with
       | .ok f => files := files.push f
       | .error err => errors := errors.push err
-  files := files.qsort fun a b => a.entry.path < b.entry.path
+  files := files.sortStable fun a b => a.entry.path < b.entry.path
   for i in [1:files.size] do
     if files[i - 1]!.entry.path == files[i]!.entry.path then
       errors := errors.push s!"two outputs have the path {files[i]!.entry.path}"
@@ -101,7 +102,7 @@ def listFiles (dir : System.FilePath) : IO (Array String) := do
       let r := if rel.isEmpty then ent.fileName else rel ++ "/" ++ ent.fileName
       if (← ent.path.symlinkMetadata).type == .dir then todo := todo.push (ent.path, r, depth + 1)
       else out := out.push r
-  return out.qsort (· < ·)
+  return out.sortStable (· < ·)
 
 /-- Whether the file at `rel` below `root` holds exactly `bytes`: it must be a regular file with
 no symbolic link on its way, and its size is read first, so a large file of the wrong size is

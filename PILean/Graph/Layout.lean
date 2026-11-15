@@ -69,6 +69,13 @@ structure LayeredOptions where
   minNodeWidth : Float := 40
   /-- The distance between the points where edges meet a node's side. -/
   portStep : Float := 9
+  /-- The most real and dummy nodes the crossing reduction and the coordinates work on: when the
+  edges' spans would need more dummy nodes, long edges are drawn without them (straight between
+  their ends, so they may cross other nodes), which keeps the work linear in the graph. -/
+  maxLayoutNodes : Nat := 200000
+  /-- The work allowed to the network simplex layering (in the units of `simplexComponent`):
+  when it is used up, the best layering so far is kept. -/
+  layerWork : Nat := 100000000
   deriving Inhabited
 
 /-- A node's box and look, resolved from the style and the node's overrides. -/

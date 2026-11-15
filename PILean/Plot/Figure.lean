@@ -6,6 +6,7 @@ import PILean.Plot.Scale
 import PILean.Plot.Sample
 import PILean.Canvas
 import PILean.Style
+import PILean.Sort
 
 /-!
 # Figures
@@ -236,7 +237,7 @@ def functionExtent (f : Float → Float) (x0 x1 : Float) (yk : ScaleKind) :
   let ys := ((List.range (n + 1)).toArray.map fun i =>
     f (x0 + (x1 - x0) * i.toFloat / n.toFloat)).filter fun v => finite v && (yk != .log || v > 0)
   if ys.isEmpty then return none
-  let s := ys.qsort (· < ·)
+  let s := ys.sortStable (· < ·)
   let at_ := fun (q : Float) => (s[(q * (s.size - 1).toFloat).round.toUInt64.toNat]?).getD 0
   let (lo, hi) := (s[0]?.getD 0, s.back?.getD 0)
   let core := at_ 0.95 - at_ 0.05

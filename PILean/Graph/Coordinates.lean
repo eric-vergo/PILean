@@ -5,6 +5,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import Std.Data.HashSet
 import PILean.Graph.Ordering
 import PILean.Graph.Simplex
+import PILean.Sort
 
 /-!
 # Horizontal coordinate assignment
@@ -101,7 +102,7 @@ def alignCompact (size : Nat) (marked : Std.HashSet Nat) (layers : Array (Array 
   for layer in layers do
     let mut r : Int := -1
     for v in layer do
-      let ns := (nbr.getD v #[]).qsort fun a b =>
+      let ns := (nbr.getD v #[]).sortStable fun a b =>
         pos.getD a 0 < pos.getD b 0 || (pos.getD a 0 == pos.getD b 0 && a < b)
       let d := ns.size
       if d > 0 then
@@ -257,7 +258,7 @@ for no numbers. -/
 def medianOf (xs : Array Float) : Option Float :=
   if xs.isEmpty then none
   else
-    let s := xs.qsort (· < ·)
+    let s := xs.sortStable (· < ·)
     let k := s.size / 2
     if s.size % 2 == 1 then s[k]? else
       match s[k - 1]?, s[k]? with
@@ -293,7 +294,7 @@ def refineBreadth (size n : Nat) (chains order : Array (Array Nat)) (up down : A
   let units := (Array.range size).filter fun u => !(members.getD u #[]).isEmpty
   let mut xs := x
   for pass in [0:passes] do
-    let sorted := units.qsort fun a b =>
+    let sorted := units.sortStable fun a b =>
       let xa := xs.getD ((members.getD a #[]).getD 0 0) 0
       let xb := xs.getD ((members.getD b #[]).getD 0 0) 0
       if pass % 2 == 0 then xa < xb || (xa == xb && a < b) else xa > xb || (xa == xb && a < b)

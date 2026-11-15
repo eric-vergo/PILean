@@ -7,6 +7,7 @@ import PILean.Graph.Layering
 import PILean.Graph.Ordering
 import PILean.Graph.Coordinates
 import PILean.Graph.Simplex
+import PILean.Sort
 
 /-!
 # The layered layout
@@ -45,7 +46,12 @@ layer, but nothing keeps other nodes out of a cluster's box, so a box can contai
 not members (and boxes can overlap).
 
 The number of dummy nodes is the sum of the spans of the edges, at most `E × (L - 1)` for `L`
-layers.
+layers; when the real and dummy nodes together would be more than
+`LayeredOptions.maxLayoutNodes`, long edges get no dummy nodes and are drawn straight between
+their ends. With that cap, the work allowed to the two network simplex phases
+(`layerWork`, `coordinateWork`) and the sweeps, every phase's work is bounded by a function of
+the numbers of nodes and edges that is at most `O((V + E) log (V + E))` times the sweeps, plus
+the two work budgets.
 
 ## References
 
@@ -129,14 +135,14 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let pairs : Array (Nat × Nat) := ve.filterMap fun (_, e) =>
     if e.src != e.dst then some (e.src, e.dst) else none
   let pos := elsPositions n pairs
-  let lay0 := assignLayers pos n pairs.toList
+  let lay0 := assignLayers pos n pairs.toList o.layerWork
   let hasLabels := ve.any fun (_, e) => e.src != e.dst && !e.label.isEmpty
   let lay := if hasLabels then lay0.map (· * 2) else lay0
   let oriented : Array (Option (Nat × Nat)) := ve.map fun (_, e) =>
     if e.src == e.dst then none
     else if before pos e.src e.dst then some (e.src, e.dst) else some (e.dst, e.src)
   let reversed : Array Bool := ve.map fun (_, e) => e.src != e.dst && !before pos e.src e.dst
-  let (chains, layerAll) := buildChains lay oriented
+  let (chains, layerAll) := buildChains lay oriented o.maxLayoutNodes
   let size := layerAll.size
   -- phase 3
   let (up, down) := chainNeighbours size chains
@@ -202,7 +208,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
     Id.run do
       let mut off : Array Float := Array.replicate m 0
       for v in [0:n] do
-        let ps := (groups.getD v #[]).qsort fun a b => a.1 < b.1 || (a.1 == b.1 && a.2 < b.2)
+        let ps := (groups.getD v #[]).sortStable fun a b => a.1 < b.1 || (a.1 == b.1 && a.2 < b.2)
         let cnt := ps.size
         let step := min o.portStep ((nb.getD v 0 - 20) / max 1 (cnt.toFloat - 1))
         for j in [0:cnt] do
@@ -220,7 +226,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         if (a - b).abs > 0.5 then
           gaps := gaps.modify (layerAll.getD (c.getD j 0) 0) (·.push (min a b, max a b, k, j))
     for gap in gaps do
-      let segs := gap.qsort fun p q => p.1 < q.1 || (p.1 == q.1 && (p.2.2.1 < q.2.2.1))
+      let segs := gap.sortStable fun p q => p.1 < q.1 || (p.1 == q.1 && (p.2.2.1 < q.2.2.1))
       let mut ends : Array Float := #[]
       let mut assigned : Array Nat := #[]
       for (lo, hi, _, _) in segs do

@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Path
+import PILean.Sort
 
 /-!
 # Coverage
@@ -170,7 +171,7 @@ def edgeCells (w h : Nat) (ax ay bx by_ : Int) (out : Array Cell) : Array Cell :
   let mut cuts : Array (Int × Int) := #[]
   for b in [0, right] do
     if (x0 < b && b < x1) || (x1 < b && b < x0) then cuts := cuts.push (b, yAtX b)
-  cuts := cuts.qsort (fun p q => p.2 < q.2)
+  cuts := cuts.sortStable (fun p q => p.2 < q.2)
   pts := pts ++ cuts |>.push (x1, y1)
   let stride := (w : Int) + 2
   let mut out := out
@@ -220,7 +221,7 @@ def coverageRaw (polys : Array (Array Point)) (rule : FillRule) (w h : Nat) (cli
       let (ax, ay) := pts[i]?.getD (0, 0)
       let (bx, by_) := pts[(i + 1) % pts.size]?.getD (0, 0)
       found := edgeCells w h ax ay bx by_ found
-  let sorted := found.qsort (fun a b => a.1 < b.1)
+  let sorted := found.sortStable (fun a b => a.1 < b.1)
   let cells := sorted
   let stride := (w : Int) + 2
   let mut out : Array Span := #[]

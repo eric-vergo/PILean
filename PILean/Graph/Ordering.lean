@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import Std.Data.HashMap
+import PILean.Sort
 
 /-!
 # The proper layered graph and crossing reduction
@@ -50,10 +51,18 @@ namespace PILean.Graph
 
 `oriented k` is `some (a, b)` for the `k`-th edge when it is to be routed (`a` above `b`) and
 `none` for a self-loop. Every chain starts at `a`, ends at `b`, and has one dummy node (numbered
-from the number of real nodes upwards, in edge order) for each layer strictly between. Returns
-the chains and the layers of all nodes. Work and size: the sum of the spans of the edges. -/
-def buildChains (lay : Array Nat) (oriented : Array (Option (Nat × Nat))) :
-    Array (Array Nat) × Array Nat := Id.run do
+from the number of real nodes upwards, in edge order) for each layer strictly between, unless
+the real and dummy nodes together would be more than `maxSize`: then no edge gets dummy nodes
+(each chain is its two ends), so a graph whose edges span many layers costs `O(V + E)` here
+instead of the sum of the spans. Returns the chains and the layers of all nodes. Work and size:
+the sum of the spans of the edges, at most `maxSize` plus `O(E)`. -/
+def buildChains (lay : Array Nat) (oriented : Array (Option (Nat × Nat)))
+    (maxSize : Nat := 200000) : Array (Array Nat) × Array Nat := Id.run do
+  let dummies := oriented.foldl (init := 0) fun acc o => match o with
+    | some (a, b) => acc + (lay.getD b 0 - lay.getD a 0 - 1)
+    | none => acc
+  if lay.size + dummies > maxSize then
+    return (oriented.map fun o => match o with | some (a, b) => #[a, b] | none => #[], lay)
   let mut layerAll := lay
   let mut chains : Array (Array Nat) := Array.mkEmpty oriented.size
   for o in oriented do
@@ -156,7 +165,7 @@ def crossings (upper : Array Nat) (lowerSize : Nat) (down : Array (Array Nat))
   let mut inserted := 0
   let mut total := 0
   for x in upper do
-    let ys := ((down.getD x #[]).map fun y => pos.getD y 0).qsort (· < ·)
+    let ys := ((down.getD x #[]).map fun y => pos.getD y 0).sortStable (· < ·)
     for y in ys do
       -- the number of inserted targets at positions ≤ y
       let mut i := y + 1
@@ -212,12 +221,12 @@ def reorderMedian (layer : Array Nat) (nbr : Array (Array Nat)) (pos : Array Nat
     let v := layer.getD j 0
     let ns := nbr.getD v #[]
     if !ns.isEmpty then
-      let ps := (ns.map fun u => pos.getD u 0).qsort (· < ·)
+      let ps := (ns.map fun u => pos.getD u 0).sortStable (· < ·)
       keyed := keyed.push (weightedMedian ps, j, v)
       slots := slots.push j
   let lt := fun (a b : Float × Nat × Nat) =>
     a.1 < b.1 || (a.1 == b.1 && (a.2.1 < b.2.1 || (a.2.1 == b.2.1 && a.2.2 < b.2.2)))
-  let sorted := keyed.qsort lt
+  let sorted := keyed.sortStable lt
   let mut out := layer
   for i in [0:slots.size] do
     out := out.setIfInBounds (slots.getD i 0) (sorted.getD i (0, 0, 0)).2.2
@@ -339,6 +348,6 @@ def groupClusters (order : Array (Array Nat)) (clusterOf : Nat → Option Nat) :
       | none => ((i.toFloat + 0.5) / layer.size.toFloat, 0, i)
     let lt := fun (a b : Float × Nat × Nat) =>
       a.1 < b.1 || (a.1 == b.1 && (a.2.1 < b.2.1 || (a.2.1 == b.2.1 && a.2.2 < b.2.2)))
-    (keyed.qsort lt).map fun k => layer.getD k.2.2 0
+    (keyed.sortStable lt).map fun k => layer.getD k.2.2 0
 
 end PILean.Graph
