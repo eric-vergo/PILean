@@ -18,6 +18,7 @@ import PILean.Plot.Ticks
 import PILean.Plot.Scale
 import PILean.Plot.Sample
 import PILean.Plot.Figure
+import PILean.Plot.Proofs
 import PILean.Raster.Coverage
 import PILean.Raster.Canvas
 import PILean.Raster.Stroke
