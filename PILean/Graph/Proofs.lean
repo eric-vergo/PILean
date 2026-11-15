@@ -168,15 +168,20 @@ theorem acyclicEdges_ok (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
     rw [hq'] at hle
     exact absurd hle (by simp)
 
-/-- The layers after the guard of `assignLayers` have the size of the graph. -/
+/-- The layers after the guards of `assignLayers` have the size of the graph. -/
 theorem assignLayers_start_size (n : Nat) (es : List (Nat × Nat)) :
-    (let l0 := fixLayers es (Array.replicate n 0)
-     let l1 := balanceLayers n es l0 6
+    (let start := fixLayers es (Array.replicate n 0)
+     let l0 := (let s := simplexLayers n es start; if s.size = n then s else start)
+     let l1 := balanceLayers n es l0 2
      (if l1.size = n then l1 else l0)).size = n := by
   dsimp only
-  by_cases h : (balanceLayers n es (fixLayers es (Array.replicate n 0)) 6).size = n
-  · simp [h]
-  · simp [h, fixLayers_size]
+  by_cases h0 : (simplexLayers n es (fixLayers es (Array.replicate n 0))).size = n
+  · by_cases h : (balanceLayers n es (simplexLayers n es (fixLayers es (Array.replicate n 0))) 2).size = n
+    · simp [h0, h]
+    · simp [h0, h]
+  · by_cases h : (balanceLayers n es (fixLayers es (Array.replicate n 0)) 2).size = n
+    · simp [h0, h]
+    · simp [h0, h, fixLayers_size]
 
 /-- After `assignLayers`, every acyclic edge points to a deeper layer. -/
 theorem assignLayers_lt (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))

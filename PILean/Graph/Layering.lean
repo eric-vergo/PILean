@@ -2,6 +2,7 @@
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
+import PILean.Graph.Simplex
 
 /-!
 # Cycle removal and layer assignment
@@ -167,8 +168,9 @@ always does), so that every acyclic edge points to a larger layer
 (`PILean.Graph.Proofs`). -/
 def assignLayers (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) : Array Nat :=
   let es := acyclicEdges pos edges
-  let l0 := fixLayers es (Array.replicate n 0)
-  let l1 := balanceLayers n es l0 6
+  let start := fixLayers es (Array.replicate n 0)
+  let l0 := (let s := simplexLayers n es start; if s.size = n then s else start)
+  let l1 := balanceLayers n es l0 2
   fixLayers es (if l1.size = n then l1 else l0)
 
 end PILean.Graph
