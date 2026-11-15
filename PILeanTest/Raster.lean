@@ -90,7 +90,7 @@ def strokeChecks : Array (String × Bool) :=
     ("stroke: square caps add half a width at each end",
       near (area (strokeCov seg { width := 4, cap := .square })) (96 * 255) 64),
     ("stroke: round caps add a disc",
-      near (area (strokeCov seg { width := 4, cap := .round })) ((80 + 13) * 255) (255)),
+      near (area (strokeCov seg { width := 4, cap := .round })) 23606 128),
     ("stroke: a miter join fills the outer corner square (two 20 × 4 arms meeting: 156 + 4)",
       near (area (strokeCov corner { width := 4, join := .miter })) (160 * 255) 64),
     ("stroke: a bevel join fills half the outer corner square",

@@ -85,7 +85,7 @@ def signedArea2 (ps : Array Point) : Float := Id.run do
 /-- The polygon wound positively (reversed if its signed area is negative). -/
 def orient (ps : Array Point) : Array Point := if signedArea2 ps < 0 then ps.reverse else ps
 
-/-- A disc of radius `r` as a polygon within `tol` of the circle. -/
+/-- A disc of radius `r` as a polygon within `tol` of the circle, with the disc's area. -/
 def disc (c : Point) (r tol : Float) : Array Point := Id.run do
   if r ≤ 0 then return #[]
   let tol := max tol 0.01
@@ -93,8 +93,11 @@ def disc (c : Point) (r tol : Float) : Array Point := Id.run do
   let step := 2 * Float.acos ratio
   let n : Nat := max 8 (min 1024 (if step > 0 then (6.283185307179586 / step).ceil.toUInt64.toNat
     else 1024))
+  -- vertices on a slightly larger circle, so that the polygon has the disc's area
+  let a := 6.283185307179586 / n.toFloat
+  let r := r * (a / Float.sin a).sqrt
   return (Array.range n).map fun i =>
-    let t := 6.283185307179586 * i.toFloat / n.toFloat
+    let t := a * i.toFloat
     ⟨c.x + r * Float.cos t, c.y + r * Float.sin t⟩
 
 /-- The unit vector of `d`, or `none` for a zero vector. -/
