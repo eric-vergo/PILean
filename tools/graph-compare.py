@@ -3,8 +3,10 @@
 #
 # Compares PILean's layered graph layout with Graphviz's `dot` by measures that do not depend on
 # the eye: the number of edge pairs that cross, the total length of the edges, and the area of
-# the drawing. `lake exe pilean-test --graph-compare-out DIR` writes, for each of a few graphs,
-# DIR/<name>.dot (the graph with PILean's node sizes and gaps) and DIR/<name>.layout (PILean's
+# the drawing. `lake exe pilean-test --graph-quality DIR` (or the older `--graph-compare-out DIR`)
+# writes, for each of a few graphs,
+# DIR/<name>.dot (the graph with PILean's node sizes and gaps, and its clusters as `cluster`
+# subgraphs) and DIR/<name>.layout (PILean's
 # node boxes and edges flattened to polylines). This script runs `dot -Tplain` on each .dot,
 # reads both layouts, flattens dot's Bézier splines the same way, and prints a table.
 # Edges that share a node are not counted as crossing. Also prints the layout time of each (PILean's
@@ -13,7 +15,7 @@
 # and a `dot` program found on the path (nothing is installed or downloaded).
 #
 # Usage, from the repository root:
-#   lake exe pilean-test --graph-compare-out /tmp/pilean-graphs
+#   lake exe pilean-test --graph-quality /tmp/pilean-graphs
 #   python3 -I tools/graph-compare.py /tmp/pilean-graphs [DOT]
 
 import glob
