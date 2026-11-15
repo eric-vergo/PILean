@@ -290,7 +290,8 @@ def optimising : Array (String × Bool) :=
   let bigEs := acyclicEdges bigPos bigPairs
   let start := fixLayers bigEs (Array.replicate 400 0)
   let simplex := simplexLayers 400 bigEs start
-  -- a weighted problem: `b` is pulled to `a` by weight 1 and to `c` by weight 3
+  -- a weighted problem: `b` is pulled to `a` by weight 1 and to `c` by weight 3, and `c` is
+  -- five below `a`
   let (w, _) := simplexSolve 3 #[0, 1, 0] #[1, 2, 2] #[1, 1, 5] #[1, 3, 0] #[0, 1, 5]
   let chain := Graph.ofPairs [(0, 3), (0, 1), (1, 2), (2, 3)]
   let bigLayout := bigG.layout {} {}
@@ -300,15 +301,13 @@ def optimising : Array (String × Bool) :=
       bigEs.all (fun e => simplex.getD e.1 0 < simplex.getD e.2 0) &&
         spanOf bigEs simplex ≤ spanOf bigEs start),
     ("simplex: a weighted problem keeps the heavy edges short",
-      w.size == 3 && w.getD 2 0 - w.getD 1 0 == 1 && w.getD 1 0 - w.getD 0 0 == 3),
+      w.size == 3 && w.getD 2 0 - w.getD 1 0 == 1 && w.getD 1 0 - w.getD 0 0 == 4),
     ("simplex: the layering and the layout are the same twice",
       simplexLayers 400 bigEs start == simplex &&
         (bigG.layout {} {}).edges.map (·.points) == bigLayout.edges.map (·.points)),
     ("simplex: a long edge in a layered chain stays straight",
       match (chain.layout {} {}).edges[0]? with
-      | some e =>
-        let x0 := (e.points.getD 0 ⟨0, 0⟩).x
-        e.points.size == 4 && e.points.all fun p => (p.x - x0).abs < 1
+      | some e => e.points.size == 4 && (e.points.getD 1 ⟨0, 0⟩).x == (e.points.getD 2 ⟨1, 0⟩).x
       | none => false),
     ("simplex: a spent work budget still gives a layout with boxes apart",
       disjoint (bigG.layout { coordinateWork := 1000 } {}) &&

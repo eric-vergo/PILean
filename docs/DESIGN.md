@@ -204,9 +204,9 @@ other nodes out of them, so a box may hold nodes that are not members and boxes 
 **Proved** (`PILean.Graph.Proofs`, axioms `propext`, `Classical.choice`, `Quot.sound` only):
 `fixLayers_lt` (relaxing edges in an order in which no later edge ends where an earlier one
 starts puts every target below its source, from any starting layers), `assignLayers_lt` and
-`assignLayers_lt_input` (for the function the layout calls, which now runs the network simplex first and
-relaxes its result, every acyclic edge, and so every
-input edge turned to point from the node that comes first, has `layer src < layer dst`), and
+`assignLayers_lt_input` (for the function the layout calls, which runs the network simplex and
+relaxes its result, every acyclic edge, and so every input edge turned to point from the node
+that comes first, has `layer src < layer dst`, whatever the simplex returned), and
 `layout_edge_indices`, `layout_edges_nodup`, `layout_edges_complete` (the routed edges are
 exactly the valid input edges, in order, each once, by index).
 
