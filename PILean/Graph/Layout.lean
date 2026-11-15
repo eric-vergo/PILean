@@ -53,6 +53,9 @@ structure LayeredOptions where
   edgeGap : Float := 14
   /-- How edges are drawn. -/
   routing : Routing := .spline
+  /-- How many times taller than `layerGap` a gap may grow to keep the horizontal runs of the
+  edges that cross it far sideways three pixels apart. -/
+  sidewaysGap : Float := 3
   /-- The most rounds of weighted-median sweeps (each followed by transposition) of the
   crossing reduction. -/
   sweeps : Nat := 24

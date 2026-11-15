@@ -230,21 +230,64 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         topNeed := topNeed.modify a (max · (topExtra.getD c 0))
       if tree.parent.getD c none |>.all (fun p => (bs.span.getD p none).all (·.2 != b)) then
         bottomNeed := bottomNeed.modify b (max · (bottomExtra.getD c 0))
-  -- a gap that edges cross far sideways is made taller (up to three times), so that those
-  -- edges do not run flat just under the boxes of the layer above
-  let mut sideways : Array Float := Array.replicate order.size 0
-  for c in chains do
+  -- the horizontal runs of each gap get tracks (greedy interval colouring): every step of an
+  -- orthogonal route that moves sideways, and every step of a curve that moves sideways more
+  -- than two and a half times the gap (drawn as a run half-way down the gap, so that it keeps
+  -- away from the boxes above and below); a value below zero marks a step without a run
+  let mut runs : Array (Array Float) := chains.map fun c => Array.replicate (c.size - 1) (-1)
+  let mut tracks : Array Nat := Array.replicate order.size 0
+  let mut gaps : Array (Array (Float × Float × Nat × Nat)) := Array.replicate order.size #[]
+  for k in [0:m] do
+    let c := chains.getD k #[]
     for j in [0:c.size - 1] do
-      let a := c.getD j 0
-      let b := c.getD (j + 1) 0
-      let la := layerAll.getD a 0
-      sideways := sideways.modify la (max · ((x.getD a 0) - (x.getD b 0)).abs)
+      let a := (x.getD (c.getD j 0) 0).round
+      let b := (x.getD (c.getD (j + 1) 0) 0).round
+      let run := if o.routing == .orthogonal then (a - b).abs > 0.5
+        else (a - b).abs > 2.5 * gap
+      if run then
+        gaps := gaps.modify (layerAll.getD (c.getD j 0) 0) (·.push (min a b, max a b, k, j))
+  for li in [0:gaps.size] do
+    let segs := gaps.getD li #[]
+    -- a run going right must lie below every overlapping run going right that starts further
+    -- right (otherwise that one's way down crosses it), and a run going left below every
+    -- overlapping one going left that starts further left; the runs going right take the
+    -- upper tracks, those going left the lower ones
+    let place := fun (rightward : Bool) => Id.run do
+      let idx := ((Array.range segs.size).filter fun i =>
+        let (_, _, k, j) := segs.getD i (0, 0, 0, 0)
+        let c := chains.getD k #[]
+        let goesRight := x.getD (c.getD (j + 1) 0) 0 ≥ x.getD (c.getD j 0) 0
+        goesRight == rightward).sortStable fun i i' =>
+          let (lo, hi, _, _) := segs.getD i (0, 0, 0, 0)
+          let (lo', hi', _, _) := segs.getD i' (0, 0, 0, 0)
+          if rightward then lo > lo' || (lo == lo' && hi < hi') else hi < hi' || (hi == hi' && lo > lo')
+      let mut placed : Array (Float × Float × Nat) := #[]
+      let mut out : Array (Nat × Nat) := #[]
+      let mut depth := 0
+      for i in idx do
+        let (lo, hi, _, _) := segs.getD i (0, 0, 0, 0)
+        let t := placed.foldl (fun t (plo, phi, pt) =>
+          if plo < hi + 6 && lo < phi + 6 then max t (pt + 1) else t) 0
+        placed := placed.push (lo, hi, t)
+        out := out.push (i, t)
+        depth := max depth (t + 1)
+      return (out, depth)
+    let (rs, rd) := place true
+    let (ls, ld) := place false
+    let total := rd + ld
+    tracks := tracks.setIfInBounds li total
+    for (i, t) in rs ++ ls.map (fun (i, t) => (i, t + rd)) do
+      let (_, _, k, j) := segs.getD i (0, 0, 0, 0)
+      runs := runs.modify k fun r =>
+        r.setIfInBounds j ((t.toFloat + 1) / (total.toFloat + 1))
   let mut levels : Array Float := Array.replicate order.size 0
   let mut t : Float := 0
   let mut prev : Float := 0
   for l in [0:order.size] do
     let th := thick.getD l 0
-    let g := if l == 0 then gap else min (3 * gap) (max gap (sideways.getD (l - 1) 0 / 5))
+    -- a gap with many runs grows (up to `sidewaysGap` times) to keep them three pixels apart
+    let g := if l == 0 then gap
+      else min (o.sidewaysGap * gap) (max gap ((tracks.getD (l - 1) 0 + 1).toFloat * 3 + 16))
     let g := if l == 0 then g
       else max g (bottomNeed.getD (l - 1) 0 + topNeed.getD l 0 + 12)
     t := if l == 0 then th / 2 + topNeed.getD 0 0 else t + prev / 2 + g + th / 2
@@ -279,31 +322,6 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         for j in [0:cnt] do
           off := off.setIfInBounds (ps.getD j (0, 0)).2 ((j.toFloat - (cnt.toFloat - 1) / 2) * step)
       return off
-  -- orthogonal routes: the horizontal runs of each gap get tracks (greedy interval colouring)
-  let mut runs : Array (Array Float) := chains.map fun c => Array.replicate (c.size - 1) 0.5
-  if o.routing == .orthogonal then
-    let mut gaps : Array (Array (Float × Float × Nat × Nat)) := Array.replicate order.size #[]
-    for k in [0:m] do
-      let c := chains.getD k #[]
-      for j in [0:c.size - 1] do
-        let a := across.getD (c.getD j 0) 0
-        let b := across.getD (c.getD (j + 1) 0) 0
-        if (a - b).abs > 0.5 then
-          gaps := gaps.modify (layerAll.getD (c.getD j 0) 0) (·.push (min a b, max a b, k, j))
-    for gap in gaps do
-      let segs := gap.sortStable fun p q => p.1 < q.1 || (p.1 == q.1 && (p.2.2.1 < q.2.2.1))
-      let mut ends : Array Float := #[]
-      let mut assigned : Array Nat := #[]
-      for (lo, hi, _, _) in segs do
-        let mut track := ends.size
-        for i in [0:ends.size] do
-          if track == ends.size && ends.getD i 0 + 6 < lo then track := i
-        if track == ends.size then ends := ends.push hi else ends := ends.setIfInBounds track hi
-        assigned := assigned.push track
-      for i in [0:segs.size] do
-        let (_, _, k, j) := segs.getD i (0, 0, 0, 0)
-        let frac := (assigned.getD i 0).toFloat + 1
-        runs := runs.modify k fun r => r.setIfInBounds j (frac / (ends.size.toFloat + 1))
   let band := layerAll.map fun l => thick.getD l 0 / 2
   let clusterFrames : Option (Array (Nat × Box)) :=
     if !clustered then none
@@ -327,9 +345,53 @@ def orthVertices (pts : Array Point) (runs : Array Float) : Array Point := Id.ru
     if i > 0 then
       let q := pts.getD (i - 1) ⟨0, 0⟩
       if (p.x - q.x).abs > 0.5 then
-        let mid := q.y + runs.getD (i - 1) 0.5 * (p.y - q.y)
+        let r := runs.getD (i - 1) 0.5
+        let mid := q.y + (if r < 0 then 0.5 else r) * (p.y - q.y)
         out := (out.push ⟨q.x, mid⟩).push ⟨p.x, mid⟩
     out := out.push p
+  return out
+
+/-- The straight piece from `p` to `q`. -/
+def linePiece (p q : Point) : Piece :=
+  (p, ⟨p.x + (q.x - p.x) / 3, p.y + (q.y - p.y) / 3⟩,
+    ⟨p.x + 2 * (q.x - p.x) / 3, p.y + 2 * (q.y - p.y) / 3⟩, q)
+
+/-- The curve across a gap from `a` down to `b`, leaving and entering perpendicular to the
+layers. -/
+def gapPiece (a b : Point) : Piece :=
+  let h := (b.y - a.y) / 3
+  (a, ⟨a.x, a.y + h⟩, ⟨b.x, b.y - h⟩, b)
+
+/-- The route across a gap from `a` down to `b` that goes far sideways: down from `a`, a
+horizontal run at `y`, down into `b`, with rounded corners. -/
+def stairPieces (a b : Point) (y : Float) : Array Piece :=
+  let r := min 10 (min (min (y - a.y) (b.y - y)) ((b.x - a.x).abs / 2)) |> max 0
+  let s : Float := if b.x ≥ a.x then 1 else -1
+  -- a quarter circle as a cubic: the control points 0.5523 of the radius from the ends
+  let k := 0.5523 * r
+  let c1 : Point := ⟨a.x, y - r⟩
+  let c2 : Point := ⟨a.x + s * r, y⟩
+  let c3 : Point := ⟨b.x - s * r, y⟩
+  let c4 : Point := ⟨b.x, y + r⟩
+  #[linePiece a c1, (c1, ⟨a.x, y - r + k⟩, ⟨a.x + s * (r - k), y⟩, c2), linePiece c2 c3,
+    (c3, ⟨b.x - s * (r - k), y⟩, ⟨b.x, y + r - k⟩, c4), linePiece c4 b]
+
+/-- The pieces of a curve through stations (the points where it enters and leaves each node
+of its chain, top to bottom): straight through a station, `gapPiece` across a gap, or
+`stairPieces` at the fraction `runs[j]` of gap `j` when that is not negative. -/
+def stationPieces (stations : Array (Point × Point)) (runs : Array Float) : Array Piece :=
+  Id.run do
+  let mut out : Array Piece := #[]
+  for j in [0:stations.size] do
+    let (p, q) := stations.getD j (⟨0, 0⟩, ⟨0, 0⟩)
+    if j > 0 then
+      let a := (stations.getD (j - 1) (⟨0, 0⟩, ⟨0, 0⟩)).2
+      let r := runs.getD (j - 1) (-1)
+      -- the runs keep a few pixels from both sides of the gap
+      let m := min 8 ((p.y - a.y) / 4)
+      out := out ++ (if r ≥ 0 then stairPieces a p (a.y + m + r * (p.y - a.y - 2 * m))
+        else #[gapPiece a p])
+    if q.y > p.y then out := out.push (linePiece p q)
   return out
 
 /-- The box of a plate of size `(w, h)` centred at `c`. -/
@@ -368,24 +430,26 @@ def routeOne (pl : Plan) (k i : Nat) (e : Graph.Edge) : RoutedEdge :=
     let ex := (fz.x0 + fz.x1) / 2 + eo
     let sy := (fa.y0 + fa.y1) / 2 + boundaryOffset fa (pl.shapes.getD a .round) so
     let ey := (fz.y0 + fz.y1) / 2 - boundaryOffset fz (pl.shapes.getD b .round) eo
-    -- a dummy node is crossed straight along the layers through its layer's band, so the edge
-    -- keeps its distance from the boxes of that layer and leaves the band perpendicular to it
-    let inner : Array Point := (c.extract 1 (c.size - 1)).foldl (init := #[]) fun acc d =>
-      let cx := pl.across.getD d 0
-      let cy := pl.along.getD d 0
-      let h := pl.band.getD d 0
-      if pl.routing == .spline && h > 0.5 then acc ++ #[⟨cx, cy - h⟩, ⟨cx, cy + h⟩]
-      else acc.push ⟨cx, cy⟩
-    let pts : Array Point := #[⟨sx, sy⟩] ++ inner ++ #[⟨ex, ey⟩]
-    -- the end that carries the arrowhead moves in by the head's length
+    -- each node of the chain is a station the edge enters and leaves: a dummy node is crossed
+    -- straight along the layers through its layer's band (curves), so the edge keeps its distance
+    -- from the boxes of that layer and leaves the band perpendicular to it
     let cut := arrowLength - 1
-    let shortened : Array Point :=
-      if !arrow then pts
-      else if rev then pts.modify 0 fun p => ⟨p.x, p.y + cut⟩
-      else pts.modify (pts.size - 1) fun p => ⟨p.x, p.y - cut⟩
+    let first : Point := if arrow && rev then ⟨sx, sy + cut⟩ else ⟨sx, sy⟩
+    let last : Point := if arrow && !rev then ⟨ex, ey - cut⟩ else ⟨ex, ey⟩
+    let stations : Array (Point × Point) :=
+      #[(first, first)] ++ (c.extract 1 (c.size - 1)).map (fun d =>
+        let cx := pl.across.getD d 0
+        let cy := pl.along.getD d 0
+        let h := pl.band.getD d 0
+        if pl.routing == .spline && h > 0.5 then (⟨cx, cy - h⟩, ⟨cx, cy + h⟩)
+        else (⟨cx, cy⟩, ⟨cx, cy⟩)) ++ #[(last, last)]
+    let pts : Array Point := stations.foldl (init := #[]) fun acc (p, q) =>
+      if p.x == q.x && p.y == q.y then acc.push p else (acc.push p).push q
+    let shortened := pts
+    let runs := pl.runs.getD k #[]
     let path : Path := match pl.routing with
       | .spline =>
-        let ps := splinePieces shortened
+        let ps := stationPieces stations runs
         piecesPath (if rev then reversePieces ps else ps)
       | .orthogonal =>
         let vs := orthVertices shortened (pl.runs.getD k #[])

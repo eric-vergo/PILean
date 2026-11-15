@@ -64,6 +64,7 @@ def main (args : List String) : IO UInt32 := do
   | ["--graph-bench"] => Graphs.bench; return 0
   | ["--graph-quality"] => GraphQuality.report none; return 0
   | ["--graph-quality", dir] => GraphQuality.report (some dir); return 0
+  | ["--graph-problems", name] => GraphQuality.problems name; return 0
   | ["--bounds"] =>
     let r := (← Bounds.ioChecks) ++ (← Tools.ioChecks)
     for (name, ok) in r do if !ok then IO.eprintln s!"FAIL {name}"

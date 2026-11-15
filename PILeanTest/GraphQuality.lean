@@ -229,4 +229,13 @@ def report (dir? : Option String) : IO Unit := do
       IO.FS.writeFile s!"{dir}/{name}.time" s!"{ms} {← Graphs.loadAverage}\n"
       IO.FS.writeFile s!"{dir}/{name}.svg" (g.toSvg)
 
+/-- Prints the violations of the cluster and clearance rules in the layout of the graph named
+`name` (one of `graphs`). -/
+def problems (name : String) : IO Unit := do
+  match graphs.find? (·.1 == name) with
+  | none => IO.eprintln s!"no graph {name}"
+  | some (_, g) =>
+    let l := g.layout
+    for p in clusterProblems g l ++ clearanceProblems g l do IO.println p
+
 end PILeanTest.GraphQuality
