@@ -31,7 +31,17 @@ package «pilean-verso-manual» where
 @[default_target]
 lean_lib PILeanVersoManual
 
-/-- The checks of the Manual-genre adapter (`lake test`). -/
+/-- A small manual with three figures (`ManualExample`), its figures and what they show. -/
+lean_lib ManualExample where
+  roots := #[`ManualExample]
+
+/-- The example manual's generator: `lake exe pilean-verso-manual-example --output _out`. -/
+lean_exe «pilean-verso-manual-example» where
+  root := `ManualExampleMain
+  supportInterpreter := true
+
+/-- The checks of the Manual-genre adapter (`lake test`): the example manual is generated twice
+and its pages and files are inspected. -/
 @[test_driver]
 lean_exe «pilean-verso-manual-test» where
   root := `PILeanVersoManualTest

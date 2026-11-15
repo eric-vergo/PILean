@@ -8,11 +8,12 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 
 One stylesheet for the figure blocks and the figures page. Colours come from the Blueprint's
 tokens (`--bp-color-*`) when the page has them, with plain fallbacks for other Manual-genre
-documents. The dark picture of a figure is shown when the page's root has `data-theme="dark"`,
-or when the system prefers dark and the root does not have `data-theme="light"`: the rules the
-Blueprint's and Verso's dark themes follow, without a script. The `lean:` links are shown only
-when the root has `data-lean-links` (a viewer that handles them sets it); otherwise the
-declaration is plain code.
+documents. A figure with a backdrop is laid over the backdrop's picture at the same size. The
+dark picture of a figure (and of its backdrop) is shown when the page's root has
+`data-theme="dark"`, or when the system prefers dark and the root does not have
+`data-theme="light"`: the rules the Blueprint's and Verso's dark themes follow, without a script.
+The `lean:` links are shown only when the root has `data-lean-links` (a viewer that handles them
+sets it); otherwise the declaration is plain code.
 -/
 
 namespace PILeanVerso
@@ -42,6 +43,21 @@ def figureCss : String := r##"
   border-radius: 6px;
 }
 .pilean-figure-motion { display: block; max-width: 100%; }
+.pilean-figure-stack { position: relative; display: inline-block; max-width: 100%; }
+.pilean-backdrop-img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+.pilean-figure-over { position: absolute; inset: 0; pointer-events: none; }
+.pilean-figure-over .pilean-figure-img {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  border-radius: 6px;
+}
 .pilean-figure-dark { display: none; }
 html[data-theme="dark"] .pilean-figure-has-dark .pilean-figure-light { display: none; }
 html[data-theme="dark"] .pilean-figure-has-dark .pilean-figure-dark { display: block; }
@@ -123,6 +139,9 @@ html[data-lean-links] .pilean-lean-text { display: none; }
   height: auto;
   border-radius: 4px;
 }
+.pilean-index-stack { position: relative; display: block; }
+.pilean-index-over { position: absolute; inset: 0; }
+.pilean-index-over img { width: 100%; height: 100%; }
 .pilean-index-body { min-width: 0; }
 .pilean-index-title { margin: 0 0 0.35rem; font-weight: 600; }
 .pilean-index-facts {
