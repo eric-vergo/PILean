@@ -134,7 +134,8 @@ def userTime (err : String) : Option Nat := Id.run do
   return none
 
 /-- Runs the executable `exe` (a sibling of the test driver) with `args` in its own process group
-under a CPU limit of `cpuS` seconds, killed after `wallMs` milliseconds, and measures it with `/usr/bin/time`. -/
+under a CPU limit of `cpuS` seconds, killed after `wallMs` milliseconds, and measures it with
+`/usr/bin/time`. -/
 def runLimited (exe : String) (args : Array String) (cpuS wallMs : Nat)
     (scratch : System.FilePath) : IO Run := do
   let app := ((← IO.appPath).parent.getD ".") / exe
