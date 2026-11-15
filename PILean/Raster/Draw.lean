@@ -39,9 +39,10 @@ structure Draw where
 
 namespace Draw
 
-/-- A drawing of `w × h` pixels on a background. -/
-def new (w h : Nat) (bg : Rgba := ⟨255, 255, 255, 255⟩) : Draw :=
-  { canvas := Canvas.new w h bg, clip := ⟨0, 0, w, h⟩ }
+/-- A drawing of `w × h` pixels on a background, mixing colours in `space` (linear light by
+default). -/
+def new (w h : Nat) (bg : Rgba := ⟨255, 255, 255, 255⟩) (space : Space := .linear) : Draw :=
+  { canvas := Canvas.new w h bg space, clip := ⟨0, 0, w, h⟩ }
 
 /-- The picture, in a mode (RGBA by default). -/
 def toImage (d : Draw) (mode : Mode := .rgba) : Image := d.canvas.toImage mode
@@ -165,7 +166,8 @@ def withClipPath (d : Draw) (p : Path) (rule : FillRule := .nonZero) : Draw :=
 /-- A group: `body` drawn on a transparent layer of the same size and clip, then composited
 at `opacity`. -/
 def group (d : Draw) (opacity : Float) (body : Draw → Draw) : Draw :=
-  let layer := body { d with canvas := Canvas.new d.canvas.width d.canvas.height }
+  let layer := body
+    { d with canvas := Canvas.new d.canvas.width d.canvas.height ⟨0, 0, 0, 0⟩ d.canvas.space }
   { d with canvas := d.canvas.compositeOver layer.canvas opacity }
 
 end Draw

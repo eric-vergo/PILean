@@ -269,10 +269,11 @@ def drawNodes (clips : Array (String × Path)) (fuel : Nat) (d : Draw) (s : Styl
           | none => d
 
 /-- SVG nodes (the children of an `svg` root) drawn on a drawing of `w × h` pixels with a
-transparent background, as the SVG renderer draws them (see the module docstring). -/
+transparent background, as the SVG renderer draws them (see the module docstring), mixing
+colours in `space`. -/
 def Svg.rasterize (w h : Nat) (nodes : Array Node)
-    (bg : Rgba := ⟨0, 0, 0, 0⟩) : Draw :=
+    (bg : Rgba := ⟨0, 0, 0, 0⟩) (space : Space := .linear) : Draw :=
   let clips := nodes.foldl (fun acc n => acc ++ clipPaths 64 n) #[]
-  drawNodes clips 64 (Draw.new w h bg) {} nodes
+  drawNodes clips 64 (Draw.new w h bg space) {} nodes
 
 end PILean.Raster

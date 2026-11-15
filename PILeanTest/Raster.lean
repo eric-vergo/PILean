@@ -176,18 +176,21 @@ def stripText (fuel : Nat) (n : Svg.Node) : Option Svg.Node :=
     some (.element name attrs (children.filterMap (stripText fuel)))
   | _ + 1, t => some t
 
-/-- Writes each gallery figure's SVG and PNG without text into `dir`. -/
+/-- Writes each gallery figure's SVG and PNG without text into `dir`, the PNG mixed in linear
+light (`*-notext.png`) and, for comparing with renderers that mix in sRGB, in sRGB
+(`*-notext-srgb.png`). -/
 def writeCompare (dir : System.FilePath) : IO Unit := do
   IO.FS.createDirAll dir
   for (name, fig) in PILeanTest.Examples.gallery do
     let nodes := fig.render.filterMap (stripText 64)
     let base := (System.FilePath.mk name).fileStem.getD name
     IO.FS.writeFile (dir / s!"{base}-notext.svg") (Svg.document fig.width fig.height nodes)
-    let img := (Svg.rasterize fig.width.round.toUInt64.toNat fig.height.round.toUInt64.toNat
-      nodes ⟨255, 255, 255, 255⟩).toImage .rgb
-    match img.writePng with
-    | .ok b => IO.FS.writeBinFile (dir / s!"{base}-notext.png") b
-    | .error e => throw (IO.userError e.toString)
+    for (suffix, space) in [("", Space.linear), ("-srgb", Space.srgb)] do
+      let img := (Svg.rasterize fig.width.round.toUInt64.toNat fig.height.round.toUInt64.toNat
+        nodes ⟨255, 255, 255, 255⟩ space).toImage .rgb
+      match img.writePng with
+      | .ok b => IO.FS.writeBinFile (dir / s!"{base}-notext{suffix}.png") b
+      | .error e => throw (IO.userError e.toString)
     IO.println s!"{dir}/{base}-notext.svg and .png"
 
 /-- Times the function plot at 2000 × 1200 (best of three): drawing its nodes on the canvas,

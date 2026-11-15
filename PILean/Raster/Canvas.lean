@@ -54,12 +54,26 @@ structure Lin where
   a : Nat
   deriving BEq, Inhabited, Repr
 
-/-- An 8-bit sRGB channel in linear light, 0 to 65535. -/
-def decode8 (v : UInt8) : Nat := srgbDecode16[v.toNat]?.getD 0
+/-- The space colours are mixed in: linear light (the default, physically right), or the sRGB
+encoding itself (as many renderers mix; offered for comparing with them). -/
+inductive Space where
+  /-- Linear light. -/
+  | linear
+  /-- The sRGB encoding, mixed as if it were linear. -/
+  | srgb
+  deriving BEq, Inhabited, Repr
+
+/-- An 8-bit sRGB channel in the mixing space, 0 to 65535: linear light, or the encoded value
+scaled. -/
+def decode8 (v : UInt8) (s : Space := .linear) : Nat :=
+  match s with
+  | .linear => srgbDecode16[v.toNat]?.getD 0
+  | .srgb => v.toNat * 257
 
 /-- A linear-light channel (0 to 65535) as the nearest 8-bit sRGB value: the number of steps
 of `srgbThreshold16` at or below it (a binary search). -/
-def encode16 (v : Nat) : UInt8 := Id.run do
+def encode16 (v : Nat) (s : Space := .linear) : UInt8 := Id.run do
+  if s == .srgb then return (min 255 ((v + 128) / 257)).toUInt8
   let mut lo := 0
   let mut hi := 255
   for _ in [0:9] do
@@ -72,16 +86,18 @@ def encode16 (v : Nat) : UInt8 := Id.run do
 def mulDiv (a b c : Nat) : Nat := if c == 0 then 0 else (a * b + c / 2) / c
 
 /-- An 8-bit straight-alpha sRGB colour in linear light, premultiplied. -/
-def Lin.ofRgba (c : Rgba) : Lin :=
+def Lin.ofRgba (c : Rgba) (s : Space := .linear) : Lin :=
   let a := mulDiv c.a.toNat 65535 255
-  ⟨mulDiv (decode8 c.r) a 65535, mulDiv (decode8 c.g) a 65535, mulDiv (decode8 c.b) a 65535, a⟩
+  ⟨mulDiv (decode8 c.r s) a 65535, mulDiv (decode8 c.g s) a 65535, mulDiv (decode8 c.b s) a 65535,
+    a⟩
 
 /-- A premultiplied linear colour as 8-bit straight-alpha sRGB. -/
-def Lin.toRgba (c : Lin) : Rgba :=
+def Lin.toRgba (c : Lin) (s : Space := .linear) : Rgba :=
   if c.a == 0 then ⟨0, 0, 0, 0⟩
   else
     let un := fun (v : Nat) => min 65535 (mulDiv v 65535 c.a)
-    ⟨encode16 (un c.r), encode16 (un c.g), encode16 (un c.b), (mulDiv c.a 255 65535).toUInt8⟩
+    ⟨encode16 (un c.r) s, encode16 (un c.g) s, encode16 (un c.b) s,
+      (mulDiv c.a 255 65535).toUInt8⟩
 
 /-- `a + (b - a) · t / 65536` for each channel, `t` from 0 to 65536. -/
 def Lin.lerp (a b : Lin) (t : Nat) : Lin :=
@@ -107,10 +123,10 @@ inductive Paint where
   deriving Inhabited, Repr
 
 /-- The colour of the stops at parameter `t` (padded beyond 0 and 1), in linear light. -/
-def stopsAt (stops : Array Stop) (t : Float) : Lin := Id.run do
+def stopsAt (stops : Array Stop) (t : Float) (s : Space := .linear) : Lin := Id.run do
   let some first := stops[0]? | return ⟨0, 0, 0, 0⟩
   let t := if t.isNaN then 0 else t
-  if t ≤ first.offset then return Lin.ofRgba first.color
+  if t ≤ first.offset then return Lin.ofRgba first.color s
   for i in [0:stops.size - 1] do
     let a := stops[i]?.getD first
     let b := stops[i + 1]?.getD first
@@ -118,21 +134,21 @@ def stopsAt (stops : Array Stop) (t : Float) : Lin := Id.run do
       let span := b.offset - a.offset
       let u := if span ≤ 0 then 1 else (t - a.offset) / span
       let k : Nat := (u * 65536 + 0.5).floor.toUInt64.toNat
-      return (Lin.ofRgba a.color).lerp (Lin.ofRgba b.color) (min 65536 k)
-  return Lin.ofRgba (stops.back?.getD first).color
+      return (Lin.ofRgba a.color s).lerp (Lin.ofRgba b.color s) (min 65536 k)
+  return Lin.ofRgba (stops.back?.getD first).color s
 
 /-- The paint's colour at the pixel whose centre is `(x + ½, y + ½)`. -/
-def Paint.at (p : Paint) (x y : Nat) : Lin :=
+def Paint.at (p : Paint) (x y : Nat) (s : Space := .linear) : Lin :=
   match p with
-  | .solid c => Lin.ofRgba c
+  | .solid c => Lin.ofRgba c s
   | .linear p0 p1 stops =>
     let d := p1 - p0
     let len2 := d.x * d.x + d.y * d.y
     let q : Point := ⟨x.toFloat + 0.5 - p0.x, y.toFloat + 0.5 - p0.y⟩
-    stopsAt stops (if len2 == 0 then 0 else (q.x * d.x + q.y * d.y) / len2)
+    stopsAt stops (if len2 == 0 then 0 else (q.x * d.x + q.y * d.y) / len2) s
   | .radial c r stops =>
     let q : Point := ⟨x.toFloat + 0.5 - c.x, y.toFloat + 0.5 - c.y⟩
-    stopsAt stops (if r ≤ 0 then 1 else (q.x * q.x + q.y * q.y).sqrt / r)
+    stopsAt stops (if r ≤ 0 then 1 else (q.x * q.x + q.y * q.y).sqrt / r) s
 
 /-- A coverage mask over a whole image: 0 to 255 a pixel. -/
 structure Mask where
@@ -166,18 +182,21 @@ structure Canvas where
   height : Nat
   /-- The pixels. -/
   data : ByteArray
+  /-- The space colours are mixed in. -/
+  space : Space := .linear
 
 namespace Canvas
 
 /-- A canvas filled with a colour. -/
-def new (w h : Nat) (bg : Rgba := ⟨0, 0, 0, 0⟩) : Canvas := Id.run do
-  let c := Lin.ofRgba bg
+def new (w h : Nat) (bg : Rgba := ⟨0, 0, 0, 0⟩) (space : Space := .linear) : Canvas :=
+  Id.run do
+  let c := Lin.ofRgba bg space
   let px : Array UInt8 := #[c.r, c.g, c.b, c.a].foldl (init := #[]) fun acc v =>
     acc.push (v % 256).toUInt8 |>.push (v / 256).toUInt8
   let mut data := ByteArray.emptyWithCapacity (w * h * 8)
   for _ in [0:w * h] do
     for b in px do data := data.push b
-  return ⟨w, h, data⟩
+  return ⟨w, h, data, space⟩
 
 /-- The 16-bit value at byte offset `i`. -/
 @[inline] def get16 (d : ByteArray) (i : Nat) : Nat :=
@@ -212,14 +231,14 @@ def fillSpans (c : Canvas) (spans : Array Span) (paint : Paint) (opacity : Float
   let op : Nat := ((if opacity.isNaN then 0 else max 0 (min 1 opacity)) * 65535 + 0.5).floor
     |>.toUInt64.toNat
   let mut d := c.data
-  let solid := match paint with | .solid col => some (Lin.ofRgba col) | _ => none
+  let solid := match paint with | .solid col => some (Lin.ofRgba col c.space) | _ => none
   for s in spans do
     if s.y ≥ c.height then continue
     for x in [s.x:min (s.x + s.len) c.width] do
       let m := match mask with | some m => m.get x s.y | none => 255
       let k := mulDiv (mulDiv s.alpha.toNat 65535 255) (mulDiv op m 255) 65535
       if k == 0 then continue
-      let src := solid.getD (paint.at x s.y)
+      let src := solid.getD (paint.at x s.y c.space)
       d := blendAt d ((s.y * c.width + x) * 8) src k
   return { c with data := d }
 
@@ -241,13 +260,13 @@ def toImage (c : Canvas) (mode : Mode := .rgba) : Image := Id.run do
   let n := mode.channels
   let mut data := ByteArray.emptyWithCapacity (c.width * c.height * n)
   let mut last : Lin := ⟨0, 0, 0, 0⟩
-  let mut px : Array UInt8 := Image.samplesOf mode (Lin.toRgba last)
+  let mut px : Array UInt8 := Image.samplesOf mode (Lin.toRgba last c.space)
   for y in [0:c.height] do
     for x in [0:c.width] do
       let v := c.get x y
       if v != last then
         last := v
-        px := Image.samplesOf mode v.toRgba
+        px := Image.samplesOf mode (v.toRgba c.space)
       for b in px do data := data.push b
   return { mode, width := c.width, height := c.height, data }
 
