@@ -6,12 +6,13 @@ import PILeanTest.Color
 import PILeanTest.Units
 import PILeanTest.Examples
 import PILeanTest.Png
+import PILeanTest.Image
 
 /-!
 # The test driver
 
-`lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`) and
-compares every gallery figure's SVG with its file in `examples/` (the goldens), byte for byte; it
+`lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
+`PILeanTest.Image`) and compares every gallery figure's SVG with its file in `examples/` (the goldens), byte for byte; it
 also renders each figure twice to check that the output is deterministic.
 `lake exe pilean-test --update` rewrites the goldens (as `lake exe pilean-gallery` does).
 `lake exe pilean-test --png-out DIR` writes the PNG writer's files to `DIR` for
@@ -27,7 +28,8 @@ def main (args : List String) : IO UInt32 := do
   | ["--png-out", dir] => Png.writeScratch dir; return 0
   | "--png-out" :: _ => IO.eprintln "usage: --png-out DIR"; return 1
   | _ => pure ()
-  let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks)
+  let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
+    Image.checks ++ (← Image.perfChecks)
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"

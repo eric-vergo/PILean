@@ -36,11 +36,12 @@ returns a new image.
   (Pillow's pixel-centre convention). `box` weights are exact integers (the overlap lengths of
   the output pixel's footprint with the input pixels), so box resizing uses no `Float`. The
   `bilinear` and `lanczos` weights are computed in `Float` (`sin` is needed for Lanczos), then
-  rounded to integers with 16 fractional bits and normalised by their integer sum; the
-  weighted sums, the single final rounding (half up) and the clamp to `0..255` are integer
-  arithmetic. The weights are deterministic for a given platform's `sin`; they are rounded
-  coarsely enough that platforms agree in practice. A kernel is only ever applied to samples
-  inside the image (the weights of missing neighbours are dropped and the rest renormalised).
+  rounded to integers with 16 fractional bits and normalised by their integer sum. The weighted
+  sums are exact (integers accumulated in `Float`, see `Image.resize`), and each output sample
+  is rounded (half up) and clamped to `0..255` once. The weights are deterministic for a given
+  platform's `sin`; they are rounded coarsely enough that platforms agree in practice. A kernel
+  is only ever applied to samples inside the image (the weights of missing neighbours are
+  dropped and the rest renormalised).
   RGBA is resampled premultiplied: the colour of an output pixel is the alpha-weighted mean of
   the input colours, and its alpha the mean alpha, so fully transparent pixels contribute no
   colour. The work is `O(output samples * kernel support)`; the supports are 1 (`nearest`), the
@@ -243,39 +244,52 @@ def rows (filter : Filter) (nIn nOut : Nat) : Array Row :=
 /-- The sum of the weights of a row. -/
 def Row.total (r : Row) : Int := r.2.foldl (· + ·) 0
 
-/-- One horizontal pass over `h` rows of `w` pixels of `c` channels. -/
-def passH (src : Array Int) (w h c : Nat) (ks : Array Row) : Array Int := Id.run do
-  let mut out : Array Int := Array.mkEmpty (ks.size * h * c)
+/-- The weights of a kernel row as `Float`s (integers, so exactly). -/
+def Row.toFloats (r : Row) : Nat × Array Float := (r.1, r.2.map Float.ofInt)
+
+/-- A sample of a plane, 0 outside. -/
+def planeAt (a : FloatArray) (i : Nat) : Float := if h : i < a.size then a[i] else 0
+
+/-- One horizontal pass over `h` rows of `w` pixels of `c` channels: for each output pixel and
+channel the sum of the input samples times the integer weights. The sums are integers below
+`2 ^ 53`, so the `Float` additions and products are exact (see `Image.resize`). -/
+def passH (src : FloatArray) (w h c : Nat) (ks : Array (Nat × Array Float)) : FloatArray :=
+  Id.run do
+  let mut out := FloatArray.emptyWithCapacity (ks.size * h * c)
   for y in [0:h] do
     for (st, ws) in ks do
       for ch in [0:c] do
-        let mut acc : Int := 0
+        let mut acc : Float := 0
         let mut j := st
         for wt in ws do
-          if wt != 0 then acc := acc + wt * src.getD ((y * w + j) * c + ch) 0
+          if wt != 0 then acc := acc + wt * planeAt src ((y * w + j) * c + ch)
           j := j + 1
         out := out.push acc
   return out
 
-/-- One vertical pass over `w` columns of `c` channels. -/
-def passV (src : Array Int) (w c : Nat) (ks : Array Row) : Array Int := Id.run do
-  let mut out : Array Int := Array.mkEmpty (ks.size * w * c)
+/-- One vertical pass over `w` columns of `c` channels; as `passH`. -/
+def passV (src : FloatArray) (w c : Nat) (ks : Array (Nat × Array Float)) : FloatArray :=
+  Id.run do
+  let mut out := FloatArray.emptyWithCapacity (ks.size * w * c)
   for (st, ws) in ks do
     for x in [0:w] do
       for ch in [0:c] do
-        let mut acc : Int := 0
+        let mut acc : Float := 0
         let mut j := st
         for wt in ws do
-          if wt != 0 then acc := acc + wt * src.getD ((j * w + x) * c + ch) 0
+          if wt != 0 then acc := acc + wt * planeAt src ((j * w + x) * c + ch)
           j := j + 1
         out := out.push acc
   return out
 
-/-- `s / d` rounded to nearest, ties up, for `d > 0`; 0 otherwise. -/
-def roundDiv (s d : Int) : Int := if d > 0 then (2 * s + d) / (2 * d) else 0
+/-- `s / d` rounded to nearest, ties up, for `s ≥ 0` and `d > 0`; 0 otherwise. -/
+def roundDiv (s d : Int64) : Int64 := if s > 0 ∧ d > 0 then (2 * s + d) / (2 * d) else 0
 
-/-- An integer clamped into a byte. -/
-def toByte (v : Int) : UInt8 := (max 0 (min 255 v)).toNat.toUInt8
+/-- A non-negative integer clamped into a byte. -/
+def toByte (v : Int64) : UInt8 := (min 255 v).toInt.toNat.toUInt8
+
+/-- A sum of a plane as an integer (exact: the sums are integers). -/
+def planeInt (a : FloatArray) (i : Nat) : Int64 := (planeAt a i).toInt64
 
 end Resize
 
@@ -284,42 +298,50 @@ vertical pass with the kernels of `filter`; output pixel `i` samples input coord
 `(i + 0.5) * in / out - 0.5`. The default is `.box`, which averages the input area under each
 output pixel and is the right choice for shrinking; use `.bilinear` or `.lanczos` for enlarging
 smoothly. RGBA is resampled premultiplied and un-premultiplied afterwards, so transparent
-pixels contribute no colour. Weights of `bilinear` and `lanczos` come from `Float`
-(see the module docstring); the rest is integer arithmetic with one rounding (half up) at the
-end. The same size returns the image itself. A zero-sized axis gives samples 0. -/
+pixels contribute no colour. The same size returns the image itself. A zero-sized axis gives
+samples 0.
+
+The weights of `box` and `nearest` are integers; those of `bilinear` and `lanczos` come from
+`Float` (see the module docstring) and are integers from then on. The weighted sums are
+accumulated in `Float`, which is exact here: every term is an integer and every partial sum is
+an integer below `2 ^ 53` (a sample is below `2 ^ 16`, the weights of a row sum to at most
+about `2 ^ 17` for the float filters and to the input length for `box`, so the bound holds for
+any image whose pixel count is below `10 ^ 11`). `Float` is used because it is an unboxed
+number in Lean, where integers beyond 31 bits are slow. Everything after the sums is `Int64`
+arithmetic, with one rounding (half up) per output sample. -/
 def resize (im : Image) (w h : Nat) (filter : Filter := .box) : Image :=
   if w = im.width ∧ h = im.height then im
   else Id.run do
     let c := im.mode.channels
     let n := im.width * im.height
-    let at_ := fun (i : Nat) => if hi : i < im.data.size then im.data[i].toNat else 0
-    let mut plane : Array Int := Array.mkEmpty (n * c)
+    let at_ := fun (i : Nat) => if hi : i < im.data.size then im.data[i].toUInt64 else 0
+    let mut plane := FloatArray.emptyWithCapacity (n * c)
     for p in [0:n] do
       if im.mode = .rgba then
         let a := at_ (p * 4 + 3)
-        for k in [0:3] do plane := plane.push ((at_ (p * 4 + k) * a : Nat) : Int)
-        plane := plane.push (a : Int)
+        for k in [0:3] do plane := plane.push (at_ (p * 4 + k) * a).toFloat
+        plane := plane.push a.toFloat
       else
-        for k in [0:c] do plane := plane.push (at_ (p * c + k) : Int)
+        for k in [0:c] do plane := plane.push (at_ (p * c + k)).toFloat
     let kx := Resize.rows filter im.width w
     let ky := Resize.rows filter im.height h
-    let tx := kx.map Resize.Row.total
-    let ty := ky.map Resize.Row.total
-    let mid := Resize.passH plane im.width im.height c kx
-    let fin := Resize.passV mid w c ky
+    let tx := kx.map fun r => r.total.toInt64
+    let ty := ky.map fun r => r.total.toInt64
+    let mid := Resize.passH plane im.width im.height c (kx.map Resize.Row.toFloats)
+    let fin := Resize.passV mid w c (ky.map Resize.Row.toFloats)
     let mut data := ByteArray.emptyWithCapacity (w * h * c)
     for y in [0:h] do
       for x in [0:w] do
         let d := tx.getD x 0 * ty.getD y 0
         let base := (y * w + x) * c
         if im.mode = .rgba then
-          let sa := fin.getD (base + 3) 0
+          let sa := Resize.planeInt fin (base + 3)
           for k in [0:3] do
-            data := data.push (Resize.toByte (Resize.roundDiv (fin.getD (base + k) 0) sa))
+            data := data.push (Resize.toByte (Resize.roundDiv (Resize.planeInt fin (base + k)) sa))
           data := data.push (Resize.toByte (Resize.roundDiv sa d))
         else
           for k in [0:c] do
-            data := data.push (Resize.toByte (Resize.roundDiv (fin.getD (base + k) 0) d))
+            data := data.push (Resize.toByte (Resize.roundDiv (Resize.planeInt fin (base + k)) d))
     return { mode := im.mode, width := w, height := h, data }
 
 end Image
