@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Trust.Manifest
+import PILean.Trust.Files
 
 /-!
 # `pilean-build`
@@ -21,6 +22,13 @@ def main (args : List String) : IO UInt32 := PILean.Trust.buildMain figures% arg
 * `BuildOptions`, `renderAll`: the files and the manifest of a build, in memory
 * `build`: writes them, or with `check := true` compares them with the directory
 * `buildMain`: the command line `[--out DIR] [--repo URL] [--commit SHA] [--check]`
+
+## Implementation notes
+
+The output directory is created if needed and resolved once (`realPath`); every file is then
+written, compared or listed below it without following a symbolic link (`writeInside`,
+`locateInside`), so a link planted in the directory cannot make the build write or read
+anywhere else. Every string from the directory is printed through `escapeControl`.
 -/
 
 namespace PILean.Trust
@@ -95,59 +103,67 @@ def listFiles (dir : System.FilePath) : IO (Array String) := do
       else out := out.push r
   return out.qsort (· < ·)
 
-/-- Whether the file `p` holds exactly `bytes`: its size is read first, so a large file of the
-wrong size is never read. -/
-def sameFile (p : System.FilePath) (bytes : ByteArray) : IO Bool := do
-  let md ← p.symlinkMetadata
-  if md.type != .file || md.byteSize.toNat != bytes.size then return false
-  return (← IO.FS.readBinFile p) == bytes
+/-- Whether the file at `rel` below `root` holds exactly `bytes`: it must be a regular file with
+no symbolic link on its way, and its size is read first, so a large file of the wrong size is
+never read. -/
+def sameFile (root : System.FilePath) (rel : String) (bytes : ByteArray) : IO Bool := do
+  match ← locateInside root rel with
+  | .ok (some p) =>
+    match ← readRegular p bytes.size (followLinks := false) with
+    | .ok b => return b == bytes
+    | .error _ => return false
+  | _ => return false
 
-/-- The lines `check` prints for a directory: `missing: PATH` for a file of the build that is not
-there, `stale: PATH` for one whose bytes differ (the manifest included), `extra: PATH` for a file
-below the directory that the build does not make (other than `manifest.json`). The files of the
-build come in the order of their paths, the manifest last, then the extra files sorted; the
-result is empty if the directory holds exactly what the build makes. -/
+/-- The lines `check` prints for a directory (already resolved): `missing: PATH` for a file of
+the build that is not there, `stale: PATH` for one whose bytes differ (the manifest included) or
+that is not a regular file reached without links, `extra: PATH` for a file below the directory
+that the build does not make (other than `manifest.json`; a symbolic link counts as a file). The
+files of the build come in the order of their paths, the manifest last, then the extra files
+sorted; the result is empty if the directory holds exactly what the build makes. -/
 def checkLines (files : Array BuiltFile) (manifest : ByteArray) (outDir : System.FilePath) :
     IO (Array String) := do
   let mut lines : Array String := #[]
   let expected : Array (String × ByteArray) :=
     files.map (fun f => (f.entry.path, f.bytes)) ++ #[(manifestName, manifest)]
   for (path, bytes) in expected do
-    let p := outDir / path
-    if !(← p.pathExists) then lines := lines.push s!"missing: {path}"
-    else if !(← sameFile p bytes) then lines := lines.push s!"stale: {path}"
+    match ← locateInside outDir path with
+    | .ok none => lines := lines.push s!"missing: {path}"
+    | _ => if !(← sameFile outDir path bytes) then lines := lines.push s!"stale: {path}"
   if ← outDir.pathExists then
     let known : Std.HashSet String := expected.foldl (fun s (p, _) => s.insert p) {}
     for r in ← listFiles outDir do
       if !known.contains r then lines := lines.push s!"extra: {r}"
   return lines
 
-/-- Builds into `outDir` (`opts.check = false`): writes every file and `manifest.json`, one line
-`path` for each. With `opts.check`: prints the lines of `checkLines`, or `ok` if there are none.
-The result is 1 if a figure cannot be rendered (a message goes to standard error) or if `check`
-printed a line, and 0 otherwise. -/
+/-- Builds into `outDir` (`opts.check = false`): creates it if needed, resolves it, and writes
+every file and `manifest.json` below it with `writeInside`, one line `path` for each. With
+`opts.check`: prints the lines of `checkLines`, or `ok` if there are none. The result is 1 if a
+figure cannot be rendered or a file cannot be written (a message goes to standard error) or if
+`check` printed a line, and 0 otherwise. -/
 def build (entries : Array FigureEntry) (outDir : System.FilePath) (opts : BuildOptions := {}) :
     IO UInt32 := do
   match ← renderAll entries opts with
   | .error msg =>
-    IO.eprintln s!"pilean-build: {msg}"
+    IO.eprintln s!"pilean-build: {escapeControl msg}"
     return 1
   | .ok files =>
     let manifest := (Manifest.render (files.map (·.entry))).toUTF8
     if opts.check then
-      let lines ← checkLines files manifest outDir
-      for l in lines do IO.println l
+      let root ← if ← outDir.pathExists then IO.FS.realPath outDir else pure outDir
+      let lines ← checkLines files manifest root
+      for l in lines do IO.println (escapeControl l)
       if lines.isEmpty then IO.println s!"ok: {files.size} files match"
       return if lines.isEmpty then 0 else 1
     else
-      for f in files do
-        let p := outDir / f.entry.path
-        if let some parent := p.parent then IO.FS.createDirAll parent
-        IO.FS.writeBinFile p f.bytes
-        IO.println f.entry.path
       IO.FS.createDirAll outDir
-      IO.FS.writeBinFile (outDir / manifestName) manifest
-      IO.println manifestName
+      let root ← IO.FS.realPath outDir
+      let outputs := files.map (fun f => (f.entry.path, f.bytes)) ++ #[(manifestName, manifest)]
+      for (path, bytes) in outputs do
+        match ← writeInside root path bytes with
+        | .ok () => IO.println path
+        | .error e =>
+          IO.eprintln s!"pilean-build: {escapeControl e}"
+          return 1
       return 0
 
 /-- The usage text of `pilean-build`. -/
@@ -184,13 +200,13 @@ on a wrong command line. -/
 def buildMain (entries : Array FigureEntry) (args : List String) : IO UInt32 := do
   match parseArgs args with
   | .error msg =>
-    IO.eprintln s!"pilean-build: {msg}"
+    IO.eprintln s!"pilean-build: {escapeControl msg}"
     IO.eprintln buildUsage
     return 2
   | .ok (out, opts) =>
     try build entries out opts
     catch e =>
-      IO.eprintln s!"pilean-build: {e}"
+      IO.eprintln s!"pilean-build: {escapeControl (toString e)}"
       return 1
 
 end PILean.Trust

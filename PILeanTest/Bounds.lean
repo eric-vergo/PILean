@@ -97,6 +97,8 @@ structure Run where
   status : Option UInt32
   /-- Its standard output. -/
   out : String
+  /-- Its standard error. -/
+  err : String := ""
   /-- The peak resident memory in bytes, if `/usr/bin/time` reported it. -/
   rss : Option Nat
   /-- The user CPU time in milliseconds, if reported. -/
@@ -138,11 +140,14 @@ def runLimited (exe : String) (args : Array String) (cpuS wallMs : Nat)
   let app := ((← IO.appPath).parent.getD ".") / exe
   let outF := scratch / "child.out"
   let errF := scratch / "child.err"
+  let timeF := scratch / "child.time"
   let mac := System.Platform.isOSX
   let flag := if mac then "-l" else "-v"
-  let script := s!"ulimit -t {cpuS}; out=$1; err=$2; shift 2; " ++
-    s!"exec /usr/bin/time {flag} \"$@\" > \"$out\" 2> \"$err\""
-  let shArgs := #["-c", script, "sh", outF.toString, errF.toString, app.toString] ++ args
+  let script := s!"ulimit -t {cpuS}; o=$1; e=$2; t=$3; shift 3; export o e; " ++
+    s!"exec /usr/bin/time {flag} /bin/sh -c 'exec \"$@\" > \"$o\" 2> \"$e\"' sh \"$@\" " ++
+    "2> \"$t\""
+  let shArgs := #["-c", script, "sh", outF.toString, errF.toString, timeF.toString,
+    app.toString] ++ args
   let child ← IO.Process.spawn { cmd := "/bin/sh", args := shArgs, setsid := true }
   let mut status : Option UInt32 := none
   for _ in [0:wallMs / 50 + 1] do
@@ -155,9 +160,11 @@ def runLimited (exe : String) (args : Array String) (cpuS wallMs : Nat)
     let _ ← child.wait
   let out ← try IO.FS.readFile outF catch _ => pure ""
   let err ← try IO.FS.readFile errF catch _ => pure ""
-  let rss := if mac then timeField err "maximum resident set size" true
-    else (timeField err "Maximum resident set size" false).map (· * 1024)
-  return { status := status, out := out.trimAscii.toString, rss := rss, userMs := userTime err }
+  let tm ← try IO.FS.readFile timeF catch _ => pure ""
+  let rss := if mac then timeField tm "maximum resident set size" true
+    else (timeField tm "Maximum resident set size" false).map (· * 1024)
+  return { status := status, out := out.trimAscii.toString, err := err, rss := rss,
+           userMs := userTime tm }
 
 /-- One case: a file, how to decode it, the start of the expected output line, and the bound
 on peak memory in bytes. -/

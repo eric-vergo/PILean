@@ -3,16 +3,21 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Trust.Manifest
+import PILean.Trust.Files
 
 /-!
 # `pilean-verify`
 
 Checks a directory written by `pilean-build` against its `manifest.json`, which is untrusted
-input: it is read with a size cap and the bounded reader of `PILean.Trust.Json`, and a path with
-`..`, an absolute path, a backslash or any other unsafe character makes the whole manifest
-invalid before any file is touched. Each listed file must be a regular file inside the
-directory, with the size and the SHA-256 of the manifest, and the source record inside the file
-(`Source.read?`) must agree with the manifest's fields and fingerprint.
+input, as is everything else in the directory. The directory is resolved once (`realPath`) and
+everything below it is reached without following a symbolic link (`locateInside`): the manifest
+must be a regular file there, read with a size cap (`readRegular`) and the bounded reader of
+`PILean.Trust.Json`, and a path with `..`, an absolute path, a backslash or any other unsafe
+character makes the whole manifest invalid before any file is touched. Each listed file must be
+a regular file inside the directory, every directory on its way a real directory, with the size
+and the SHA-256 of the manifest, and the source record inside the file (`Source.read?`) must
+agree with the manifest's fields and fingerprint. Every string from the directory is printed
+through `escapeControl`.
 
 The check does not render anything; `pilean-build --check` is the check that a file is what the
 build produces now.
@@ -26,8 +31,10 @@ inductive Verdict where
   | ok
   /-- The file does not exist. -/
   | missing
-  /-- The file is not a regular file, or its size or hash differs. -/
+  /-- The file's size or hash differs. -/
   | changed
+  /-- The file, or a directory on its way, is a symbolic link or not a regular file. -/
+  | notRegular
   /-- The file has a source record but it differs from the manifest. -/
   | sourceDiffers
   /-- The file has no readable source record. -/
@@ -39,6 +46,7 @@ def Verdict.text : Verdict → String
   | .ok => "ok"
   | .missing => "missing"
   | .changed => "changed"
+  | .notRegular => "not a regular file"
   | .sourceDiffers => "source differs"
   | .noSource => "no source"
 
@@ -48,32 +56,40 @@ def ManifestEntry.matches (m : ManifestEntry) (s : Source) : Bool :=
     s.column == m.column && s.version == m.version && s.repo == m.repo && s.commit == m.commit &&
     s.fingerprint == some m.fingerprint
 
-/-- The verdict on one listed file of the directory. -/
-def verifyFile (dir : System.FilePath) (m : ManifestEntry) : IO Verdict := do
-  let p := dir / m.path
-  if !(← p.pathExists) then return .missing
-  let md ← p.symlinkMetadata
-  if md.type != .file || md.byteSize.toNat != m.bytes || m.bytes > maxOutputBytes then
-    return .changed
-  let bytes ← IO.FS.readBinFile p
-  if Sha256.hex (Sha256.hash bytes) != m.sha256 then return .changed
-  match Source.read? bytes with
-  | .error _ => return .noSource
-  | .ok s => return if m.matches s then .ok else .sourceDiffers
+/-- The verdict on one listed file of the directory `root` (already resolved). -/
+def verifyFile (root : System.FilePath) (m : ManifestEntry) : IO Verdict := do
+  match ← locateInside root m.path with
+  | .error _ => return .notRegular
+  | .ok none => return .missing
+  | .ok (some p) =>
+    if m.bytes > maxOutputBytes then return .changed
+    match ← readRegular p m.bytes (followLinks := false) with
+    | .error _ =>
+      let md ← p.symlinkMetadata
+      return if md.type == .file then .changed else .notRegular
+    | .ok bytes =>
+      if bytes.size != m.bytes || Sha256.hex (Sha256.hash bytes) != m.sha256 then
+        return .changed
+      match Source.read? bytes with
+      | .error _ => return .noSource
+      | .ok s => return if m.matches s then .ok else .sourceDiffers
 
 /-- Verifies the directory: the verdict on every file of its manifest, in the manifest's order;
-fails with a message if the manifest cannot be read or is invalid. -/
+fails with a message if the directory cannot be resolved or the manifest cannot be read (it
+must be a regular file, not a link, of at most `maxJsonInput` bytes) or is invalid. -/
 def verifyDir (dir : System.FilePath) : IO (Except String (Array (String × Verdict))) := do
-  let mpath := dir / manifestName
-  let md ← try pure (some (← mpath.metadata)) catch _ => pure none
-  let some md := md | return .error s!"cannot read {mpath}"
-  if md.byteSize.toNat > maxJsonInput then return .error s!"{mpath} is too large"
-  match Manifest.parse (← IO.FS.readBinFile mpath) with
+  let root ← try pure (some (← IO.FS.realPath dir)) catch _ => pure none
+  let some root := root | return .error s!"cannot read the directory {dir}"
+  let mpath := root / manifestName
+  match ← readRegular mpath maxJsonInput (followLinks := false) with
+  | .error e => return .error e
+  | .ok text =>
+  match Manifest.parse text with
   | .error e => return .error s!"{mpath}: {e}"
   | .ok entries =>
     let mut out := #[]
     for m in entries do
-      out := out.push (m.path, ← verifyFile dir m)
+      out := out.push (m.path, ← verifyFile root m)
     return .ok out
 
 /-- The `main` of `pilean-verify DIR`: one line `verdict: path` for each file; 0 if every file is
@@ -86,13 +102,13 @@ def verifyMain (args : List String) : IO UInt32 := do
   try
     match ← verifyDir dir with
     | .error e =>
-      IO.eprintln s!"pilean-verify: {e}"
+      IO.eprintln s!"pilean-verify: {escapeControl e}"
       return 1
     | .ok vs =>
-      for (p, v) in vs do IO.println s!"{v.text}: {p}"
+      for (p, v) in vs do IO.println s!"{v.text}: {escapeControl p}"
       return if vs.all (·.2 == .ok) then 0 else 1
   catch e =>
-    IO.eprintln s!"pilean-verify: {e}"
+    IO.eprintln s!"pilean-verify: {escapeControl (toString e)}"
     return 1
 
 end PILean.Trust

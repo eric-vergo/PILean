@@ -45,6 +45,7 @@ import PILean.Trust.Fingerprint
 import PILean.Trust.Json
 import PILean.Trust.Manifest
 import PILean.Trust.Build
+import PILean.Trust.Files
 import PILean.Trust.Verify
 import PILean.Version
 
