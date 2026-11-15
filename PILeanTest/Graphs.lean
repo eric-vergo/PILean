@@ -373,3 +373,11 @@ def writeCompare (dir : String) : IO Unit := do
     IO.println s!"{dir}/{name}.dot, .layout, .svg"
 
 end PILeanTest.Graphs
+
+#print axioms PILean.Graph.fixLayers_lt
+#print axioms PILean.Graph.acyclicEdges_ok
+#print axioms PILean.Graph.assignLayers_lt
+#print axioms PILean.Graph.assignLayers_lt_input
+#print axioms PILean.Graph.layout_edge_indices
+#print axioms PILean.Graph.layout_edges_nodup
+#print axioms PILean.Graph.layout_edges_complete

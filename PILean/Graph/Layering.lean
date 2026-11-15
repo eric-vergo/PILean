@@ -140,10 +140,13 @@ def promote (n : Nat) (es : List (Nat × Nat)) (layer : Array Nat) : Array Nat :
 
 /-- The layer of each of the `n` nodes for the edges `edges` (pairs of node numbers below `n`)
 and the node order `pos`: longest-path layers of `acyclicEdges`, promoted, then relaxed once
-more with `fixLayers`, so that every acyclic edge points to a larger layer
+more with `fixLayers` (the promotion is used only if it kept the number of nodes, which it
+always does), so that every acyclic edge points to a larger layer
 (`PILean.Graph.Proofs`). -/
 def assignLayers (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) : Array Nat :=
   let es := acyclicEdges pos edges
-  fixLayers es (promote n es (fixLayers es (Array.replicate n 0)))
+  let l0 := fixLayers es (Array.replicate n 0)
+  let l1 := promote n es l0
+  fixLayers es (if l1.size = n then l1 else l0)
 
 end PILean.Graph
