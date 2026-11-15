@@ -168,48 +168,57 @@ theorem acyclicEdges_ok (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
     rw [hq'] at hle
     exact absurd hle (by simp)
 
+/-- `compactGroups` keeps the size of the layers. -/
+theorem compactGroups_size (n : Nat) (es : List (Nat × Nat)) (group : Array (Option Nat))
+    (layer : Array Nat) (rounds : Nat) : (compactGroups n es group layer rounds).size = layer.size := by
+  simp only [compactGroups]
+  split <;> simp_all
+
 /-- The layers after the guards of `assignLayers` have the size of the graph. -/
-theorem assignLayers_start_size (n : Nat) (es : List (Nat × Nat)) (work : Nat) :
+theorem assignLayers_start_size (n : Nat) (es : List (Nat × Nat)) (work : Nat)
+    (group : Array (Option Nat)) :
     (let start := fixLayers es (Array.replicate n 0)
      let l0 := (let s := simplexLayers n es start work; if s.size = n then s else start)
-     let l1 := balanceLayers n es l0 2
+     let l1 := compactGroups n es group (balanceLayers n es l0 2) 4
      (if l1.size = n then l1 else l0)).size = n := by
   dsimp only
   by_cases h0 : (simplexLayers n es (fixLayers es (Array.replicate n 0)) work).size = n
-  · by_cases h : (balanceLayers n es
-        (simplexLayers n es (fixLayers es (Array.replicate n 0)) work) 2).size = n
+  · by_cases h : (compactGroups n es group (balanceLayers n es
+        (simplexLayers n es (fixLayers es (Array.replicate n 0)) work) 2) 4).size = n
     · simp [h0, h]
     · simp [h0, h]
-  · by_cases h : (balanceLayers n es (fixLayers es (Array.replicate n 0)) 2).size = n
+  · by_cases h : (compactGroups n es group
+        (balanceLayers n es (fixLayers es (Array.replicate n 0)) 2) 4).size = n
     · simp [h0, h]
     · simp [h0, h, fixLayers_size]
 
 /-- After `assignLayers`, every acyclic edge points to a deeper layer. -/
 theorem assignLayers_lt (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) (work : Nat)
-    (hb : ∀ e ∈ edges, e.1 < n ∧ e.2 < n) :
+    (group : Array (Option Nat)) (hb : ∀ e ∈ edges, e.1 < n ∧ e.2 < n) :
     ∀ e ∈ acyclicEdges pos edges,
-      (assignLayers pos n edges work).getD e.1 0 <
-        (assignLayers pos n edges work).getD e.2 0 := by
+      (assignLayers pos n edges work group).getD e.1 0 <
+        (assignLayers pos n edges work group).getD e.2 0 := by
   obtain ⟨h1, h2, h3⟩ := acyclicEdges_ok pos n edges hb
   unfold assignLayers layersBeforeRepair
   simp only
   refine fixLayers_lt _ _ ?_ h2 h3
   intro e he
-  rw [assignLayers_start_size n (acyclicEdges pos edges) work]
+  rw [assignLayers_start_size n (acyclicEdges pos edges) work group]
   exact h1 e he
 
 /-- For every input edge between distinct nodes, the layer of the node that comes first is
 smaller than the layer of the other. -/
 theorem assignLayers_lt_input (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
-    (work : Nat) (hb : ∀ e ∈ edges, e.1 < n ∧ e.2 < n) :
+    (work : Nat) (group : Array (Option Nat)) (hb : ∀ e ∈ edges, e.1 < n ∧ e.2 < n) :
     ∀ e ∈ edges, e.1 ≠ e.2 →
       (if before pos e.1 e.2 then
-        (assignLayers pos n edges work).getD e.1 0 < (assignLayers pos n edges work).getD e.2 0
+        (assignLayers pos n edges work group).getD e.1 0 <
+          (assignLayers pos n edges work group).getD e.2 0
       else
-        (assignLayers pos n edges work).getD e.2 0 <
-          (assignLayers pos n edges work).getD e.1 0) := by
+        (assignLayers pos n edges work group).getD e.2 0 <
+          (assignLayers pos n edges work group).getD e.1 0) := by
   intro e he hne
-  have key := assignLayers_lt pos n edges work hb (orient pos e) (by
+  have key := assignLayers_lt pos n edges work group hb (orient pos e) (by
     simp only [acyclicEdges, List.mem_mergeSort, List.mem_map, List.mem_filter, bne_iff_ne,
       ne_eq]
     exact ⟨e, ⟨he, hne⟩, rfl⟩)

@@ -50,7 +50,7 @@ Work: `O(Σ span)` border nodes (at most the clusters times the layers), and per
 ## Main definitions
 
 * `ClusterTree`, `ClusterTree.of`, `ClusterTree.lca`, `ClusterTree.holds`.
-* `Borders`, `addBorders`, `arrange`, `reduceClustered`.
+* `Borders`, `addBorders`, `arrange`, `reduceFromClustered`, `reduceClustered`.
 -/
 
 namespace PILean.Graph
@@ -279,14 +279,15 @@ def clusterRank (t : ClusterTree) (bs : Borders) (order : Array (Array Nat)) : A
   return (Array.range k).map fun c =>
     if cnt.getD c 0 == 0 then 0.5 else sum.getD c 0 / (cnt.getD c 0).toFloat
 
-/-- The order of the nodes inside the layers under the cluster rules, from an order `start` of
+/-- The order of the nodes inside the layers under the cluster rules and its crossings (border
+edges included), from an order `start` of
 the real and dummy nodes (the border nodes are placed by the rules): the start arranged, then
 at most `sweeps` rounds of a weighted-median sweep (down on even rounds, up on odd ones; a node
 without neighbours on that side keeps its position as its key), each followed by transposition
 of adjacent nodes of one block, the order with the fewest crossings (border edges included)
 kept; the search stops after `4` rounds without improvement. -/
-def reduceClustered (t : ClusterTree) (bs : Borders) (start : Array (Array Nat))
-    (sweeps : Nat) : Array (Array Nat) := Id.run do
+def reduceFromClustered (t : ClusterTree) (bs : Borders) (start : Array (Array Nat))
+    (sweeps : Nat) : Array (Array Nat) × Nat := Id.run do
   let size := bs.layerAll.size
   let count := start.size
   -- the border nodes go into their layers, then everything is arranged by the start positions
@@ -321,8 +322,9 @@ def reduceClustered (t : ClusterTree) (bs : Borders) (start : Array (Array Nat))
         let r := arrange t bs key (rank.getD · 0.5) (order.getD i #[])
         order := order.setIfInBounds i r
         for j in [0:r.size] do pos := pos.setIfInBounds (r.getD j 0) j
-    for _ in [0:8] do
-      let (o, p, changed) := transposePass order pos bs.up bs.down canSwap
+    for t in [0:8] do
+      let (o, p, changed) :=
+        transposePass order pos bs.up bs.down canSwap (ties := s % 2 == 1 && t == 0)
       order := o
       pos := p
       if !changed then break
@@ -332,7 +334,21 @@ def reduceClustered (t : ClusterTree) (bs : Borders) (start : Array (Array Nat))
       bestC := c
       stall := 0
     else stall := stall + 1
-  return best
+  return (best, bestC)
+
+/-- The order of the nodes inside the layers under the cluster rules: `reduceFromClustered` from
+the unconstrained order `start` and, up to 6000 nodes, from the depth-first and breadth-first
+orders of `PILean.Graph.Ordering` too; the one with the fewest crossings (border edges included;
+the first on a tie). `up` and `down` are the neighbours of the real and dummy nodes. -/
+def reduceClustered (t : ClusterTree) (bs : Borders) (start : Array (Array Nat))
+    (up down : Array (Array Nat)) (sweeps : Nat) : Array (Array Nat) := Id.run do
+  let layerAll := bs.layerAll.extract 0 up.size
+  let mut best := reduceFromClustered t bs start sweeps
+  if up.size ≤ 6000 then
+    for s in [initialLayers layerAll up down, initialLayersBfs layerAll up down] do
+      let r := reduceFromClustered t bs s sweeps
+      if r.2 < best.2 then best := r
+  return best.1
 
 /-- The least distance between the centres of `u` left of `v` with border nodes: `base` between
 two real or dummy nodes; `inside` from a left border to what follows it, and `pad` from what

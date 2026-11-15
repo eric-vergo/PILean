@@ -142,7 +142,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let pairs : Array (Nat × Nat) := ve.filterMap fun (_, e) =>
     if e.src != e.dst then some (e.src, e.dst) else none
   let pos := elsPositions n pairs
-  let lay0 := assignLayers pos n pairs.toList o.layerWork
+  let lay0 := assignLayers pos n pairs.toList o.layerWork (ClusterTree.of g).nodeCluster
   let hasLabels := ve.any fun (_, e) => e.src != e.dst && !e.label.isEmpty
   let lay := if hasLabels then lay0.map (· * 2) else lay0
   let oriented : Array (Option (Nat × Nat)) := ve.map fun (_, e) =>
@@ -170,7 +170,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let bs : Borders := if clustered then addBorders tree layerAll up down block
     else { layerAll, up, down, block, part := Array.replicate size .node,
            span := #[], firstBorders := #[] }
-  let order := if clustered then reduceClustered tree bs order0 o.sweeps else order0
+  let order := if clustered then reduceClustered tree bs order0 up down o.sweeps else order0
   let total := bs.layerAll.size
   -- sizes: nodes, label plates (border nodes have no width)
   let mut bw : Array Float := (Array.range total).map fun v =>
@@ -232,7 +232,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         bottomNeed := bottomNeed.modify b (max · (bottomExtra.getD c 0))
   -- the horizontal runs of each gap get tracks (greedy interval colouring): every step of an
   -- orthogonal route that moves sideways, and every step of a curve that moves sideways more
-  -- than two and a half times the gap (drawn as a run half-way down the gap, so that it keeps
+  -- than eight times the gap (drawn as a run half-way down the gap, so that it keeps
   -- away from the boxes above and below); a value below zero marks a step without a run
   let mut runs : Array (Array Float) := chains.map fun c => Array.replicate (c.size - 1) (-1)
   let mut tracks : Array Nat := Array.replicate order.size 0
@@ -243,7 +243,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
       let a := (x.getD (c.getD j 0) 0).round
       let b := (x.getD (c.getD (j + 1) 0) 0).round
       let run := if o.routing == .orthogonal then (a - b).abs > 0.5
-        else (a - b).abs > 2.5 * gap
+        else (a - b).abs > 8 * gap
       if run then
         gaps := gaps.modify (layerAll.getD (c.getD j 0) 0) (·.push (min a b, max a b, k, j))
   for li in [0:gaps.size] do

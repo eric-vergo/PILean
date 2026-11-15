@@ -164,18 +164,60 @@ def balanceLayers (n : Nat) (es : List (Nat × Nat)) (layer : Array Nat) (rounds
           cnt := (cnt.modify cur (· - 1)).modify target (· + 1)
   return l
 
+/-- Pulls the nodes of each group together across the layers (without the size guard of
+`compactGroups`): `rounds` passes in which every
+node with a group (`group v`, `none` for none) moves, within the layers its neighbours leave free
+(below all its predecessors, above all its successors), as near as it can to the median layer of
+its group. A cluster then spans fewer layers, as Gansner et al. rank a cluster's nodes together.
+Edges stay pointing downwards. A result of the wrong size is replaced by `layer`, which never
+happens. Work: `O(rounds × (V log V + E))`. -/
+def compactGroupsRaw (n : Nat) (es : List (Nat × Nat)) (group : Array (Option Nat))
+    (layer : Array Nat) (rounds : Nat) : Array Nat := Id.run do
+  if group.all (·.isNone) then return layer
+  let mut outAdj : Array (Array Nat) := Array.replicate n #[]
+  let mut inAdj : Array (Array Nat) := Array.replicate n #[]
+  for (u, v) in es do
+    if u < n && v < n then
+      outAdj := outAdj.modify u (·.push v)
+      inAdj := inAdj.modify v (·.push u)
+  let k := group.foldl (fun m g => match g with | some c => max m (c + 1) | none => m) 0
+  let mut members : Array (Array Nat) := Array.replicate k #[]
+  for v in [0:n] do
+    if let some c := group.getD v none then members := members.modify c (·.push v)
+  let top := layer.foldl max 0
+  let mut l := layer
+  for _ in [0:rounds] do
+    for c in [0:k] do
+      let ms := members.getD c #[]
+      let ls := (ms.map (l.getD · 0)).sortStable (· < ·)
+      let med := ls.getD (ls.size / 2) 0
+      for u in ms do
+        let lo := (inAdj.getD u #[]).foldl (fun a v => max a (l.getD v 0 + 1)) 0
+        let hi := (outAdj.getD u #[]).foldl (fun a v => min a (l.getD v 0 - 1)) top
+        let cur := l.getD u 0
+        if lo ≤ cur && cur ≤ hi then
+          let target := max lo (min hi med)
+          if target != cur then l := l.setIfInBounds u target
+  return l
+
+/-- `compactGroupsRaw` with its size guard (see there). -/
+def compactGroups (n : Nat) (es : List (Nat × Nat)) (group : Array (Option Nat))
+    (layer : Array Nat) (rounds : Nat) : Array Nat :=
+  let r := compactGroupsRaw n es group layer rounds
+  if r.size = layer.size then r else layer
+
 /-- The layers network simplex and balancing give, before the final repair of `assignLayers`:
 the layers of `acyclicEdges` of least total span by network simplex (`simplexLayers`) from the
-longest-path layers (within the work `work`), then balanced (`balanceLayers`); a result of the
-wrong size is replaced by
-the previous one, which never happens. Every acyclic edge pointing to a larger layer here is
+longest-path layers (within the work `work`), then balanced (`balanceLayers`) and each group's
+nodes pulled together (`compactGroups`, `group` as there); a result of the wrong size is
+replaced by the previous one, which never happens. Every acyclic edge pointing to a larger layer here is
 not proved; the tests check it on their graphs (`fixLayers` leaves these layers unchanged). -/
 def layersBeforeRepair (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
-    (work : Nat := 100000000) : Array Nat :=
+    (work : Nat := 100000000) (group : Array (Option Nat) := #[]) : Array Nat :=
   let es := acyclicEdges pos edges
   let start := fixLayers es (Array.replicate n 0)
   let l0 := (let s := simplexLayers n es start work; if s.size = n then s else start)
-  let l1 := balanceLayers n es l0 2
+  let l1 := compactGroups n es group (balanceLayers n es l0 2) 4
   if l1.size = n then l1 else l0
 
 /-- The layer of each of the `n` nodes for the edges `edges` (pairs of node numbers below `n`)
@@ -184,7 +226,7 @@ relaxation is what makes every acyclic edge point to a larger layer by proof
 (`PILean.Graph.assignLayers_lt`); on the layers simplex and balancing produce it is expected to
 change nothing, which the tests check rather than prove. -/
 def assignLayers (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
-    (work : Nat := 100000000) : Array Nat :=
-  fixLayers (acyclicEdges pos edges) (layersBeforeRepair pos n edges work)
+    (work : Nat := 100000000) (group : Array (Option Nat) := #[]) : Array Nat :=
+  fixLayers (acyclicEdges pos edges) (layersBeforeRepair pos n edges work group)
 
 end PILean.Graph

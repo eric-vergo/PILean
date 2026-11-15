@@ -216,7 +216,8 @@ start is `x` rounded and moved right, in an order of the variables that follows 
 a separation would be violated. The method never makes a coordinate assignment worse, so it
 stops after `rounds m + 50` exchanges for `m` nodes of the problem, or when the work (`budget`,
 in the units of `simplexComponent`) is used up, and returns what it has, shifted so that the
-leftmost edge of any node (widths `bw`) is at `0`. -/
+leftmost edge of any node (widths `bw`) is at `0`. The leaving edges are found by partial pricing
+over `32` candidates. -/
 def simplexBreadth (size n : Nat) (chains order : Array (Array Nat)) (sep : Nat → Nat → Float)
     (bw : Array Float) (x : Array Float) (rounds budget : Nat) (var : Array Nat := #[])
     (extra : Array (Nat × Nat × Int × Int) := #[]) : Array Float := Id.run do
@@ -273,7 +274,7 @@ def simplexBreadth (size n : Nat) (chains order : Array (Array Nat)) (sep : Nat 
       minlen := (minlen.push 0).push 0
       weight := (weight.push w).push w
       total := total + 1
-  let (r, _) := simplexSolve total tails heads minlen weight start rounds budget
+  let (r, _) := simplexSolve total tails heads minlen weight start rounds budget 32
   let sol := if r.size == total then r else start
   let xs := (Array.range size).map fun v => (sol.getD (vr v) 0).toNat.toFloat / 2
   let left := (Array.range size).foldl (fun m v => min m (xs.getD v 0 - bw.getD v 0 / 2)) 1e300

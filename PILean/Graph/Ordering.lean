@@ -244,9 +244,11 @@ def pairCrossings (nbr : Array (Array Nat)) (pos : Array Nat) (u v : Nat) : Opti
 
 /-- One left-to-right pass of adjacent swaps over every layer: `u v` are swapped when
 `canSwap u v` allows it and the swap lowers the crossings of their edges with both neighbouring
-layers. Returns the new order and positions and whether anything changed. -/
+layers (with `ties`, also when it leaves them equal and not zero, which moves the search off a
+plateau; such a swap does not count as a change). Returns the new order and positions and
+whether anything got better. -/
 def transposePass (order : Array (Array Nat)) (pos : Array Nat) (up down : Array (Array Nat))
-    (canSwap : Nat → Nat → Bool := fun _ _ => true) :
+    (canSwap : Nat → Nat → Bool := fun _ _ => true) (ties : Bool := false) :
     Array (Array Nat) × Array Nat × Bool := Id.run do
   let mut order := order
   let mut pos := pos
@@ -263,17 +265,18 @@ def transposePass (order : Array (Array Nat)) (pos : Array Nat) (up down : Array
         (pairCrossings down pos v u).map fun b => a + b
       match keep, swapped with
       | some k, some s =>
-        if s < k then
+        if s < k || (ties && s == k && k > 0) then
           layer := (layer.setIfInBounds j v).setIfInBounds (j + 1) u
           pos := (pos.setIfInBounds u (j + 1)).setIfInBounds v j
-          changed := true
+          if s < k then changed := true
       | _, _ => pure ()
     order := order.setIfInBounds i layer
   return (order, pos, changed)
 
 /-- The order of the nodes inside the layers and its crossings, from the initial `layers`: at
 most `sweeps` rounds of a weighted-median sweep (down on even rounds, up on odd ones) followed
-by transposition until no adjacent swap helps (at most `8` passes), the order with the fewest
+by transposition until no adjacent swap helps (at most `8` passes; the first pass of an up round
+also swaps pairs with equal crossings), the order with the fewest
 crossings kept; the search stops after `4` rounds in a row that found nothing better. `up` and
 `down` list each node's neighbours in the layers above and below; the result has the same nodes
 in the same layers. -/
@@ -298,8 +301,8 @@ def reduceFrom (size : Nat) (layers : Array (Array Nat)) (up down : Array (Array
         let r := reorderMedian (order.getD i #[]) down pos
         order := order.setIfInBounds i r
         for j in [0:r.size] do pos := pos.setIfInBounds (r.getD j 0) j
-    for _ in [0:8] do
-      let (o, p, changed) := transposePass order pos up down
+    for t in [0:8] do
+      let (o, p, changed) := transposePass order pos up down (ties := s % 2 == 1 && t == 0)
       order := o
       pos := p
       if !changed then break

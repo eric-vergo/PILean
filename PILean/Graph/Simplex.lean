@@ -25,6 +25,9 @@ component), and the start must be feasible.
 * The cut values come from sums over the subtrees (`simplexWalk`) once, and are then updated
   along the cycle of each exchange by the rule of the paper. The smaller side of the cut is
   searched for the entering edge and moved.
+* The leaving edge is the most negative of the tree edges with a negative cut value, or, with
+  `pricing` set, the most negative of the next `pricing` such edges from where the last search
+  stopped (partial pricing, which makes an exchange cheaper at the cost of more of them).
 
 The number of exchanges is bounded (`rounds V + 50`, and by a budget of work): when a bound is
 reached, the ranks found so far, which are feasible and no worse than the start, are returned.
@@ -125,7 +128,8 @@ least rank is `0`, and every edge still has its length. Runs at most `rounds m +
 and at most `budget / (m + e) + 1` where `e` is the number of
 edges (each exchange costs `O(m + e)` at worst, usually the smaller side of a cut). -/
 def simplexComponent (m : Nat) (tails heads : Array Nat) (minlen weight : Array Int)
-    (start : Array Int) (rounds : Nat := 8) (budget : Nat := 1000000000000) : Array Int × Nat :=
+    (start : Array Int) (rounds : Nat := 8) (budget : Nat := 1000000000000)
+    (pricing : Nat := 1000000000) : Array Int × Nat :=
   Id.run do
   let ne := tails.size
   let mut rank : Array Int := start
@@ -230,19 +234,30 @@ def simplexComponent (m : Nat) (tails heads : Array Nat) (minlen weight : Array 
         inNeg := inNeg.setIfInBounds e true
     let mut mk : Array Nat := Array.replicate m 0
     let mut anc : Array Nat := Array.replicate m 0
+    let mut cursor := 0
     for step in [0:min (rounds * m + 50) (budget / (m + ne) + 1)] do
       -- the tree edge of least (negative) cut value, among the candidates
+      -- partial pricing: from where the last search stopped, the candidates are looked at in
+      -- turn, dropping those no longer negative, until `pricing` negative ones were seen
       let mut leave := ne
       let mut cut : Int := 0
-      let mut kept : Array Nat := #[]
-      for e in neg do
+      let mut seen := 0
+      let mut looked := 0
+      for _ in [0:neg.size + 1] do
+        if seen ≥ pricing || neg.isEmpty || looked ≥ neg.size then break
+        if cursor ≥ neg.size then cursor := 0
+        let e := neg.getD cursor 0
         if isTree.getD e false && cutv.getD e 0 < 0 then
-          kept := kept.push e
+          seen := seen + 1
+          looked := looked + 1
           if cutv.getD e 0 < cut || (cutv.getD e 0 == cut && e < leave) then
             leave := e
             cut := cutv.getD e 0
-        else inNeg := inNeg.setIfInBounds e false
-      neg := kept
+          cursor := cursor + 1
+        else
+          inNeg := inNeg.setIfInBounds e false
+          -- the last candidate takes this one's place
+          neg := (neg.setIfInBounds cursor (neg.getD (neg.size - 1) 0)).pop
       if leave == ne then break
       let e := leave
       let ea := tails.getD e 0
@@ -372,7 +387,8 @@ weighted length: each connected component is solved by `simplexComponent` and pu
 its least. Nodes without edges get `0`. Returns the ranks and the largest number of exchanges
 made in one component. -/
 def simplexSolve (n : Nat) (tails heads : Array Nat) (minlen weight : Array Int)
-    (start : Array Int) (rounds : Nat := 8) (budget : Nat := 1000000000000) : Array Int × Nat :=
+    (start : Array Int) (rounds : Nat := 8) (budget : Nat := 1000000000000)
+    (pricing : Nat := 1000000000) : Array Int × Nat :=
   Id.run do
   -- components by union-find with path halving
   let mut parent : Array Nat := Array.range n
@@ -425,7 +441,7 @@ def simplexSolve (n : Nat) (tails heads : Array Nat) (minlen weight : Array Int)
     let c := nodes.getD r #[]
     if c.size ≥ 2 then
       let (sol, pivots) := simplexComponent c.size (ts.getD r #[]) (hs.getD r #[])
-        (ls.getD r #[]) (ws.getD r #[]) (c.map fun v => start.getD v 0) rounds budget
+        (ls.getD r #[]) (ws.getD r #[]) (c.map fun v => start.getD v 0) rounds budget pricing
       most := max most pivots
       if sol.size == c.size then
         for i in [0:c.size] do out := out.setIfInBounds (c.getD i 0) (sol.getD i 0)

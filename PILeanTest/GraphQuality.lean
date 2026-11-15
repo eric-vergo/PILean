@@ -172,14 +172,17 @@ structure Measures where
   area : Float
   /-- Violations of the cluster rules. -/
   clusterViolations : Nat
-  /-- Violations of the clearance rules. -/
+  /-- Edges that pass a node they do not end at. -/
   clearanceViolations : Nat
+  /-- Edges that enter a cluster holding neither of their ends. -/
+  clusterEntries : Nat
 
 /-- The measures of the default layout of `g`. -/
 def measure (g : Graph) (l : Layout) : Measures :=
   { crossings := crossingPairs l, length := edgeLength l, area := area l,
     clusterViolations := (clusterProblems g l).size,
-    clearanceViolations := (clearanceProblems g l).size }
+    clearanceViolations := ((clearanceProblems g l).filter (Graphs.has · "passes node")).size,
+    clusterEntries := ((clearanceProblems g l).filter (Graphs.has · "enters cluster")).size }
 
 /-- The Graphviz input for a graph with its clusters, with the same node sizes and gaps as the
 layout (`Graphs.dotText` with `cluster` subgraphs, nested as the clusters are). -/
@@ -212,7 +215,7 @@ def dotText (g : Graph) (o : LayeredOptions) (st : Style) : String := Id.run do
 def report (dir? : Option String) : IO Unit := do
   if let some dir := dir? then IO.FS.createDirAll dir
   IO.println s!"load {← Graphs.loadAverage}"
-  IO.println "graph                  nodes edges   ms  crossings   length(px)   area(Mpx2) clu clr"
+  IO.println "graph                  nodes edges   ms  crossings   length(px)   area(Mpx2) clu clr ent"
   for (name, g) in graphs do
     let t0 ← IO.monoNanosNow
     let l ← IO.lazyPure fun _ => g.layout
@@ -222,7 +225,8 @@ def report (dir? : Option String) : IO Unit := do
     IO.println s!"{name}{pad "" (22 - name.length)} {pad (toString g.nodes.size) 5} \
       {pad (toString g.edges.size) 5} {pad (toString ms) 4} {pad (toString m.crossings) 10} \
       {pad (toString m.length.round.toUInt64) 12} {pad (toString (m.area / 1e6).round.toUInt64) 12} \
-      {pad (toString m.clusterViolations) 3} {pad (toString m.clearanceViolations) 3}"
+      {pad (toString m.clusterViolations) 3} {pad (toString m.clearanceViolations) 3} \
+      {pad (toString m.clusterEntries) 3}"
     if let some dir := dir? then
       IO.FS.writeFile s!"{dir}/{name}.dot" (dotText g {} {})
       IO.FS.writeFile s!"{dir}/{name}.layout" (Graphs.layoutText l)
