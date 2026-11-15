@@ -7,9 +7,9 @@ outline, what is exact and what is floating point, and the open choices.
 
 ## Principles
 
-1. **Pure Lean, `Init` and `Std` only.** No FFI, no Mathlib, no large dependencies. Text will
-   come from a companion typesetting library (fonts and layout; not yet public), added as a
-   dependency once it is published.
+1. **Pure Lean, `Init` and `Std` only.** No FFI, no Mathlib, no large dependencies. Text in
+   images goes through an interface (`TextEngine`) with a built-in lettering; a typesetting
+   library can implement the interface.
 2. **Values first.** An image, a figure, a drawing or a graph is a Lean value; output is a
    function of it. The same value gives the same bytes on every machine (deterministic number
    formatting, stable ordering, no clocks or randomness).
@@ -27,14 +27,14 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Geometry` | `Point`, `Affine`, `Box` | done |
 | `PILean.Path` | `PathCmd`, `Path`, shapes, `transform`, `flatten`, `bounds` | done |
 | `PILean.Svg` | the SVG document model and writer | done |
-| `PILean.Plot.Ticks`, `PILean.Plot.Figure` | nice ticks, the `Figure` spec and its SVG | first version |
+| `PILean.Plot.Ticks`, `Scale`, `Sample`, `Figure`, `Proofs` | nice ticks (multipliers proved ascending and inside their interval), linear and logarithmic scales with minor ticks, adaptive sampling of functions, the `Figure` model (panels, axes, series, legends, annotations) drawn on the canvas | done |
 | `PILean.Raster` | anti-aliased scanline fill by area coverage in integers (non-zero and even-odd), clipping to rectangles and paths, the stroker (joins, caps, miter limit, dashes), gradients, compositing in linear light, group opacity, `Draw` (in the spirit of `ImageDraw`), SVG nodes drawn | done |
 | `PILean.Image` | `Image` (mode, size, pixels in a `ByteArray`), `getpixel`, `putpixel`, crop, paste with a mask, convert, flips and quarter turns, resize (nearest, bilinear, box, Lanczos) | done |
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`; the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Anim` | a `FrameSeq` (equally sized RGBA frames, a rational delay each, a loop count) and its codecs. APNG: writer (frame differencing to the changed rectangle, equal frames merged, delays as reduced fractions) and reader (composes `dispose_op` and `blend_op`, any PNG colour type, caps on size, frames and bytes). GIF89a: writer (LZW, one global palette by median cut or the exact colours, optional Floyd–Steinberg dithering, differencing with a transparent index, delays in centiseconds with exact cumulative time, loop extension) and reader (global and local tables, interlacing, disposal 0–3, transparency, caps) | done |
-| `PILean.Canvas` | a retained vector canvas: layers, groups, transforms, styles, text runs; rendered to SVG or through `Raster` to PNG | later |
-| `PILean.Text` | text through the companion typesetting library: its OpenType reader (outlines, advances, kerning, ligatures) and, later, its text and math layout; labels become outlines or SVG text | later |
-| `PILean.Plot.*` | scales (linear, log, symlog, time), axes, scatter, bar, histogram, area, error bars, legends, facets; LaTeX labels through the companion typesetting library | later |
+| `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark` | done |
+| `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes) and the built-in single-stroke lettering that draws text into images; a typesetting library can implement the interface later | done |
+| `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline or orthogonal edges, arrowheads, edge labels and clusters, circular and tree layouts, drawing on the canvas as SVG and PNG | done; layering proved, see below |
 | `PILean.Trust` | source links, fingerprints, manifests and their checker, and the theorems that tie a figure to its Lean object | later |
 
@@ -226,24 +226,88 @@ crossings and shorter edges, because it places nodes by network simplex and so d
 shorter and the layers narrower. Closing that gap would need a network simplex layering and
 coordinate assignment.
 
+## Plots
+
+A `Figure` is a value: a size, a title, a `Style`, and panels in a grid of `columns`; a panel has
+two `Axis` values, `Series` and `Annotation`s. `Figure.draw` lays it out onto the canvas and both
+outputs are written from that drawing.
+
+* **Layout.** The title, then the legend (one row of swatches and labels, wrapped, when more than
+  one series is labelled), then the grid. Gutters come from measured text: the widest tick label
+  of any panel, the axis labels' line heights. Plot areas have whole-pixel edges; hairlines (grid,
+  axes, ticks) sit on pixel centres. Shared axes give every panel one domain and keep tick labels
+  on the outer panels.
+* **Scales.** Linear axes take 1-2-5 steps (`niceTicks`) with the target number of ticks scaled
+  by the axis length, and minor ticks (five or four per step); logarithmic axes take decades,
+  thinned when there are many, with 2–9 times each as minor ticks. A domain from data is widened
+  to whole ticks; a given domain (or the interval of function series alone) is kept.
+* **Functions** are sampled for the picture (`sampleFunction`): 64 pieces halved while the
+  midpoint is more than a quarter pixel off the chord or the piece is wider than 8 pixels, down to
+  14 halvings, within 6000 evaluations; values far outside the visible range are clamped first,
+  so poles do not draw refinement out of sight; a piece at full depth whose ends are more than two
+  pixels apart is a jump and breaks the curve.
+* **Awkward data.** Non-finite values break lines and are left out of extents; non-positive values
+  have no position on a logarithmic axis; a panel without data shows its axes on `[0, 1]` and a
+  note; constants get an interval around them; huge values are clamped in the output (and
+  labelled in E-notation); a function's automatic range leaves out extreme tails (2 % each side)
+  when they are more than twelve times the central spread away.
+* **Style.** `Style` holds every visual constant; `Style.light` and `Style.dark`. The palette is
+  Okabe and Ito's, ordered so that adjacent colours stay apart under colour-vision deficiencies;
+  both palettes pass a palette validator's checks of lightness band, chroma, CVD and
+  normal-vision separation of neighbours, on their surfaces. Text never takes a series colour.
+
+The 2000 × 1200 function plot (`lake exe pilean-test --bench`, one core of an Apple M2 Ultra,
+load average about 14): layout 3 ms, drawing 320 ms, conversion to an 8-bit image 98 ms, PNG
+encoding 732 ms (159,548 bytes). PNG encoding dominates (LZ77 and Huffman at level 6), then the
+rasteriser's full-image background and curve strokes.
+
+## Text in images
+
+Text reaches images through an interface, `TextEngine` (measure, ascent, descent, and shapes:
+outlines to fill and centre lines to stroke), with one implementation built in: a single-stroke
+lettering drawn for PILean (131 characters; tabular digits; stroke 78/1000 of the size, drawn at
+least a pixel wide). SVG output keeps real `<text>` elements in the style's font family
+(selectable, small); the layout measures text with the engine, so an SVG font may run a little
+wider or narrower than the measurement. `Figure.toSvg (outlines := true)` writes the lettering's
+shapes into SVG instead.
+
+## Animations
+
+An `Animation` is a drawing as a function of time, with a size, frame rate, duration and loop
+count; frame `i` is the drawing at `i / fps`. Animated PNG and GIF draw every frame (the codecs
+store the changed rectangle of each). The animated SVG is declarative only (SMIL `animate`, no
+script): when every frame has the same elements and attribute names, it is one picture whose
+changing attributes are animated between at most 30 keyframes, linearly where the values have the
+same text between their numbers (path data with the same commands, coordinates, opacities) and in
+steps otherwise (then every frame is a keyframe); when the frames' structure differs, each frame is
+its own group shown in turn. Every animation has a poster frame (the last frame by default),
+written as still SVG and PNG, and contained in the animated SVG, where a style rule shows it
+instead of the motion under `prefers-reduced-motion: reduce`.
+
+A 120-frame animation of 640 × 360 pixels (the travelling wave, `lake exe pilean-test
+--anim-bench`, load average about 14.5): drawing the frames 5.6 s; animated SVG 0.1 s (134,789
+bytes); APNG encoding 5.9 s (1,876,963 bytes); GIF encoding 5.3 s (785,813 bytes). Drawing and
+encoding share the time; the wave changes most pixels of every frame, so frame differencing
+saves little here (the growing-bars animation is 63 KB as APNG).
+
 ## Open design questions
 
 Each question has a current default, which the code follows until the question is settled.
 
-1. **Text in SVG: outlines or `<text>`.** Outlines (glyph paths from a font reader) look the same
-   everywhere and need no installed font, but are larger and not selectable; `<text>` with an
-   embedded subset font (WOFF2 needs Brotli) is smaller and selectable. *Default:* outlines for
-   figures (exact appearance), `<text>` as an option.
-2. **Default text family.** New Computer Modern or Latin Modern for plot labels. *Default:* Latin
-   Modern Sans.
+1. **Text in SVG: outlines or `<text>`.** Outlines look the same everywhere and need no installed
+   font, but are larger and not selectable; `<text>` is smaller and selectable. *Default:*
+   `<text>` in SVG, outlines in PNG (and in SVG on request, `outlines := true`).
+2. **Default text family.** *Default:* the built-in lettering in images, a system sans-serif stack
+   in SVG.
 3. **Pixel model.** Straight or premultiplied alpha in `Image`. *Default:* straight alpha in the
    public `Image` (as Pillow's `RGBA`), premultiplied inside the rasteriser.
 4. **Anti-aliasing.** Analytic area coverage or sub-row sampling. *Default:* analytic coverage
    (exact for polygons, as in font rasterisers).
-5. **Default figure size and style.** 640 × 400 px, or a print-oriented size in points.
-   *Default:* pixels as the unit; style variants to be compared side by side.
+5. **Default figure size and style.** *Default:* 640 × 400 px, pixels as the unit; one style,
+   `Style.light` (with `Style.dark`), every constant a field of `Style`.
 6. **Where figures live in a blueprint.** A Lean attribute (`@[figure]`) on a definition of type
    `Figure` that the site build renders, or explicit calls in the blueprint source. *Default:* the
    attribute, which also gives the trust layer its source declaration.
-7. **Graph layout depth.** Layered layout only, or force-directed as well. *Default:* layered
-   first (deterministic, suits dependency graphs), force-directed later.
+7. **Graph layout depth.** *Default:* the layered layout, with circular and tree layouts for
+   small graphs; no force-directed layout.
+

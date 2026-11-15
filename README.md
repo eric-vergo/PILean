@@ -1,7 +1,8 @@
 # PILean
 
 A pure-Lean image library, in the role Pillow has in Python: colours, geometry, vector paths,
-SVG output, plots and graphs of nodes and edges today; a rasteriser, PNG and a drawing canvas.
+a drawing canvas, SVG and PNG output, plots, graphs of nodes and edges, and animations (animated
+SVG, APNG, GIF).
 Every image is meant to be traceable to the Lean that made it.
 
 PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program can use it.
@@ -14,27 +15,34 @@ PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program
 | Geometry: points, affine transforms, boxes | done |
 | Paths: lines, quadratic and cubic Béziers, flattening to a tolerance, tight and control boxes | done |
 | SVG writer: typed document model, deterministic output, escaping of all text | done |
-| Plots: function graphs and data lines, nice-number ticks, legends, written from a `Figure` value | first version; see `examples/` |
+| Plots: a `Figure` of panels in a grid (shared axes), linear and logarithmic axes with nice major and minor ticks, grid, titles, axis labels, legends, annotations; lines (with markers), scatter, steps, areas and bands (fill between), grouped and stacked bars, histograms, functions sampled adaptively (broken at poles and jumps), error bars; light and dark styles from one `Style` record; awkward data (empty, constant, huge, non-finite) handled; SVG and PNG from the same drawing | done; see [`examples/`](examples/README.md); ticks proved ascending and inside their interval |
 | Images: modes L, RGB, RGBA; `new`, `getpixel`, `putpixel`, `crop`, `paste` with a mask, `convert`, flips and quarter turns, `resize` (nearest, bilinear, box, Lanczos) | done; sizes and flips proved |
 | Rasteriser: anti-aliased fill by exact area coverage in integer arithmetic (non-zero and even-odd), clipping to rectangles and paths, strokes (caps, joins, miter limit, dashes), solid and gradient paints, compositing in linear light, group opacity; an `ImageDraw`-like `Draw` | done; checked against known areas and against macOS's SVG renderer |
 | PNG: CRC-32, Adler-32, zlib/DEFLATE (stored, fixed and dynamic Huffman with LZ77), writer (grey, RGB, RGBA, filters 0–4, `sRGB`, `gAMA`, `tEXt`, `iTXt`) and reader (every colour type and depth, palette, Adam7, size caps) | done; checksums and framing proved, the codec tested against Python's `zlib` and macOS's `sips` |
 | Animated images: a `FrameSeq` written as APNG (`toApng`) or GIF (`toGif`, optionally dithered) and read back composed (`Anim.readApng`, `Anim.readGif`); frame differencing, merged equal frames, exact rational delays, size and frame caps | done; written and read back exactly (GIF when it has at most 256 colours), LZW and the quantiser tested, mutated and truncated files rejected cleanly, the files checked by `tools/anim-check.py` (Python's `zlib` and `struct`, its own LZW decoder) and by macOS's `sips` |
-| Plots as PNG: the same picture as the SVG, drawn from the same nodes (text not yet drawn in PNGs) | done; see [`examples/`](examples/README.md) |
+| Canvas: shapes, paths, groups with transforms, opacity and clips, gradients, text; written as SVG or drawn as PNG from the same SVG nodes | done |
+| Text in images: a `TextEngine` interface; the built-in single-stroke lettering (131 characters: ASCII, typographic punctuation, math signs, Greek) draws labels into PNGs; SVG keeps real `<text>` | done ([specimen](examples/lettering-specimen.png)) |
+| Animations: one `Animation` (a drawing as a function of time, frame rate, duration, loops) written as animated SVG (SMIL only, interpolated attributes or frame switching), APNG and GIF, with a poster frame for reduced motion | done; outputs read back by PILean's readers and opened by macOS's ImageIO |
 | Graphs: nodes, edges and clusters; layered (Sugiyama) layout with cycle removal, crossing reduction and Brandes–Köpf coordinates, spline or orthogonal edges, arrowheads, edge labels; circular and tree layouts; SVG and PNG | done; layers and edge indices proved; about 0.2 s for 3000 nodes; compared with Graphviz in [`docs/DESIGN.md`](docs/DESIGN.md) |
-| Canvas, text, traceability | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
+| Traceability (source links, fingerprints, manifests, theorems tying a figure to its Lean object) | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
 
 ## Use
 
 ```lean
 import PILean
-open PILean.Plot
+open PILean PILean.Plot
 
 def fig : Figure where
   title := "Trigonometric functions"
-  xLabel := "x"
-  marks := #[.function "sin x" Float.sin (-3.14) 3.14]
+  panels := #[{ x := { label := "x" }, y := { label := "y" },
+    series := #[.function "sin x" Float.sin (-3.14) 3.14,
+      .function "cos x" Float.cos (-3.14) 3.14] }]
 
 #eval IO.FS.writeFile "sin.svg" fig.toSvg
+#eval match fig.toPng with
+  | some png => IO.FS.writeBinFile "sin.png" png
+  | none => pure ()
+#eval IO.FS.writeFile "sin-dark.svg" { fig with style := Style.dark }.toSvg
 ```
 
 A graph is a value too, laid out in layers (or on a circle, or as a tree) and written as SVG or PNG:

@@ -26,7 +26,8 @@ that the output is deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
 `tools/compare-render.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the graph
 layout and its output on module graphs of 100, 800 and 3000 nodes;
-`--graph-compare-out DIR` writes the files of `tools/graph-compare.py`.
+`--graph-compare-out DIR` writes the files of `tools/graph-compare.py`; `--anim-bench` times a
+120-frame animation in each format.
 `lake exe pilean-test --png-out DIR` writes the PNG writer's files to `DIR` for
 `tools/png-check.py`.
 `lake exe pilean-test --anim-out DIR` writes sample GIF and APNG files to `DIR` for other software
@@ -104,7 +105,8 @@ def main (args : List String) : IO UInt32 := do
         else IO.println s!"golden {path}: same"
   for (name, a) in Examples.animations do
     let outs : Array (String × ByteArray) := #[(s!"{name}.svg", a.toSvg.toUTF8),
-      (s!"{name}.png", a.toApng.toOption.getD .empty), (s!"{name}.gif", a.toGif.toOption.getD .empty),
+      (s!"{name}.png", a.toApng.toOption.getD .empty),
+      (s!"{name}.gif", a.toGif.toOption.getD .empty),
       (s!"{name}-poster.png", a.posterPng.toOption.getD .empty)]
     for (file, bytes) in outs do
       let path : System.FilePath := "examples" / file

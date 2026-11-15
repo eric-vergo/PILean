@@ -476,7 +476,9 @@ def stepPoints (ps : Array Point) (at_ : StepAt) : Array Point := Id.run do
     match out.back?, at_ with
     | some q, .post => out := (out.push ⟨p.x, q.y⟩).push p
     | some q, .pre => out := (out.push ⟨q.x, p.y⟩).push p
-    | some q, .mid => out := ((out.push ⟨(q.x + p.x) / 2, q.y⟩).push ⟨(q.x + p.x) / 2, p.y⟩).push p
+    | some q, .mid =>
+      let m := (q.x + p.x) / 2
+      out := ((out.push ⟨m, q.y⟩).push ⟨m, p.y⟩).push p
     | none, _ => out := out.push p
   return out
 
@@ -537,7 +539,8 @@ def drawSeries (st : Style) (l : PanelLayout) (s : Series) (index : Nat) : Array
     return out
   | .scatter _ ps c r =>
     let c := c.getD c0
-    return ps.filterMap fun p => (toPx p).map fun q => marker st q c (r.getD (st.markerRadius + 0.5))
+    return ps.filterMap fun p =>
+      (toPx p).map fun q => marker st q c (r.getD (st.markerRadius + 0.5))
   | .step _ ps c at_ =>
     let c := c.getD c0
     return (l.polylines (stepPoints ps at_)).map fun pl =>
@@ -591,7 +594,8 @@ def drawSeries (st : Style) (l : PanelLayout) (s : Series) (index : Nat) : Array
         let span := (l.sy.hi.log10 - l.sy.lo.log10).abs
         (sampleFunction (fun x => (f x).log10) lo hi sx
           (if span == 0 then 1 else a.height / span) a.height l.sy.lo.log10 l.sy.hi.log10).map
-          (fun (pl : Array Point) => pl.map fun (p : Point) => (⟨p.x, (10 : Float) ^ p.y⟩ : Point))
+          (fun (pl : Array Point) =>
+            pl.map fun (p : Point) => (⟨p.x, (10 : Float) ^ p.y⟩ : Point))
     return pls.foldl (fun acc pl => acc ++ (l.polylines pl).map fun q =>
       Shape.path (Path.polyline q) none (some (dataLine st c (dashOf dash)))) #[]
   | .errorBars _ ps err c =>
@@ -655,7 +659,8 @@ def drawFrame (st : Style) (l : PanelLayout) (p : Panel) : Array Shape × Array 
     if st.minorTicks then
       for v in l.sx.minor do
         if let some x := xPos v then
-          ticks := (ticks.moveTo ⟨crisp x, bottom⟩).lineTo ⟨crisp x, bottom + st.minorTickLength⟩
+          ticks :=
+            (ticks.moveTo ⟨crisp x, bottom⟩).lineTo ⟨crisp x, bottom + st.minorTickLength⟩
   else if l.xLabels then
     let band := a.width / (max l.categories.size 1).toFloat
     for h : i in [0:l.categories.size] do

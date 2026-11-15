@@ -25,7 +25,8 @@ directly.
 * **Text** is a placeholder the output resolves: SVG text in the style's font family
   (`TextMode.native`), or shapes from a `TextEngine` (`TextMode.shapes`), which is how text
   reaches images; small text is shaped a little heavier, so that a stroke is never thinner than
-  a pixel (an optical size for the single-stroke lettering). Its position is its anchor point on the baseline.
+  a pixel (an optical size for the single-stroke lettering). Its position is its anchor point on
+  the baseline.
 * Ids of clips and gradients are numbered in drawing order, so the output is deterministic.
 
 ## Main definitions
