@@ -15,6 +15,7 @@ import PILeanTest.Graphs
 import PILeanTest.Exact
 import PILeanTest.Trust
 import PILeanTest.TrustBuild
+import PILeanTest.Bounds
 
 /-!
 # The test driver
@@ -31,6 +32,8 @@ the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the 
 layout and its output on module graphs of 100, 800 and 3000 nodes;
 `--graph-compare-out DIR` writes the files of `tools/graph-compare.py`; `--anim-bench` times a
 120-frame animation in each format.
+`PILeanTest.Bounds` runs the readers on hostile inputs in child processes (`pilean-probe`)
+under CPU and memory bounds; `--bounds` runs only these.
 `lake exe pilean-test --png-out DIR` writes the PNG writer's files to `DIR` for
 `tools/png-check.py`.
 `lake exe pilean-test --anim-out DIR` writes sample GIF and APNG files to `DIR` for other software
@@ -51,6 +54,10 @@ def main (args : List String) : IO UInt32 := do
   | ["--bench"] => Raster.bench; return 0
   | ["--anim-bench"] => Plots.animBench; return 0
   | ["--graph-bench"] => Graphs.bench; return 0
+  | ["--bounds"] =>
+    let r ← Bounds.ioChecks
+    for (name, ok) in r do if !ok then IO.eprintln s!"FAIL {name}"
+    return if r.all (·.2) then 0 else 1
   | ["--graph-compare-out", dir] => Graphs.writeCompare dir; return 0
   | "--graph-compare-out" :: _ => IO.eprintln "usage: --graph-compare-out DIR"; return 1
   | _ => pure ()
@@ -58,7 +65,7 @@ def main (args : List String) : IO UInt32 := do
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++
     Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
     Graphs.checks ++ Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
-    (← TrustBuild.ioChecks) ++ ExactChecks.checks
+    (← TrustBuild.ioChecks) ++ ExactChecks.checks ++ (← Bounds.ioChecks)
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"

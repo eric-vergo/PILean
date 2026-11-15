@@ -41,7 +41,14 @@ information inside each file. -/
 lean_exe «pilean-verify» where
   root := `PILeanTest.Verify
 
-/-- The test driver: `lake test` runs it from the repository root. -/
+/-- Decodes one file with a reader's default limits; the test driver runs it under CPU and memory
+limits on hostile inputs. -/
+lean_exe «pilean-probe» where
+  root := `PILeanTest.Probe
+
+/-- The test driver: `lake test` runs it from the repository root. It runs the tools, so they are
+built first. -/
 @[test_driver]
 lean_exe «pilean-test» where
   root := `PILeanTest.Main
+  needs := #[«pilean-probe», «pilean-info», «pilean-verify»]
