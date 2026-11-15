@@ -5,6 +5,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILeanTest.Color
 import PILeanTest.Units
 import PILeanTest.Examples
+import PILeanTest.Raster
 import PILeanTest.Png
 
 /-!
@@ -26,8 +27,11 @@ def main (args : List String) : IO UInt32 := do
   match args with
   | ["--png-out", dir] => Png.writeScratch dir; return 0
   | "--png-out" :: _ => IO.eprintln "usage: --png-out DIR"; return 1
+  | ["--compare-out", dir] => Raster.writeCompare dir; return 0
+  | ["--bench"] => Raster.bench; return 0
   | _ => pure ()
-  let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks)
+  let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
+    Raster.checks ++ (← Raster.ioChecks)
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"
@@ -45,4 +49,17 @@ def main (args : List String) : IO UInt32 := do
           checking the change)"
         failed := failed + 1
       else IO.println s!"golden {path}: same"
+    -- the PNG drawn from the same nodes
+    let pngPath := path.withExtension "png"
+    let png := (fig.toPng).getD ByteArray.empty
+    if args == ["--update"] then
+      IO.FS.writeBinFile pngPath png
+      IO.println s!"wrote {pngPath}"
+    else
+      let golden ← if ← pngPath.pathExists then IO.FS.readBinFile pngPath else pure .empty
+      if golden.data != png.data then
+        IO.eprintln s!"FAIL {pngPath}: differs (`lake exe pilean-test --update` after checking \
+          the change)"
+        failed := failed + 1
+      else IO.println s!"golden {pngPath}: same"
   return if failed == 0 then 0 else 1

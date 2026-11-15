@@ -9,10 +9,17 @@ import PILean.Svg
 import PILean.Png
 import PILean.Plot.Ticks
 import PILean.Plot.Figure
+import PILean.Image.Basic
+import PILean.Raster.Coverage
+import PILean.Raster.Canvas
+import PILean.Raster.Stroke
+import PILean.Raster.Draw
+import PILean.Raster.SvgRender
+import PILean.Plot.Raster
 
 /-!
 # PILean
 
-A pure-Lean image library: colours, geometry, paths, SVG output and plots. See `README.md` and
-`docs/DESIGN.md`.
+A pure-Lean image library: colours, geometry, paths, images, a rasteriser with paints and
+compositing, PNG and SVG output, and plots. See `README.md` and `docs/DESIGN.md`.
 -/
