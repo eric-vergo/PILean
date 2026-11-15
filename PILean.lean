@@ -18,6 +18,14 @@ import PILean.Plot.Ticks
 import PILean.Plot.Scale
 import PILean.Plot.Sample
 import PILean.Plot.Figure
+import PILean.Graph.Model
+import PILean.Graph.Layout
+import PILean.Graph.Layering
+import PILean.Graph.Ordering
+import PILean.Graph.Coordinates
+import PILean.Graph.Layered
+import PILean.Graph.Simple
+import PILean.Graph.Draw
 import PILean.Raster.Coverage
 import PILean.Raster.Canvas
 import PILean.Raster.Stroke

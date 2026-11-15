@@ -11,6 +11,7 @@ import PILeanTest.Image
 import PILeanTest.Anim
 import PILeanTest.Plots
 import PILeanTest.Lettering
+import PILeanTest.Graphs
 
 /-!
 # The test driver
@@ -40,10 +41,14 @@ def main (args : List String) : IO UInt32 := do
   | "--anim-out" :: _ => IO.eprintln "usage: --anim-out DIR"; return 1
   | ["--compare-out", dir] => Raster.writeCompare dir; return 0
   | ["--bench"] => Raster.bench; return 0
+  | ["--graph-bench"] => Graphs.bench; return 0
+  | ["--graph-compare-out", dir] => Graphs.writeCompare dir; return 0
+  | "--graph-compare-out" :: _ => IO.eprintln "usage: --graph-compare-out DIR"; return 1
   | _ => pure ()
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++
-    Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks
+    Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
+    Graphs.checks
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"
