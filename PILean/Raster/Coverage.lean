@@ -93,6 +93,10 @@ structure Span where
   alpha : UInt8
   deriving BEq, Inhabited, Repr
 
+/-- Whether a span lies inside a rectangle. -/
+def Span.inside (r : IRect) (s : Span) : Bool :=
+  r.y0 ≤ s.y && s.y < r.y1 && r.x0 ≤ s.x && s.x + s.len ≤ r.x1
+
 /-- Subpixels per pixel. -/
 def subpixel : Int := 256
 
@@ -190,18 +194,21 @@ def edgeCells (w h : Nat) (ax ay bx by_ : Int) (out : Array Cell) : Array Cell :
   return out
 
 /-- The coverage of a winding area (`512 · C − A`, 131072 a whole pixel) under a rule, 0 to
-255. -/
-def alphaOf (rule : FillRule) (v : Int) : UInt8 :=
+255 (in 1/255 of a pixel). -/
+def coverageOf (rule : FillRule) (v : Int) : Nat :=
   let full : Nat := 131072
   let m := v.natAbs
   let m := match rule with
     | .nonZero => min m full
     | .evenOdd => let t := m % (2 * full); if t > full then 2 * full - t else t
-  ((m * 255 + full / 2) / full).toUInt8
+  (m * 255 + full / 2) / full
+
+/-- `coverageOf` as a byte (it is at most 255, `coverageOf_le`, so nothing is cut off). -/
+def alphaOf (rule : FillRule) (v : Int) : UInt8 := (coverageOf rule v).toUInt8
 
 /-- The spans of the pixels that closed polylines cover, in an image `w` × `h`, clipped to
 `clip`: rows top to bottom, spans left to right, none of coverage 0; or `none` past
-`maxPoints`. -/
+`maxPoints`. Every span lies inside `clip` and the image (`coverage_inside`). -/
 def coverage (polys : Array (Array Point)) (rule : FillRule) (w h : Nat) (clip : IRect) :
     Option (Array Span) := Id.run do
   let total := polys.foldl (fun n p => n + p.size) 0
@@ -251,7 +258,8 @@ def coverage (polys : Array (Array Point)) (rule : FillRule) (w h : Nat) (clip :
       let s := max (cx + 1) clip.x0
       let e := min next.toNat clip.x1
       if runA != 0 && s < e then out := out.push ⟨y, s, e - s, runA⟩
-  return some out
+  -- every span is inside the clip by construction; the filter makes that a guarantee
+  return some (out.filter (Span.inside clip))
 
 /-- The coverage of pixel `(x, y)` in a list of spans (0 outside them). -/
 def spansAlpha (spans : Array Span) (x y : Nat) : UInt8 :=
