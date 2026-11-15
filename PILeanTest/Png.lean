@@ -240,6 +240,18 @@ def pngChecks : Array (String × Bool) := Id.run do
       | .ok b => match decode b with | .ok d => sameImage d.image img | .error _ => false
       | .error _ => false
     r := r.push (s!"png round trip: level {lv}", ok)
+  -- pixel density: 144 dpi is 5669 pixels a metre, written as a pHYs chunk after gAMA, and the
+  -- image still reads back
+  let dense := encode img { pixelsPerMetre := Metadata.dpi 144 }
+  let physOk := match dense with
+    | .ok b =>
+      let want : ByteArray := ⟨#[0, 0, 0, 9, 112, 72, 89, 115, 0, 0, 22, 37, 0, 0, 22, 37, 1]⟩
+      let found := (List.range (b.size - want.size)).any fun i =>
+        b.extract i (i + want.size) == want
+      found && (match decode b with | .ok d => sameImage d.image img | .error _ => false)
+    | .error _ => false
+  r := r.push ("png: a pixel density of 144 dpi is written as pHYs 5669 and read past",
+    physOk && Metadata.dpi 72 == some (2835, 2835))
   -- metadata
   let entries : Array TextEntry := #[{ keyword := "Title", text := "Plot of sin(x)" },
     { keyword := "Source", text := "café\nline 2", international := true, language := "fr",

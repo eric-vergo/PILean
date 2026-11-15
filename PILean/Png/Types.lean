@@ -79,10 +79,20 @@ structure Metadata where
   /-- The `gAMA` value (gamma times 100000), or none to omit the chunk; 45455 is the value the
   specification recommends alongside `sRGB`. -/
   gamma : Option UInt32 := some 45455
+  /-- The `pHYs` pixel density as pixels per metre across and down, or none to omit the chunk:
+  `Metadata.dpi` gives the density of a number of dots per inch (72 dpi is `2835`, 144 dpi
+  `5669`), which macOS reads as the image's size in points. -/
+  pixelsPerMetre : Option (UInt32 × UInt32) := none
   /-- Text entries, written as `tEXt` chunks (or `iTXt` when `international`), before the
   image data. -/
   text : Array TextEntry := #[]
 deriving Repr, Inhabited
+
+/-- The pixel density of `d` dots per inch both ways, in pixels per metre rounded to nearest
+(the `pHYs` chunk's unit). -/
+def Metadata.dpi (d : Nat) : Option (UInt32 × UInt32) :=
+  let ppm := ((d * 10000 + 127) / 254).toUInt32
+  some (ppm, ppm)
 
 /-- The caps the reader applies to untrusted input before it allocates. -/
 structure Limits where

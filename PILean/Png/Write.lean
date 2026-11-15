@@ -21,7 +21,7 @@ file.
 
 ## Implementation notes
 
-* Chunks, in order: `IHDR`, `sRGB`, `gAMA`, the text chunks, `IDAT` (the zlib stream split into
+* Chunks, in order: `IHDR`, `sRGB`, `gAMA`, `pHYs`, the text chunks, `IDAT` (the zlib stream split into
   pieces of `idatChunkSize` bytes), `IEND`. Colour types are 0, 2 and 6 at bit depth 8; there
   is no interlacing.
 * Filters: every row is filtered with the filter (types 0 to 4) that gives the smallest sum of
@@ -174,6 +174,8 @@ def encode (img : RawImage) (md : Metadata := {}) (level : Nat := 6)
   let mut out := pngSignature ++ chunk "IHDR" ihdr
   if let some i := md.srgbIntent then out := out ++ chunk "sRGB" ⟨#[i]⟩
   if let some g := md.gamma then out := out ++ chunk "gAMA" (be32 g)
+  if let some (x, y) := md.pixelsPerMetre then
+    out := out ++ chunk "pHYs" (be32 x ++ be32 y ++ ⟨#[1]⟩)
   for e in md.text do
     out := out ++ (← textChunk e)
   let z := zlibCompress (filterImage img filter) level
