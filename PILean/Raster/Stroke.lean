@@ -100,6 +100,28 @@ def disc (c : Point) (r tol : Float) : Array Point := Id.run do
     let t := a * i.toFloat
     ⟨c.x + r * Float.cos t, c.y + r * Float.sin t⟩
 
+/-- The sector of the disc of radius `r` about `c` from angle `a0` sweeping `sweep` radians
+(positive or negative), as a polygon from the centre, within `tol` of the arc and with the
+sector's area. -/
+def sector (c : Point) (r a0 sweep tol : Float) : Array Point := Id.run do
+  if r ≤ 0 || sweep == 0 || sweep.isNaN then return #[]
+  let tol := max tol 0.01
+  let step := 2 * Float.acos (max (-1) (min 1 (1 - tol / r)))
+  let n : Nat := max 2 (min 1024 (if step > 0 then (sweep.abs / step).ceil.toUInt64.toNat
+    else 1024))
+  let a := sweep / n.toFloat
+  -- the arc's vertices on a slightly larger circle, so that the sector keeps its area
+  let r' := r * (a.abs / Float.sin a.abs).sqrt
+  let arc := (Array.range (n + 1)).map fun i =>
+    let t := a0 + a * i.toFloat
+    -- the end points stay on the true circle, where the sector meets its neighbours
+    let rr := if i == 0 || i == n then r else r'
+    (⟨c.x + rr * Float.cos t, c.y + rr * Float.sin t⟩ : Point)
+  return #[c] ++ arc
+
+/-- The angle of a vector. -/
+def angleOf (v : Point) : Float := Float.atan2 v.y v.x
+
 /-- The unit vector of `d`, or `none` for a zero vector. -/
 def unit? (d : Point) : Option Point :=
   let n := d.norm
@@ -147,7 +169,16 @@ def polylinePieces (st : Stroke) (pts : Array Point) (closed : Bool) : Array (Ar
     let cross := u1.x * u2.y - u1.y * u2.x
     if cross == 0 && u1.x * u2.x + u1.y * u2.y > 0 then continue
     match st.join with
-    | .round => out := out.push (orient (disc c hw st.tolerance))
+    | .round =>
+      -- the sector between the two segments' outer edges, outside both rectangles
+      let s : Float := if cross > 0 then -1 else 1
+      let n1 : Point := (s * hw) * (⟨-u1.y, u1.x⟩ : Point)
+      let n2 : Point := (s * hw) * (⟨-u2.y, u2.x⟩ : Point)
+      let a0 := angleOf n1
+      let d := angleOf n2 - a0
+      let pi := 3.141592653589793
+      let d := if d > pi then d - 2 * pi else if d < -pi then d + 2 * pi else d
+      out := out.push (orient (sector c hw a0 d st.tolerance))
     | j =>
       -- the outer side: left of the travel for a right turn, and so on
       let s : Float := if cross > 0 then -1 else 1
@@ -165,9 +196,17 @@ def polylinePieces (st : Stroke) (pts : Array Point) (closed : Bool) : Array (Ar
         | none => out := out.push (orient #[c, a, b])
       else out := out.push (orient #[c, a, b])
   -- round caps
+  -- half discs beyond the ends, meeting the end segments' rectangles along their ends
   if !closed && st.cap == .round then
-    out := out.push (disc (pts[0]?.getD ⟨0, 0⟩) hw st.tolerance)
-    out := out.push (disc (pts.back?.getD ⟨0, 0⟩) hw st.tolerance)
+    let pi := 3.141592653589793
+    let p0 := pts[0]?.getD ⟨0, 0⟩
+    let p1 := pts[1]?.getD p0
+    let q := pts.back?.getD ⟨0, 0⟩
+    let q0 := pts[pts.size - 2]?.getD q
+    if let some u := unit? (p1 - p0) then
+      out := out.push (orient (sector p0 hw (angleOf ⟨-u.y, u.x⟩) pi st.tolerance))
+    if let some u := unit? (q - q0) then
+      out := out.push (orient (sector q hw (angleOf ⟨u.y, -u.x⟩) pi st.tolerance))
   return out
 
 /-- A polyline cut by a dash pattern starting `offset` into it: the pieces drawn, open. An
