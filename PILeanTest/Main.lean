@@ -8,18 +8,21 @@ import PILeanTest.Examples
 import PILeanTest.Raster
 import PILeanTest.Png
 import PILeanTest.Image
+import PILeanTest.Anim
 
 /-!
 # The test driver
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
-`PILeanTest.Image`, `PILeanTest.Raster`) and compares every gallery figure's SVG and PNG with
-its files in `examples/` (the goldens), byte for byte; it also renders each figure twice to
-check that the output is deterministic. `lake exe pilean-test --update` rewrites the goldens
-(as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
+`PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Anim`) and compares every gallery figure's
+SVG and PNG with its files in `examples/` (the goldens), byte for byte; it also renders each
+figure twice to check that the output is deterministic. `lake exe pilean-test --update` rewrites
+the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
 `tools/compare-render.py`; `--bench` times a 2000 × 1200 plot.
 `lake exe pilean-test --png-out DIR` writes the PNG writer's files to `DIR` for
 `tools/png-check.py`.
+`lake exe pilean-test --anim-out DIR` writes sample GIF and APNG files to `DIR` for other software
+to check.
 -/
 
 open PILeanTest
@@ -30,11 +33,14 @@ def main (args : List String) : IO UInt32 := do
   match args with
   | ["--png-out", dir] => Png.writeScratch dir; return 0
   | "--png-out" :: _ => IO.eprintln "usage: --png-out DIR"; return 1
+  | ["--anim-out", dir] => AnimFiles.writeSamples dir; return 0
+  | "--anim-out" :: _ => IO.eprintln "usage: --anim-out DIR"; return 1
   | ["--compare-out", dir] => Raster.writeCompare dir; return 0
   | ["--bench"] => Raster.bench; return 0
   | _ => pure ()
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
-    Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks)
+    Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++
+    Anim.checks ++ (← Anim.ioChecks)
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"

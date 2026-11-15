@@ -69,6 +69,7 @@ def decodeFrame (st : ReadState) (ctl : FrameCtl) (data : ByteArray) (lim : Limi
   let png := Png.pngSignature ++ Png.chunk "IHDR" hd ++ st.extra ++ Png.chunk "IDAT" data ++
     Png.chunk "IEND" ByteArray.empty
   match Png.decode png lim.toPng with
+  | .error (.tooLarge m) => throw (.tooLarge m)
   | .error e => throw (.malformed s!"frame data: {e}")
   | .ok d =>
     let im : Image := Image.ofRaw d.image
@@ -105,6 +106,7 @@ def readChunk (st : ReadState) (lim : Limits) (bytes : ByteArray) (pos : Nat) :
   let some h := st.hdr | do
     let hdr ← match Png.parseHeader data lim.toPng with
       | .ok h => pure h
+      | .error (.tooLarge m) => throw (.tooLarge m)
       | .error e => throw (.malformed s!"{e}")
     let blank := ByteArray.mk (Array.replicate (hdr.width * hdr.height * 4) 0)
     return ({ st with
