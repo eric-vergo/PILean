@@ -9,7 +9,7 @@ both files are reproduced byte for byte.
 
 | Figure | SVG | PNG |
 |---|---|---|
-| **Trigonometric functions** — `sin x`, `cos x` and `sin x · cos x` over two periods (`functions`) | ![functions, SVG](function-plot.svg) | ![functions, PNG](function-plot.png) |
+| **Trigonometric functions** — `sin x`, `cos x` and `sin x / x` from −2π to 2π (`functions`) | ![functions, SVG](function-plot.svg) | ![functions, PNG](function-plot.png) |
 | **Counting primes** — the prime-counting function π(n) against n / ln n (`primes`) | ![primes, SVG](primes-line-plot.svg) | ![primes, PNG](primes-line-plot.png) |
 | **Collatz stopping times** — the steps from n to 1, with markers (`collatz`) | ![Collatz, SVG](collatz-data-plot.svg) | ![Collatz, PNG](collatz-data-plot.png) |
 
