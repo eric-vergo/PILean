@@ -33,6 +33,7 @@ import PILean.Graph.Layered
 import PILean.Graph.Simple
 import PILean.Graph.Draw
 import PILean.Graph.Check
+import PILean.Graph.Dot
 import PILean.Graph.Proofs
 import PILean.Graph.Spec
 import PILean.Raster.Coverage
