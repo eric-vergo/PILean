@@ -302,11 +302,13 @@ def bench : IO Unit := do
     let (layerAll, up, down) := built
     let size := layerAll.size
     let t3 ← IO.monoNanosNow
-    let order ← IO.lazyPure fun _ => orderLayers size (initialLayers layerAll up down) up down o.sweeps
+    let order ← IO.lazyPure fun _ =>
+      orderLayers size (initialLayers layerAll up down) up down o.sweeps
     let ordering ← msSince t3
     let t4 ← IO.monoNanosNow
     let bw := (Array.range size).map fun v => if v < n then 70.0 else 0.0
-    let _ ← IO.lazyPure fun _ => assignBreadth size n order up down (separation n bw o.nodeGap o.edgeGap 0 #[]) bw
+    let sep := separation n bw o.nodeGap o.edgeGap 0 #[]
+    let _ ← IO.lazyPure fun _ => assignBreadth size n order up down sep bw
     let coords ← msSince t4
     let t5 ← IO.monoNanosNow
     let l ← IO.lazyPure fun _ => g.layout o st

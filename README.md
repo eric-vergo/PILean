@@ -1,8 +1,8 @@
 # PILean
 
 A pure-Lean image library, in the role Pillow has in Python: colours, geometry, vector paths,
-SVG output and plots today; a rasteriser, PNG, a drawing canvas and graphs of nodes and edges
-next. Every image is meant to be traceable to the Lean that made it.
+SVG output, plots and graphs of nodes and edges today; a rasteriser, PNG and a drawing canvas.
+Every image is meant to be traceable to the Lean that made it.
 
 PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program can use it.
 
@@ -20,7 +20,8 @@ PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program
 | PNG: CRC-32, Adler-32, zlib/DEFLATE (stored, fixed and dynamic Huffman with LZ77), writer (grey, RGB, RGBA, filters 0–4, `sRGB`, `gAMA`, `tEXt`, `iTXt`) and reader (every colour type and depth, palette, Adam7, size caps) | done; checksums and framing proved, the codec tested against Python's `zlib` and macOS's `sips` |
 | Animated images: a `FrameSeq` written as APNG (`toApng`) or GIF (`toGif`, optionally dithered) and read back composed (`Anim.readApng`, `Anim.readGif`); frame differencing, merged equal frames, exact rational delays, size and frame caps | done; written and read back exactly (GIF when it has at most 256 colours), LZW and the quantiser tested, mutated and truncated files rejected cleanly, the files checked by `tools/anim-check.py` (Python's `zlib` and `struct`, its own LZW decoder) and by macOS's `sips` |
 | Plots as PNG: the same picture as the SVG, drawn from the same nodes (text not yet drawn in PNGs) | done; see [`examples/`](examples/README.md) |
-| Canvas, text, graphs, traceability | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
+| Graphs: nodes, edges and clusters; layered (Sugiyama) layout with cycle removal, crossing reduction and Brandes–Köpf coordinates, spline or orthogonal edges, arrowheads, edge labels; circular and tree layouts; SVG and PNG | done; layers and edge indices proved; about 0.2 s for 3000 nodes; compared with Graphviz in [`docs/DESIGN.md`](docs/DESIGN.md) |
+| Canvas, text, traceability | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
 
 ## Use
 
@@ -34,6 +35,17 @@ def fig : Figure where
   marks := #[.function "sin x" Float.sin (-3.14) 3.14]
 
 #eval IO.FS.writeFile "sin.svg" fig.toSvg
+```
+
+A graph is a value too, laid out in layers (or on a circle, or as a tree) and written as SVG or PNG:
+
+```lean
+open PILean
+
+def deps : Graph := Graph.ofLabelled [("Main", "Parser"), ("Main", "Eval"), ("Parser", "Lexer"),
+  ("Eval", "Parser")]
+
+#eval IO.FS.writeFile "deps.svg" (deps.toSvg)
 ```
 
 The gallery (`examples/*.svg`, `examples/*.png`, [`examples/README.md`](examples/README.md)) is
@@ -63,7 +75,7 @@ lake test
 
 `lake test` runs the named checks (colour, geometry, paths, SVG writer, ticks, PNG and DEFLATE
 with their reader fixtures and mutated files, image operations, rasteriser, LZW, the palette
-quantiser and the animated-image codecs with their mutated files) and compares each
+quantiser, the animated-image codecs with their mutated files, and the graph layouts) and compares each
 gallery figure's SVG and PNG with its files in `examples/`, byte for byte.
 `lake exe pilean-test --update` rewrites those files after a deliberate change.
 
@@ -74,12 +86,15 @@ lake exe pilean-test --png-out /tmp/pilean-png && python3 -I tools/png-check.py 
 lake exe pilean-test --compare-out /tmp/pilean-cmp && python3 -I tools/compare-render.py /tmp/pilean-cmp
 lake exe pilean-test --anim-out /tmp/pilean-anim && python3 -I tools/anim-check.py /tmp/pilean-anim
 lake exe pilean-test --bench
+lake exe pilean-test --graph-bench
+lake exe pilean-test --graph-compare-out /tmp/pilean-graphs && python3 -I tools/graph-compare.py /tmp/pilean-graphs
 ```
 
 The first decodes PILean's zlib streams and PNGs with Python's `zlib`; the second renders the
 gallery's SVGs with `sips` and compares their pixels with PILean's PNGs; the third composes the
 sample APNG and GIF files with a decoder written in Python and checks that both formats show the
-same frames.
+same frames. The last compares the layered graph layout with Graphviz's `dot` (when it is on the
+path) by crossings, edge length and area.
 
 ## Trust model (outline)
 

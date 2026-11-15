@@ -223,8 +223,6 @@ def gallery : Array (String × Figure) :=
   figures.map (fun (n, f) => (n ++ ".svg", f)) ++
     figures.map (fun (n, f) => (n ++ "-dark.svg", dark f))
 
-
-
 /-! ### Graphs -/
 
 namespace GraphFigures
@@ -287,8 +285,6 @@ def GraphEntry.svg (e : GraphEntry) (st : Style) : String := (e.layout st).toSvg
 /-- The PNG of a graph figure in a style (empty when it cannot be written). -/
 def GraphEntry.png (e : GraphEntry) (st : Style) : ByteArray :=
   ((e.layout st).toImage st e.scale).writePng.toOption.getD ByteArray.empty
-
-
 
 /-! ### Animations -/
 

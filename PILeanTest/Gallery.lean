@@ -8,7 +8,8 @@ import PILeanTest.Examples
 # The gallery writer
 
 `lake exe pilean-gallery` writes every figure of `PILeanTest.Examples.gallery` to `examples/`,
-as SVG and as PNG, every graph of `PILeanTest.Examples.graphs` the same way, and every animation of `PILeanTest.Examples.animations` as an animated SVG
+as SVG and as PNG, every graph of `PILeanTest.Examples.graphs` the same way, and every
+animation of `PILeanTest.Examples.animations` as an animated SVG
 (`NAME.svg`), an animated PNG (`NAME.png`), a GIF (`NAME.gif`) and its poster frame
 (`NAME-poster.png`).
 -/

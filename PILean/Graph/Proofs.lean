@@ -152,7 +152,7 @@ theorem acyclicEdges_ok (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
         rw [Bool.eq_false_iff, Ne, before_iff] at *
         omega
       · intro a b
-        simp only [srcLe, Bool.or_eq_true, Bool.not_eq_true'] 
+        simp only [srcLe, Bool.or_eq_true, Bool.not_eq_true']
         by_cases h : before pos b.1 a.1 = true
         · by_cases h' : before pos a.1 b.1 = true
           · rw [before_iff] at h h'; omega

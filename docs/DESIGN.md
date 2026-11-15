@@ -35,7 +35,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Canvas` | a retained vector canvas: layers, groups, transforms, styles, text runs; rendered to SVG or through `Raster` to PNG | later |
 | `PILean.Text` | text through the companion typesetting library: its OpenType reader (outlines, advances, kerning, ligatures) and, later, its text and math layout; labels become outlines or SVG text | later |
 | `PILean.Plot.*` | scales (linear, log, symlog, time), axes, scatter, bar, histogram, area, error bars, legends, facets; LaTeX labels through the companion typesetting library | later |
-| `PILean.Graph` | nodes and edges, a layered (Sugiyama) layout, edge routing with splines, labels | later |
+| `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline or orthogonal edges, arrowheads, edge labels and clusters, circular and tree layouts, drawing on the canvas as SVG and PNG | done; layering proved, see below |
 | `PILean.Trust` | source links, fingerprints, manifests and their checker, and the theorems that tie a figure to its Lean object | later |
 
 ## Public API in Pillow's spirit
@@ -138,6 +138,93 @@ Four parts:
    the plotted function is the definition; each data point is the evaluated term; each drawn edge
    is in the declared relation and every related pair is drawn. Statements first, proofs second,
    about the functions the code calls.
+
+## Graph layout
+
+`PILean.Graph` draws a `Graph` (labelled nodes, edges with optional labels, clusters) in layers
+(`Graph.layout`, files `Graph/Layering`, `Ordering`, `Coordinates`, `Layered`), or on a circle
+(`circularLayout`) or as a tree (`treeLayout`), and draws the `Layout` on the vector canvas
+(`Graph/Draw`), so that the SVG and the PNG show the same picture. Nothing in it depends on
+Mathlib or on any other library; it follows the published algorithms, listed in the module
+docstrings.
+
+**Phases and their bounds** (`V` nodes, `E` edges, `L` layers, `D` dummy nodes, the sum of the
+spans of the edges, at most `E (L - 1)`):
+
+1. *Cycle removal*: the greedy feedback arc set heuristic of Eades, Lin and Smyth; edges against
+   the resulting order are reversed for the layout and drawn in their own direction. At most
+   `3V + 2` steps, `O(V + E)` plus a scan of the nodes each time no source or sink is left.
+   Self-loops are set aside and drawn as small loops.
+2. *Layers*: longest paths from the sources, a few balancing passes (each node moves within the
+   layers its neighbours leave free: down when it has more out-edges, up when it has more
+   in-edges, otherwise to the emptiest layer), and `fixLayers`, which relaxes the edges sorted
+   by the order of their source. `O(V log V + E)` and `O(V (log V + L) + E)` per balancing pass.
+   When an edge has a label the layers are doubled so that the label has a layer half-way along
+   its edge.
+3. *Crossing reduction*: long edges become chains of `D` dummy nodes; a depth-first start order,
+   `sweeps` (8 by default) barycenter sweeps down and up (Sugiyama, Tagawa, Toda) keeping the
+   order with the fewest crossings, crossings counted per sweep in `O(E log V)` with a Fenwick
+   tree (the accumulator tree of Barth, Jünger and Mutzel), then at most twelve passes of
+   adjacent swaps (skipped for pairs whose degrees multiply to more than 400); ties go to the
+   position, then the node number. The members of a cluster are gathered afterwards and the
+   clusters put in one order in every layer.
+4. *Coordinates*: Brandes and Köpf's four alignments with type 1 conflict marking, compacted by
+   a longest path through the block graph (the class shifts of the paper are left out: the
+   blocks never move against each other, so they cannot overlap), balanced by the mean of the
+   two median values; then `refine` (8) passes that move a node, or a straight run of dummy
+   nodes, towards the median of its neighbours within the room the layers leave it. Straight runs
+   of long edges stay straight. `O(V + E)` per alignment plus sorting of neighbours.
+5. *Edges*: cubic Bézier curves through the dummy points, monotone along the layers (no
+   overshoot) and perpendicular to them at the ends, or horizontal and vertical segments with
+   rounded corners whose horizontal runs share a gap on separate tracks; ends spread along the
+   node's side; arrowheads aligned with the end of the curve; labels on plates of the page
+   colour at the middle of the edge.
+
+Node boxes are whole even pixels from the label measured with the style's text engine; outlines
+are one pixel on pixel centres. The result of every layout is a `Layout` of boxes and paths; the
+drawing is deterministic (every tie is decided by node and edge numbers).
+
+**Validity.** Edges to nodes that do not exist are dropped (`Graph.validEdges`); self-loops
+and parallel edges are kept. Clusters are boxes around their members; the layout does not keep
+other nodes out of them, so a box may hold nodes that are not members and boxes may overlap.
+
+**Proved** (`PILean.Graph.Proofs`, axioms `propext`, `Classical.choice`, `Quot.sound` only):
+`fixLayers_lt` (relaxing edges in an order in which no later edge ends where an earlier one
+starts puts every target below its source, from any starting layers), `assignLayers_lt` and
+`assignLayers_lt_input` (for the function the layout calls, every acyclic edge, and so every
+input edge turned to point from the node that comes first, has `layer src < layer dst`), and
+`layout_edge_indices`, `layout_edges_nodup`, `layout_edges_complete` (the routed edges are
+exactly the valid input edges, in order, each once, by index).
+
+**Measured** (`lake exe pilean-test --graph-bench`; random module graphs from a fixed generator,
+each node depending on one or two others, a few back edges; the machine's load average was
+about 19 during the run, so the times are upper bounds; the PNG is scaled to at most 2500
+pixels on its longer side):
+
+| Nodes | Edges | Dummy nodes | Layout | SVG string | PNG: draw, encode |
+|---|---|---|---|---|---|
+| 100 | 134 | 146 | 8 ms | 4 ms | 737 ms, 736 ms |
+| 800 | 1077 | 2503 | 39 ms | 36 ms | 1681 ms, 377 ms |
+| 3000 | 4019 | 9987 | 164 ms | 137 ms | 3378 ms, 229 ms |
+
+In the layout of the 3000-node graph the crossing reduction takes 55 ms and the coordinates 20 ms
+(the Brandes–Köpf alignments), the rest is the refinement, the ports and the routes; writing
+the PNG is dominated by the rasteriser, which strokes every curve and shapes every label.
+
+**Against Graphviz `dot`** (`tools/graph-compare.py`; the same node sizes and gaps, curves
+flattened the same way, edges that share a node not counted as crossing):
+
+| Graph | Nodes, edges | Crossing edge pairs | Edge length | Area |
+|---|---|---|---|---|
+| hand-made, acyclic | 7, 11 | 1 (dot 1) | 850 px (dot 638) | 48 000 px² (dot 49 000) |
+| hand-made, cycles | 7, 11 | 1 (dot 0) | 957 px (dot 1334) | 63 000 px² (dot 94 000) |
+| module graph | 100, 134 | 163 (dot 132) | 58 700 px (dot 33 900) | 3.2 M px² (dot 2.6 M) |
+| module graph | 800, 1077 | 9 882 (dot 6 190) | 2.2 M px (dot 0.99 M) | 58 M px² (dot 42 M) |
+
+On small graphs the two agree. On the random graphs dot's drawings are tighter: dot needs fewer
+crossings and shorter edges, because it places nodes by network simplex and so draws edges
+shorter and the layers narrower. Closing that gap would need a network simplex layering and
+coordinate assignment.
 
 ## Open design questions
 

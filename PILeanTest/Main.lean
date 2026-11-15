@@ -17,12 +17,16 @@ import PILeanTest.Graphs
 # The test driver
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
-`PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Anim`, `PILeanTest.Plots`) and compares
-every gallery figure's SVG and PNG, every gallery graph's SVG and PNG, and every gallery animation's SVG, APNG, GIF and poster, with
+`PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Anim`, `PILeanTest.Plots`,
+`PILeanTest.Graphs`) and compares
+every gallery figure's SVG and PNG, every gallery graph's SVG and PNG, and every gallery
+animation's SVG, APNG, GIF and poster, with
 its files in `examples/` (the goldens), byte for byte; it also renders each figure twice to check
 that the output is deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
-`tools/compare-render.py`; `--bench` times a 2000 × 1200 plot.
+`tools/compare-render.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the graph
+layout and its output on module graphs of 100, 800 and 3000 nodes;
+`--graph-compare-out DIR` writes the files of `tools/graph-compare.py`.
 `lake exe pilean-test --png-out DIR` writes the PNG writer's files to `DIR` for
 `tools/png-check.py`.
 `lake exe pilean-test --anim-out DIR` writes sample GIF and APNG files to `DIR` for other software
