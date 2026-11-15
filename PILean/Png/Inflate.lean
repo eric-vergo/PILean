@@ -299,6 +299,10 @@ def inflateRaw (data : ByteArray) (start maxOut : Nat) :
 
 /-! ### zlib -/
 
+/-- The number a big-endian trailer of four bytes stands for. -/
+def trailerValue (b0 b1 b2 b3 : UInt8) : Nat :=
+  b0.toNat * 16777216 + b1.toNat * 65536 + b2.toNat * 256 + b3.toNat
+
 /-- Decompresses a zlib stream: checks the header, inflates, and checks the Adler-32 trailer.
 The output is at most `maxOut` bytes. Bytes after the trailer are `.trailingData` unless
 `allowTrailing`. -/
@@ -311,9 +315,8 @@ def zlibDecompress (data : ByteArray) (maxOut : Nat) (allowTrailing : Bool := fa
   if flg &&& 32 != 0 then throw .presetDictionary
   let (out, e) ← inflateRaw data 2 maxOut
   if e + 4 > data.size then throw .truncated
-  let want := ((byteAt data e).toUInt32 <<< 24) ||| ((byteAt data (e + 1)).toUInt32 <<< 16) |||
-    ((byteAt data (e + 2)).toUInt32 <<< 8) ||| (byteAt data (e + 3)).toUInt32
-  if adler32 out != want then throw .badChecksum
+  if (adler32 out).toNat != trailerValue (byteAt data e) (byteAt data (e + 1))
+      (byteAt data (e + 2)) (byteAt data (e + 3)) then throw .badChecksum
   if !allowTrailing && e + 4 != data.size then throw .trailingData
   return out
 

@@ -467,12 +467,14 @@ def zlibHeader (level : Nat) : UInt8 × UInt8 :=
   let base := 0x7800 + flevel * 64
   (0x78, (flevel * 64 + (31 - base % 31) % 31).toUInt8)
 
+/-- The four bytes of the zlib trailer: the Adler-32 in big-endian order. -/
+def trailerBytes (a : UInt32) : List UInt8 :=
+  [(a >>> 24).toUInt8, (a >>> 16).toUInt8, (a >>> 8).toUInt8, a.toUInt8]
+
 /-- The zlib stream (RFC 1950) of `data`: header, DEFLATE stream, big-endian Adler-32. -/
 def zlibCompress (data : ByteArray) (level : Nat := 6) : ByteArray :=
   let (cmf, flg) := zlibHeader level
-  let a := adler32 data
-  (((ByteArray.empty.push cmf).push flg) ++ deflate data level)
-    |>.push (a >>> 24).toUInt8 |>.push (a >>> 16).toUInt8 |>.push (a >>> 8).toUInt8
-    |>.push a.toUInt8
+  (((ByteArray.empty.push cmf).push flg) ++ deflate data level) ++
+    ⟨(trailerBytes (adler32 data)).toArray⟩
 
 end PILean.Png

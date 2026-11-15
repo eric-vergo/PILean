@@ -3,6 +3,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Png.Checksum
+import PILean.Png.Deflate
+import PILean.Png.Inflate
 
 /-!
 # Proofs about the PNG codec
@@ -11,6 +13,15 @@ import PILean.Png.Checksum
 
 * `crc32_eq_crc32Bits`: the table-driven CRC-32 equals the bitwise definition.
 * `adler32_eq_adlerSpec`: the byte-by-byte Adler-32 equals the sums of RFC 1950.
+* `zlibHeader_valid`: the two header bytes the compressor writes satisfy every check the
+  decompressor makes of a zlib header.
+* `trailerValue_trailerBytes`: the decompressor reads back the Adler-32 the compressor wrote.
+* `stored_length_check`: the `LEN` and `NLEN` fields of a stored block pass the decompressor's
+  complement check.
+
+What is proved and what is only tested: the full statement `inflate (stored block stream) = data`
+is tested (`PILeanTest.Png`, round trips at every level on many inputs), not proved; the three
+facts above are the proved parts of it that concern the framing.
 
 ## Implementation notes
 
@@ -275,5 +286,36 @@ theorem adler32_eq_adlerSpec (data : ByteArray) :
   simp [Nat.shiftLeft_eq]
   unfold adlerMod
   omega
+
+/-! ### Framing of the zlib stream -/
+
+/-- The header the compressor writes passes the decompressor's checks: compression method 8,
+window size field at most 7, the check value divisible by 31, no preset dictionary. -/
+theorem zlibHeader_valid (level : Nat) :
+    (zlibHeader level).1.toNat &&& 15 = 8 ∧ (zlibHeader level).1.toNat >>> 4 ≤ 7 ∧
+    ((zlibHeader level).1.toNat * 256 + (zlibHeader level).2.toNat) % 31 = 0 ∧
+    (zlibHeader level).2.toNat &&& 32 = 0 := by
+  sorry
+
+/-- The decompressor reads back the Adler-32 that the compressor wrote as the trailer. -/
+theorem trailerValue_trailerBytes (a : UInt32) :
+    trailerValue (a >>> 24).toUInt8 (a >>> 16).toUInt8 (a >>> 8).toUInt8 a.toUInt8 = a.toNat := by
+  sorry
+
+/-- The `LEN` and `NLEN` fields the compressor writes for a stored block of `len` bytes satisfy
+the decompressor's check that they are complements. -/
+theorem stored_length_check (len : Nat) (h : len < 65536) :
+    len ^^^ (len ^^^ 0xFFFF) = 0xFFFF ∧ len ^^^ 0xFFFF < 65536 := by
+  sorry
+
+/-- The header check can be met (the default level). -/
+example : (zlibHeader 6).1.toNat &&& 15 = 8 := (zlibHeader_valid 6).1
+
+/-- The checksum theorems have no hypotheses; for instance on the bytes of "abc". -/
+example : crc32 "abc".toUTF8 = crc32Bits "abc".toUTF8 := crc32_eq_crc32Bits _
+
+/-- The stored-length statement holds for an empty block and for the largest one. -/
+example : (0 ^^^ (0 ^^^ 0xFFFF) = 0xFFFF) ∧ (65535 ^^^ (65535 ^^^ 0xFFFF) = 0xFFFF) :=
+  ⟨(stored_length_check 0 (by decide)).1, (stored_length_check 65535 (by decide)).1⟩
 
 end PILean.Png
