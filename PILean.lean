@@ -27,10 +27,12 @@ import PILean.Graph.Model
 import PILean.Graph.Layout
 import PILean.Graph.Layering
 import PILean.Graph.Ordering
+import PILean.Graph.Compound
 import PILean.Graph.Coordinates
 import PILean.Graph.Layered
 import PILean.Graph.Simple
 import PILean.Graph.Draw
+import PILean.Graph.Check
 import PILean.Graph.Proofs
 import PILean.Graph.Spec
 import PILean.Raster.Coverage

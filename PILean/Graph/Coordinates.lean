@@ -206,40 +206,66 @@ every segment `(a, b)` of a chain becomes a node `s` with edges `s → a` and `s
 weight `1` for two real nodes, `2` for one dummy node and `8` for two (long edges stay straight);
 neighbours `u`, `v` in a layer get an edge `u → v` of length `sep u v` and weight `0`.
 
+Nodes can share one coordinate: `var v` is the variable of node `v` (the identity when `var` is
+empty), and the layer edges join variables. `extra` adds edges `(a, b, length, weight)` between
+variables (in half pixels). The order of the layers and the extra edges must leave the edges
+between variables without a cycle.
+
 Coordinates are whole numbers of half pixels (the separation is rounded up to half pixels). The
-start is `x` rounded and moved right where a separation would be violated. The method never
-makes a coordinate assignment worse, so it stops after `rounds m + 50` exchanges for `m`
-nodes of the problem, or when the work (`budget`, in the units of `simplexComponent`) is used up,
-and returns what it has, shifted so that the leftmost edge of any node (widths `bw`) is at
-`0`. -/
+start is `x` rounded and moved right, in an order of the variables that follows the edges, where
+a separation would be violated. The method never makes a coordinate assignment worse, so it
+stops after `rounds m + 50` exchanges for `m` nodes of the problem, or when the work (`budget`,
+in the units of `simplexComponent`) is used up, and returns what it has, shifted so that the
+leftmost edge of any node (widths `bw`) is at `0`. -/
 def simplexBreadth (size n : Nat) (chains order : Array (Array Nat)) (sep : Nat → Nat → Float)
-    (bw : Array Float) (x : Array Float) (rounds budget : Nat) : Array Float := Id.run do
+    (bw : Array Float) (x : Array Float) (rounds budget : Nat) (var : Array Nat := #[])
+    (extra : Array (Nat × Nat × Int × Int) := #[]) : Array Float := Id.run do
   let toHalf := fun (f : Float) => Int.ofNat (f * 2).ceil.toUInt64.toNat
-  -- the start: positions in half pixels, repaired layer by layer
-  let mut pos : Array Int := x.map fun f => Int.ofNat (f * 2).round.toUInt64.toNat
-  let mut pairs : Array (Nat × Nat × Int) := #[]
+  let vr := fun (v : Nat) => if var.isEmpty then v else var.getD v v
+  -- the constraints between variables: layer neighbours, then the extra edges
+  let mut cons : Array (Nat × Nat × Int × Int) := #[]
   for layer in order do
     for j in [1:layer.size] do
       let u := layer.getD (j - 1) 0
       let v := layer.getD j 0
-      let l := toHalf (sep u v)
-      pos := pos.setIfInBounds v (max (pos.getD v 0) (pos.getD u 0 + l))
-      pairs := pairs.push (u, v, l)
+      cons := cons.push (vr u, vr v, toHalf (sep u v), 0)
+  cons := cons ++ extra
+  -- the start: positions in half pixels, repaired in an order that follows the constraints
+  let mut pos : Array Int := (Array.range size).map fun v =>
+    Int.ofNat ((x.getD (vr v) (x.getD v 0)) * 2).round.toUInt64.toNat
+  let mut outs : Array (Array Nat) := Array.replicate size #[]
+  let mut indeg : Array Nat := Array.replicate size 0
+  for k in [0:cons.size] do
+    let (a, b, _, _) := cons.getD k (0, 0, 0, 0)
+    if a < size && b < size then
+      outs := outs.modify a (·.push k)
+      indeg := indeg.modify b (· + 1)
+  let mut queue : Array Nat := (Array.range size).filter (indeg.getD · 0 == 0)
+  let mut head := 0
+  for _ in [0:size] do
+    if head ≥ queue.size then break
+    let a := queue.getD head 0
+    head := head + 1
+    for k in outs.getD a #[] do
+      let (_, b, l, _) := cons.getD k (0, 0, 0, 0)
+      pos := pos.setIfInBounds b (max (pos.getD b 0) (pos.getD a 0 + l))
+      indeg := indeg.modify b (· - 1)
+      if indeg.getD b 0 == 0 then queue := queue.push b
   let mut start := pos
   let mut tails : Array Nat := #[]
   let mut heads : Array Nat := #[]
   let mut minlen : Array Int := #[]
   let mut weight : Array Int := #[]
-  for (u, v, l) in pairs do
-    tails := tails.push u
-    heads := heads.push v
+  for (a, b, l, w) in cons do
+    tails := tails.push a
+    heads := heads.push b
     minlen := minlen.push l
-    weight := weight.push 0
+    weight := weight.push w
   let mut total := size
   for c in chains do
     for j in [1:c.size] do
-      let a := c.getD (j - 1) 0
-      let b := c.getD j 0
+      let a := vr (c.getD (j - 1) 0)
+      let b := vr (c.getD j 0)
       let w : Int := if a ≥ n && b ≥ n then 8 else if a ≥ n || b ≥ n then 2 else 1
       start := start.push (min (pos.getD a 0) (pos.getD b 0))
       tails := (tails.push total).push total
@@ -248,8 +274,8 @@ def simplexBreadth (size n : Nat) (chains order : Array (Array Nat)) (sep : Nat 
       weight := (weight.push w).push w
       total := total + 1
   let (r, _) := simplexSolve total tails heads minlen weight start rounds budget
-  if r.size != total then return x
-  let xs := (Array.range size).map fun v => (r.getD v 0).toNat.toFloat / 2
+  let sol := if r.size == total then r else start
+  let xs := (Array.range size).map fun v => (sol.getD (vr v) 0).toNat.toFloat / 2
   let left := (Array.range size).foldl (fun m v => min m (xs.getD v 0 - bw.getD v 0 / 2)) 1e300
   return xs.map (· - left)
 

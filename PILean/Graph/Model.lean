@@ -21,7 +21,8 @@ it into boxes and curves and `PILean.Graph.Draw` draws those on the vector canva
 * A self-loop is kept and drawn as a small loop beside its node.
 * Parallel edges (several edges between the same nodes, in either direction) are kept and
   drawn side by side.
-* Cluster members outside `nodes` are ignored.
+* Cluster members outside `nodes` are ignored; a node listed by several clusters belongs to the
+  deepest of them; a cluster's `parent` must be listed before it, else it is ignored.
 
 ## Main definitions
 
@@ -75,12 +76,16 @@ structure Edge where
   directed : Bool := true
   deriving Inhabited
 
-/-- A named group of nodes. -/
+/-- A named group of nodes, possibly inside another cluster. -/
 structure Cluster where
   /-- The title. -/
   name : String
-  /-- The numbers of the member nodes. -/
+  /-- The numbers of the member nodes (the nodes of clusters inside this one belong to it too,
+  without being listed). -/
   members : Array Nat
+  /-- The cluster this one is drawn inside, by its position in `Graph.clusters`; it must come
+  before this one there (otherwise the cluster is at the top). -/
+  parent : Option Nat := none
   deriving Inhabited
 
 end Graph

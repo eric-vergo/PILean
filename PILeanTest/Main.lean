@@ -12,6 +12,7 @@ import PILeanTest.Anim
 import PILeanTest.Plots
 import PILeanTest.Lettering
 import PILeanTest.Graphs
+import PILeanTest.GraphQuality
 import PILeanTest.Exact
 import PILeanTest.Trust
 import PILeanTest.TrustBuild
@@ -61,6 +62,8 @@ def main (args : List String) : IO UInt32 := do
   | ["--bench"] => Raster.bench; return 0
   | ["--anim-bench"] => Plots.animBench; return 0
   | ["--graph-bench"] => Graphs.bench; return 0
+  | ["--graph-quality"] => GraphQuality.report none; return 0
+  | ["--graph-quality", dir] => GraphQuality.report (some dir); return 0
   | ["--bounds"] =>
     let r := (← Bounds.ioChecks) ++ (← Tools.ioChecks)
     for (name, ok) in r do if !ok then IO.eprintln s!"FAIL {name}"

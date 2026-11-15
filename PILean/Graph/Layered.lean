@@ -7,6 +7,7 @@ import PILean.Graph.Layering
 import PILean.Graph.Ordering
 import PILean.Graph.Coordinates
 import PILean.Graph.Simplex
+import PILean.Graph.Compound
 import PILean.Sort
 
 /-!
@@ -103,6 +104,12 @@ structure Plan where
   /-- For orthogonal routes: for every edge and each step of its chain, where the horizontal run
   lies between the two levels (a fraction), so that runs in one gap use different tracks. -/
   runs : Array (Array Float) := #[]
+  /-- The half thickness of every node's layer along the layers (the band the layer's boxes
+  stay in), dummy nodes included. -/
+  band : Array Float := #[]
+  /-- The box of every cluster that has nodes, in the frame, with the cluster's number; `none`
+  when the graph has no cluster with nodes (the boxes are then not computed here). -/
+  clusterFrames : Option (Array (Nat × Box)) := none
 
 /-- The vertical offset of a node's boundary at the horizontal offset `off` from its centre
 (the half-height, less where an ellipse curves in). -/
@@ -146,16 +153,27 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let size := layerAll.size
   -- phase 3
   let (up, down) := chainNeighbours size chains
-  let clusterOf : Array (Option Nat) := Id.run do
-    let mut co : Array (Option Nat) := Array.replicate n none
-    for (c, ci) in g.clusters.zipIdx do
-      for v in c.members do
-        if v < n && (co.getD v none).isNone then co := co.setIfInBounds v (some ci)
-    return co
-  let order := groupClusters (orderLayers layerAll up down o.sweeps)
-    fun v => (clusterOf.getD v none)
-  -- sizes: nodes, label plates
-  let mut bw : Array Float := (Array.range size).map fun v =>
+  let tree := ClusterTree.of g
+  let clustered := tree.nodeCluster.any (·.isSome)
+  -- the block of every real and dummy node: a dummy node stands in the innermost cluster that
+  -- holds both ends of its edge
+  let block : Array (Option Nat) := Id.run do
+    let mut b : Array (Option Nat) := (Array.range size).map fun v => tree.nodeCluster.getD v none
+    if clustered then
+      for c in chains do
+        if c.size ≥ 3 then
+          let l := tree.lca (tree.nodeCluster.getD (c.getD 0 0) none)
+            (tree.nodeCluster.getD (c.getD (c.size - 1) 0) none)
+          for j in [1:c.size - 1] do b := b.setIfInBounds (c.getD j 0) l
+    return b
+  let order0 := orderLayers layerAll up down o.sweeps
+  let bs : Borders := if clustered then addBorders tree layerAll up down block
+    else { layerAll, up, down, block, part := Array.replicate size .node,
+           span := #[], firstBorders := #[] }
+  let order := if clustered then reduceClustered tree bs order0 o.sweeps else order0
+  let total := bs.layerAll.size
+  -- sizes: nodes, label plates (border nodes have no width)
+  let mut bw : Array Float := (Array.range total).map fun v =>
     if v < n then nb.getD v 0 + loopExtra.getD v 0 else 0
   let mut thick : Array Float := Array.replicate order.size 0
   for v in [0:n] do
@@ -172,12 +190,46 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         bw := bw.setIfInBounds mid pb
         thick := thick.modify (layerAll.getD mid 0) (max · pt)
   -- phase 4
-  let clusterAll : Array (Option Nat) := (Array.range size).map fun v => clusterOf.getD v none
-  let sep := separation n bw o.nodeGap o.edgeGap 28 clusterAll
-  let x0 := assignBreadth size n order up down sep bw
-  let x1 := refineBreadth size n chains order up down sep bw x0 o.refine
-  let x := simplexBreadth size n chains order sep bw x1 8 o.coordinateWork
+  let labelRoom := 12 + st.noteSize * 1.2
+  let pad : Float := 12
+  let base := separation n bw o.nodeGap o.edgeGap 0 #[]
+  let sep := borderSeparation bs base bw pad (pad + if lr then labelRoom else 0) 12 16
+  let x0 := assignBreadth total n order bs.up bs.down sep bw
+  let x1 := refineBreadth total n chains order bs.up bs.down sep bw x0 o.refine
+  let toHalf := fun (f : Float) => Int.ofNat (f * 2).ceil.toUInt64.toNat
+  let extra : Array (Nat × Nat × Int × Int) := (Array.range g.clusters.size).filterMap fun c =>
+    (bs.firstBorders.getD c none).map fun (lv, rv) =>
+      let need := if lr then 2 * pad
+        else st.text.measure (g.clusters.getD c default).name st.noteSize + 2 * pad
+      (lv, rv, toHalf need, 1)
+  let x := if clustered then
+      simplexBreadth total n chains order sep bw x1 8 o.coordinateWork (borderVariable bs) extra
+    else simplexBreadth total n chains order sep bw x1 8 o.coordinateWork
   let gap := if hasLabels then o.layerGap / 2 else o.layerGap
+  -- room above and below the nodes for the clusters' sides and titles (nested clusters that
+  -- start or end in the same layer stack)
+  let k := g.clusters.size
+  let mut topExtra : Array Float := Array.replicate k 0
+  let mut bottomExtra : Array Float := Array.replicate k 0
+  for i in [0:k] do
+    let c := k - 1 - i
+    if let some (a, b) := bs.span.getD c none then
+      let t := topExtra.getD c 0 + pad + (if lr then 0 else labelRoom)
+      let u := bottomExtra.getD c 0 + pad
+      topExtra := topExtra.setIfInBounds c t
+      bottomExtra := bottomExtra.setIfInBounds c u
+      if let some p := tree.parent.getD c none then
+        if let some (pa, pb) := bs.span.getD p none then
+          if pa == a then topExtra := topExtra.modify p (max · t)
+          if pb == b then bottomExtra := bottomExtra.modify p (max · u)
+  let mut topNeed : Array Float := Array.replicate order.size 0
+  let mut bottomNeed : Array Float := Array.replicate order.size 0
+  for c in [0:k] do
+    if let some (a, b) := bs.span.getD c none then
+      if tree.parent.getD c none |>.all (fun p => (bs.span.getD p none).all (·.1 != a)) then
+        topNeed := topNeed.modify a (max · (topExtra.getD c 0))
+      if tree.parent.getD c none |>.all (fun p => (bs.span.getD p none).all (·.2 != b)) then
+        bottomNeed := bottomNeed.modify b (max · (bottomExtra.getD c 0))
   -- a gap that edges cross far sideways is made taller (up to three times), so that those
   -- edges do not run flat just under the boxes of the layer above
   let mut sideways : Array Float := Array.replicate order.size 0
@@ -193,7 +245,9 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   for l in [0:order.size] do
     let th := thick.getD l 0
     let g := if l == 0 then gap else min (3 * gap) (max gap (sideways.getD (l - 1) 0 / 5))
-    t := if l == 0 then th / 2 else t + prev / 2 + g + th / 2
+    let g := if l == 0 then g
+      else max g (bottomNeed.getD (l - 1) 0 + topNeed.getD l 0 + 12)
+    t := if l == 0 then th / 2 + topNeed.getD 0 0 else t + prev / 2 + g + th / 2
     prev := th
     levels := levels.setIfInBounds l t.round
   let across := (Array.range size).map fun v =>
@@ -250,9 +304,19 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         let (_, _, k, j) := segs.getD i (0, 0, 0, 0)
         let frac := (assigned.getD i 0).toFloat + 1
         runs := runs.modify k fun r => r.setIfInBounds j (frac / (ends.size.toFloat + 1))
+  let band := layerAll.map fun l => thick.getD l 0 / 2
+  let clusterFrames : Option (Array (Nat × Box)) :=
+    if !clustered then none
+    else some <| (Array.range k).filterMap fun c =>
+      match bs.span.getD c none, bs.firstBorders.getD c none with
+      | some (a, b), some (lv, rv) =>
+        some (c, ⟨(x.getD lv 0).round, levels.getD a 0 - thick.getD a 0 / 2 - topExtra.getD c 0,
+          (x.getD rv 0).round, levels.getD b 0 + thick.getD b 0 / 2 + bottomExtra.getD c 0⟩)
+      | _, _ => none
   return { dir := o.direction, routing := o.routing, directedGraph := g.directed, frameBoxes,
            shapes := g.nodes.map (·.shapeOf), chains, reversed, across, along,
-           startOffset := spread outs, endOffset := spread ins, plates, runs }
+           startOffset := spread outs, endOffset := spread ins, plates, runs, band,
+           clusterFrames }
 
 /-- The vertices of the orthogonal route through the points: at each step across the layers a
 horizontal run at the given fraction of the way between the two levels. -/
@@ -304,8 +368,14 @@ def routeOne (pl : Plan) (k i : Nat) (e : Graph.Edge) : RoutedEdge :=
     let ex := (fz.x0 + fz.x1) / 2 + eo
     let sy := (fa.y0 + fa.y1) / 2 + boundaryOffset fa (pl.shapes.getD a .round) so
     let ey := (fz.y0 + fz.y1) / 2 - boundaryOffset fz (pl.shapes.getD b .round) eo
-    let inner : Array Point := (c.extract 1 (c.size - 1)).map fun d =>
-      ⟨pl.across.getD d 0, pl.along.getD d 0⟩
+    -- a dummy node is crossed straight along the layers through its layer's band, so the edge
+    -- keeps its distance from the boxes of that layer and leaves the band perpendicular to it
+    let inner : Array Point := (c.extract 1 (c.size - 1)).foldl (init := #[]) fun acc d =>
+      let cx := pl.across.getD d 0
+      let cy := pl.along.getD d 0
+      let h := pl.band.getD d 0
+      if pl.routing == .spline && h > 0.5 then acc ++ #[⟨cx, cy - h⟩, ⟨cx, cy + h⟩]
+      else acc.push ⟨cx, cy⟩
     let pts : Array Point := #[⟨sx, sy⟩] ++ inner ++ #[⟨ex, ey⟩]
     -- the end that carries the arrowhead moves in by the head's length
     let cut := arrowLength - 1
@@ -347,7 +417,12 @@ def layoutRaw (g : Graph) (o : LayeredOptions) (st : Style) : Layout :=
   let pl := layoutPlan g o st
   let nodes := (g.nodes.mapIdx fun i nd =>
     nodeBoxOf st i nd (o.direction.box (pl.frameBoxes.getD i ⟨0, 0, 0, 0⟩)))
-  { nodes, edges := routeAll pl g.validEdges, clusters := clusterBoxes g nodes }
+  let clusters := match pl.clusterFrames with
+    | some fs => fs.map fun (c, b) =>
+      ({ name := (g.clusters.getD c default).name, index := c, box := o.direction.box b } :
+        ClusterBox)
+    | none => clusterBoxes g nodes
+  { nodes, edges := routeAll pl g.validEdges, clusters }
 
 /-- The layered layout of the graph: a box for every node, a route for every valid edge (in the
 order of `Graph.validEdges`), a box for every cluster with a member, and the size of the

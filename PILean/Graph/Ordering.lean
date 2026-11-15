@@ -242,10 +242,11 @@ def pairCrossings (nbr : Array (Array Nat)) (pos : Array Nat) (u v : Nat) : Opti
   else some (a.foldl (fun acc x => acc + b.foldl (fun c y =>
     if pos.getD x 0 > pos.getD y 0 then c + 1 else c) 0) 0)
 
-/-- One left-to-right pass of adjacent swaps over every layer: `u v` are swapped when that
-lowers the crossings of their edges with both neighbouring layers. Returns the new order and
-positions and whether anything changed. -/
-def transposePass (order : Array (Array Nat)) (pos : Array Nat) (up down : Array (Array Nat)) :
+/-- One left-to-right pass of adjacent swaps over every layer: `u v` are swapped when
+`canSwap u v` allows it and the swap lowers the crossings of their edges with both neighbouring
+layers. Returns the new order and positions and whether anything changed. -/
+def transposePass (order : Array (Array Nat)) (pos : Array Nat) (up down : Array (Array Nat))
+    (canSwap : Nat → Nat → Bool := fun _ _ => true) :
     Array (Array Nat) × Array Nat × Bool := Id.run do
   let mut order := order
   let mut pos := pos
@@ -255,6 +256,7 @@ def transposePass (order : Array (Array Nat)) (pos : Array Nat) (up down : Array
     for j in [0:layer.size - 1] do
       let u := layer.getD j 0
       let v := layer.getD (j + 1) 0
+      if !canSwap u v then continue
       let keep := (pairCrossings up pos u v).bind fun a =>
         (pairCrossings down pos u v).map fun b => a + b
       let swapped := (pairCrossings up pos v u).bind fun a =>
