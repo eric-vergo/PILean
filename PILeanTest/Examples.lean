@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean
 import PILeanTest.Graphs
+import PILeanTest.ProvedExamples
 import PILean.Trust.Attr
 
 /-!
@@ -218,7 +219,8 @@ def figures : Array (String × Figure) :=
     ("collatz-data-plot", collatz), ("scatter-plot", scatter), ("band-area-plot", bands),
     ("grouped-bars", groupedBars), ("stacked-bars", stackedBars), ("histogram", histogram),
     ("poles", poles), ("error-bars", errors), ("log-axis", growth),
-    ("small-multiples", smallMultiples), ("awkward-data", awkward)]
+    ("small-multiples", smallMultiples), ("awkward-data", awkward),
+    ("proved-function", ProvedExamples.provedFunction), ("proved-data", ProvedExamples.provedData)]
 
 /-- The gallery: file name and figure; each figure light and dark. -/
 def gallery : Array (String × Figure) :=
@@ -276,7 +278,8 @@ def graphEntries : Array GraphEntry :=
     { name := "graph-modules", layout := fun st => GraphFigures.modules.layout {} st,
       scale := 0.75 },
     { name := "graph-ring", layout := fun st => GraphFigures.ring.circularLayout {} st },
-    { name := "graph-tree", layout := fun st => GraphFigures.tree.treeLayout 0 {} st }]
+    { name := "graph-tree", layout := fun st => GraphFigures.tree.treeLayout 0 {} st },
+    { name := "graph-proved", layout := fun st => ProvedExamples.provedGraph.layout {} st }]
 
 /-- The graph gallery: file stem, entry and style, each entry light and dark. -/
 def graphs : Array (String × GraphEntry × Style) :=
@@ -366,6 +369,6 @@ end Animations
 /-- The animations of the gallery by name. -/
 def animations : Array (String × Animation) :=
   #[("wave", Animations.wave), ("growing-bars", Animations.bars),
-    ("graph-build", Animations.graphBuild)]
+    ("graph-build", Animations.graphBuild), ("proved-clock", ProvedExamples.provedClock)]
 
 end PILeanTest.Examples
