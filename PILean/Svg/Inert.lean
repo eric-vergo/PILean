@@ -207,7 +207,8 @@ def scanAttributes (d : ByteArray) (name : String) (i : Nat) : Scan (Nat × Bool
     let eq := scanWhile d isWs ne
     if byteAt d eq != 61 then throw s!"the attribute {aname.take 40} has no value"
     let q := scanWhile d isWs (eq + 1)
-    if byteAt d q != 34 && byteAt d q != 39 then throw s!"the value of {aname.take 40} is not quoted"
+    if byteAt d q != 34 && byteAt d q != 39 then
+      throw s!"the value of {aname.take 40} is not quoted"
     let ve := scanWhile d (· != byteAt d q) (q + 1)
     if ve ≥ d.size then throw "an unterminated attribute value"
     let value ← decodeValue (d.extract (q + 1) ve)
