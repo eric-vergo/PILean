@@ -126,16 +126,23 @@ def compress (st : State) (w : Array UInt32) : State := Id.run do
 def wordBytes (x : UInt32) : ByteArray :=
   ⟨#[(x >>> 24).toUInt8, (x >>> 16).toUInt8, (x >>> 8).toUInt8, x.toUInt8]⟩
 
-/-- The SHA-256 digest of `m`: 32 bytes. -/
-def hash (m : ByteArray) : ByteArray := Id.run do
+/-- The state after the compression function has been applied to every block of `pad m`. -/
+def finalState (m : ByteArray) : State := Id.run do
   let p := pad m
   let mut st := initialState
   let mut w : Array UInt32 := Array.replicate 64 0
   for blk in [0:p.size / 64] do
     w := schedule p (blk * 64) w
     st := compress st w
-  return wordBytes st.a ++ wordBytes st.b ++ wordBytes st.c ++ wordBytes st.d ++
+  return st
+
+/-- The 32 bytes of a state: its eight words, most significant byte first. -/
+def digest (st : State) : ByteArray :=
+  wordBytes st.a ++ wordBytes st.b ++ wordBytes st.c ++ wordBytes st.d ++
     wordBytes st.e ++ wordBytes st.f ++ wordBytes st.g ++ wordBytes st.h
+
+/-- The SHA-256 digest of `m`: 32 bytes. -/
+def hash (m : ByteArray) : ByteArray := digest (finalState m)
 
 /-- The SHA-256 digest of the UTF-8 encoding of `s`. -/
 def hashString (s : String) : ByteArray := hash s.toUTF8

@@ -19,29 +19,74 @@ import PILean.Trust.Sha256
 
 namespace PILean.Sha256
 
+theorem lengthBytes_size (n : Nat) : (lengthBytes n).size = 8 := rfl
+
+theorem wordBytes_size (x : UInt32) : (wordBytes x).size = 4 := rfl
+
+theorem marker_size : (⟨#[0x80]⟩ : ByteArray).size = 1 := rfl
+
+theorem zeros_size (k : Nat) : (⟨Array.replicate k 0⟩ : ByteArray).size = k := by
+  show (Array.replicate k 0).size = k
+  simp
+
+theorem pad_size (m : ByteArray) : (pad m).size = m.size + 1 + zeroCount m.size + 8 := by
+  unfold pad
+  rw [ByteArray.size_append, ByteArray.size_append, ByteArray.size_append, lengthBytes_size,
+    zeros_size]
+  show m.size + 1 + _ + 8 = _
+  rfl
+
+theorem zeroCount_lt (n : Nat) : zeroCount n < 64 := Nat.mod_lt _ (by decide)
+
+theorem getElem!_append_left (a b : ByteArray) (i : Nat) (h : i < a.size) :
+    (a ++ b)[i]! = a[i]! := by
+  have h1 : i < (a ++ b).size := by rw [ByteArray.size_append]; omega
+  rw [getElem!_pos (a ++ b) i h1, getElem!_pos a i h, ByteArray.getElem_append_left h]
+
 /-- The padded message has a multiple of 64 bytes. -/
 theorem pad_size_mod (m : ByteArray) : (pad m).size % 64 = 0 := by
-  sorry
+  rw [pad_size, zeroCount]
+  omega
 
 /-- The padded message is longer than the message. -/
 theorem size_lt_pad_size (m : ByteArray) : m.size < (pad m).size := by
-  sorry
+  rw [pad_size]
+  omega
 
 /-- The padded message is at most 72 bytes longer than the message. -/
 theorem pad_size_le (m : ByteArray) : (pad m).size ≤ m.size + 72 := by
-  sorry
+  have := zeroCount_lt m.size
+  rw [pad_size]
+  omega
 
 /-- The padded message starts with the message. -/
 theorem pad_getElem!_prefix (m : ByteArray) (i : Nat) (h : i < m.size) :
     (pad m)[i]! = m[i]! := by
-  sorry
+  have e1 : i < (m ++ (⟨#[0x80]⟩ : ByteArray)).size := by
+    rw [ByteArray.size_append, marker_size]; omega
+  have e2 : i < (m ++ (⟨#[0x80]⟩ : ByteArray) ++
+      (⟨Array.replicate (zeroCount m.size) 0⟩ : ByteArray)).size := by
+    rw [ByteArray.size_append, ByteArray.size_append, marker_size]; omega
+  unfold pad
+  rw [getElem!_append_left _ _ i e2, getElem!_append_left _ _ i e1,
+    getElem!_append_left _ _ i h]
 
 /-- The byte after the message in the padded message is `0x80`. -/
 theorem pad_getElem!_marker (m : ByteArray) : (pad m)[m.size]! = 0x80 := by
-  sorry
+  have e1 : m.size < (m ++ (⟨#[0x80]⟩ : ByteArray)).size := by
+    rw [ByteArray.size_append, marker_size]; omega
+  have e2 : m.size < (m ++ (⟨#[0x80]⟩ : ByteArray) ++
+      (⟨Array.replicate (zeroCount m.size) 0⟩ : ByteArray)).size := by
+    rw [ByteArray.size_append, ByteArray.size_append, marker_size]; omega
+  unfold pad
+  rw [getElem!_append_left _ _ m.size e2, getElem!_append_left _ _ m.size e1,
+    getElem!_pos _ _ (by rw [ByteArray.size_append, marker_size]; omega),
+    ByteArray.getElem_append_right (Nat.le_refl _)]
+  simp only [Nat.sub_self]
+  rfl
 
 /-- The digest has 32 bytes. -/
 theorem hash_size (m : ByteArray) : (hash m).size = 32 := by
-  sorry
+  simp only [hash, digest, ByteArray.size_append, wordBytes_size]
 
 end PILean.Sha256
