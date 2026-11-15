@@ -26,6 +26,7 @@ import PILean.Graph.Coordinates
 import PILean.Graph.Layered
 import PILean.Graph.Simple
 import PILean.Graph.Draw
+import PILean.Graph.Proofs
 import PILean.Raster.Coverage
 import PILean.Raster.Canvas
 import PILean.Raster.Stroke
