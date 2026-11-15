@@ -108,4 +108,12 @@ def rendererInput (sources : Array (String × String))
 documentation). -/
 def rendererId : String := Sha256.hex (Sha256.hash (rendererInput rendererSources))
 
+/-- The renderer of an output drawn with the text engine whose identity is `engine`
+(`TextEngine.id`): `rendererId` for the built-in lettering (an empty identity), else the SHA-256
+of `rendererId`, a line feed and the engine's identity, so that the fingerprint covers the
+engine's code and data as well as PILean's. -/
+def rendererWith (engine : String) : String :=
+  if engine.isEmpty then rendererId
+  else Sha256.hex (Sha256.hash (rendererId ++ "\n" ++ engine).toUTF8)
+
 end PILean.Trust

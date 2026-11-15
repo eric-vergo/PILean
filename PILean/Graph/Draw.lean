@@ -94,9 +94,10 @@ def Layout.draw (l : Layout) (st : Style) : Shape :=
 def draw (g : Graph) (o : LayeredOptions := {}) (st : Style := {}) : Shape :=
   (g.layout o st).draw st
 
-/-- A layout as an SVG document, text as SVG text (or as shapes when `outlines`). -/
+/-- A layout as an SVG document, text as SVG text (or as shapes when `outlines`, or when the
+style's text engine is not plain text, `TextMode.forSvg`). -/
 def Layout.toSvg (l : Layout) (st : Style) (outlines : Bool := false) : String :=
-  (l.draw st).toSvg l.width l.height st.fontFamily (if outlines then some st.text else none)
+  Svg.document l.width l.height ((l.draw st).render (.forSvg st.text st.fontFamily outlines))
 
 /-- A layout as an RGBA image `scale` times its size (text as shapes from the style's text
 engine). -/

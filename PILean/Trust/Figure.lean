@@ -71,6 +71,9 @@ structure Output where
   bytes : Unit → Except String ByteArray
   /-- The canonical encoding of what is drawn, which the fingerprint covers. -/
   spec : ByteArray
+  /-- The identity of the text engine the output is drawn with (`TextEngine.id`), which the
+  fingerprint covers through `rendererWith`; empty for the built-in lettering. -/
+  textEngine : String := ""
 
 /-- Values that PILean can render to files. -/
 class ToOutputs (α : Type) where
@@ -81,12 +84,12 @@ class ToOutputs (α : Type) where
 instance : ToOutputs Plot.Figure where
   outputs fig :=
     #[{ name := "", format := .svg, bytes := fun _ => .ok fig.toSvg.toUTF8,
-        spec := fig.toSvg.toUTF8 },
+        spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id },
       { name := "", format := .png,
         bytes := fun _ => match fig.toPng with
           | some b => .ok b
           | none => .error "the figure has no pixels",
-        spec := (fig.toSvg (outlines := true)).toUTF8 }]
+        spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
 
 /-- A graph with how it is laid out and drawn. -/
 structure GraphFigure where
@@ -104,12 +107,13 @@ instance : ToOutputs GraphFigure where
   outputs f :=
     let g := f.graph
     #[{ name := "", format := .svg, bytes := fun _ => .ok (g.toSvg f.options f.style).toUTF8,
-        spec := (g.toSvg f.options f.style).toUTF8 },
+        spec := (g.toSvg f.options f.style).toUTF8, textEngine := f.style.text.id },
       { name := "", format := .png,
         bytes := fun _ => match g.toPng f.options f.style f.scale with
           | .ok b => .ok b
           | .error e => .error (toString e),
-        spec := (g.toSvg f.options f.style (outlines := true)).toUTF8 }]
+        spec := (g.toSvg f.options f.style (outlines := true)).toUTF8,
+        textEngine := f.style.text.id }]
 
 /-- A graph is rendered with the default layered layout and light style, scale 1. -/
 instance : ToOutputs Graph where
@@ -122,10 +126,13 @@ instance : ToOutputs Animation where
     let svg := a.toSvg.toUTF8
     let toErr := fun {ε : Type} [ToString ε] (r : Except ε ByteArray) =>
       r.mapError toString
-    #[{ name := "", format := .svg, bytes := fun _ => .ok svg, spec := svg },
-      { name := "", format := .apng, bytes := fun _ => toErr a.toApng, spec := svg },
-      { name := "", format := .gif, bytes := fun _ => toErr a.toGif, spec := svg },
+    let t := a.text.id
+    #[{ name := "", format := .svg, bytes := fun _ => .ok svg, spec := svg, textEngine := t },
+      { name := "", format := .apng, bytes := fun _ => toErr a.toApng, spec := svg,
+        textEngine := t },
+      { name := "", format := .gif, bytes := fun _ => toErr a.toGif, spec := svg,
+        textEngine := t },
       { name := "-poster", format := .png, bytes := fun _ => toErr a.posterPng,
-        spec := a.posterSvg.toUTF8 }]
+        spec := a.posterSvg.toUTF8, textEngine := t }]
 
 end PILean.Trust

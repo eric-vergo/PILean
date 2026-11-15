@@ -17,7 +17,8 @@ what is drawn to the declaration that draws it.
 
 The byte string is the header `PILean fingerprint 2` and a line feed, then nine fields in this
 order: module, declaration, file, line, column, library version, renderer (`rendererId`, which
-changes with any change to the code that turns a figure into bytes), source-text hash,
+changes with any change to the code that turns a figure into bytes, and with the text engine for
+an engine other than the built-in lettering, `rendererWith`), source-text hash,
 specification.
 Each field is written as its length in bytes, a 64-bit unsigned number in big-endian order,
 followed by its bytes. The text fields are UTF-8; the line and the column are their decimal
@@ -86,6 +87,7 @@ def FigureEntry.source (e : FigureEntry) (o : Output) (repo commit : Option Stri
     Source :=
   { module := e.module, decl := e.decl, file := e.file, line := e.line, column := e.column,
     repo, commit, version := PILean.version,
-    fingerprint := some (fingerprint o.spec e.toSourceData) }
+    fingerprint := some (fingerprint o.spec e.toSourceData
+      (renderer := rendererWith o.textEngine)) }
 
 end PILean.Trust

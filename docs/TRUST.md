@@ -172,7 +172,8 @@ canonical encoding of what is drawn.
 The specification of an output is the SVG document that PILean's deterministic writer
 (`Svg.render`) makes from the figure's drawing, as UTF-8, before any source information is added:
 
-* SVG outputs: the SVG document of the output itself, with text as `<text>`.
+* SVG outputs: the SVG document of the output itself, with text as `<text>` (as shapes when the
+  text engine's strings are not plain text, such as LeAnTeX's).
 * PNG outputs of a figure or a graph: the SVG document with text drawn as shapes, which is the
   drawing the PNG is rasterised from (the rasteriser itself is not part of the specification; it
   is covered by the renderer's identity, see "The fingerprint").
@@ -214,7 +215,8 @@ this byte string:
 
 1. the header `PILean fingerprint 2` and a line feed;
 2. nine fields in this order: module, declaration, file, line, column, library version
-   (`PILean.version`), renderer (`rendererId`), source-text hash, specification;
+   (`PILean.version`), renderer (`rendererWith` of the output's text engine), source-text hash,
+   specification;
 3. each field as its length in bytes (a 64-bit unsigned number, big-endian) followed by its
    bytes; the text fields are UTF-8, the line and the column are decimal digits, the source-text
    hash is its 64 hexadecimal digits.
@@ -228,6 +230,13 @@ APNG and GIF writers, the source records: the modules `Renderer.lean` imports, l
 change to a comment, and a change to the rasteriser that leaves the SVG specification alone
 still changes the fingerprints of the PNG files. The tests check that the list is exactly the
 modules `Renderer.lean` imports and that each text is the file's current content.
+
+An output drawn with a text engine other than the built-in lettering records that engine's
+identity (`Output.textEngine`, from `TextEngine.id`), and its renderer field is
+`rendererWith id`: the SHA-256 of `rendererId`, a line feed and the identity (for the lettering,
+whose code `rendererId` already covers, it is `rendererId` itself). The LeAnTeX engine's identity
+names the LeAnTeX commit and the SHA-256 of every font file it reads (`leantex/README.md`), so
+the fingerprint changes with either.
 
 The file's `Source` record carries this fingerprint, so changing the specification, the source
 text, the position, the library version or the renderer changes it. The repository and the commit are not part

@@ -13,7 +13,7 @@ picture gives both its SVG and its PNG: the same shapes, paints, strokes and cli
 
 What is drawn, as SVG 1.1 specifies it: `g` (its presentation attributes inherited, its
 `opacity` as a group opacity, its `clip-path` through a clip mask), `rect` (with `rx`), `line`,
-`circle`, `ellipse`, `polyline`, `polygon`, `path` (the commands `M L H V Q C Z` and their
+`circle`, `ellipse`, `polyline`, `polygon`, `path` (the commands `M L H V Q T C S Z` and their
 relative forms), `clipPath` in `defs`; the attributes `fill`, `stroke` (`#rgb`, `#rrggbb` or
 `none`), `fill-opacity`, `stroke-opacity`, `stroke-width`, `stroke-linecap`,
 `stroke-linejoin`, `stroke-miterlimit`, `stroke-dasharray`, `stroke-dashoffset`, `fill-rule`.
@@ -98,47 +98,71 @@ def pathTokens (d : String) : Array (Sum Char Float) := Id.run do
     else i := i + 1
   return out
 
-/-- SVG path data as a path (`M L H V Q C Z`, absolute and relative), read up to the first
-error. -/
+/-- SVG path data as a path (`M L H V Q T C S Z`, absolute and relative), read up to the first
+error. The smooth curves `S` and `T` reflect the previous curve's last control point, or start
+at the current point when the previous command was not a curve of their kind. -/
 def parsePathData (d : String) : Path := Id.run do
   let toks := pathTokens d
   let mut p := Path.empty
   let mut cmd := 'M'
   let mut cur : Point := ⟨0, 0⟩
   let mut start : Point := ⟨0, 0⟩
+  -- the last control point of the previous cubic (`C`, `S`) or quadratic (`Q`, `T`) curve
+  let mut lastCubic : Option Point := none
+  let mut lastQuad : Option Point := none
   let mut i := 0
   let num := fun (k : Nat) => match toks[k]? with | some (.inr v) => some v | _ => none
   for _ in [0:toks.size + 1] do
     if i ≥ toks.size then break
     if let some (.inl c) := toks[i]? then
       cmd := c; i := i + 1
-      if c == 'Z' || c == 'z' then p := p.close; cur := start
+      if c == 'Z' || c == 'z' then
+        p := p.close; cur := start; lastCubic := none; lastQuad := none
       continue
     let rel := cmd.isLower
     let base := if rel then cur else ⟨0, 0⟩
     let pt := fun (k : Nat) => match num k, num (k + 1) with
       | some x, some y => some (⟨base.x + x, base.y + y⟩ : Point)
       | _, _ => none
+    let reflect := fun (c : Option Point) => match c with
+      | some c => (⟨2 * cur.x - c.x, 2 * cur.y - c.y⟩ : Point)
+      | none => cur
     match cmd.toUpper with
     | 'M' =>
       let some q := pt i | return p
       p := p.moveTo q; cur := q; start := q; i := i + 2
       cmd := if rel then 'l' else 'L'
+      lastCubic := none; lastQuad := none
     | 'L' =>
       let some q := pt i | return p
       p := p.lineTo q; cur := q; i := i + 2
+      lastCubic := none; lastQuad := none
     | 'H' =>
       let some x := num i | return p
       cur := ⟨(if rel then cur.x else 0) + x, cur.y⟩; p := p.lineTo cur; i := i + 1
+      lastCubic := none; lastQuad := none
     | 'V' =>
       let some y := num i | return p
       cur := ⟨cur.x, (if rel then cur.y else 0) + y⟩; p := p.lineTo cur; i := i + 1
+      lastCubic := none; lastQuad := none
     | 'Q' =>
       let (some c, some q) := (pt i, pt (i + 2)) | return p
       p := p.quadTo c q; cur := q; i := i + 4
+      lastCubic := none; lastQuad := some c
+    | 'T' =>
+      let some q := pt i | return p
+      let c := reflect lastQuad
+      p := p.quadTo c q; cur := q; i := i + 2
+      lastCubic := none; lastQuad := some c
     | 'C' =>
       let (some c1, some c2, some q) := (pt i, pt (i + 2), pt (i + 4)) | return p
       p := p.cubicTo c1 c2 q; cur := q; i := i + 6
+      lastCubic := some c2; lastQuad := none
+    | 'S' =>
+      let (some c2, some q) := (pt i, pt (i + 2)) | return p
+      let c1 := reflect lastCubic
+      p := p.cubicTo c1 c2 q; cur := q; i := i + 4
+      lastCubic := some c2; lastQuad := none
     | _ => return p
   return p
 

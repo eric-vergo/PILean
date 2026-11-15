@@ -24,9 +24,7 @@ directly.
 * **Clips** are paths, transformed with their group and written as `clipPath` elements.
 * **Text** is a placeholder the output resolves: SVG text in the style's font family
   (`TextMode.native`), or shapes from a `TextEngine` (`TextMode.shapes`), which is how text
-  reaches images; small text is shaped a little heavier, so that a stroke is never thinner than
-  a pixel (an optical size for the single-stroke lettering). Its position is its anchor point on
-  the baseline.
+  reaches images. Its position is its anchor point on the baseline.
 * Ids of clips and gradients are numbered in drawing order, so the output is deterministic.
 
 ## Main definitions
@@ -82,6 +80,12 @@ inductive TextMode where
   | native (family : String)
   /-- Shapes from a text engine. -/
   | shapes (engine : TextEngine)
+
+/-- How an SVG document writes the text of `engine`: as `text` elements in `family`, unless the
+caller asks for `outlines` or the engine's strings are not plain text (`TextEngine.native`). -/
+def TextMode.forSvg (engine : TextEngine) (family : String) (outlines : Bool := false) :
+    TextMode :=
+  if outlines || !engine.native then .shapes engine else .native family
 
 /-- The state of rendering: the definitions written so far and the next id. -/
 structure RenderState where
@@ -141,8 +145,7 @@ def renderAt (mode : TextMode) : Nat → Affine → Shape → StateM RenderState
           (#[("font-family", family)] ++ weightAttr ++ rotAttr)]
       | .shapes eng =>
         let sz := size * k
-        -- small text is drawn a little heavier, so that its strokes stay at least a pixel wide
-        let shp := eng.shape str sz (max weight (if sz > 0 then 1.05 / (0.078 * sz) else weight))
+        let shp := eng.shape str sz weight
         let dx := anchorOffset anchor (eng.measure str sz)
         let place := ((Affine.translate p.x p.y).comp (Affine.rotate rot)).comp
           (Affine.translate dx 0)

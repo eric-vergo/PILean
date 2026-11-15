@@ -106,7 +106,8 @@ def toGif (dither : Bool := false) : Except Anim.AnimError ByteArray := a.frameS
 /-- The poster frame as a still SVG document. -/
 def posterSvg : String :=
   let bg := Shape.path (rect 0 0 a.width.toFloat a.height.toFloat) (some (.solid a.background))
-  (Shape.group #[bg, a.frame a.poster]).toSvg a.width.toFloat a.height.toFloat a.fontFamily
+  Svg.document a.width.toFloat a.height.toFloat
+    ((Shape.group #[bg, a.frame a.poster]).render (.forSvg a.text a.fontFamily))
 
 /-- The poster frame as a PNG. -/
 def posterPng : Except Png.PngError ByteArray :=
@@ -226,7 +227,7 @@ def toSvg : String := Id.run do
   let n := a.frameCount
   let w := a.width.toFloat
   let h := a.height.toFloat
-  let mode := TextMode.native a.fontFamily
+  let mode := TextMode.forSvg a.text a.fontFamily
   let trees := a.frameTrees mode
   let durS := n.toFloat / (max a.fps 1).toFloat
   let dur := fmtNum durS 4 ++ "s"

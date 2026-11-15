@@ -244,8 +244,19 @@ def bench : IO Unit := do
     draw {best[0]?.getD 0} ms, to 8-bit image \
     {best[1]?.getD 0} ms, PNG encode {best[2]?.getD 0} ms, {size} bytes"
 
+/-- The SVG path reader's smooth curves: `S` reflects the previous cubic's last control point,
+`T` the previous quadratic's, and either starts at the current point after a line. -/
+def pathDataChecks : Array (String × Bool) :=
+  let s := (PILean.Raster.parsePathData "M0 0C1 0 2 1 3 3s2 3 3 3").cmds
+  let t := (PILean.Raster.parsePathData "M0 0Q1 2 2 0T4 0L5 0T6 1").cmds
+  #[("path data: S reflects the last control point",
+      s[2]? == some (.cubic ⟨4, 5⟩ ⟨5, 6⟩ ⟨6, 6⟩)),
+    ("path data: T reflects, and starts at the current point after a line",
+      t[2]? == some (.quad ⟨3, -2⟩ ⟨4, 0⟩) && t[4]? == some (.quad ⟨5, 0⟩ ⟨6, 1⟩))]
+
 /-- All the pure checks. -/
-def checks : Array (String × Bool) := coverageChecks ++ strokeChecks ++ paintChecks
+def checks : Array (String × Bool) := coverageChecks ++ strokeChecks ++ paintChecks ++
+  pathDataChecks
 
 end PILeanTest.Raster
 

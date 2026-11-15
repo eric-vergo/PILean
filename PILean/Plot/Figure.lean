@@ -808,10 +808,11 @@ def Figure.draw (fig : Figure) : Shape := Id.run do
     out := out ++ drawNotes st l p
   return .group out
 
-/-- The figure as an SVG document, text as SVG text (or as shapes when `outlines`). -/
+/-- The figure as an SVG document, text as SVG text (or as shapes when `outlines`, or when the
+style's text engine is not plain text, `TextMode.forSvg`). -/
 def Figure.toSvg (fig : Figure) (outlines : Bool := false) : String :=
-  fig.draw.toSvg fig.width fig.height fig.style.fontFamily
-    (if outlines then some fig.style.text else none)
+  Svg.document fig.width fig.height
+    (fig.draw.render (.forSvg fig.style.text fig.style.fontFamily outlines))
 
 /-- The figure as an RGB image of its size in pixels, text drawn by the style's text engine. -/
 def Figure.toImage (fig : Figure) : Image :=
