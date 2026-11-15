@@ -182,6 +182,18 @@ def ioChecks : IO (Array (String × Bool)) := do
     r := r.push (s!"renderer: the identity covers exactly the modules Renderer.lean imports \
       (missing {missing}, not imported {extra}) with their current text (stale {stale})",
       missing.isEmpty && extra.isEmpty && stale.isEmpty && isFingerprint rendererId)
+    -- a figure whose text the lettering cannot draw is refused, not drawn with boxes
+    let fig : Plot.Figure := { width := 200, height := 120, title := "snow \u2603" }
+    let entry : FigureEntry :=
+      { module := "M", decl := "M.f", file := "M.lean", line := 1, column := 0,
+        sourceHash := String.ofList (List.replicate 64 '0'),
+        outputs := fun _ => ToOutputs.outputs fig }
+    let refused := (entry.outputs ()).any fun o =>
+      match renderOutput entry o {} with
+      | .error e => (e.splitOn "no glyph for \u2603").length > 1
+      | .ok _ => false
+    r := r.push ("build: a figure with a character the lettering lacks is refused, naming it",
+      refused)
     -- the bounded reader
     IO.FS.writeFile (scratch / "ten") "0123456789"
     let r10 ← readRegular (scratch / "ten") 10

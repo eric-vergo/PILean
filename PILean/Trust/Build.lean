@@ -52,10 +52,17 @@ structure BuiltFile where
 deriving Inhabited
 
 /-- Renders one output of an entry: the bytes with the source record of the entry (and the
-fingerprint of the output's specification) inserted, and the manifest entry. -/
+fingerprint of the output's specification) inserted, and the manifest entry. Fails for an SVG
+output with text the built-in lettering cannot draw (`Lettering.missing`), since the figure's
+PNG, APNG or GIF would show a box for each such character. -/
 def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     Except String BuiltFile := do
   let path ← outputPath e.toSourceData o
+  if o.format == .svg then
+    let lacking := Lettering.missing (Lettering.svgText (String.fromUTF8? o.spec |>.getD ""))
+    if !lacking.isEmpty then
+      throw s!"{path}: the built-in lettering has no glyph for {String.ofList lacking}, which \
+        the raster outputs would draw as boxes"
   let raw ← match o.bytes () with
     | .ok b => pure b
     | .error err => throw s!"{path}: {err}"

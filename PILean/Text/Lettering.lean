@@ -36,6 +36,9 @@ the cap height, the x-height and the baseline by about `10`. The digits are tabu
 * `Lettering.charset`: the characters the typeface draws; `Lettering.missing`: the characters of a
   string it lacks.
 * `Lettering.measure`: the width of a string at a size.
+* `Lettering.svgText`: the text of an SVG document's `<text>` elements; with
+  `Lettering.missing`, what a PNG drawn from it would show as boxes (`pilean-build` refuses such
+  a figure).
 * `Lettering.shape`: the centre lines of a string at a size, `y` down, and the stroke width.
 * `Lettering.ascent`, `descent`, `capHeight`, `xHeight`: the metrics as fractions of the size.
 
@@ -159,5 +162,58 @@ def shape (s : String) (size : Float) (weight : Float := 1) (tracking : Float :=
       (acc.append (g.strokes.transform m), pen + g.advance * k + track)
     let w := if weight.isFinite && weight > 0 then weight else 1
     (path, strokeUnits * k * w)
+
+/-! ### The text of an SVG document -/
+
+/-- The value of a hexadecimal digit. -/
+def hexVal (c : Char) : Option Nat :=
+  if '0' ≤ c && c ≤ '9' then some (c.toNat - 48)
+  else if 'a' ≤ c && c ≤ 'f' then some (c.toNat - 87)
+  else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 55)
+  else none
+
+/-- The character of an XML entity name (`amp`, `lt`, `gt`, `quot`, `apos`, `#39`, `#x27`, ...). -/
+def entityChar? (name : String) : Option Char :=
+  match name with
+  | "amp" => some '&'
+  | "lt" => some '<'
+  | "gt" => some '>'
+  | "quot" => some '"'
+  | "apos" => some '\''
+  | _ =>
+    match name.toList with
+    | '#' :: 'x' :: ds =>
+      (ds.foldlM (fun n d => (hexVal d).map (n * 16 + ·)) 0).map Char.ofNat
+    | '#' :: ds => (String.ofList ds).toNat?.map Char.ofNat
+    | _ => none
+
+/-- The text with its entities and character references replaced by the characters they stand
+for; `fuel` bounds the number of steps. -/
+def unescapeChars : Nat → List Char → List Char
+  | 0, cs => cs
+  | _, [] => []
+  | fuel + 1, '&' :: rest =>
+    let name := rest.takeWhile (· != ';')
+    match (if name.length < rest.length && name.length ≤ 10 then entityChar? (String.ofList name)
+      else none) with
+    | some c => c :: unescapeChars fuel (rest.drop (name.length + 1))
+    | none => '&' :: unescapeChars fuel rest
+  | fuel + 1, c :: rest => c :: unescapeChars fuel rest
+
+/-- The contents of the `<text>` elements of an SVG document, unescaped and separated by spaces;
+tags inside a text element are dropped. -/
+def svgText (svg : String) : String :=
+  let parts := (svg.splitOn "<text").drop 1
+  let texts := parts.filterMap fun part =>
+    match part.splitOn ">" with
+    | head :: body :: more =>
+      if head.endsWith "/" then none
+      else
+        let inner := (String.intercalate ">" (body :: more)).splitOn "</text>" |>.headD ""
+        let plain := (inner.splitOn "<").zipIdx.map fun (piece, i) =>
+          if i == 0 then piece else String.ofList ((piece.toList.dropWhile (· != '>')).drop 1)
+        some (String.ofList (unescapeChars (inner.length + 1) (String.join plain).toList))
+    | _ => none
+  " ".intercalate texts
 
 end PILean.Lettering

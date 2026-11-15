@@ -119,57 +119,6 @@ def subOk (c : Char) : Bool :=
   | some (_, _, _, y1) => y1 ≤ 380
   | none => false
 
-/-- The value of a hexadecimal digit. -/
-def hexVal (c : Char) : Option Nat :=
-  if '0' ≤ c && c ≤ '9' then some (c.toNat - 48)
-  else if 'a' ≤ c && c ≤ 'f' then some (c.toNat - 87)
-  else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 55)
-  else none
-
-/-- The character of an XML entity name (`amp`, `lt`, `gt`, `quot`, `apos`, `#39`, `#x27`, ...). -/
-def entityChar? (name : String) : Option Char :=
-  match name with
-  | "amp" => some '&'
-  | "lt" => some '<'
-  | "gt" => some '>'
-  | "quot" => some '"'
-  | "apos" => some '\''
-  | _ =>
-    match name.toList with
-    | '#' :: 'x' :: ds =>
-      (ds.foldlM (fun n d => (hexVal d).map (n * 16 + ·)) 0).map Char.ofNat
-    | '#' :: ds => (String.ofList ds).toNat?.map Char.ofNat
-    | _ => none
-
-/-- The text with its entities and character references replaced by the characters they stand
-for; `fuel` bounds the number of steps. -/
-def unescapeChars : Nat → List Char → List Char
-  | 0, cs => cs
-  | _, [] => []
-  | fuel + 1, '&' :: rest =>
-    let name := rest.takeWhile (· != ';')
-    match (if name.length < rest.length && name.length ≤ 10 then entityChar? (String.ofList name)
-      else none) with
-    | some c => c :: unescapeChars fuel (rest.drop (name.length + 1))
-    | none => '&' :: unescapeChars fuel rest
-  | fuel + 1, c :: rest => c :: unescapeChars fuel rest
-
-/-- The contents of the `<text>` elements of an SVG document, unescaped and separated by spaces;
-tags inside a text element are dropped. -/
-def svgText (svg : String) : String :=
-  let parts := (svg.splitOn "<text").drop 1
-  let texts := parts.filterMap fun part =>
-    match part.splitOn ">" with
-    | head :: body :: more =>
-      if head.endsWith "/" then none
-      else
-        let inner := (String.intercalate ">" (body :: more)).splitOn "</text>" |>.headD ""
-        let plain := (inner.splitOn "<").zipIdx.map fun (piece, i) =>
-          if i == 0 then piece else String.ofList ((piece.toList.dropWhile (· != '>')).drop 1)
-        some (String.ofList (unescapeChars (inner.length + 1) (String.join plain).toList))
-    | _ => none
-  " ".intercalate texts
-
 /-- The checks that every character of the labels of the examples has a glyph; the name of a
 check lists the characters that lack one. -/
 def labelChecks : Array (String × Bool) :=

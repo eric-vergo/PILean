@@ -10,11 +10,11 @@
   <path d="M16 46.93 L34 46.93" fill="none" stroke="#0072b2" stroke-width="2" stroke-linecap="round"/>
   <path d="M28 46.93 C28 48.59 26.66 49.93 25 49.93 C23.34 49.93 22 48.59 22 46.93 C22 45.27 23.34 43.93 25 43.93 C26.66 43.93 28 45.27 28 46.93 Z" fill="#0072b2" stroke="#ffffff" stroke-width="1.25"/>
   <text x="40" y="50.725" font-size="11.5" fill="#484850" text-anchor="start" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">n³</text>
-  <path d="M70.12 46.93 L88.12 46.93" fill="none" stroke="#e69f00" stroke-width="2" stroke-linecap="round"/>
-  <path d="M82.12 46.93 C82.12 48.59 80.78 49.93 79.12 49.93 C77.47 49.93 76.12 48.59 76.12 46.93 C76.12 45.27 77.47 43.93 79.12 43.93 C80.78 43.93 82.12 45.27 82.12 46.93 Z" fill="#e69f00" stroke="#ffffff" stroke-width="1.25"/>
-  <text x="94.122" y="50.725" font-size="11.5" fill="#484850" text-anchor="start" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">2ⁿ</text>
-  <path d="M123.46 46.93 L141.46 46.93" fill="none" stroke="#009e73" stroke-width="2" stroke-linecap="round"/>
-  <text x="147.462" y="50.725" font-size="11.5" fill="#484850" text-anchor="start" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">n!</text>
+  <path d="M67.79 46.93 L85.79 46.93" fill="none" stroke="#e69f00" stroke-width="2" stroke-linecap="round"/>
+  <path d="M79.79 46.93 C79.79 48.59 78.45 49.93 76.79 49.93 C75.13 49.93 73.79 48.59 73.79 46.93 C73.79 45.27 75.13 43.93 76.79 43.93 C78.45 43.93 79.79 45.27 79.79 46.93 Z" fill="#e69f00" stroke="#ffffff" stroke-width="1.25"/>
+  <text x="91.79" y="50.725" font-size="11.5" fill="#484850" text-anchor="start" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">2ⁿ</text>
+  <path d="M119.28 46.93 L137.28 46.93" fill="none" stroke="#009e73" stroke-width="2" stroke-linecap="round"/>
+  <text x="143.278" y="50.725" font-size="11.5" fill="#484850" text-anchor="start" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">n!</text>
   <path d="M72 345.5 L609 345.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
   <path d="M72 300.5 L609 300.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
   <path d="M72 255.5 L609 255.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
