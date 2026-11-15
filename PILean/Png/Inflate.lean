@@ -318,8 +318,8 @@ def trailerValue (b0 b1 b2 b3 : UInt8) : Nat :=
 /-- Decompresses a zlib stream: checks the header, inflates, and checks the Adler-32 trailer.
 The output is at most `maxOut` bytes. Bytes after the trailer are `.trailingData` unless
 `allowTrailing`. With `expected := some n` (at most `maxOut`) the output is decoded into a buffer
-of `n` bytes and may not exceed it; otherwise the stream is first decoded without keeping its output, to
-learn its length, and then decoded into a buffer of exactly that length. Either way the only
+of `n` bytes and may not exceed it; otherwise the stream is first decoded without keeping its
+output, to learn its length, and then decoded into a buffer of exactly that length. Either way the only
 large allocation is the output itself, made once, and a stream whose output would exceed
 `maxOut` is rejected before it is made. -/
 def zlibDecompress (data : ByteArray) (maxOut : Nat) (allowTrailing : Bool := false)

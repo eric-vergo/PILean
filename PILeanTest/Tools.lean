@@ -85,7 +85,8 @@ def ioChecks : IO (Array (String × Bool)) := do
     let src : Source :=
       { module := "M", decl := "d\u202Eevil\u2066x\u200B\uFEFF", file := "F.lean", line := 1,
         column := 0, version := PILean.version }
-    let png := (Png.encode { width := 1, height := 1, mode := .l, data := ⟨#[0]⟩ }).toOption.getD .empty
+    let png :=
+      (Png.encode { width := 1, height := 1, mode := .l, data := ⟨#[0]⟩ }).toOption.getD .empty
     let withSrc := (withSourcePng png src).toOption.getD .empty
     IO.FS.writeBinFile (scratch / "bidi.png") withSrc
     let bidi ← tool "pilean-info" #[(scratch / "bidi.png").toString] scratch
