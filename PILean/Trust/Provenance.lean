@@ -116,7 +116,8 @@ def Source.validate (s : Source) : Except String Unit := do
     if !isFingerprint f then throw "the fingerprint is not 64 lowercase hexadecimal digits"
 
 /-- The record from a list of `(key, value)` pairs, as the readers collect them: unknown keys are
-ignored, a known key twice is an error, a value above `maxField` bytes is an error, `line` and
+ignored, a known key twice is an error, a value above `maxField` bytes or with a character XML
+cannot carry (so one the writers refuse) is an error, `line` and
 `column` are decimal numbers of at most nine digits, a fingerprint is 64 lowercase hexadecimal
 digits, and `module`, `decl`, `file`, `line`, `column` and `version` must be present. -/
 def Source.ofFields (kvs : Array (String × String)) : Except String Source := do
@@ -125,6 +126,7 @@ def Source.ofFields (kvs : Array (String × String)) : Except String Source := d
     if keys.contains k then
       if seen.contains k then throw s!"the key {k} occurs twice"
       if v.utf8ByteSize > maxField then throw s!"the value of {k} is too long"
+      if !v.all xmlChar then throw s!"the value of {k} has a character XML cannot carry"
       seen := seen.push k
   let find := fun (k : String) => (kvs.find? (·.1 == k)).map (·.2)
   let req := fun (k : String) => match find k with
@@ -461,11 +463,12 @@ def subBlocks (d : ByteArray) (pos cap : Nat) : Except String (ByteArray × Bool
     p := p + 1 + n
   throw "the GIF file is truncated"
 
-/-- The fields of the first `PILean source 1` comment before the first image of a GIF file; none
-if there is no such comment. Fails on a truncated file, an oversized source comment, or text that
-is not UTF-8. -/
+/-- The fields of the `PILean source 1` comment before the first image of a GIF file; none if
+there is no such comment. Fails on a truncated file, an oversized source comment, text that is
+not UTF-8 or has a carriage return (which the writer refuses), or a second source comment. -/
 def gifFields (d : ByteArray) : Except String (Option (Array (String × String))) := do
   let mut pos ← gifBodyStart d false
+  let mut found : Option (Array (String × String)) := none
   for _ in [0:d.size + 1] do
     if pos ≥ d.size then throw "the GIF file is truncated"
     let b := Png.byteAt d pos
@@ -477,15 +480,17 @@ def gifFields (d : ByteArray) : Except String (Option (Array (String × String))
       if label == 0xFE && (data.extract 0 line1.size == line1 ||
           (cut && data.extract 0 gifMagic.utf8ByteSize == gifMagic.toUTF8)) then
         if cut then throw "the source comment is too large"
+        if found.isSome then throw "the GIF file has two source comments"
         let some text := String.fromUTF8? data | throw "the source comment is not UTF-8"
+        if text.contains '\r' then throw "the source comment has a carriage return"
         let lines := (text.splitOn "\n").drop 1
-        return some ((lines.filterMap fun l =>
+        found := some ((lines.filterMap fun l =>
           match l.splitOn "=" with
           | k :: v :: rest => some (k, "=".intercalate (v :: rest))
           | _ => none).toArray)
       pos := next
-    else return none
-  return none
+    else return found
+  return found
 
 /-- The GIF89a file `d` with the source as a comment extension after the global colour table.
 Fails if the file is not a GIF89a file or a value has a line break. -/

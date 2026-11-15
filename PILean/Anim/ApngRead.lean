@@ -25,7 +25,8 @@ every frame onto the canvas.
   inflate bounds of the PNG reader apply to frames too.
 * If `IDAT` is not preceded by an `fcTL`, it is the default image and not a frame.
 * The first frame must cover the canvas; a `dispose_op` of `PREVIOUS` on it acts as
-  `BACKGROUND`. A denominator of 0 means 100. The number of frames must equal the one in `acTL`.
+  `BACKGROUND`. A denominator of 0 means 100, as the specification says (the writer never
+writes one). The number of frames must equal the one in `acTL`.
 * Frames are composed by `Anim.Composer.add`, which implements `dispose_op` and `blend_op`.
 
 ## References
@@ -121,7 +122,8 @@ def readChunk (st : ReadState) (lim : Limits) (bytes : ByteArray) (pos : Nat) :
   | "acTL" =>
     if st.actl.isSome || st.idat != 0 || len != 8 then throw (.malformed "invalid acTL")
     let n := Png.getBe32 data 0
-    if n == 0 || n > lim.maxFrames then throw (.tooLarge "number of frames")
+    if n == 0 then throw (.malformed "acTL states no frames")
+    if n > lim.maxFrames then throw (.tooLarge "number of frames")
     st := { st with actl := some (n, Png.getBe32 data 4) }
   | "fcTL" =>
     let some (n, _) := st.actl | throw (.malformed "fcTL before acTL")

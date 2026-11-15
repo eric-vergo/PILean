@@ -256,6 +256,12 @@ def gifChecks : Array (String × Bool) :=
       | .ok s => s.module == "a=b" | .error _ => false),
     ("gif: a duplicate key is refused", readFails (comment
         "PILean source 1\nmodule=m\nmodule=n\ndecl=d\nfile=f\nline=3\ncolumn=4\nversion=1\n")),
+    ("gif: a carriage return, which the writer refuses, is refused", readFails (comment
+        "PILean source 1\nmodule=m\rx\ndecl=d\nfile=f\nline=3\ncolumn=4\nversion=1\n")),
+    ("gif: two source comments are refused", readFails (
+      let one := commentExtension
+        "PILean source 1\nmodule=m\ndecl=d\nfile=f\nline=3\ncolumn=4\nversion=1\n".toUTF8
+      (gif.extract 0 start ++ one ++ one) ++ gif.extract start gif.size)),
     ("gif: a comment without the first line is ignored", readFails (comment
         "module=m\ndecl=d\nfile=f\nline=3\ncolumn=4\nversion=1\n")),
     ("gif: truncated copies are values or errors", prefixesClean out)]
@@ -268,9 +274,20 @@ def readerChecks : Array (String × Bool) :=
   let withNul := { sample with decl := "a\x00b" }
   let big := (zeros 26).push 0
   let png := (figure.toPng).getD ByteArray.empty
+  let itxt := fun (k : String) (v : ByteArray) =>
+    Png.chunk "iTXt" (("PILean:" ++ k).toUTF8 ++ ⟨#[0, 0, 0, 0, 0]⟩ ++ v)
+  let fields := itxt "module" ("a".toUTF8.push 0 ++ "b".toUTF8) ++ itxt "decl" "d".toUTF8 ++
+    itxt "file" "f".toUTF8 ++ itxt "line" "3".toUTF8 ++ itxt "column" "4".toUTF8 ++
+    itxt "version" "1".toUTF8
+  let pngNul := png.extract 0 33 ++ fields ++ png.extract 33 png.size
+  let pngOk := png.extract 0 33 ++ (itxt "module" "ab".toUTF8 ++ (fields.extract
+    (itxt "module" ("a".toUTF8.push 0 ++ "b".toUTF8)).size fields.size)) ++
+    png.extract 33 png.size
   #[("source: a NUL is refused for every format",
       !isOk withNul.validate && !isOk (withSourcePng png withNul) &&
         !isOk (withSource figure.toSvg.toUTF8 withNul)),
+    ("source: a NUL that a writer would refuse is refused by the reader (PNG)",
+      readFails pngNul && !readFails pngOk),
     ("source: a value above 4096 bytes is refused",
       !isOk { sample with file := String.ofList (List.replicate 4097 'x') }.validate),
     ("source: a fingerprint must be 64 lowercase hexadecimal digits",

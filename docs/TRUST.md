@@ -79,7 +79,8 @@ feed or a carriage return is refused (SVG and PNG carry them). The file must be 
 otherwise UTF-8 text with an `<svg` tag) and treats everything as untrusted:
 
 * The input must be at most 64 MiB (`maxInput`); each value at most 4096 bytes (`maxField`).
-* Each key at most once (a repeat is an error); unknown keys are ignored; the required keys
+* Each key at most once (a repeat is an error); a value with a character XML 1.0 cannot carry is
+  an error; unknown keys are ignored; the required keys
   must be there; `line` and `column` must be numbers; a fingerprint must have the form above.
 * Nothing is executed or followed. A `repo` value is returned as text.
 * SVG: a small bounded scanner over the bytes skips comments, processing instructions and CDATA
@@ -89,8 +90,13 @@ otherwise UTF-8 text with an `<svg` tag) and treats everything as untrusted:
   character references are unescaped. There is no general XML parser.
 * PNG and APNG: the chunks before the first `IDAT` are walked; the CRC of a source chunk must be
   right and it must be uncompressed. The image is not decoded.
-* GIF: the extensions before the first image are walked; the first comment that starts with
-  `PILean source 1` is read; a larger one than 64 KiB is an error.
+* GIF: the extensions before the first image are walked; the comment that starts with
+  `PILean source 1` is read; a larger one than 64 KiB, a second such comment or a carriage
+  return in it is an error.
+* What the readers accept is what the writers write: a value with a character XML cannot carry
+  (NUL, say) is refused in every format, as the writers refuse it. One difference is kept on
+  purpose: the APNG reader treats a frame delay with denominator 0 as a denominator of 100, as
+  the APNG specification says; the writer never writes one.
 
 ### Links
 
