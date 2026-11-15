@@ -5,16 +5,25 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILean.Text.LetteringGlyphs
 import PILean.Text.LetteringLower
 import PILean.Text.LetteringSymbols
+import PILean.Text.LetteringGreek
+import PILean.Text.LetteringScripts
+import PILean.Text.LetteringLatin
+import PILean.Text.LetteringMath
+import PILean.Text.LetteringArrows
+import PILean.Text.LetteringTypo
 
 /-!
 # Single-stroke lettering
 
 A small built-in typeface drawn from centre lines, for tick labels, legends, axis labels and
-titles of plots. A glyph is a few strokes (straight segments and elliptical arcs, the arcs as cubic
-Béziers of at most 90°); the renderer strokes them with round caps and round joins. The letter
+titles of plots: ASCII, the Latin-1 letters, the Greek alphabet, superscripts and subscripts, and
+the mathematical signs, arrows and typographic signs that plot labels use. A glyph is a few
+strokes (straight segments and elliptical arcs, the arcs as cubic Béziers of at most 90°); the
+renderer strokes them with round caps and round joins. The letter
 shapes are the authors' own design: a calm geometric sans in the spirit of technical lettering,
 with an even stroke, generous counters, round letters close to circles, and no ornament; no
-existing font's data was used.
+existing font's data was used. The scripts, accented letters and composed signs are generated from
+the regular designs (`LetteringCompose`), so they keep the stroke width and shapes.
 
 The em is 1000 units with `y` up and the baseline at `y = 0`. Metrics (ink, in units): cap height
 `700`, x-height `510`, ascender `740`, descender `-200`, stroke width `78`; round letters overshoot
@@ -24,7 +33,8 @@ the cap height, the x-height and the baseline by about `10`. The digits are tabu
 
 * `Lettering.Glyph`, `Lettering.glyph`: a glyph's centre lines and advance; a character outside
   the typeface is a rectangle of advance `600`.
-* `Lettering.charset`: the characters the typeface draws.
+* `Lettering.charset`: the characters the typeface draws; `Lettering.missing`: the characters of a
+  string it lacks.
 * `Lettering.measure`: the width of a string at a size.
 * `Lettering.shape`: the centre lines of a string at a size, `y` down, and the stroke width.
 * `Lettering.ascent`, `descent`, `capHeight`, `xHeight`: the metrics as fractions of the size.
@@ -82,8 +92,8 @@ def Spec.toGlyph (g : Spec) : Glyph :=
 
 /-- The design of a character, if the typeface has it. -/
 def spec? (c : Char) : Option Spec :=
-  (capitals c).orElse fun _ => (lowercase c).orElse fun _ => (digits c).orElse fun _ =>
-    (punctuation c).orElse fun _ => (mathSigns c).orElse fun _ => greek c
+  [capitals, lowercase, digits, punctuation, mathSigns, greek, superscripts, subscripts, composed,
+    latin, operators, doubleStruck, arrows, typographic].findSome? (· c)
 
 /-- The glyph box drawn for a character the typeface lacks: a rectangle of advance `600`. -/
 def missingGlyph : Glyph :=
@@ -95,15 +105,31 @@ def glyph (c : Char) : Glyph :=
   | some g => g.toGlyph
   | none => missingGlyph
 
-/-- The characters the typeface draws: printable ASCII, the minus sign, dashes, quotes, the
-ellipsis, the middle dot, `× ÷ ± °`, the micro sign, `≤ ≥ ≈ ≠ ∞ √` and the Greek
-letters `α β γ δ ε θ λ μ π σ τ φ ω Δ Σ Ω`. -/
+/-- The characters the typeface draws: printable ASCII; the Latin-1 letters `À`–`ÿ` (with `Œ œ ı`)
+and signs (`¡ ¢ £ ¤ ¥ ¦ § ¨ © ª « ¬ ® ¯ ° ± ² ³ ´ µ ¶ · ¸ ¹ º » ¼ ½ ¾ ¿ × ÷`); the minus sign,
+the dashes, quotes, daggers, bullets, primes, the ellipsis, the per-mille sign and the spaces
+(no-break, en, em, thin, narrow no-break); the superscript and subscript digits, signs and
+letters (`⁰…⁹ ⁺⁻⁼⁽⁾ ⁿⁱ ᵃ…ᶻ`, `₀…₉ ₊₋₌₍₎ ₐₑₒₓₕₖₗₘₙₚₛₜᵢⱼ ᵣᵤᵥ` and some Greek ones); `™ € ⁄`;
+the Greek alphabet in both cases with the final sigma and the variants `ϑ ϕ ϵ ϱ ϖ`; the
+relations `≤ ≥ ≈ ≠ ≡ ≅ ∼ ≃ ≪ ≫ ∝ ∞ √`; the operators and signs of analysis, sets and logic
+(`∑ ∏ ∫ ∂ ∇ ∈ ∉ ∋ ⊂ ⊃ ⊆ ⊇ ∪ ∩ ∧ ∨ ¬ ∀ ∃ ∅ ∘ ⋅ ∙ ∓ ⊕ ⊗ ⊥ ∥ ∠ △ □ ◦ ∗ ℓ ℕ ℤ ℚ ℝ ℂ`); the
+brackets `⌊ ⌋ ⌈ ⌉ ⟨ ⟩`; and the arrows `← → ↑ ↓ ↔ ↕ ⇐ ⇒ ⇔ ↦ ↗ ↘`. -/
 def charset : List Char :=
   (List.range 95).map (fun i => Char.ofNat (0x20 + i)) ++
-  "−–—’‘“”…·×÷±°µ\
-    ≤≥≈≠∞√\
-    αβγδεθλμπστφω\
-    ΔΣΩ".toList
+  "−–—’‘“”…·×÷±°µ≤≥≈≠∞√\
+    ⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱᵃᵇᶜᵈᵉᶠᵍʰʲᵏˡᵐᵒᵖʳˢᵗᵘᵛʷˣʸᶻᵅᵝᵞᵟᵋᶿᵠᵡ\
+    ₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₒₓₕₖₗₘₙₚₛₜᵢⱼᵣᵤᵥᵦᵧᵨᵩᵪ\
+    ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿŒœı\
+    ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρσςτυφχψωϑϕϵϱϖ∆\
+    ⌊⌋⌈⌉⟨⟩∑∏∫∂∇∈∉∋⊂⊃⊆⊇∪∩∧∨¬∀∃∅≡≅∼≃≪≫∝∘⋅∙′″∓⊕⊗⊥∥∠△□◦∗ℓℕℤℚℝℂ‰\
+    ←→↑↓↔↕⇐⇒⇔↦↗↘\
+    «»‹›„‚¡¿§¶†‡•‣€£¥¢©®™¤¦¨¯´¸ªº¼½¾‐‑‒―‖⁄\
+    \u00A0\u2002\u2003\u2009\u202F".toList
+
+/-- The distinct characters of `s` that the typeface lacks (drawn as the missing-glyph box), in
+the order of their first occurrence. -/
+def missing (s : String) : List Char :=
+  s.foldl (fun acc c => if (spec? c).isNone && !acc.contains c then acc ++ [c] else acc) []
 
 /-- Whether a size is usable: finite, positive and at most `maxSize`. -/
 def validSize (size : Float) : Bool := size > 0 && size ≤ maxSize

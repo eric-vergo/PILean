@@ -309,8 +309,8 @@ rasteriser's full-image background and curve strokes.
 
 Text reaches images through an interface, `TextEngine` (measure, ascent, descent, and shapes:
 outlines to fill and centre lines to stroke), with one implementation built in: a single-stroke
-lettering drawn for PILean (131 characters; tabular digits; stroke 78/1000 of the size, drawn at
-least a pixel wide). SVG output keeps real `<text>` elements in the style's font family
+lettering drawn for PILean (430 characters: ASCII, Latin-1, Greek, scripts, math signs, arrows;
+tabular digits; stroke 78/1000 of the size, drawn at least a pixel wide). SVG output keeps real `<text>` elements in the style's font family
 (selectable, small); the layout measures text with the engine, so an SVG font may run a little
 wider or narrower than the measurement. `Figure.toSvg (outlines := true)` writes the lettering's
 shapes into SVG instead.

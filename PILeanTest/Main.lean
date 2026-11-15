@@ -31,7 +31,8 @@ that the output is deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
 `tools/compare-render.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the graph
 layout and its output on module graphs of 100, 800 and 3000 nodes;
-`--graph-compare-out DIR` writes the files of `tools/graph-compare.py`; `--anim-bench` times a
+`--graph-compare-out DIR` writes the files of `tools/graph-compare.py`; `--specimen-out DIR` writes
+the lettering specimen sheet (`lettering-specimen.svg` and `.png`); `--anim-bench` times a
 120-frame animation in each format.
 `PILeanTest.Bounds` runs the readers on hostile inputs in child processes (`pilean-probe`)
 under CPU and memory bounds, and `PILeanTest.Tools` runs the command-line tools on hostile
@@ -53,6 +54,8 @@ def main (args : List String) : IO UInt32 := do
   | ["--anim-out", dir] => AnimFiles.writeSamples dir; return 0
   | "--anim-out" :: _ => IO.eprintln "usage: --anim-out DIR"; return 1
   | ["--compare-out", dir] => Raster.writeCompare dir; return 0
+  | ["--specimen-out", dir] => Lettering.writeSpecimen dir; return 0
+  | "--specimen-out" :: _ => IO.eprintln "usage: --specimen-out DIR"; return 1
   | ["--bench"] => Raster.bench; return 0
   | ["--anim-bench"] => Plots.animBench; return 0
   | ["--graph-bench"] => Graphs.bench; return 0
