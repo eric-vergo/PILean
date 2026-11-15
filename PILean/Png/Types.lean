@@ -88,8 +88,8 @@ deriving Repr, Inhabited
 structure Limits where
   /-- The largest accepted `width * height`. -/
   maxPixels : Nat := 1 <<< 26
-  /-- The largest accepted size of the decompressed image data (with filter bytes) and of the
-  decoded samples. -/
+  /-- The largest accepted size of the decompressed image data (with filter bytes) plus the
+  decoded samples: the two buffers the reader holds besides its input. -/
   maxBytes : Nat := 1 <<< 29
   /-- The total size of decompressed text the reader accepts. -/
   maxTextBytes : Nat := 1 <<< 22

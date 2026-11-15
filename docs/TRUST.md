@@ -260,7 +260,8 @@ characters).
 lake exe pilean-verify DIR
 ```
 
-reads `DIR/manifest.json` as untrusted input: at most 16 MiB, read by a small bounded JSON reader
+resolves `DIR` once and reads `DIR/manifest.json` as untrusted input: a regular file (not a
+symbolic link, not a FIFO or device; checked before it is opened), at most 16 MiB, read by a small bounded JSON reader
 (`PILean/Trust/Json.lean`: nesting at most 8, strings at most 64 KiB, integers of at most 15
 digits only, no repeated key, nothing after the value). The manifest is rejected as a whole, before
 any file is touched, if a path is empty, longer than 1024 bytes, absolute, has `..` or `.` or an
@@ -272,11 +273,14 @@ listed file gets one line:
 |---|---|
 | `ok: PATH` | a regular file of the listed size and SHA-256, whose source record agrees with the manifest (module, declaration, file, line, column, version, repository, commit and fingerprint) |
 | `missing: PATH` | the file does not exist |
-| `changed: PATH` | not a regular file (a link or directory), or another size or hash |
+| `changed: PATH` | another size or hash |
+| `not a regular file: PATH` | the file, or a directory on its way below `DIR`, is a symbolic link, a directory, a FIFO or a device (nothing is followed or opened) |
 | `source differs: PATH` | the source record in the file differs from the manifest |
 | `no source: PATH` | the file has no readable source record |
 
-Exit status 0 only if every line is `ok`; 1 otherwise, or if the manifest is missing or invalid; 2
+Every path and message printed comes from the folder and goes through `escapeControl`, so no
+line can be forged or hidden by the manifest. Exit status 0 only if every line is `ok`; 1
+otherwise, or if the manifest is missing or invalid; 2
 on a wrong command line. `pilean-verify` does not render anything: it proves that the directory is
 what its manifest says. `pilean-build --check` proves that it is what the build produces now.
 

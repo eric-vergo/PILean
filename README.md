@@ -116,7 +116,18 @@ and every loop is bounded by its input (curve flattening has a cap per curve). T
 records in each image the Lean file and declaration that produced it and a fingerprint of the
 drawing and the declaration, with a manifest and two checkers (`pilean-build --check`,
 `pilean-verify`); theorems tie a figure to the Lean object it shows ([`docs/PROOFS.md`](docs/PROOFS.md)). PNG and DEFLATE data read from files are untrusted: every length is
-checked, the output size is capped, and mutated files end in clean errors. The rasteriser
+checked, the output size is capped, and mutated files end in clean errors. With the default
+limits, reading a PNG of `n` bytes holds at most the input, the image data (at most `n` bytes)
+and two buffers whose sizes together are at most `Limits.maxBytes` (512 MiB), allocated only after
+the header has been checked against the caps, and its work is linear in those sizes; a zlib stream
+is measured before its output is allocated, so a bomb is refused without its output; GIF and APNG
+hold the composed frames (at most `Limits.maxBytes`) and a constant number of frame-sized buffers.
+The graph layout's work is bounded by the numbers of nodes and edges and two work budgets
+(`LayeredOptions.layerWork`, `coordinateWork`), with a cap on dummy nodes (`maxLayoutNodes`). The
+command-line tools read only regular files, follow no symbolic link below the folder they are
+given, and print what they read escaped. `lake test` runs the readers, the layout and the tools on
+hostile inputs in child processes and checks their memory and CPU time
+(`PILeanTest/Bounds.lean`, `PILeanTest/Tools.lean`). The rasteriser
 computes coverage in integers, so its output is the same on every machine.
 `docs/DESIGN.md` has the details and the open choices.
 
