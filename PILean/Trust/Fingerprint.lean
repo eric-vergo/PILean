@@ -5,6 +5,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILean.Trust.Figure
 import PILean.Trust.Provenance
 import PILean.Trust.Sha256
+import PILean.Trust.Renderer
 
 /-!
 # Fingerprints of figures
@@ -14,8 +15,10 @@ what is drawn to the declaration that draws it.
 
 ## The serialisation
 
-The byte string is the header `PILean fingerprint 1` and a line feed, then eight fields in this
-order: module, declaration, file, line, column, library version, source-text hash, specification.
+The byte string is the header `PILean fingerprint 2` and a line feed, then nine fields in this
+order: module, declaration, file, line, column, library version, renderer (`rendererId`, which
+changes with any change to the code that turns a figure into bytes), source-text hash,
+specification.
 Each field is written as its length in bytes, a 64-bit unsigned number in big-endian order,
 followed by its bytes. The text fields are UTF-8; the line and the column are their decimal
 digits; the source-text hash is the 64 hexadecimal digits of the SHA-256 of the declaration's
@@ -48,7 +51,7 @@ structure SourceData where
 deriving BEq, Repr, Inhabited
 
 /-- The header of the byte string a fingerprint is taken of. -/
-def fingerprintHeader : String := "PILean fingerprint 1\n"
+def fingerprintHeader : String := "PILean fingerprint 2\n"
 
 /-- The field as eight bytes of its length (big-endian) and then its bytes. -/
 def lengthPrefixed (b : ByteArray) : ByteArray := Id.run do
@@ -59,18 +62,18 @@ def lengthPrefixed (b : ByteArray) : ByteArray := Id.run do
   return out ++ b
 
 /-- The byte string whose SHA-256 is the fingerprint (see the module docstring). -/
-def fingerprintInput (spec : ByteArray) (d : SourceData) (version : String := PILean.version) :
-    ByteArray :=
+def fingerprintInput (spec : ByteArray) (d : SourceData) (version : String := PILean.version)
+    (renderer : String := rendererId) : ByteArray :=
   fingerprintHeader.toUTF8 ++ lengthPrefixed d.module.toUTF8 ++ lengthPrefixed d.decl.toUTF8 ++
     lengthPrefixed d.file.toUTF8 ++ lengthPrefixed (toString d.line).toUTF8 ++
     lengthPrefixed (toString d.column).toUTF8 ++ lengthPrefixed version.toUTF8 ++
-    lengthPrefixed d.sourceHash.toUTF8 ++ lengthPrefixed spec
+    lengthPrefixed renderer.toUTF8 ++ lengthPrefixed d.sourceHash.toUTF8 ++ lengthPrefixed spec
 
 /-- The fingerprint of an output specification and the source data of its declaration: the
 lowercase hexadecimal SHA-256 of `fingerprintInput`. -/
-def fingerprint (spec : ByteArray) (d : SourceData) (version : String := PILean.version) :
-    String :=
-  Sha256.hex (Sha256.hash (fingerprintInput spec d version))
+def fingerprint (spec : ByteArray) (d : SourceData) (version : String := PILean.version)
+    (renderer : String := rendererId) : String :=
+  Sha256.hex (Sha256.hash (fingerprintInput spec d version renderer))
 
 /-- A declaration that draws figures: its recorded source and the thunk that renders it. -/
 structure FigureEntry extends SourceData where

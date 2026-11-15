@@ -61,10 +61,16 @@ def sampleData : SourceData :=
   { module := "M", decl := "M.d", file := "M.lean", line := 3, column := 4,
     sourceHash := Sha256.hex (Sha256.hashString "def d := 1") }
 
-/-- The golden fingerprint of the specification `spec` and `sampleData` in version `0.1.0`
-(computed independently with Python's `hashlib`, from the serialisation in `docs/TRUST.md`). -/
+/-- The golden fingerprint of the specification `spec` and `sampleData` in version `0.1.0` with
+the renderer `test-renderer` (computed independently with Python's `hashlib`, from the
+serialisation in `docs/TRUST.md`). -/
 def goldenFingerprint : String :=
-  "e66976987d2b0b6633f0cb100721233a72c525bc6b6255a8a953da6c3aa00c1b"
+  "125a80b5541d6a486e7c295cf14e776de3ac9d9a6bc0ba7c56d9ada338228f75"
+
+/-- The fingerprint with the renderer `test-renderer`, so the golden value does not depend on the
+library's sources. -/
+def fpT (spec : ByteArray) (d : SourceData) (version : String := "0.1.0") : String :=
+  fingerprint spec d version "test-renderer"
 
 /-- Checks that need no files. -/
 def checks : Array (String × Bool) :=
@@ -72,7 +78,7 @@ def checks : Array (String × Bool) :=
   let names := allFigures.map fun e => e.module ++ " " ++ e.decl
   let sorted := names.qsort (· < ·)
   let spec := "spec".toUTF8
-  let fp := fingerprint spec sampleData (version := "0.1.0")
+  let fp := fpT spec sampleData
   #[("figures%: the tagged figures are all there",
       ["PILeanTest.Examples PILeanTest.Examples.functions",
         "PILeanTest.Examples PILeanTest.Examples.GraphFigures.compiler",
@@ -88,18 +94,24 @@ def checks : Array (String × Bool) :=
     ("fingerprint: golden value", fp == goldenFingerprint),
     ("fingerprint: 64 lowercase hexadecimal digits", isFingerprint fp),
     ("fingerprint: another specification gives another one",
-      fingerprint "spec2".toUTF8 sampleData (version := "0.1.0") != fp),
+      fpT "spec2".toUTF8 sampleData != fp),
     ("fingerprint: another source hash gives another one",
-      fingerprint spec { sampleData with sourceHash := Sha256.hex (Sha256.hashString "x") }
-        (version := "0.1.0") != fp),
+      fpT spec { sampleData with sourceHash := Sha256.hex (Sha256.hashString "x") }
+        != fp),
     ("fingerprint: another line gives another one",
-      fingerprint spec { sampleData with line := 4 } (version := "0.1.0") != fp),
+      fpT spec { sampleData with line := 4 } != fp),
     ("fingerprint: another version gives another one",
-      fingerprint spec sampleData (version := "0.1.1") != fp),
+      fpT spec sampleData (version := "0.1.1") != fp),
     ("fingerprint: fields are length prefixed (moving a character between fields changes it)",
-      fingerprint spec { sampleData with module := "Ma", decl := ".d" } (version := "0.1.0") != fp),
+      fpT spec { sampleData with module := "Ma", decl := ".d" } != fp),
     ("fingerprint: input starts with the header",
-      (fingerprintInput spec sampleData).extract 0 21 == "PILean fingerprint 1\n".toUTF8),
+      (fingerprintInput spec sampleData).extract 0 21 == "PILean fingerprint 2\n".toUTF8),
+    ("fingerprint: another renderer gives another one",
+      fingerprint spec sampleData "0.1.0" "other" != fp),
+    ("renderer: the identity is 64 hexadecimal digits and covers the rasteriser, the lettering \
+        and the PNG writer",
+      isFingerprint rendererId && ["PILean.Raster.Draw", "PILean.Text.Lettering",
+        "PILean.Png.Write", "PILean.Svg"].all (rendererSources.map (·.1)).contains),
     ("fingerprint: length prefix is eight bytes big-endian",
       lengthPrefixed "abc".toUTF8 == ⟨#[0, 0, 0, 0, 0, 0, 0, 3, 97, 98, 99]⟩),
     ("outputs: the SVG output's specification is its SVG text",

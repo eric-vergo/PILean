@@ -136,7 +136,7 @@ The specification of an output is the SVG document that PILean's deterministic w
 * SVG outputs: the SVG document of the output itself, with text as `<text>`.
 * PNG outputs of a figure or a graph: the SVG document with text drawn as shapes, which is the
   drawing the PNG is rasterised from (the rasteriser itself is not part of the specification; it
-  is part of the library version).
+  is covered by the renderer's identity, see "The fingerprint").
 * An animation's APNG and GIF: the animated SVG document, which holds every frame; the poster:
   the SVG document of the poster frame.
 
@@ -173,15 +173,25 @@ data and `fun _ => ToOutputs.outputs decl`.
 `PILean/Trust/Fingerprint.lean`. `fingerprint spec src` is the lowercase hexadecimal SHA-256 of
 this byte string:
 
-1. the header `PILean fingerprint 1` and a line feed;
-2. eight fields in this order: module, declaration, file, line, column, library version
-   (`PILean.version`), source-text hash, specification;
+1. the header `PILean fingerprint 2` and a line feed;
+2. nine fields in this order: module, declaration, file, line, column, library version
+   (`PILean.version`), renderer (`rendererId`), source-text hash, specification;
 3. each field as its length in bytes (a 64-bit unsigned number, big-endian) followed by its
    bytes; the text fields are UTF-8, the line and the column are decimal digits, the source-text
    hash is its 64 hexadecimal digits.
 
+The renderer, `PILean.Trust.rendererId` (`PILean/Trust/Renderer.lean`), is the SHA-256 of the
+Lean toolchain's version and of the source files of every library module that turns a figure into
+bytes (the plots, graphs and animations, the SVG writer, the rasteriser, the lettering, the PNG,
+APNG and GIF writers, the source records: the modules `Renderer.lean` imports, listed in
+`rendererSources`). It is computed from the files' text as it was when the library was compiled
+(`include_str`), so nobody has to remember to change it: any change to that code changes every fingerprint, even a
+change to a comment, and a change to the rasteriser that leaves the SVG specification alone
+still changes the fingerprints of the PNG files. The tests check that the list is exactly the
+modules `Renderer.lean` imports and that each text is the file's current content.
+
 The file's `Source` record carries this fingerprint, so changing the specification, the source
-text, the position or the library version changes it. The repository and the commit are not part
+text, the position, the library version or the renderer changes it. The repository and the commit are not part
 of it (the same figure built at two commits has the same fingerprint if neither its drawing nor
 its declaration changed, apart from the line). Output formats of one animation share one
 fingerprint, because they share the specification; the SHA-256 of each file is in the manifest.

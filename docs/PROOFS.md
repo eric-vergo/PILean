@@ -85,6 +85,12 @@ be met. The gallery pictures (`examples/README.md`) each carry theirs next to th
   edge's own ends and index. An edge that spans several layers is routed through dummy nodes
   inside the layout; it is still one route, whose `points` include them.
 * `Graph.Layout.draw_edges`: the picture draws the layout's routes.
+* `Graph.assignLayers_lt`, `Graph.assignLayers_lt_input`: after cycle removal every edge points
+  to a deeper layer. This holds by construction: `assignLayers` ends with a repair pass
+  (`fixLayers`) that moves a node down until its incoming edges point down, and the theorem is
+  about that pass. Nothing is proved about the layers network simplex and balancing produce
+  before it (`layersBeforeRepair`); a test checks, on random graphs, the fixtures and the import
+  graphs, that the repair changes nothing there, so the layers you see are the simplex's own.
 
 **Animations** (`PILean/Anim/Proofs.lean`)
 
@@ -99,7 +105,9 @@ be met. The gallery pictures (`examples/README.md`) each carry theirs next to th
   decoders, the SVG writer: tested against published values, other software and the golden files
   in `examples/`.
 * The quality of a graph layout (layers, crossings, coordinates, curves): tested, including
-  against Graphviz. Only the *set* of drawn edges is proved, not where they run.
+  against Graphviz. Only the *set* of drawn edges and the downward direction of the layers (by
+  the repair pass) are proved, not where the edges run, and not that network simplex finds a
+  feasible or optimal layering on its own (`layersBeforeRepair` is tested, see above).
 * The floating-point conversion and the page mapping: `Q.toFloat` is the nearest `Float` when
   numerator and denominator have at most 53 significant bits (as in the gallery), and the tests
   check the positions of the gallery's points; that is a check on those pictures, not a theorem.

@@ -124,7 +124,21 @@ def layering : Array (String × Bool) :=
       u == v || (if before pos u v then lu < lv else lv < lu)
   let cyc := Graph.ofPairs [(0, 1), (1, 2), (2, 0), (2, 3)]
   let pos := elsPositions 4 (cyc.edges.map fun e => (e.src, e.dst))
-  #[("layering: every edge points to a deeper layer after cycle removal (random graphs)",
+  let repairIdle := fun (g : Graph) =>
+    let n := g.nodes.size
+    let pairs := (g.edges.filter fun e => e.src != e.dst && e.src < n && e.dst < n).toList.map
+      fun e => (e.src, e.dst)
+    let pos := elsPositions n pairs.toArray
+    let before := layersBeforeRepair pos n pairs
+    fixLayers (acyclicEdges pos pairs) before == before
+  #[("layering: the final repair changes nothing after simplex and balancing (random graphs, \
+      the fixtures and the import graphs)",
+      ([(1, 30), (2, 80), (3, 200), (4, 5), (5, 1), (6, 400), (7, 120)].all fun (s, n) =>
+        repairIdle (moduleGraph s n)) && (tiny.all fun (_, g) => repairIdle g) &&
+        repairIdle (moduleGraph 1 800) && repairIdle (moduleGraph 1 3000) &&
+        repairIdle (Graph.ofLabelled Fixtures.ownImports.toList) &&
+        repairIdle (Graph.ofLabelled Fixtures.projectImports.toList)),
+    ("layering: every edge points to a deeper layer after cycle removal (random graphs)",
       [(1, 30), (2, 80), (3, 200), (4, 5), (5, 1)].all fun (s, n) => ok s n),
     ("cycle removal: positions are a permutation",
       (pos.qsort (· < ·)) == #[0, 1, 2, 3]),

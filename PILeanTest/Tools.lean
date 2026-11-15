@@ -40,6 +40,24 @@ def symlink (target link : System.FilePath) : IO Bool := do
   let r ← IO.Process.output { cmd := "ln", args := #["-s", target.toString, link.toString] }
   return r.exitCode == 0
 
+/-- The source file of a module of this repository. -/
+def moduleFile (m : String) : System.FilePath :=
+  ((m.splitOn ".").foldl (fun p c => p / c) ("." : System.FilePath)).addExtension "lean"
+
+/-- The `PILean` modules the given ones import, directly or not, themselves included, sorted by
+name: read from the `import` lines of the sources. -/
+def importClosure (roots : Array String) : IO (Array String) := do
+  let mut seen : Array String := #[]
+  let mut todo := roots
+  for _ in [0:10000] do
+    let some m := todo.back? | break
+    todo := todo.pop
+    if seen.contains m || !m.startsWith "PILean." then continue
+    seen := seen.push m
+    for l in (← IO.FS.readFile (moduleFile m)).splitOn "\n" do
+      if l.startsWith "import " then todo := todo.push ((l.drop 7).trimAscii.toString)
+  return seen.qsort (· < ·)
+
 /-- Every Unicode scalar value once. -/
 def everyChar : String := Id.run do
   let mut s := ""
@@ -152,6 +170,18 @@ def ioChecks : IO (Array (String × Bool)) := do
     r := r.push ("check: files reached through a linked directory are stale",
       checkLinked.any (·.startsWith "stale: PILeanTest/") &&
         !checkLinked.any (·.startsWith "missing: PILeanTest/"))
+    -- the renderer's identity covers exactly the imported modules, with their current text
+    let closure ← importClosure #["PILean.Trust.Figure", "PILean.Trust.Provenance",
+      "PILean.Trust.Sha256"]
+    let listed := rendererSources.map (·.1)
+    let missing := closure.filter (!listed.contains ·)
+    let extra := listed.filter (!closure.contains ·)
+    let mut stale : Array String := #[]
+    for (m, t) in rendererSources do
+      if (← IO.FS.readFile (moduleFile m)) != t then stale := stale.push m
+    r := r.push (s!"renderer: the identity covers exactly the modules Renderer.lean imports \
+      (missing {missing}, not imported {extra}) with their current text (stale {stale})",
+      missing.isEmpty && extra.isEmpty && stale.isEmpty && isFingerprint rendererId)
     -- the bounded reader
     IO.FS.writeFile (scratch / "ten") "0123456789"
     let r10 ← readRegular (scratch / "ten") 10

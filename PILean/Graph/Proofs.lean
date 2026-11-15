@@ -190,7 +190,7 @@ theorem assignLayers_lt (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
     ∀ e ∈ acyclicEdges pos edges,
       (assignLayers pos n edges).getD e.1 0 < (assignLayers pos n edges).getD e.2 0 := by
   obtain ⟨h1, h2, h3⟩ := acyclicEdges_ok pos n edges hb
-  unfold assignLayers
+  unfold assignLayers layersBeforeRepair
   simp only
   refine fixLayers_lt _ _ ?_ h2 h3
   intro e he

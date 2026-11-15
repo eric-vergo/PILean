@@ -163,16 +163,24 @@ def balanceLayers (n : Nat) (es : List (Nat × Nat)) (layer : Array Nat) (rounds
           cnt := (cnt.modify cur (· - 1)).modify target (· + 1)
   return l
 
-/-- The layer of each of the `n` nodes for the edges `edges` (pairs of node numbers below `n`)
-and the node order `pos`: the layers of `acyclicEdges` of least total span by network simplex
-(`simplexLayers`) from the longest-path layers, balanced, then relaxed once more with
-`fixLayers` (a result of the wrong size is replaced by the previous one, which never happens), so
-that every acyclic edge points to a larger layer (`PILean.Graph.Proofs`). -/
-def assignLayers (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) : Array Nat :=
+/-- The layers network simplex and balancing give, before the final repair of `assignLayers`:
+the layers of `acyclicEdges` of least total span by network simplex (`simplexLayers`) from the
+longest-path layers, then balanced (`balanceLayers`); a result of the wrong size is replaced by
+the previous one, which never happens. Every acyclic edge pointing to a larger layer here is
+not proved; the tests check it on their graphs (`fixLayers` leaves these layers unchanged). -/
+def layersBeforeRepair (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) : Array Nat :=
   let es := acyclicEdges pos edges
   let start := fixLayers es (Array.replicate n 0)
   let l0 := (let s := simplexLayers n es start; if s.size = n then s else start)
   let l1 := balanceLayers n es l0 2
-  fixLayers es (if l1.size = n then l1 else l0)
+  if l1.size = n then l1 else l0
+
+/-- The layer of each of the `n` nodes for the edges `edges` (pairs of node numbers below `n`)
+and the node order `pos`: `layersBeforeRepair`, relaxed once more with `fixLayers`. The final
+relaxation is what makes every acyclic edge point to a larger layer by proof
+(`PILean.Graph.assignLayers_lt`); on the layers simplex and balancing produce it is expected to
+change nothing, which the tests check rather than prove. -/
+def assignLayers (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat)) : Array Nat :=
+  fixLayers (acyclicEdges pos edges) (layersBeforeRepair pos n edges)
 
 end PILean.Graph
