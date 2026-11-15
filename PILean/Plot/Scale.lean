@@ -67,6 +67,27 @@ def Scale.map (s : Scale) (a b v : Float) : Option Float :=
       let x ← log10? v
       some (mapLinear l h a b x)
 
+/-- The scale widened so that `[lo, hi]` maps to `[low, span - high]` of an axis `span` pixels
+long instead of to all of it (on a logarithmic scale, in the logarithms): the ticks stay, the
+data gets `low` and `high` pixels of room at the ends. Unchanged if the room would not leave a
+positive length. -/
+def Scale.padded (s : Scale) (low high span : Float) : Scale :=
+  let inner := span - low - high
+  if inner ≤ 0 || !(low ≥ 0) || !(high ≥ 0) then s else
+  match s.kind with
+  | .linear =>
+    let k := (s.hi - s.lo) / inner
+    { s with lo := s.lo - k * low, hi := s.hi + k * high }
+  | .log =>
+    match log10? s.lo, log10? s.hi with
+    | some l, some h =>
+      let k := (h - l) / inner
+      { s with lo := pow10f (l - k * low), hi := pow10f (h + k * high) }
+    | _, _ => s
+where
+  /-- `10 ^ x` for a real `x`. -/
+  pow10f (x : Float) : Float := Float.exp (x * Float.log 10)
+
 /-- Minor ticks between the major ticks of a linear axis (and beyond them up to the domain's
 ends): five intervals per step for a step of mantissa 1 or 5, four for 2. -/
 def minorValues (t : Ticks) : Array Float := Id.run do
@@ -121,29 +142,58 @@ def Scale.ofDomain (kind : ScaleKind) (lo hi : Float) (target : Nat) (fixed : Bo
     let (major, minor) := logTicks lo hi target
     { kind, lo, hi, major, minor }
 
-/-- The text of a value `v` as `x · 10^e` with a two-decimal mantissa, in E-notation. -/
-def eNotation (v : Float) : String :=
-  if v == 0 then "0" else
-    let e := floorInt (v.abs.log10 + 1e-9)
-    let m := v / pow10 e
-    let ms := fmtFixed m 2
-    let ms := if ms.contains '.' then
-      let t := (ms.toList.reverse.dropWhile (· == '0')).reverse
-      String.ofList (if t.getLast? == some '.' then t.dropLast else t)
-      else ms
-    ms ++ "e" ++ (if e < 0 then "−" ++ toString e.natAbs else toString e)
+/-- The digits of an integer as superscript characters (`⁻` for the sign), for exponents. -/
+def superscript (e : Int) : String :=
+  let digit : Char → Char := fun c => match c with
+    | '0' => '⁰' | '1' => '¹' | '2' => '²' | '3' => '³' | '4' => '⁴' | '5' => '⁵'
+    | '6' => '⁶' | '7' => '⁷' | '8' => '⁸' | _ => '⁹'
+  (if e < 0 then "⁻" else "") ++ (toString e.natAbs).map digit
 
-/-- A tick label: on a linear scale with the scale's decimals, in E-notation for magnitudes of
-10⁶ and more or below 10⁻⁴; on a logarithmic scale the power of ten as a number up to 10⁴ (down
-to 10⁻³), else in E-notation. -/
+/-- A mantissa with at most `d` decimals and no trailing zeros. -/
+def trimmed (m : Float) (d : Nat) : String :=
+  let ms := fmtFixed m d
+  if ms.contains '.' then
+    let t := (ms.toList.reverse.dropWhile (· == '0')).reverse
+    String.ofList (if t.getLast? == some '.' then t.dropLast else t)
+  else ms
+
+/-- The text of `v` as a multiple of `10^e`: `0` for zero, `10ᵉ` for `v = 10^e`, else the
+mantissa (at most two decimals) `× 10ᵉ`, the exponent in superscript digits. -/
+def timesPow10 (v : Float) (e : Int) : String :=
+  if v == 0 then "0" else
+    let m := v / pow10 e
+    let ms := trimmed m 2
+    if ms == "1" then "10" ++ superscript e
+    else if ms == "-1" then "−10" ++ superscript e
+    else (if m < 0 then "−" ++ (ms.drop 1).toString else ms) ++ "×10" ++ superscript e
+
+/-- The text of a value `v` as `m×10ᵉ` with `e` its own exponent (see `timesPow10`). -/
+def eNotation (v : Float) : String :=
+  if v == 0 then "0" else timesPow10 v (floorInt (v.abs.log10 + 1e-9))
+
+/-- Whether a linear scale's labels need powers of ten: a major tick of magnitude 10⁶ or more,
+or a non-zero one below 10⁻⁴. -/
+def Scale.needsPowers (s : Scale) : Bool :=
+  s.major.any fun v => v != 0 && (v.abs ≥ 1e6 || v.abs < 1e-4)
+
+/-- A tick label, in one style for the whole axis. On a linear scale: with the scale's decimals,
+or, when a tick needs it (`needsPowers`), every tick as a multiple of one power of ten, that of
+the largest tick (`0.5×10¹⁰`, `10¹⁰`, `1.5×10¹⁰`). On a logarithmic scale: every power of ten
+as a number when they all lie between 10⁻³ and 10⁴, else every one as `10ᵉ`. -/
 def formatTick (s : Scale) (v : Float) : String :=
   match s.kind with
   | .linear =>
-    if v != 0 && (v.abs ≥ 1e6 || v.abs < 1e-4) then eNotation v else fmtFixed v s.decimals
+    if s.needsPowers then
+      let big := s.major.foldl (fun m x => max m x.abs) 0
+      let e := if big > 0 then floorInt (big.log10 + 1e-9) else 0
+      timesPow10 v e
+    else fmtFixed v s.decimals
   | .log =>
+    let plain := s.major.all fun x =>
+      let e := floorInt (x.log10 + 1e-9)
+      e ≥ -3 && e ≤ 4
     let e := floorInt (v.log10 + 1e-9)
-    if e ≥ 0 && e ≤ 4 then fmtFixed v 0
-    else if e < 0 && e ≥ -3 then fmtFixed v e.natAbs
-    else eNotation v
+    if plain then (if e ≥ 0 then fmtFixed v 0 else fmtFixed v e.natAbs)
+    else "10" ++ superscript e
 
 end PILean.Plot

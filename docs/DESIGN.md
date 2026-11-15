@@ -280,11 +280,18 @@ outputs are written from that drawing.
   one series is labelled), then the grid. Gutters come from measured text: the widest tick label
   of any panel, the axis labels' line heights. Plot areas have whole-pixel edges; hairlines (grid,
   axes, ticks) sit on pixel centres. Shared axes give every panel one domain and keep tick labels
-  on the outer panels.
+  on the outer panels; a row whose horizontal tick labels are hidden keeps no room for them, so
+  the rows of plot areas are evenly spaced. The data keeps `Style.plotPadding` (8 px) from the
+  frame at each end (not below a zero baseline of bars or areas), so curves and markers never
+  touch it.
 * **Scales.** Linear axes take 1-2-5 steps (`niceTicks`) with the target number of ticks scaled
   by the axis length, and minor ticks (five or four per step); logarithmic axes take decades,
   thinned when there are many, with 2–9 times each as minor ticks. A domain from data is widened
-  to whole ticks; a given domain (or the interval of function series alone) is kept.
+  to whole ticks; a given domain (or the interval of function series alone) is kept. Tick labels
+  have one style per axis: plain numbers, or, when a tick needs a power of ten (10⁶ and above,
+  below 10⁻⁴), every tick as a multiple of the largest tick's power (`0.5×10¹⁰`, `10¹⁰`); a
+  logarithmic axis labels its decades as numbers between 10⁻³ and 10⁴ and otherwise every one as
+  `10ⁿ`, the exponents in superscript digits.
 * **Functions** are sampled for the picture (`sampleFunction`): 64 pieces halved while the
   midpoint is more than a quarter pixel off the chord or the piece is wider than 8 pixels, down to
   14 halvings, within 6000 evaluations; values far outside the visible range are clamped first,
@@ -293,7 +300,7 @@ outputs are written from that drawing.
 * **Awkward data.** Non-finite values break lines and are left out of extents; non-positive values
   have no position on a logarithmic axis; a panel without data shows its axes on `[0, 1]` and a
   note; constants get an interval around them; huge values are clamped in the output (and
-  labelled in E-notation); a function's automatic range leaves out extreme tails (2 % each side)
+  labelled with powers of ten); a function's automatic range leaves out extreme tails (2 % each side)
   when they are more than twelve times the central spread away.
 * **Style.** `Style` holds every visual constant; `Style.light` and `Style.dark`. The palette is
   Okabe and Ito's, ordered so that adjacent colours stay apart under colour-vision deficiencies;

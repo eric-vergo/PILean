@@ -378,6 +378,8 @@ def Figure.layout (fig : Figure) : Array PanelLayout := Id.run do
   let cellW := (fig.width - 2 * st.margin - (cols - 1).toFloat * st.panelGap) / cols.toFloat
   let cellH := (fig.height - top - st.margin - (rows - 1).toFloat * st.panelGap) / rows.toFloat
   let mut scales : Array (Scale × Scale × Array String × Bool) := #[]
+  let mut zeroBased : Array Bool := #[]
+  let mut points : Array Bool := #[]
   let mut leftG : Float := 0
   let anyPanelTitle := fig.panels.any (!·.title.isEmpty)
   let anyXLabel := fig.panels.any (!·.x.label.isEmpty)
@@ -398,6 +400,11 @@ def Figure.layout (fig : Figure) : Array PanelLayout := Id.run do
         let needsZero := p.y.includeZero || p.series.any fun s => match s with
           | .bars .. | .histogram .. | .area .. => true | _ => false
         (if needsZero && p.y.scale == ScaleKind.linear then (min e.1 0, max e.2 0) else e, false)
+    zeroBased := zeroBased.push (p.y.domain.isNone && p.y.scale == ScaleKind.linear &&
+      p.series.any fun s => match s with
+        | .bars .. | .histogram .. | .area .. => true | _ => false)
+    points := points.push (p.series.any fun s => match s with
+      | .function .. | .bars .. | .histogram .. => false | _ => true)
     let sy := Scale.ofDomain p.y.scale yd.1 yd.2 (tickTarget st cellH) yfixed
     let widest := sy.major.foldl (fun m v => max m (tx.measure (formatTick sy v) st.tickSize)) 0
     leftG := max leftG widest
@@ -410,17 +417,30 @@ def Figure.layout (fig : Figure) : Array PanelLayout := Id.run do
     else 0
   -- the last horizontal tick label reaches past the area's right edge
   let right := st.tickSize * 1.4
+  -- rows whose horizontal tick labels are hidden (a shared axis) keep no room for them: the
+  -- plot areas share the height that is left, so every row's area is as tall as the others
+  let showXOf := fun (i : Nat) => !fig.shareX || i / cols == rows - 1 || i + cols ≥ n
+  let rowBottom := fun (r : Nat) =>
+    if (List.range cols).any (fun c => r * cols + c < n && showXOf (r * cols + c)) then bottom
+    else 0
+  let bottoms := (List.range rows).foldl (fun acc r => acc + rowBottom r) 0
+  let plotH := (cellH * rows.toFloat - bottoms) / rows.toFloat - titleH
   let mut out := #[]
   for i in [0:n] do
     let (sx, sy, cats, hasData) := (scales[i]?).getD default
     let r := i / cols
     let c := i % cols
-    let showX := !fig.shareX || r == rows - 1 || i + cols ≥ n
+    let showX := showXOf i
     let showY := !fig.shareY || c == 0
     let x0 := st.margin + c.toFloat * (cellW + st.panelGap)
-    let y0 := top + r.toFloat * (cellH + st.panelGap)
+    let above := (List.range r).foldl (fun acc k => acc + titleH + plotH + rowBottom k) 0
+    let y0 := top + above + r.toFloat * st.panelGap
     let area : Box := ⟨(x0 + left).round, (y0 + titleH).round, (x0 + cellW - right).round,
-      (y0 + cellH - bottom).round⟩
+      (y0 + titleH + plotH).round⟩
+    -- room between the extreme data and the frame
+    let pad := st.plotPadding
+    let sy := sy.padded (if zeroBased.getD i false then 0 else pad) pad area.height
+    let sx := if cats.isEmpty && points.getD i false then sx.padded pad pad area.width else sx
     let pl : PanelLayout :=
       { area, sx, sy, categories := cats, xLabels := showX, yLabels := showY, hasData }
     out := out.push pl

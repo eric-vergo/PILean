@@ -75,6 +75,11 @@ structure Style where
   titleGap : Float := 10
   /-- Gap between panels. -/
   panelGap : Float := 24
+  /-- The room, in pixels, between the extreme data of a plot and its frame: the vertical
+  scale (and the horizontal one of a panel with data points) is widened by this much at each
+  end, so that curves and markers never touch or cross the frame; not below a zero baseline of
+  bars or areas, nor beside categories. -/
+  plotPadding : Float := 8
   /-- Gap between tick labels and the axis. -/
   tickLabelGap : Float := 6
   /-- Gap between an axis label and the tick labels. -/

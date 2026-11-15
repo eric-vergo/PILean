@@ -178,12 +178,22 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let x1 := refineBreadth size n chains order up down sep bw x0 o.refine
   let x := simplexBreadth size n chains order sep bw x1 8 o.coordinateWork
   let gap := if hasLabels then o.layerGap / 2 else o.layerGap
+  -- a gap that edges cross far sideways is made taller (up to three times), so that those
+  -- edges do not run flat just under the boxes of the layer above
+  let mut sideways : Array Float := Array.replicate order.size 0
+  for c in chains do
+    for j in [0:c.size - 1] do
+      let a := c.getD j 0
+      let b := c.getD (j + 1) 0
+      let la := layerAll.getD a 0
+      sideways := sideways.modify la (max · ((x.getD a 0) - (x.getD b 0)).abs)
   let mut levels : Array Float := Array.replicate order.size 0
   let mut t : Float := 0
   let mut prev : Float := 0
   for l in [0:order.size] do
     let th := thick.getD l 0
-    t := if l == 0 then th / 2 else t + prev / 2 + gap + th / 2
+    let g := if l == 0 then gap else min (3 * gap) (max gap (sideways.getD (l - 1) 0 / 5))
+    t := if l == 0 then th / 2 else t + prev / 2 + g + th / 2
     prev := th
     levels := levels.setIfInBounds l t.round
   let across := (Array.range size).map fun v =>
@@ -210,7 +220,8 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
       for v in [0:n] do
         let ps := (groups.getD v #[]).sortStable fun a b => a.1 < b.1 || (a.1 == b.1 && a.2 < b.2)
         let cnt := ps.size
-        let step := min o.portStep ((nb.getD v 0 - 20) / max 1 (cnt.toFloat - 1))
+        -- spread over the node's side, keeping clear of its rounded corners
+        let step := min o.portStep ((nb.getD v 0 - 16) / max 1 (cnt.toFloat - 1))
         for j in [0:cnt] do
           off := off.setIfInBounds (ps.getD j (0, 0)).2 ((j.toFloat - (cnt.toFloat - 1) / 2) * step)
       return off

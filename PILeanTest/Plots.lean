@@ -35,10 +35,18 @@ def scales : Array (String × Bool) :=
       ln.minor.size > 0 && ln.minor.all fun v => !ln.major.any fun m => (m - v).abs < 1e-9),
     ("tick multipliers ascend", tickMultipliers (-3) 4 == [-3, -2, -1, 0, 1, 2, 3, 4] &&
       tickMultipliers 5 4 == []),
-    ("labels: E-notation for huge and tiny values",
-      formatTick ln 2.5e7 == "2.5e7" && formatTick ln 3e-6 == "3e−6"),
-    ("labels: logarithmic labels", formatTick lg 1000 == "1000" && formatTick lg 1e6 == "1e6" &&
-      formatTick lg 0.01 == "0.01")]
+    ("labels: powers of ten in superscript for huge and tiny values",
+      eNotation 2.5e7 == "2.5×10⁷" && eNotation 3e-6 == "3×10⁻⁶" && eNotation 1e10 == "10¹⁰"),
+    ("labels: one style for every tick of a linear axis",
+      let big := Scale.ofDomain .linear 0 1.2e10 5 false
+      big.major.all (fun v => v == 0 || ((formatTick big v).splitOn "×10¹⁰").length > 1 ||
+        formatTick big v == "10¹⁰")),
+    ("labels: logarithmic labels as numbers within 10⁻³ to 10⁴",
+      formatTick lg 1000 == "1000" && formatTick lg 10 == "10"),
+    ("labels: logarithmic labels all as powers of ten past that",
+      let wide := Scale.ofDomain .log 1 1e18 6 false
+      wide.major.all fun v => (formatTick wide v).startsWith "10" &&
+        !(formatTick wide v).contains 'e')]
 
 /-- The largest vertical step between neighbouring points of polylines. -/
 def maxStep (pls : Array (Array Point)) : Float :=
