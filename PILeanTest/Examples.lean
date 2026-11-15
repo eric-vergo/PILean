@@ -371,4 +371,25 @@ def animations : Array (String × Animation) :=
   #[("wave", Animations.wave), ("growing-bars", Animations.bars),
     ("graph-build", Animations.graphBuild), ("proved-clock", ProvedExamples.provedClock)]
 
+/-! ### Raster pictures
+
+Pictures drawn directly with `PILean.Raster.Draw`, written as PNG only. -/
+
+/-- Rounded cards with soft drop shadows (`Draw.dropShadow`, `Path.roundedRect`) on a light and a
+dark ground, one card filled with a diagonal gradient: 480 × 200 pixels. -/
+def shadowCards : Image :=
+  let card := fun (d : Raster.Draw) (x y : Float) (fill : Raster.Paint) (shadow : Rgba) =>
+    let p := Path.roundedRect x y 120 120 22
+    (d.dropShadow p 0 8 9 shadow).fill p fill
+  let gold : Raster.Paint := .linear ⟨300, 40⟩ ⟨420, 160⟩
+    #[⟨0, ⟨255, 217, 138, 255⟩⟩, ⟨1, ⟨217, 149, 43, 255⟩⟩]
+  let d := Raster.Draw.new 480 200 ⟨236, 236, 238, 255⟩ (space := .srgb)
+  let d := d.rectangle 240 0 480 200 (fill := some (.solid ⟨30, 30, 34, 255⟩))
+  let d := card d 60 34 (.solid ⟨255, 255, 255, 255⟩) ⟨0, 0, 0, 90⟩
+  let d := card d 300 34 gold ⟨0, 0, 0, 160⟩
+  d.toImage .rgb
+
+/-- The raster pictures of the gallery by file name. -/
+def rasters : Array (String × Image) := #[("shadow-cards.png", shadowCards)]
+
 end PILeanTest.Examples

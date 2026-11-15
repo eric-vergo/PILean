@@ -15,7 +15,7 @@ returns a new image.
 
 * `Image.generate`: an image from a function of the pixel position and the channel.
 * `Image.sample`: one sample, 0 outside the image.
-* `Image.crop`, `Image.paste`, `Image.convert`.
+* `Image.crop`, `Image.paste`, `Image.convert`, `Image.alphaComposite`.
 * `Image.flipLeftRight`, `Image.flipTopBottom`, `Image.rotate90`, `Image.rotate180`,
   `Image.rotate270`, `Image.transpose`.
 * `Filter`, `Image.resize`.
@@ -130,6 +130,36 @@ def paste (dst src : Image) (x y : Int) (mask : Option Image := none) : Image :=
       | none => v
       | some m => blend (dst.sample px py k) v (maskValue m sx.toNat sy.toNat)
     else dst.sample px py k
+
+/-- The colour `src` over `dst`, both with straight alpha, mixed in the sRGB encoding as Pillow's
+`alpha_composite` mixes: the alpha `a = sa + da (255 - sa) / 255` and each colour channel
+`(sc sa 255 + dc da (255 - sa)) / (a 255)`, in integers rounded to nearest. -/
+def overRgba (src dst : Rgba) : Rgba :=
+  let sa := src.a.toNat
+  let da := dst.a.toNat
+  let a255 := sa * 255 + da * (255 - sa)
+  if a255 == 0 then ⟨0, 0, 0, 0⟩
+  else
+    let ch := fun (s d : UInt8) =>
+      ((s.toNat * sa * 255 + d.toNat * da * (255 - sa) + a255 / 2) / a255).toUInt8
+    ⟨ch src.r dst.r, ch src.g dst.g, ch src.b dst.b, ((a255 + 127) / 255).toUInt8⟩
+
+/-- `dst` with `src` composited over it, `src`'s top left corner at `(x, y)` (Pillow's
+`alpha_composite` with `dest`): every pixel of `dst` under `src` becomes `overRgba` of the two;
+both are read as RGBA (an `L` or `RGB` image as opaque). The result has `dst`'s mode and size; an
+`L` or `RGB` result drops the alpha as `convert` does. -/
+def alphaComposite (dst src : Image) (x y : Int) : Image := Id.run do
+  let mut out := dst
+  for sy in [0:src.height] do
+    let py : Int := y + sy
+    if py < 0 || py ≥ dst.height then continue
+    for sx in [0:src.width] do
+      let px : Int := x + sx
+      if px < 0 || px ≥ dst.width then continue
+      let s := src.getpixel sx sy
+      if s.a == 0 then continue
+      out := out.putpixel px.toNat py.toNat (overRgba s (dst.getpixel px.toNat py.toNat))
+  return out
 
 /-! ### Flips and quarter turns -/
 

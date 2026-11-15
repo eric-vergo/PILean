@@ -6,6 +6,7 @@ import PILeanTest.Color
 import PILeanTest.Units
 import PILeanTest.Examples
 import PILeanTest.Raster
+import PILeanTest.Blur
 import PILeanTest.Png
 import PILeanTest.Image
 import PILeanTest.Anim
@@ -25,7 +26,7 @@ import PILeanTest.Tools
 # The test driver
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
-`PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Anim`, `PILeanTest.Plots`,
+`PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`, `PILeanTest.Plots`,
 `PILeanTest.Graphs`, `PILeanTest.Trust`, `PILeanTest.TrustBuild`, `PILeanTest.Inert`,
 `PILeanTest.Exact`) and compares
 every gallery figure's SVG and PNG, every gallery graph's SVG and PNG, and every gallery
@@ -79,7 +80,7 @@ def main (args : List String) : IO UInt32 := do
   | "--graph-compare-out" :: _ => IO.eprintln "usage: --graph-compare-out DIR"; return 1
   | _ => pure ()
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
-    Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++
+    Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++ Blur.checks ++
     Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
     Graphs.checks ++ GraphQuality.checks ++ GraphDot.checks ++ Trust.checks ++
     (← Trust.ioChecks) ++ TrustBuild.checks ++
@@ -150,4 +151,17 @@ def main (args : List String) : IO UInt32 := do
             the change)"
           failed := failed + 1
         else IO.println s!"golden {path}: same"
+  for (name, im) in Examples.rasters do
+    let bytes := im.writePng.toOption.getD .empty
+    let path : System.FilePath := "examples" / name
+    if args == ["--update"] then
+      IO.FS.writeBinFile path bytes
+      IO.println s!"wrote {path}"
+    else
+      let golden ← if ← path.pathExists then IO.FS.readBinFile path else pure .empty
+      if golden.data != bytes.data || (im.writePng.toOption.getD .empty).data != bytes.data then
+        IO.eprintln s!"FAIL {path}: differs or is not deterministic (`lake exe pilean-test \
+          --update` after checking the change)"
+        failed := failed + 1
+      else IO.println s!"golden {path}: same"
   return if failed == 0 then 0 else 1

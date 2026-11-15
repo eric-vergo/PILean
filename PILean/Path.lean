@@ -14,7 +14,8 @@ rasteriser later).
 ## Main definitions
 
 * `PathCmd`, `Path`: the commands and the path; `Path.moveTo`, `lineTo`, `quadTo`, `cubicTo`,
-  `close` build one; `Path.rect`, `Path.polyline`, `Path.ellipse` common shapes.
+  `close` build one; `Path.rect`, `Path.roundedRect`, `Path.polyline`, `Path.ellipse` common
+  shapes.
 * `Path.transform`: the path under an affine transform (Béziers are affine invariant).
 * `Path.flatten`: the path as polylines, each curve cut so that no point of the polyline is
   farther than a tolerance from the curve.
@@ -124,6 +125,21 @@ def ellipse (c : Point) (rx ry : Float) : Path :=
   (((((empty.moveTo (p rx 0)).cubicTo (p rx (k * ry)) (p (k * rx) ry) (p 0 ry)).cubicTo
     (p (-k * rx) ry) (p (-rx) (k * ry)) (p (-rx) 0)).cubicTo (p (-rx) (-k * ry))
     (p (-k * rx) (-ry)) (p 0 (-ry))).cubicTo (p (k * rx) (-ry)) (p rx (-k * ry)) (p rx 0)).close
+
+/-- The closed rectangle with corners `(x, y)` and `(x + w, y + h)` and its corners rounded to
+quarter circles of radius `r` (clamped to `0` and to half the shorter side), each a cubic arc
+(`kappa`), drawn clockwise on screen. Its area is `w h - (4 - π) r²` to within the cubic arcs'
+error. -/
+def roundedRect (x y w h r : Float) : Path :=
+  let r := max 0 (min r (min (w / 2) (h / 2)))
+  let k := kappa * r
+  let (x1, y1) := (x + w, y + h)
+  empty
+    |>.moveTo ⟨x + r, y⟩ |>.lineTo ⟨x1 - r, y⟩
+    |>.cubicTo ⟨x1 - r + k, y⟩ ⟨x1, y + r - k⟩ ⟨x1, y + r⟩ |>.lineTo ⟨x1, y1 - r⟩
+    |>.cubicTo ⟨x1, y1 - r + k⟩ ⟨x1 - r + k, y1⟩ ⟨x1 - r, y1⟩ |>.lineTo ⟨x + r, y1⟩
+    |>.cubicTo ⟨x + r - k, y1⟩ ⟨x, y1 - r + k⟩ ⟨x, y1 - r⟩ |>.lineTo ⟨x, y + r⟩
+    |>.cubicTo ⟨x, y + r - k⟩ ⟨x + r - k, y⟩ ⟨x + r, y⟩ |>.close
 
 /-- The path under the transform. -/
 def transform (m : Affine) (path : Path) : Path := ⟨path.cmds.map (·.transform m)⟩

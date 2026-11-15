@@ -11,7 +11,7 @@ import PILeanTest.Examples
 as SVG and as PNG, every graph of `PILeanTest.Examples.graphs` the same way, and every
 animation of `PILeanTest.Examples.animations` as an animated SVG
 (`NAME.svg`), an animated PNG (`NAME.png`), a GIF (`NAME.gif`) and its poster frame
-(`NAME-poster.png`).
+(`NAME-poster.png`), and every raster picture of `PILeanTest.Examples.rasters` as PNG.
 -/
 
 open PILeanTest.Examples PILean.Plot
@@ -36,3 +36,6 @@ def main : IO Unit := do
     if let .ok b := a.toGif then IO.FS.writeBinFile ("examples" / s!"{name}.gif") b
     if let .ok b := a.posterPng then IO.FS.writeBinFile ("examples" / s!"{name}-poster.png") b
     IO.println s!"examples/{name}.svg, .png, .gif, -poster.png"
+  for (name, im) in rasters do
+    if let .ok b := im.writePng then IO.FS.writeBinFile ("examples" / name) b
+    IO.println s!"examples/{name}"

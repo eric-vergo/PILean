@@ -40,6 +40,7 @@ import PILean.Raster.Coverage
 import PILean.Raster.Canvas
 import PILean.Raster.Stroke
 import PILean.Raster.Draw
+import PILean.Raster.Blur
 import PILean.Raster.SvgRender
 import PILean.Raster.Proofs
 import PILean.Trust.Sha256

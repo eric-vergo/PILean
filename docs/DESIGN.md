@@ -28,8 +28,8 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Path` | `PathCmd`, `Path`, shapes, `transform`, `flatten`, `bounds` | done |
 | `PILean.Svg` | the SVG document model and writer | done |
 | `PILean.Plot.Ticks`, `Scale`, `Sample`, `Figure`, `Proofs` | nice ticks (multipliers proved ascending and inside their interval), linear and logarithmic scales with minor ticks, adaptive sampling of functions, the `Figure` model (panels, axes, series, legends, annotations) drawn on the canvas | done |
-| `PILean.Raster` | anti-aliased scanline fill by area coverage in integers (non-zero and even-odd), clipping to rectangles and paths, the stroker (joins, caps, miter limit, dashes), gradients, compositing in linear light, group opacity, `Draw` (in the spirit of `ImageDraw`), SVG nodes drawn | done |
-| `PILean.Image` | `Image` (mode, size, pixels in a `ByteArray`), `getpixel`, `putpixel`, crop, paste with a mask, convert, flips and quarter turns, resize (nearest, bilinear, box, Lanczos) | done |
+| `PILean.Raster` | anti-aliased scanline fill by area coverage in integers (non-zero and even-odd), clipping to rectangles and paths, the stroker (joins, caps, miter limit, dashes), gradients, compositing in linear light, group opacity, `Draw` (in the spirit of `ImageDraw`), Gaussian blur and drop shadows, SVG nodes drawn | done |
+| `PILean.Image` | `Image` (mode, size, pixels in a `ByteArray`), `getpixel`, `putpixel`, crop, paste with a mask, alpha compositing, convert, flips and quarter turns, resize (nearest, bilinear, box, Lanczos) | done |
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`; the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Anim` | a `FrameSeq` (equally sized RGBA frames, a rational delay each, a loop count) and its codecs. APNG: writer (frame differencing to the changed rectangle, equal frames merged, delays as reduced fractions) and reader (composes `dispose_op` and `blend_op`, any PNG colour type, caps on size, frames and bytes). GIF89a: writer (LZW, one global palette by median cut or the exact colours, optional Floyd–Steinberg dithering, differencing with a transparent index, delays in centiseconds with exact cumulative time, loop extension) and reader (global and local tables, interlacing, disposal 0–3, transparency, caps) | done |
 | `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark` | done |
@@ -115,6 +115,18 @@ Gradients interpolate in linear light. SVG interpolates in sRGB (its `color-inte
 attribute is not implemented for gradients by browsers), so PILean writes a gradient to SVG with
 sixteen stops per segment sampled from its own interpolation (`gradientNode`), and both outputs
 show the same colours (0.3 levels on average in the comparison).
+
+**Blur and shadows** (`Raster/Blur.lean`). `Mask.blur` blurs a coverage mask by a Gaussian in two
+separable passes over one kernel of integer weights that add up to exactly `2 ^ 16`; the weights
+come from `exp (-i² / 2σ²)` evaluated with the basic operations only (`expNeg`, a series and
+repeated squaring), so they are the same on every machine, and the passes are integer sums with
+one rounding each. The kernel reaches `⌈3σ⌉` pixels each way; outside the mask counts as
+transparent. Caps: `σ ≤ 256` and at most `4096 × 4096` pixels, and only the rows and columns the
+kernel reaches from a covered pixel are visited. `Draw.dropShadow` moves a shape's coverage, blurs
+it and paints it in a colour; the shape is drawn over it next. The tests compare the blur of a
+straight edge with the Gaussian's cumulative distribution (within one level), keep a constant
+layer exactly constant, and record the SHA-256 of a blurred disc. Pillow's `GaussianBlur`
+approximates a Gaussian by three box blurs; PILean's is the sampled Gaussian itself.
 
 The figure of a 2000 × 1200 function plot: drawing 244 ms, conversion to an 8-bit image 87 ms,
 PNG encoding 689 ms (one core of an Apple M2 Ultra, under load; `lake exe pilean-test --bench`).

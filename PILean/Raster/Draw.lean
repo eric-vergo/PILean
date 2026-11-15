@@ -82,17 +82,9 @@ def rectangle (d : Draw) (x0 y0 x1 y1 : Float) (fill : Option Paint := none)
     d.stroke (Path.rect (x0 + h) (y0 + h) (x1 - x0 - width) (y1 - y0 - width)) { width } o
   | none => d
 
-/-- A rectangle with corners rounded to radius `r` (Pillow's `rounded_rectangle`). -/
-def roundedRectPath (x0 y0 x1 y1 r : Float) : Path :=
-  let r := max 0 (min r (min ((x1 - x0) / 2) ((y1 - y0) / 2)))
-  -- a quarter circle as one cubic: control points at the standard distance 0.5523 r
-  let k := 0.5522847498 * r
-  Path.empty
-    |>.moveTo ⟨x0 + r, y0⟩ |>.lineTo ⟨x1 - r, y0⟩
-    |>.cubicTo ⟨x1 - r + k, y0⟩ ⟨x1, y0 + r - k⟩ ⟨x1, y0 + r⟩ |>.lineTo ⟨x1, y1 - r⟩
-    |>.cubicTo ⟨x1, y1 - r + k⟩ ⟨x1 - r + k, y1⟩ ⟨x1 - r, y1⟩ |>.lineTo ⟨x0 + r, y1⟩
-    |>.cubicTo ⟨x0 + r - k, y1⟩ ⟨x0, y1 - r + k⟩ ⟨x0, y1 - r⟩ |>.lineTo ⟨x0, y0 + r⟩
-    |>.cubicTo ⟨x0, y0 + r - k⟩ ⟨x0 + r - k, y0⟩ ⟨x0 + r, y0⟩ |>.close
+/-- A rectangle from `(x0, y0)` to `(x1, y1)` with corners rounded to radius `r` (Pillow's
+`rounded_rectangle`): `Path.roundedRect` with corners rather than a size. -/
+def roundedRectPath (x0 y0 x1 y1 r : Float) : Path := Path.roundedRect x0 y0 (x1 - x0) (y1 - y0) r
 
 /-- A rounded rectangle, filled, outlined (inside), or both. -/
 def roundedRectangle (d : Draw) (x0 y0 x1 y1 r : Float) (fill : Option Paint := none)

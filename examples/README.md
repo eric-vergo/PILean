@@ -57,6 +57,14 @@ also shows instead of the motion when the viewer asks for reduced motion.
 | **Growing bars**, played once (`growing-bars`) | ![](growing-bars.svg) | ![](growing-bars.png) | ![](growing-bars.gif) | ![](growing-bars-poster.png) |
 | **A graph building up**, layer by layer: every element in every frame, only opacities change, so the SVG interpolates (`graph-build`) | ![](graph-build.svg) | ![](graph-build.png) | ![](graph-build.gif) | ![](graph-build-poster.png) |
 
+## Raster pictures
+
+Drawn directly with `PILean.Raster.Draw` (`PILeanTest/Examples.lean`, `rasters`), written as PNG.
+
+| Picture | PNG |
+|---|---|
+| **Cards with drop shadows** — `Path.roundedRect` filled over `Draw.dropShadow` (a Gaussian blur of its coverage), one card with a diagonal gradient, mixed in sRGB (`shadow-cards`) | ![](shadow-cards.png) |
+
 ## Pictures with a theorem
 
 One picture of each kind whose content is specified by a theorem about the Lean object it was
