@@ -15,7 +15,7 @@ PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program
 | Paths: lines, quadratic and cubic Béziers, flattening to a tolerance, tight and control boxes | done |
 | SVG writer: typed document model, deterministic output, escaping of all text | done |
 | Plots: function graphs and data lines, nice-number ticks, legends, written from a `Figure` value | first version; see `examples/` |
-| Rasteriser, PNG (pure-Lean deflate, CRC), canvas, text through LeAnTeX, graphs, traceability | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
+| Rasteriser, PNG (pure-Lean deflate, CRC), canvas, text, graphs, traceability | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
 
 ## Use
 

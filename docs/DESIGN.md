@@ -7,8 +7,9 @@ outline, what is exact and what is floating point, and the open choices.
 
 ## Principles
 
-1. **Pure Lean, `Init` and `Std` only.** No FFI, no Mathlib, no large dependencies. Text comes
-   from LeAnTeX (fonts and layout), added as a dependency when the text layer needs it.
+1. **Pure Lean, `Init` and `Std` only.** No FFI, no Mathlib, no large dependencies. Text will
+   come from a companion typesetting library (fonts and layout; not yet public), added as a
+   dependency once it is published.
 2. **Values first.** An image, a figure, a drawing or a graph is a Lean value; output is a
    function of it. The same value gives the same bytes on every machine (deterministic number
    formatting, stable ordering, no clocks or randomness).
@@ -16,7 +17,7 @@ outline, what is exact and what is floating point, and the open choices.
    hostile: escaped, bounded, checked; no panics, every loop bounded by its input.
 4. **Craft.** Defaults that look deliberate without tuning: whole-pixel plot areas, hairlines on
    pixel centres, a restrained colour-blind-safe palette, typographic minus signs, consistent
-   margins; visual variants go to the owner before a default is fixed.
+   margins; visual variants are compared side by side before a default is fixed.
 
 ## Module layout
 
@@ -31,8 +32,8 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Image` | `Image` (mode, size, pixels in a `ByteArray`), `ImageDraw`-style operations on it, crop, paste, resize (box, bilinear, Lanczos), channel operations | next |
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt` chunks | next |
 | `PILean.Canvas` | a retained vector canvas: layers, groups, transforms, styles, text runs; rendered to SVG or through `Raster` to PNG | later |
-| `PILean.Text` | text through LeAnTeX: its OpenType reader (outlines, advances, kerning, ligatures) and, later, its text and math layout; labels become outlines or SVG text | later |
-| `PILean.Plot.*` | scales (linear, log, symlog, time), axes, scatter, bar, histogram, area, error bars, legends, facets; LaTeX labels through LeAnTeX | later |
+| `PILean.Text` | text through the companion typesetting library: its OpenType reader (outlines, advances, kerning, ligatures) and, later, its text and math layout; labels become outlines or SVG text | later |
+| `PILean.Plot.*` | scales (linear, log, symlog, time), axes, scatter, bar, histogram, area, error bars, legends, facets; LaTeX labels through the companion typesetting library | later |
 | `PILean.Graph` | nodes and edges, a layered (Sugiyama) layout, edge routing with splines, labels | later |
 | `PILean.Trust` | source links, fingerprints, manifests and their checker, and the theorems that tie a figure to its Lean object | later |
 
@@ -62,8 +63,7 @@ def Rgba.ofHex? (s : String) : Option Rgba             -- done
 ```
 
 What PILean takes from Pillow is the shape of the API and its documented behaviour (modes such as
-`L`, `RGB`, `RGBA`; box coordinates; filter names); no Pillow code. `THIRD-PARTY.md` records
-Pillow's MIT-CMU licence.
+`L`, `RGB`, `RGBA`; box coordinates; filter names); no Pillow code (`THIRD-PARTY.md`).
 
 ## Exact and floating point
 
@@ -78,9 +78,9 @@ Pillow's MIT-CMU licence.
 - **Output formatting:** every number written to SVG goes through one formatter with a fixed
   number of decimals and no exponent, so output is byte-stable.
 
-## The raster batch: what it adds to the IDE's path filler
+## The rasteriser: what it adds to an earlier path filler
 
-IDEiL's `Ideil.Core.PathFill` (the owner's code) parses SVG path data, flattens to a fixed device
+An earlier path filler by the same authors parses SVG path data, flattens to a fixed device
 tolerance and computes exact per-line coverage under the non-zero rule, sampled on 16 lines per
 pixel row, into an alpha mask. `PILean.Raster` builds on its approach and must add: the even-odd
 rule; a stroker (round, miter and bevel joins with a miter limit; butt, round and square caps;
@@ -92,7 +92,7 @@ and image size).
 
 ## Trust
 
-Four parts, all requested by the owner:
+Four parts:
 
 1. **Source.** Every image records the Lean file and declaration that built it: SVG `<metadata>`
    (and a `data-source` attribute on the root), a PNG `iTXt` chunk; galleries show a "Source"
@@ -108,27 +108,24 @@ Four parts, all requested by the owner:
    is in the declared relation and every related pair is drawn. Statements first, proofs second,
    about the functions the code calls.
 
-## Open choices for the owner
+## Open design questions
 
-Each has a recommendation; none blocks the next batch.
+Each question has a current default, which the code follows until the question is settled.
 
-1. **Text in SVG: outlines or `<text>`.** Outlines (glyph paths from LeAnTeX's font reader) look
-   the same everywhere and need no installed font, but are larger and not selectable; `<text>`
-   with an embedded subset font (WOFF2 needs Brotli) is smaller and selectable.
-   *Recommendation:* outlines by default for figures (exact appearance, no font licensing in each
-   file beyond what the font allows), `<text>` as an option.
-2. **Default text family.** New Computer Modern (the owner's choice for documents, licence under
-   review) or Latin Modern for plot labels. *Recommendation:* the same family as the document
-   (NewCM) once its licence is accepted; Latin Modern Sans until then.
-3. **Pixel model.** Straight or premultiplied alpha in `Image`. *Recommendation:* straight alpha
-   in the public `Image` (as Pillow's `RGBA`), premultiplied inside the rasteriser.
-4. **Anti-aliasing.** Analytic area coverage or sub-row sampling. *Recommendation:* analytic
-   coverage (exact for polygons, matches FreeType and font rendering).
-5. **Default figure size and style.** 640 × 400 px with the current theme, or a print-oriented
-   size in points. *Recommendation:* keep pixels as the unit and offer a few rendered style
-   variants for the owner to choose from in the plots batch.
+1. **Text in SVG: outlines or `<text>`.** Outlines (glyph paths from a font reader) look the same
+   everywhere and need no installed font, but are larger and not selectable; `<text>` with an
+   embedded subset font (WOFF2 needs Brotli) is smaller and selectable. *Default:* outlines for
+   figures (exact appearance), `<text>` as an option.
+2. **Default text family.** New Computer Modern or Latin Modern for plot labels. *Default:* Latin
+   Modern Sans.
+3. **Pixel model.** Straight or premultiplied alpha in `Image`. *Default:* straight alpha in the
+   public `Image` (as Pillow's `RGBA`), premultiplied inside the rasteriser.
+4. **Anti-aliasing.** Analytic area coverage or sub-row sampling. *Default:* analytic coverage
+   (exact for polygons, as in font rasterisers).
+5. **Default figure size and style.** 640 × 400 px, or a print-oriented size in points.
+   *Default:* pixels as the unit; style variants to be compared side by side.
 6. **Where figures live in a blueprint.** A Lean attribute (`@[figure]`) on a definition of type
-   `Figure` that the site build renders, or explicit calls in the blueprint source.
-   *Recommendation:* the attribute, which also gives the trust layer its source declaration.
-7. **Graph layout depth.** Layered layout only, or force-directed as well. *Recommendation:*
-   layered first (deterministic, suits dependency graphs), force-directed later.
+   `Figure` that the site build renders, or explicit calls in the blueprint source. *Default:* the
+   attribute, which also gives the trust layer its source declaration.
+7. **Graph layout depth.** Layered layout only, or force-directed as well. *Default:* layered
+   first (deterministic, suits dependency graphs), force-directed later.
