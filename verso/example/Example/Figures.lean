@@ -1,0 +1,182 @@
+/-
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
+-/
+import PILean
+import PILean.Trust.Attr
+
+/-!
+# The example's figures
+
+Four pictures, each the value of a declaration marked `@[figure]`, each with a theorem about the
+Lean object it is drawn from (see PILean's `docs/PROOFS.md`):
+
+* `cubicPlot`: the cubic `x³ − 3x` and its derivative, plotted from exact samples
+  (`cubicPlot_spec`);
+* `collatzPlot`: the Collatz stopping times of 1 to 40, a line through the computed list
+  (`collatzPlot_spec`);
+* `divisorGraph`: the divisors of 24 joined by the covering relation of divisibility
+  (`divisorGraph_spec`);
+* `circleAnimation`: a point going once round the unit circle with its height
+  (`circleAnimation_spec`).
+-/
+
+namespace Example
+
+open PILean PILean.Plot
+
+/-! ### A function plot -/
+
+/-- The cubic `x³ − 3x`, exact. -/
+def cubic (x : Q) : Q := x * x * x - Q.ofInt 3 * x
+
+/-- Its derivative `3x² − 3`, exact. -/
+def cubic' (x : Q) : Q := Q.ofInt 3 * x * x - Q.ofInt 3
+
+/-- The left end of the interval: `-2`. -/
+def lo : Q := Q.ofInt (-2)
+
+/-- The right end of the interval: `2`. -/
+def hi : Q := Q.ofInt 2
+
+/-- The number of steps of the grid. -/
+def steps : Nat := 32
+
+/-- The cubic's series: a line through its 33 exact samples. -/
+def cubicSeries : Series := .ofExact "x³ − 3x" cubic lo hi steps
+
+/-- The derivative's series, dashed. -/
+def cubicSeries' : Series := .ofExact "3x² − 3" cubic' lo hi steps (dash := #[5, 4])
+
+/-- The cubic x³ − 3x and its derivative on [−2, 2]. -/
+@[figure]
+def cubicPlot : Figure where
+  title := "The cubic x³ − 3x and its derivative"
+  panels := #[{
+      x := { label := "x" }, y := { label := "y" },
+      series := #[cubicSeries, cubicSeries'] }]
+
+/-- The cubic's curve in `cubicPlot` is its exact samples converted one by one: 33 points, whose
+abscissae are the grid from `-2` to `2` in steps of `1/8` and whose ordinates are the exact
+values of `cubic`. -/
+theorem cubicPlot_spec :
+    cubicSeries.points = ((Q.samples cubic lo hi steps).map Q.toPoint).toArray ∧
+    cubicSeries.points.size = 33 ∧
+    ∀ p ∈ Q.samples cubic lo hi steps, p.1 ∈ Q.grid lo hi steps ∧ p.2 = cubic p.1 :=
+  ⟨Series.ofExact_points .., Series.ofExact_size .., fun _ hp => (Q.mem_samples ..).1 hp⟩
+
+/-- The hypotheses are met: the grid's step is `1/8`. -/
+example : Q.Equiv (Q.gridStep lo hi steps) (Q.ofFrac 1 8) := by decide
+
+/-! ### A data plot -/
+
+/-- The number of steps the Collatz map takes from `n` to 1, looking at most `fuel` steps ahead
+(0 when it does not get there in time). -/
+def collatzSteps : (fuel n : Nat) → Nat
+  | 0, _ => 0
+  | fuel + 1, n =>
+    if n ≤ 1 then 0
+    else 1 + collatzSteps fuel (if n % 2 == 0 then n / 2 else 3 * n + 1)
+
+/-- The stopping times of 1 to 40, as integer points `(n, steps)`. -/
+def collatzData : List (Int × Int) :=
+  (List.range 40).map fun k => (Int.ofNat (k + 1), Int.ofNat (collatzSteps 500 (k + 1)))
+
+/-- The Collatz stopping times of 1 to 40. -/
+@[figure]
+def collatzPlot : Figure where
+  title := "Collatz stopping times"
+  panels := #[{
+      x := { label := "n" }, y := { label := "steps to reach 1" },
+      series := #[.ofIntPoints "steps" collatzData,
+        .scatterOfIntPoints "n" collatzData] }]
+
+/-- The line and the markers of `collatzPlot` are the computed list point for point: none added,
+dropped or changed. -/
+theorem collatzPlot_spec :
+    (Series.ofIntPoints "steps" collatzData).points =
+        (collatzData.map fun p => Q.toPoint (Q.ofIntPair p)).toArray ∧
+      (Series.scatterOfIntPoints "n" collatzData).points =
+        (collatzData.map fun p => Q.toPoint (Q.ofIntPair p)).toArray ∧
+      (collatzData.map Q.ofIntPair).map (fun q => (q.1.num, q.2.num)) = collatzData :=
+  ⟨Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
+    Series.ofIntPairs_recover _⟩
+
+/-- The data are what they should be: 27 takes 111 steps, and 1, 2, 3 take 0, 1 and 7. -/
+example : collatzSteps 500 27 = 111 ∧ collatzData.take 3 = [(1, 0), (2, 1), (3, 7)] := by
+  decide +kernel
+
+/-! ### A graph of a relation -/
+
+/-- The divisors of 24. -/
+def divisors24 : List Nat := [1, 2, 3, 4, 6, 8, 12, 24]
+
+/-- `b` covers `a` in divisibility: `a` is a proper divisor of `b` with no divisor of 24 strictly
+between them. -/
+def covers (a b : Nat) : Bool :=
+  a < b && b % a == 0 &&
+    divisors24.all fun c => !(a < c && c < b && c % a == 0 && b % c == 0)
+
+/-- The divisors of 24 ordered by divisibility: an edge for every covering pair. -/
+@[figure]
+def divisorGraph : PILean.Graph :=
+  Graph.ofRelation divisors24 covers toString
+
+/-- The nodes of `divisorGraph` are the divisors of 24, its edges exactly the covering pairs, each
+once, and its layout draws one route for each edge, in order. -/
+theorem divisorGraph_spec (o : Graph.LayeredOptions) (st : Style) :
+    divisorGraph.nodes.toList.map (·.label) = divisors24.map toString ∧
+    (∀ i j, (i, j) ∈ Graph.relationPairs divisors24 covers ↔
+      ∃ a b, divisors24[i]? = some a ∧ divisors24[j]? = some b ∧ covers a b = true) ∧
+    (Graph.relationPairs divisors24 covers).Nodup ∧
+    (divisorGraph.layout o st).edges.toList.map (fun e => (e.index, e.src, e.dst)) =
+      (List.range (Graph.relationPairs divisors24 covers).length).zip
+        (Graph.relationPairs divisors24 covers) := by
+  refine ⟨?_, fun i j => Graph.mem_relationPairs .., Graph.relationPairs_nodup .., ?_⟩
+  · unfold divisorGraph
+    exact Graph.ofRelation_node_labels divisors24 covers toString true
+  · unfold divisorGraph
+    exact Graph.ofRelation_layout_edges divisors24 covers toString true o st
+
+/-- The relation is not empty: 4 covers 2 (positions 1 and 3), and there are 10 covering pairs. -/
+example : (1, 3) ∈ Graph.relationPairs divisors24 covers ∧
+    (Graph.relationPairs divisors24 covers).length = 10 := by
+  decide +kernel
+
+/-! ### An animation -/
+
+/-- One frame: the unit circle, a point at the angle `2π t` on it, and its height. -/
+def circleFrame (t : Float) : Canvas.Shape :=
+  let a := 2 * 3.141592653589793 * t
+  let c : Point := ⟨120 + 80 * a.cos, 120 - 80 * a.sin⟩
+  let ink : Rgba := ⟨41, 98, 255, 255⟩
+  .group #[
+    .path (Canvas.circle ⟨120, 120⟩ 80) none (some { ink := ⟨190, 195, 205, 255⟩, width := 2 }),
+    .path (Path.polyline #[⟨32, 120⟩, ⟨208, 120⟩]) none
+      (some { ink := ⟨210, 214, 222, 255⟩, width := 1.5 }),
+    .path (Path.polyline #[c, ⟨c.x, 120⟩]) none (some { ink, width := 2, dash := #[4, 3] }),
+    .path (Canvas.circle c 9) (some (.solid ink)) none]
+
+/-- A point going once round the unit circle in two seconds, 15 frames a second, with its
+height. -/
+@[figure]
+def circleAnimation : Animation :=
+  { width := 240, height := 240, fps := 15, duration := 2, loops := 0, frame := fun t =>
+      circleFrame (t / 2), posterTime := some 0.25,
+    text := Style.light.text, fontFamily := Style.light.fontFamily }
+
+/-- Frame `i` of `circleAnimation` is the drawing at the time `i / 15`: the time passed is the
+conversion of that exact fraction, and the raster frames are drawn from it. -/
+theorem circleAnimation_spec (i : Nat) :
+    circleAnimation.time i = (circleAnimation.exactTime i).toFloat ∧
+    (circleAnimation.exactTime i).num = i ∧ (circleAnimation.exactTime i).den = 15 ∧
+    (∀ h : i < circleAnimation.frameSeq.frames.size, circleAnimation.frameSeq.frames[i] =
+      (circleAnimation.frame (circleAnimation.time i)).toImage 240 240 Style.light.text
+        ⟨255, 255, 255, 255⟩) :=
+  ⟨Animation.time_eq_exactTime .., rfl, rfl, fun h => Animation.frameSeq_getElem _ i h⟩
+
+/-- The hypotheses are met: frame 5 is at `5/15`. -/
+example : (circleAnimation.exactTime 5).num = 5 ∧ (circleAnimation.exactTime 5).den = 15 := by
+  decide
+
+end Example
