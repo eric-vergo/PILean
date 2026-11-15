@@ -11,6 +11,7 @@ import PILean.Anim.Quantize
 import PILean.Anim.Gif
 import PILean.Anim.GifRead
 import PILean.Anim.Animation
+import PILean.Anim.Proofs
 
 /-!
 # Animated images

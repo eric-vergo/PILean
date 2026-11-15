@@ -14,11 +14,13 @@ import PILean.Canvas
 import PILean.Image.Basic
 import PILean.Image.Ops
 import PILean.Image.Proofs
+import PILean.Exact
 import PILean.Plot.Ticks
 import PILean.Plot.Scale
 import PILean.Plot.Sample
 import PILean.Plot.Figure
 import PILean.Plot.Proofs
+import PILean.Plot.Exact
 import PILean.Graph.Model
 import PILean.Graph.Layout
 import PILean.Graph.Layering

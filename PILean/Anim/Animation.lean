@@ -5,6 +5,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILean.Anim.Apng
 import PILean.Anim.Gif
 import PILean.Canvas
+import PILean.Exact
 
 /-!
 # Animations
@@ -77,6 +78,10 @@ def frameCount : Nat :=
 
 /-- The time of frame `i`. -/
 def time (i : Nat) : Float := i.toFloat / (max a.fps 1).toFloat
+
+/-- The exact time of frame `i`: the fraction `i / fps` (a frame rate of zero counts as one).
+`time i` is its conversion to a `Float` (`time_eq_exactTime`). -/
+def exactTime (i : Nat) : Q := ⟨i, max a.fps 1, Nat.lt_of_lt_of_le Nat.one_pos (Nat.le_max_right _ _)⟩
 
 /-- The poster frame's time. -/
 def poster : Float := a.posterTime.getD (a.time (a.frameCount - 1))
@@ -210,13 +215,18 @@ def reducedMotionStyle : Node :=
   el "style" #[] #[.text (".poster{display:none}@media (prefers-reduced-motion: reduce)" ++
     "{.poster{display:inline}.motion{display:none}}")]
 
+/-- The element trees of the frames, as the animated SVG writes them: frame `i` is the drawing
+at the time `time i`, rendered with text mode `mode`. -/
+def frameTrees (mode : TextMode) : Array Node :=
+  (List.range a.frameCount).toArray.map fun i => el "g" #[] (a.frame (a.time i) |>.render mode)
+
 /-- The animation as an animated SVG document (see the module docstring). -/
 def toSvg : String := Id.run do
   let n := a.frameCount
   let w := a.width.toFloat
   let h := a.height.toFloat
   let mode := TextMode.native a.fontFamily
-  let trees := (List.range n).toArray.map fun i => el "g" #[] (a.frame (a.time i) |>.render mode)
+  let trees := a.frameTrees mode
   let durS := n.toFloat / (max a.fps 1).toFloat
   let dur := fmtNum durS 4 ++ "s"
   let reps := if a.loops == 0 then "indefinite" else toString a.loops

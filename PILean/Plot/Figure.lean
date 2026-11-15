@@ -437,18 +437,26 @@ def PanelLayout.toPx (l : PanelLayout) (p : Point) : Option Point := do
 /-- A one-pixel line's coordinate on the pixel centre nearest `v`. -/
 def crisp (v : Float) : Float := v.floor + 0.5
 
+/-- The runs of present values in a list, each of at least two values, broken at every `none`
+and in the order of the list. The accumulator `cur` holds the current run, last value first. -/
+def runs {α : Type} : List (Option α) → List α → List (List α)
+  | [], cur => if 1 < cur.length then [cur.reverse] else []
+  | none :: xs, cur => (if 1 < cur.length then [cur.reverse] else []) ++ runs xs []
+  | some a :: xs, cur => runs xs (a :: cur)
+
+/-- Polylines through the points that `pos` gives a position, broken where one has none; a run of
+a single point is dropped. -/
+def polylinesWith (pos : Point → Option Point) (ps : Array Point) : Array (Array Point) :=
+  ((runs (ps.toList.map pos) []).map List.toArray).toArray
+
+/-- The position of a data point on a laid-out panel: `none` when it is not finite or has no
+position. -/
+def PanelLayout.pos (l : PanelLayout) (p : Point) : Option Point :=
+  if finitePoint p then l.toPx p else none
+
 /-- Polylines through the points that have positions, broken where one has none. -/
-def PanelLayout.polylines (l : PanelLayout) (ps : Array Point) : Array (Array Point) := Id.run do
-  let mut out := #[]
-  let mut cur := #[]
-  for p in ps do
-    match (if finitePoint p then l.toPx p else none) with
-    | some q => cur := cur.push q
-    | none =>
-      if cur.size > 1 then out := out.push cur
-      cur := #[]
-  if cur.size > 1 then out := out.push cur
-  return out
+def PanelLayout.polylines (l : PanelLayout) (ps : Array Point) : Array (Array Point) :=
+  polylinesWith l.pos ps
 
 /-- A marker: a disc of the series' colour with a ring of the page colour. -/
 def marker (st : Style) (q : Point) (c : Rgba) (r : Float) : Shape :=
@@ -527,7 +535,7 @@ def drawSeries (st : Style) (l : PanelLayout) (s : Series) (index : Nat) : Array
   let (c0, dashed0) := st.seriesColor index
   let dashOf := fun (d : Array Float) => if !d.isEmpty then d else if dashed0 then #[6, 4] else #[]
   let a := l.area
-  let toPx := fun (p : Point) => if finitePoint p then l.toPx p else none
+  let toPx := l.pos
   match s with
   | .line _ ps c markers dash =>
     let c := c.getD c0
