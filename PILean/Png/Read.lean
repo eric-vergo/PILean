@@ -28,9 +28,15 @@ text and colour-space chunks it found.
   bytes after it are ignored. Ancillary chunks `sRGB`, `gAMA` and the text chunks are read
   when they precede the image data; a malformed one is ignored. A `tRNS` chunk of the wrong
   length, or a `tRNS` after `IDAT`, is ignored for colour types 4 and 6 and an error otherwise.
-* Caps. Before any image buffer is allocated, `width * height` is checked against
-  `Limits.maxPixels` and the sizes of the decompressed data and of the output against
-  `Limits.maxBytes`. The decompressor is given the exact expected size as its output cap.
+* Caps and memory. Before any image buffer is allocated, `width * height` is checked against
+  `Limits.maxPixels` and the size of the decompressed data plus the size of the decoded samples
+  against `Limits.maxBytes`, and the compressed data must be large enough to hold the
+  decompressed size at DEFLATE's greatest ratio (`maxDeflateRatio`). The decompressor writes into
+  one buffer of exactly the expected size; the filters are reversed in that buffer, in place; the
+  samples are then written into one buffer of exactly the decoded size. So besides the input
+  and the concatenated image data (at most the input's size), decoding holds two buffers whose
+  sizes together are at most `Limits.maxBytes`, and its work is linear in their sizes and in the
+  input.
   Compressed text (`zTXt`, compressed `iTXt`) is inflated under a shared budget of
   `Limits.maxTextBytes`; an entry over budget is dropped.
 * Formats. All five colour types; bit depths 1, 2, 4, 8 and 16 as the specification allows
@@ -119,7 +125,13 @@ def getBe32 (d : ByteArray) (i : Nat) : Nat :=
   ((byteAt d i).toNat <<< 24) ||| ((byteAt d (i + 1)).toNat <<< 16) |||
     ((byteAt d (i + 2)).toNat <<< 8) ||| (byteAt d (i + 3)).toNat
 
-/-- Validates the 13 bytes of an `IHDR` against the caps. -/
+/-- The greatest ratio of output to input of a DEFLATE stream: a match of 258 bytes takes at least
+two bits (a one-bit length code and a one-bit distance code). -/
+def maxDeflateRatio : Nat := 1032
+
+/-- Validates the 13 bytes of an `IHDR` against the caps: `width * height` at most
+`lim.maxPixels`, and the decompressed size plus the decoded size (counted with an alpha channel)
+at most `lim.maxBytes`. -/
 def parseHeader (d : ByteArray) (lim : Limits) : Except PngError Header := do
   if d.size != 13 then throw (.badHeader "length is not 13")
   let w := getBe32 d 0
@@ -140,36 +152,37 @@ def parseHeader (d : ByteArray) (lim : Limits) : Except PngError Header := do
   if il > 1 then throw (.badHeader "unknown interlace method")
   let h : Header := { width := w, height := ht, depth, colorType := ct, interlaced := il == 1 }
   if w * ht > lim.maxPixels then throw (.tooLarge s!"{w} x {ht} pixels")
-  if h.rawSize > lim.maxBytes then throw (.tooLarge "decompressed data")
-  if w * ht * (outMode ct true).channels > lim.maxBytes then throw (.tooLarge "decoded samples")
+  if h.rawSize + w * ht * (outMode ct true).channels > lim.maxBytes then
+    throw (.tooLarge "decompressed data and decoded samples")
   return h
 
-/-- Reverses the filters of one pass: `raw` holds `ph` rows of a filter-type byte and `rb` bytes
-from `off`; the result has `ph * rb` bytes. -/
+/-- Stores a byte at an index of the output, ignoring indices out of range. -/
+@[inline] def setByte (a : ByteArray) (i : Nat) (v : UInt8) : ByteArray :=
+  if h : i < a.size then a.set i v h else a
+
+/-- Reverses, in place, the filters of one pass of `raw`: `ph` rows starting at `off`, each a
+filter-type byte followed by `rb` bytes; `bpp` is the filter distance. The filter-type bytes are
+left as they are. -/
 def unfilterPass (raw : ByteArray) (off rb ph bpp : Nat) : Except PngError ByteArray := do
-  let mut rows := ByteArray.empty
-  let mut prev := ByteArray.empty
+  let mut raw := raw
   for r in [0:ph] do
-    let base := off + r * (rb + 1)
-    let ty := (byteAt raw base).toNat
+    let base := off + r * (rb + 1) + 1
+    let prev := base - (rb + 1)
+    let ty := (byteAt raw (base - 1)).toNat
     if ty > 4 then throw (.badImageData s!"filter type {ty}")
-    let mut cur := ByteArray.empty
-    if ty == 0 then cur := raw.extract (base + 1) (base + 1 + rb)
-    else
-      for i in [0:rb] do
-        let x := byteAt raw (base + 1 + i)
-        let a := if i ≥ bpp then (byteAt cur (i - bpp)).toNat else 0
-        let b := (byteAt prev i).toNat
-        let c := if i ≥ bpp then (byteAt prev (i - bpp)).toNat else 0
-        let p := match ty with
-          | 1 => a
-          | 2 => b
-          | 3 => (a + b) / 2
-          | _ => paeth a b c
-        cur := cur.push (x + p.toUInt8)
-    rows := rows ++ cur
-    prev := cur
-  return rows
+    if ty == 0 || (ty == 2 && r == 0) then continue
+    for i in [0:rb] do
+      let x := byteAt raw (base + i)
+      let a := if i ≥ bpp then (byteAt raw (base + i - bpp)).toNat else 0
+      let b := if r > 0 then (byteAt raw (prev + i)).toNat else 0
+      let c := if r > 0 && i ≥ bpp then (byteAt raw (prev + i - bpp)).toNat else 0
+      let p := match ty with
+        | 1 => a
+        | 2 => b
+        | 3 => (a + b) / 2
+        | _ => paeth a b c
+      raw := setByte raw (base + i) (x + p.toUInt8)
+  return raw
 
 /-- The sample `ch` of pixel `px` in a row starting at byte `ro` of `rows`, at its own depth. -/
 @[inline] def sampleAt (h : Header) (rows : ByteArray) (ro px ch : Nat) : Nat :=
@@ -190,13 +203,10 @@ def unfilterPass (raw : ByteArray) (off rb ph bpp : Nat) : Except PngError ByteA
   | 16 => (v >>> 8).toUInt8
   | d => (v * 255 / ((1 <<< d) - 1)).toUInt8
 
-/-- Stores a byte at an index of the output, ignoring indices out of range. -/
-@[inline] def setByte (a : ByteArray) (i : Nat) (v : UInt8) : ByteArray :=
-  if h : i < a.size then a.set i v h else a
-
-/-- Writes the pixels of one unfiltered pass into the output image. -/
-def emitPass (h : Header) (palette trns rows : ByteArray) (p : Nat × Nat × Nat × Nat)
-    (out : ByteArray) : Except PngError ByteArray := do
+/-- Writes the pixels of one unfiltered pass, whose rows start at `off` of `rows` (each after
+its filter-type byte), into the output image. -/
+def emitPass (h : Header) (palette trns rows : ByteArray) (off : Nat)
+    (p : Nat × Nat × Nat × Nat) (out : ByteArray) : Except PngError ByteArray := do
   let (x0, y0, dx, dy) := p
   let (pw, ph) := h.passDims p
   let hasTrns := !trns.isEmpty
@@ -207,7 +217,7 @@ def emitPass (h : Header) (palette trns rows : ByteArray) (p : Nat × Nat × Nat
     mask
   let mut out := out
   for py in [0:ph] do
-    let ro := py * rb
+    let ro := off + py * (rb + 1) + 1
     for px in [0:pw] do
       let o := ((y0 + py * dy) * h.width + x0 + px * dx) * oc
       match h.colorType with
@@ -242,26 +252,35 @@ def emitPass (h : Header) (palette trns rows : ByteArray) (p : Nat × Nat × Nat
           out := setByte out (o + c) (to8 h.depth (sampleAt h rows ro px c))
   return out
 
-/-- Decodes the unfiltered-and-filtered image data `raw` of the header into the output image. -/
+/-- Decodes the decompressed image data `raw` of the header (filter-type bytes and filtered
+rows) into the output image. The filters are reversed in `raw` itself; the output is one buffer
+of exactly its final size. -/
 def buildImage (h : Header) (palette trns raw : ByteArray) : Except PngError RawImage := do
   let mode := outMode h.colorType !trns.isEmpty
+  let mut raw := raw
   let mut off := 0
-  let mut out : ByteArray := ByteArray.empty
-  let mut allocated := false
+  let mut offs : Array Nat := #[]
   for p in h.passes do
     let (pw, ph) := h.passDims p
+    offs := offs.push off
     if pw == 0 || ph == 0 then continue
     let rb := h.rowBytes pw
-    let rows ← unfilterPass raw off rb ph h.filterBpp
+    raw ← unfilterPass raw off rb ph h.filterBpp
     off := off + ph * (1 + rb)
-    -- colour types and depths whose rows already are the output
-    if !h.interlaced && h.depth == 8 && trns.isEmpty &&
-        (h.colorType == 0 || h.colorType == 2 || h.colorType == 6) then
-      return { width := h.width, height := h.height, mode, data := rows }
-    if !allocated then
-      out := ByteArray.mk (Array.replicate (h.width * h.height * mode.channels) 0)
-      allocated := true
-    out ← emitPass h palette trns rows p out
+  -- colour types and depths whose rows already are the output: drop the filter-type bytes
+  if !h.interlaced && h.depth == 8 && trns.isEmpty &&
+      (h.colorType == 0 || h.colorType == 2 || h.colorType == 6) then
+    let rb := h.rowBytes h.width
+    let mut out := ByteArray.emptyWithCapacity (rb * h.height)
+    for r in [0:h.height] do
+      out := raw.copySlice (r * (rb + 1) + 1) out out.size rb
+    return { width := h.width, height := h.height, mode, data := out }
+  let mut out := filledBytes (h.width * h.height * mode.channels)
+  for i in [0:h.passes.size] do
+    let p := h.passes.getD i (0, 0, 1, 1)
+    let (pw, ph) := h.passDims p
+    if pw == 0 || ph == 0 then continue
+    out ← emitPass h palette trns raw (offs.getD i 0) p out
   return { width := h.width, height := h.height, mode, data := out }
 
 /-- The text of a Latin-1 byte string. -/
@@ -330,11 +349,13 @@ def decode (bytes : ByteArray) (lim : Limits := {}) : Except PngError Decoded :=
     if len > 0x7FFFFFFF then throw .badChunkLength
     if pos + 12 + len > bytes.size then throw .truncated
     let tyBytes := bytes.extract (pos + 4) (pos + 8)
-    let data := bytes.extract (pos + 8) (pos + 8 + len)
     if !(tyBytes.data.all fun b => (65 ≤ b && b ≤ 90) || (97 ≤ b && b ≤ 122)) then
       throw (.badChunkOrder "chunk type is not four letters")
     let ty := latin1String tyBytes
-    let crc := crcUpdate (crcUpdate 0xFFFFFFFF tyBytes) data ^^^ 0xFFFFFFFF
+    -- the image data is copied once, into `idat`; other chunks are small or skipped
+    let data := if ty == "IDAT" then ByteArray.empty else bytes.extract (pos + 8) (pos + 8 + len)
+    let crc := bytes.foldl crcStep (crcUpdate 0xFFFFFFFF tyBytes) (pos + 8) (pos + 8 + len) ^^^
+      0xFFFFFFFF
     if crc.toNat != getBe32 bytes (pos + 8 + len) then throw (.badCrc ty)
     pos := pos + 12 + len
     if hdr.isNone && ty != "IHDR" then throw (.badChunkOrder "IHDR is not the first chunk")
@@ -353,8 +374,10 @@ def decode (bytes : ByteArray) (lim : Limits := {}) : Except PngError Decoded :=
       hasPlte := true
     | "IDAT" =>
       if idatState == 2 then throw (.badChunkOrder "IDAT chunks are not consecutive")
+      -- the chunks of the image data are consecutive, so they fit in what is left of the input
+      if idatState == 0 then idat := ByteArray.emptyWithCapacity (bytes.size - (pos - len - 4))
       idatState := 1
-      idat := idat ++ data
+      idat := bytes.copySlice (pos - len - 4) idat idat.size len
     | "IEND" =>
       if len != 0 then throw (.badChunkOrder "IEND is not empty")
       if idatState == 0 then throw (.badChunkOrder "no IDAT")
@@ -383,7 +406,8 @@ def decode (bytes : ByteArray) (lim : Limits := {}) : Except PngError Decoded :=
   let some h := hdr | throw .truncated
   if !sawEnd then throw .truncated
   if h.colorType == 3 && !hasPlte then throw (.badChunkOrder "missing PLTE")
-  let raw ← match zlibDecompress idat h.rawSize with
+  if h.rawSize > maxDeflateRatio * idat.size then throw (.badImageData "too little image data")
+  let raw ← match zlibDecompress idat h.rawSize (expected := some h.rawSize) with
     | .ok o => pure o
     | .error e => throw (.inflate e)
   if raw.size != h.rawSize then throw (.badImageData "too little image data")

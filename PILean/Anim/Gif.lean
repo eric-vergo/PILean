@@ -130,7 +130,7 @@ def toGif (s : FrameSeq) (dither : Bool := false) : Except AnimError ByteArray :
   let t := nColors
   let w := s.width
   let h := s.height
-  let allT := ByteArray.mk (Array.replicate (w * h) t.toUInt8)
+  let allT := Png.filledBytes (w * h) t.toUInt8
   let mut clearThis := false
   for i in [0:fs.size] do
     let cur := fs.getD i ByteArray.empty

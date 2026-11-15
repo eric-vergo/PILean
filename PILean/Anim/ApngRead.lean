@@ -108,7 +108,7 @@ def readChunk (st : ReadState) (lim : Limits) (bytes : ByteArray) (pos : Nat) :
       | .ok h => pure h
       | .error (.tooLarge m) => throw (.tooLarge m)
       | .error e => throw (.malformed s!"{e}")
-    let blank := ByteArray.mk (Array.replicate (hdr.width * hdr.height * 4) 0)
+    let blank := Png.filledBytes (hdr.width * hdr.height * 4)
     return ({ st with
       hdr := some hdr
       ihdr := data

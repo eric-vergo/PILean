@@ -76,4 +76,13 @@ def distIndex (d : Nat) : Nat :=
 /-- The byte at index `i`, or 0 beyond the end (a total accessor, so that no index is unchecked). -/
 @[inline] def byteAt (d : ByteArray) (i : Nat) : UInt8 := if h : i < d.size then d[i] else 0
 
+/-- `n` copies of the byte `v`, allocated once with exactly `n` bytes (unlike
+`ByteArray.mk (Array.replicate n v)`, which first builds an array of boxed elements eight times
+as large). -/
+def filledBytes (n : Nat) (v : UInt8 := 0) : ByteArray := Id.run do
+  let mut out := ByteArray.emptyWithCapacity n
+  for _ in [0:n] do
+    out := out.push v
+  return out
+
 end PILean.Png

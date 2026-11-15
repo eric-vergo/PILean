@@ -57,7 +57,7 @@ per entry); the `transparent` index becomes transparent black. -/
 def indicesToRgba (ix tab : ByteArray) (w h : Nat) (interlaced : Bool)
     (transparent : Option Nat) : Except AnimError ByteArray := do
   let rows := if interlaced then interlaceRows h else #[]
-  let mut out := ByteArray.mk (Array.replicate (w * h * 4) 0)
+  let mut out := Png.filledBytes (w * h * 4)
   for j in [0:h] do
     let y := if interlaced then rows.getD j 0 else j
     for x in [0:w] do
@@ -102,7 +102,7 @@ def readGif (bytes : ByteArray) (lim : Limits := {}) : Except AnimError FrameSeq
     let (t, p) ← readTable bytes pos (1 <<< ((packed &&& 7) + 1))
     gct := t
     pos := p
-  let mut comp : Composer := { w, h, canvas := ByteArray.mk (Array.replicate (w * h * 4) 0) }
+  let mut comp : Composer := { w, h, canvas := Png.filledBytes (w * h * 4) }
   let mut gce : Gce := {}
   let mut loops := 1
   let mut done := false

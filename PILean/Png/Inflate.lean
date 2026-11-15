@@ -189,20 +189,24 @@ def Huff.decode (h : Huff) (data : ByteArray) (b : Bits) : Except InflateError (
 
 /-! ### Blocks -/
 
-/-- Decodes the symbols of one compressed block with the given codes, appending to `out` (the
-whole output so far, which back references may read); stops after the end-of-block symbol. -/
-def inflateCodes (data : ByteArray) (lit dist : Huff) (maxOut : Nat) (b : Bits)
-    (out : ByteArray) : Except InflateError (Bits × ByteArray) := do
+/-- Decodes the symbols of one compressed block with the given codes; stops after the
+end-of-block symbol. `size` is the length of the output so far. With `store`, the bytes are
+appended to `out` (the whole output so far, which back references read); without it only `size`
+advances, so the length of a stream can be measured without holding its output. -/
+def inflateCodes (data : ByteArray) (lit dist : Huff) (maxOut : Nat) (store : Bool) (b : Bits)
+    (size : Nat) (out : ByteArray) : Except InflateError (Bits × Nat × ByteArray) := do
   let mut b := b
+  let mut size := size
   let mut out := out
   for _ in [0:data.size * 8 + 16] do
     let (sym, b1) ← lit.decode data b
     b := b1
     if sym < 256 then
-      if out.size ≥ maxOut then throw .outputTooLarge
-      out := out.push sym.toUInt8
+      if size ≥ maxOut then throw .outputTooLarge
+      size := size + 1
+      if store then out := out.push sym.toUInt8
     else if sym == 256 then
-      return (b, out)
+      return (b, size, out)
     else if sym ≤ 285 then
       let k := sym - 257
       let (le, b2) ← Bits.get data b (lenExtra.getD k 0)
@@ -212,10 +216,12 @@ def inflateCodes (data : ByteArray) (lit dist : Huff) (maxOut : Nat) (b : Bits)
       let (de, b4) ← Bits.get data b3 (distExtra.getD ds 0)
       let d := distBase.getD ds 0 + de
       b := b4
-      if d > out.size then throw .badDistance
-      if out.size + len > maxOut then throw .outputTooLarge
-      for _ in [0:len] do
-        out := out.push (byteAt out (out.size - d))
+      if d > size then throw .badDistance
+      if size + len > maxOut then throw .outputTooLarge
+      size := size + len
+      if store then
+        for _ in [0:len] do
+          out := out.push (byteAt out (out.size - d))
     else throw .invalidSymbol
   throw .truncated
 
@@ -262,11 +268,14 @@ def readDynamic (data : ByteArray) (b : Bits) : Except InflateError (Huff × Huf
   return (lit, dist, b)
 
 /-- Decodes the DEFLATE blocks that start at byte `start` of `data`, producing at most `maxOut`
-bytes. Returns the output and the index of the first byte after the last block. -/
-def inflateRaw (data : ByteArray) (start maxOut : Nat) :
-    Except InflateError (ByteArray × Nat) := do
+bytes. Returns the length of the output, the output (empty unless `store`; allocated once with
+`capacity` bytes, so a `capacity` of the final length means no copy is made) and the index of
+the first byte after the last block. -/
+def inflateRaw (data : ByteArray) (start maxOut : Nat) (store : Bool := true)
+    (capacity : Nat := 0) : Except InflateError (Nat × ByteArray × Nat) := do
   let mut b : Bits := { pos := start }
-  let mut out := ByteArray.empty
+  let mut size := 0
+  let mut out := ByteArray.emptyWithCapacity (if store then min capacity maxOut else 0)
   for _ in [0:data.size * 3 + 4] do
     let (fin, b1) ← Bits.get data b 1
     let (typ, b2) ← Bits.get data b1 2
@@ -279,22 +288,25 @@ def inflateRaw (data : ByteArray) (start maxOut : Nat) :
       if len ^^^ nlen != 0xFFFF then throw .badStoredLength
       let s := b3.pos + 4
       if s + len > data.size then throw .truncated
-      if out.size + len > maxOut then throw .outputTooLarge
-      out := out ++ data.extract s (s + len)
+      if size + len > maxOut then throw .outputTooLarge
+      size := size + len
+      if store then out := data.copySlice s out out.size len
       b := { pos := s + len }
     else if typ == 1 then
       let (lit, dist) ← fixedHuff
-      let (b3, o) ← inflateCodes data lit dist maxOut b out
+      let (b3, n, o) ← inflateCodes data lit dist maxOut store b size out
       b := b3
+      size := n
       out := o
     else if typ == 2 then
       let (lit, dist, b3) ← readDynamic data b
-      let (b4, o) ← inflateCodes data lit dist maxOut b3 out
+      let (b4, n, o) ← inflateCodes data lit dist maxOut store b3 size out
       b := b4
+      size := n
       out := o
     else throw .badBlockType
     if fin == 1 then
-      return (out, (Bits.alignToByte b).pos)
+      return (size, out, (Bits.alignToByte b).pos)
   throw .truncated
 
 /-! ### zlib -/
@@ -305,15 +317,22 @@ def trailerValue (b0 b1 b2 b3 : UInt8) : Nat :=
 
 /-- Decompresses a zlib stream: checks the header, inflates, and checks the Adler-32 trailer.
 The output is at most `maxOut` bytes. Bytes after the trailer are `.trailingData` unless
-`allowTrailing`. -/
-def zlibDecompress (data : ByteArray) (maxOut : Nat) (allowTrailing : Bool := false) :
-    Except InflateError ByteArray := do
+`allowTrailing`. With `expected := some n` (at most `maxOut`) the output is decoded into a buffer
+of `n` bytes and may not exceed it; otherwise the stream is first decoded without keeping its output, to
+learn its length, and then decoded into a buffer of exactly that length. Either way the only
+large allocation is the output itself, made once, and a stream whose output would exceed
+`maxOut` is rejected before it is made. -/
+def zlibDecompress (data : ByteArray) (maxOut : Nat) (allowTrailing : Bool := false)
+    (expected : Option Nat := none) : Except InflateError ByteArray := do
   if data.size < 2 then throw .truncated
   let cmf := (byteAt data 0).toNat
   let flg := (byteAt data 1).toNat
   if cmf &&& 15 != 8 || cmf >>> 4 > 7 || (cmf * 256 + flg) % 31 != 0 then throw .badZlibHeader
   if flg &&& 32 != 0 then throw .presetDictionary
-  let (out, e) ← inflateRaw data 2 maxOut
+  let size ← match expected with
+    | some n => if n > maxOut then throw .outputTooLarge else pure n
+    | none => pure (← inflateRaw data 2 maxOut (store := false)).1
+  let (_, out, e) ← inflateRaw data 2 size (capacity := size)
   if e + 4 > data.size then throw .truncated
   if (adler32 out).toNat != trailerValue (byteAt data e) (byteAt data (e + 1))
       (byteAt data (e + 2)) (byteAt data (e + 3)) then throw .badChecksum

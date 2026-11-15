@@ -161,7 +161,7 @@ structure Mask where
 
 /-- The mask of a fill's spans. -/
 def Mask.ofSpans (w h : Nat) (spans : Array Span) : Mask := Id.run do
-  let mut data := ByteArray.mk (Array.replicate (w * h) 0)
+  let mut data := Png.filledBytes (w * h)
   for s in spans do
     for x in [s.x:s.x + s.len] do
       let i := s.y * w + x
