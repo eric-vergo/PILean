@@ -18,6 +18,7 @@ PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program
 | Images: modes L, RGB, RGBA; `new`, `getpixel`, `putpixel`, `crop`, `paste` with a mask, `convert`, flips and quarter turns, `resize` (nearest, bilinear, box, Lanczos) | done; sizes and flips proved |
 | Rasteriser: anti-aliased fill by exact area coverage in integer arithmetic (non-zero and even-odd), clipping to rectangles and paths, strokes (caps, joins, miter limit, dashes), solid and gradient paints, compositing in linear light, group opacity; an `ImageDraw`-like `Draw` | done; checked against known areas and against macOS's SVG renderer |
 | PNG: CRC-32, Adler-32, zlib/DEFLATE (stored, fixed and dynamic Huffman with LZ77), writer (grey, RGB, RGBA, filters 0–4, `sRGB`, `gAMA`, `tEXt`, `iTXt`) and reader (every colour type and depth, palette, Adam7, size caps) | done; checksums and framing proved, the codec tested against Python's `zlib` and macOS's `sips` |
+| Animated images: a `FrameSeq` written as APNG (`toApng`) or GIF (`toGif`, optionally dithered) and read back composed (`Anim.readApng`, `Anim.readGif`); frame differencing, merged equal frames, exact rational delays, size and frame caps | done; written and read back exactly (GIF when it has at most 256 colours), LZW and the quantiser tested, mutated and truncated files rejected cleanly, the files checked by `tools/anim-check.py` (Python's `zlib` and `struct`, its own LZW decoder) and by macOS's `sips` |
 | Plots as PNG: the same picture as the SVG, drawn from the same nodes (text not yet drawn in PNGs) | done; see [`examples/`](examples/README.md) |
 | Canvas, text, graphs, traceability | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
 
@@ -61,7 +62,8 @@ lake test
 ```
 
 `lake test` runs the named checks (colour, geometry, paths, SVG writer, ticks, PNG and DEFLATE
-with their reader fixtures and mutated files, image operations, rasteriser) and compares each
+with their reader fixtures and mutated files, image operations, rasteriser, LZW, the palette
+quantiser and the animated-image codecs with their mutated files) and compares each
 gallery figure's SVG and PNG with its files in `examples/`, byte for byte.
 `lake exe pilean-test --update` rewrites those files after a deliberate change.
 
@@ -70,11 +72,14 @@ Checks against tools already on a Mac (nothing to install):
 ```
 lake exe pilean-test --png-out /tmp/pilean-png && python3 -I tools/png-check.py scratch /tmp/pilean-png
 lake exe pilean-test --compare-out /tmp/pilean-cmp && python3 -I tools/compare-render.py /tmp/pilean-cmp
+lake exe pilean-test --anim-out /tmp/pilean-anim && python3 -I tools/anim-check.py /tmp/pilean-anim
 lake exe pilean-test --bench
 ```
 
 The first decodes PILean's zlib streams and PNGs with Python's `zlib`; the second renders the
-gallery's SVGs with `sips` and compares their pixels with PILean's PNGs.
+gallery's SVGs with `sips` and compares their pixels with PILean's PNGs; the third composes the
+sample APNG and GIF files with a decoder written in Python and checks that both formats show the
+same frames.
 
 ## Trust model (outline)
 
