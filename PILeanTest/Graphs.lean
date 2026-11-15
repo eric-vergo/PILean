@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean
+import PILeanTest.GraphFixtures
 
 /-!
 # Graph checks and measurements
@@ -356,22 +357,31 @@ def dotText (g : Graph) (o : LayeredOptions) (st : Style) : String := Id.run do
     out := out ++ s!"  n{e.src} -> n{e.dst};\n"
   return out ++ "}\n"
 
-/-- The graphs compared with Graphviz: two small ones and module graphs of 100 and 800 nodes. -/
+/-- The graphs compared with Graphviz: two small ones, module graphs of 100, 800 and 3000 nodes,
+and two real import graphs (this library's, and a project of about a hundred modules). -/
 def compareGraphs : Array (String × Graph) :=
   #[("hand-dag", Graph.ofPairs [(0, 1), (0, 2), (0, 3), (1, 4), (2, 4), (2, 5), (3, 5), (4, 6),
       (5, 6), (1, 5), (0, 6)]),
     ("hand-cycles", Graph.ofPairs [(0, 1), (1, 2), (2, 0), (2, 3), (3, 4), (4, 2), (4, 5), (0, 5),
       (1, 3), (5, 6), (6, 0)]),
-    ("module-100", moduleGraph 1 100), ("module-800", moduleGraph 1 800)]
+    ("module-100", moduleGraph 1 100), ("module-800", moduleGraph 1 800),
+    ("module-3000", moduleGraph 1 3000),
+    ("own-imports", Graph.ofLabelled Fixtures.ownImports.toList),
+    ("project-imports", Graph.ofLabelled Fixtures.projectImports.toList)]
 
-/-- Writes `NAME.dot`, `NAME.layout` and `NAME.svg` for each compared graph into `dir`. -/
+/-- Writes `NAME.dot`, `NAME.layout`, `NAME.svg` and `NAME.time` (the milliseconds the layout took
+and the load average) for each compared graph into `dir`. -/
 def writeCompare (dir : String) : IO Unit := do
   IO.FS.createDirAll dir
   let o : LayeredOptions := {}
   let st : Style := {}
   for (name, g) in compareGraphs do
     IO.FS.writeFile s!"{dir}/{name}.dot" (dotText g o st)
-    IO.FS.writeFile s!"{dir}/{name}.layout" (layoutText (g.layout o st))
+    let t0 ← IO.monoNanosNow
+    let l ← IO.lazyPure fun _ => g.layout o st
+    let ms ← msSince t0
+    IO.FS.writeFile s!"{dir}/{name}.layout" (layoutText l)
+    IO.FS.writeFile s!"{dir}/{name}.time" s!"{ms} {← loadAverage}\n"
     IO.FS.writeFile s!"{dir}/{name}.svg" (g.toSvg o st)
     IO.println s!"{dir}/{name}.dot, .layout, .svg"
 

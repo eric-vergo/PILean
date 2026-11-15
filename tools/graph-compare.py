@@ -7,7 +7,9 @@
 # DIR/<name>.dot (the graph with PILean's node sizes and gaps) and DIR/<name>.layout (PILean's
 # node boxes and edges flattened to polylines). This script runs `dot -Tplain` on each .dot,
 # reads both layouts, flattens dot's Bézier splines the same way, and prints a table.
-# Edges that share a node are not counted as crossing. Uses only the Python standard library
+# Edges that share a node are not counted as crossing. Also prints the layout time of each (PILean's
+# from DIR/<name>.time, with the load average at that moment; dot's measured here, wall clock) and,
+# for each graph, the ratios of PILean to dot. Uses only the Python standard library
 # and a `dot` program found on the path (nothing is installed or downloaded).
 #
 # Usage, from the repository root:
@@ -19,6 +21,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 
 CELL = 64.0
 SAMPLES = 12
@@ -58,8 +61,11 @@ def read_pilean(path):
 
 
 def read_dot(dot, path):
-    """The same from `dot -Tplain` (inches, y upwards, converted to pixels, y downwards)."""
+    """The same from `dot -Tplain` (inches, y upwards, converted to pixels, y downwards), and the
+    seconds `dot` took."""
+    t0 = time.monotonic()
     out = subprocess.run([dot, "-Tplain", path], capture_output=True, text=True, check=True)
+    seconds = time.monotonic() - t0
     height = 0.0
     width = 0.0
     nodes = {}
@@ -83,7 +89,7 @@ def read_dot(dot, path):
             for k in range(0, n - 3, 3):
                 flat.extend(bezier(pts[k], pts[k + 1], pts[k + 2], pts[k + 3])[1:])
             edges.append((int(w[1][1:]), int(w[2][1:]), flat))
-    return width, height, nodes, edges
+    return (width, height, nodes, edges), seconds
 
 
 def ccw(a, b, c):
@@ -151,14 +157,29 @@ def main():
     if not dot:
         print("no dot program found")
         return 1
-    print(f"{'graph':14} {'nodes':>5} {'edges':>5} | {'':7} {'crossings':>9} "
-          f"{'edge length':>12} {'area (px^2)':>13}")
+    print(f"{'graph':16} {'nodes':>5} {'edges':>5} | {'':7} {'crossings':>9} "
+          f"{'edge length':>12} {'area (px^2)':>13} {'layout ms':>9}")
+    ratios = []
     for path in sorted(glob.glob(os.path.join(directory, "*.dot"))):
         name = os.path.basename(path)[:-4]
         ours = metrics(read_pilean(os.path.join(directory, name + ".layout")))
-        theirs = metrics(read_dot(dot, path))
-        for label, m in (("PILean", ours), ("dot", theirs)):
-            print(f"{name:14} {m[3]:5} {m[4]:5} | {label:7} {m[0]:9} {m[1]:12.0f} {m[2]:13.0f}")
+        layout, seconds = read_dot(dot, path)
+        theirs = metrics(layout)
+        try:
+            with open(os.path.join(directory, name + ".time")) as f:
+                ours_ms, load = f.read().split(None, 1)
+                load = load.strip()
+        except OSError:
+            ours_ms, load = "?", ""
+        for label, m, ms in (("PILean", ours, ours_ms), ("dot", theirs, f"{seconds * 1000:.0f}")):
+            print(f"{name:16} {m[3]:5} {m[4]:5} | {label:7} {m[0]:9} {m[1]:12.0f} {m[2]:13.0f} "
+                  f"{ms:>9}")
+        ratios.append((name, ours, theirs, load))
+    print()
+    print(f"{'graph':16} {'crossings':>10} {'length':>8} {'area':>8}   (PILean / dot)")
+    for name, o, t, load in ratios:
+        r = lambda a, b: f"{a / b:8.2f}" if b else "     n/a"
+        print(f"{name:16} {r(o[0], t[0]):>10} {r(o[1], t[1])} {r(o[2], t[2])}   load {load}")
     return 0
 
 
