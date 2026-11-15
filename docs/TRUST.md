@@ -109,6 +109,39 @@ only what this returns.
 `escapeControl` writes control characters and the backslash of a string as escapes (`\n`, `\t`,
 `\u{1b}`), for showing untrusted text on one line.
 
+### Inert SVG
+
+`Svg.isInert : String → Bool` answers whether an SVG document can be shown in a web page without
+running script, loading anything from outside the document, or carrying event handlers;
+`Svg.inertProblem?` gives the first reason it is not. It is a small bounded scan over the text,
+not an XML parser, and it is strict: it accepts the SVG PILean writes (figures, graphs,
+animations, and files with a source record) and refuses anything else that could be active.
+
+* A document above 64 MiB is refused without being read; the work is linear in its size.
+* The only markup is one `<?xml ...?>` declaration at the very start, comments, and elements
+  from a fixed list: `svg g path rect circle ellipse line polyline polygon text tspan title desc
+  metadata pilean:source defs clipPath linearGradient radialGradient stop animate
+  animateTransform set style`. `script`, `foreignObject`, `image`, `use`, `a`, any unknown
+  element, a document type, an entity declaration, a CDATA section, any other processing
+  instruction, and a tag or comment that is not closed are refused.
+* Attribute names have ASCII letters, digits and `- _ : .` only, and values are quoted. Names
+  starting with `on` (in any letter case) are refused, as are `style` attributes and `xml:base`.
+  `href`, `xlink:href` and any name ending in `:href` are accepted only with a value that starts
+  with `#`. A `url(` in a value must be followed by `#`. `javascript:` and `data:` are refused
+  in any value, also with white space inside. A backslash in a value is refused. An animation
+  (`animate`, `set`, `animateTransform`) of `href`, a name ending in `:href`, or a name starting
+  with `on` is refused.
+* Values are decoded before they are checked: the five XML entities and numeric character
+  references are decoded, any other `&name;` is refused, so a reference cannot hide a word.
+* The text of a `style` element may not contain `@import`, `url(` that is not followed by `#`,
+  `expression`, `javascript:`, a backslash, a character reference, or any `<` other than the
+  closing `</style>`. Text in other elements is not examined; a raw `<` always starts a tag.
+* Elements are closed and nested properly, at most 256 deep; there is exactly one root element,
+  `svg`, and nothing but white space and comments after it.
+
+An SVG that passes can be placed in a page as an image or inline; the check says nothing about
+whether the figure is the right one (see the fingerprint for that).
+
 ## `pilean-info`
 
 ```

@@ -7,6 +7,7 @@ import PILean.Geometry
 import PILean.Path
 import PILean.Sort
 import PILean.Svg
+import PILean.Svg.Inert
 import PILean.Png
 import PILean.Anim
 import PILean.Text.Engine
