@@ -207,36 +207,41 @@ def writeCompare (dir : System.FilePath) : IO Unit := do
   IO.FS.createDirAll dir
   let pictures := PILeanTest.Examples.gallery.map (fun (name, fig) =>
     ((System.FilePath.mk name).fileStem.getD name, fig.width, fig.height,
-      fig.render.filterMap (stripText 64))) |>.push ("gradients", 320, 200, gradientNodes)
+      (fig.draw.render (.native fig.style.fontFamily)).filterMap (stripText 64)))
+    |>.push ("gradients", 320, 200, gradientNodes)
   for (base, width, height, nodes) in pictures do
-    let fig : Figure := { width, height }
-    IO.FS.writeFile (dir / s!"{base}-notext.svg") (Svg.document fig.width fig.height nodes)
+    IO.FS.writeFile (dir / s!"{base}-notext.svg") (Svg.document width height nodes)
     for (suffix, space) in [("", Space.linear), ("-srgb", Space.srgb)] do
-      let img := (Svg.rasterize fig.width.round.toUInt64.toNat fig.height.round.toUInt64.toNat
+      let img := (Svg.rasterize width.round.toUInt64.toNat height.round.toUInt64.toNat
         nodes ⟨255, 255, 255, 255⟩ space).toImage .rgb
       match img.writePng with
       | .ok b => IO.FS.writeBinFile (dir / s!"{base}-notext{suffix}.png") b
       | .error e => throw (IO.userError e.toString)
     IO.println s!"{dir}/{base}-notext.svg and .png"
 
-/-- Times the function plot at 2000 × 1200 (best of three): drawing its nodes on the canvas,
-converting the canvas to an 8-bit image, and encoding the PNG. -/
+/-- Times the function plot at 2000 × 1200 (best of three): laying it out into SVG nodes
+(text as shapes), drawing them on the canvas, converting the canvas to an 8-bit image, and
+encoding the PNG. -/
 def bench : IO Unit := do
   let fig := scaled PILeanTest.Examples.functions 2000 1200
   let mut best : Array Nat := #[]
   let mut size := 0
   for _ in [0:3] do
+    let tl ← IO.monoNanosNow
+    let nodes ← IO.lazyPure fun _ => fig.draw.render (.shapes fig.style.text)
     let t0 ← IO.monoNanosNow
-    let d ← IO.lazyPure fun _ => Svg.rasterize 2000 1200 fig.render ⟨255, 255, 255, 255⟩
+    let lay := (t0 - tl) / 1000000
+    let d ← IO.lazyPure fun _ => Svg.rasterize 2000 1200 nodes ⟨255, 255, 255, 255⟩
     let t1 ← IO.monoNanosNow
     let img ← IO.lazyPure fun _ => d.toImage .rgb
     let t2 ← IO.monoNanosNow
     let png ← IO.lazyPure fun _ => img.writePng
     let t3 ← IO.monoNanosNow
     size := match png with | .ok b => b.size | .error _ => 0
-    let r := #[(t1 - t0) / 1000000, (t2 - t1) / 1000000, (t3 - t2) / 1000000]
+    let r := #[(t1 - t0) / 1000000, (t2 - t1) / 1000000, (t3 - t2) / 1000000, lay]
     if best.isEmpty || r.foldl (· + ·) 0 < best.foldl (· + ·) 0 then best := r
-  IO.println s!"2000 × 1200 function plot: draw {best[0]?.getD 0} ms, to 8-bit image \
+  IO.println s!"2000 × 1200 function plot: layout {best[3]?.getD 0} ms, \
+    draw {best[0]?.getD 0} ms, to 8-bit image \
     {best[1]?.getD 0} ms, PNG encode {best[2]?.getD 0} ms, {size} bytes"
 
 /-- All the pure checks. -/

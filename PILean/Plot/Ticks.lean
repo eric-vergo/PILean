@@ -60,6 +60,15 @@ def niceStep (lo hi : Float) (target : Nat := 5) : Float := Id.run do
       if err < bestErr || (err == bestErr && s > best) then best := s; bestErr := err
   return best
 
+/-- The integers from `a` to `b`, ascending (none when `b < a`): the multipliers of the step at
+the ticks of an axis. `PILean.Plot.Proofs` proves they ascend strictly and lie in `[a, b]`. -/
+def tickMultipliers (a b : Int) : List Int :=
+  (List.range (b - a + 1).toNat).map fun (i : Nat) => a + (i : Int)
+
+/-- The position `v` of `[lo, hi]` mapped onto `[a, b]` (the middle for an empty interval). -/
+def mapLinear (lo hi a b v : Float) : Float :=
+  if hi == lo then (a + b) / 2 else a + (v - lo) / (hi - lo) * (b - a)
+
 /-- Ticks on an axis. -/
 structure Ticks where
   /-- The step between ticks. -/
@@ -88,8 +97,7 @@ def niceTicks (lo0 hi0 : Float) (target : Nat := 5) (snap : Bool := true) : Tick
   -- A relative slack of 1e-9 keeps a bound that is a multiple up to rounding a multiple.
   let (a, b) := if snap then (floorInt (lo / step + 1e-9), ceilInt (hi / step - 1e-9))
     else (ceilInt (lo / step - 1e-9), floorInt (hi / step + 1e-9))
-  let values := ((List.range (b - a + 1).toNat).map fun (i : Nat) =>
-    Float.ofInt (a + (i : Int)) * step).toArray
+  let values := ((tickMultipliers a b).map fun k => Float.ofInt k * step).toArray
   let (slo, shi) := if snap then (Float.ofInt a * step, Float.ofInt b * step) else (lo, hi)
   { step, lo := slo, hi := shi, values, decimals := (-(stepExponent step)).toNat }
 
