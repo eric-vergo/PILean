@@ -36,7 +36,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes) and the built-in single-stroke lettering that draws text into images; a typesetting library can implement the interface later | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline or orthogonal edges, arrowheads, edge labels and clusters, circular and tree layouts, drawing on the canvas as SVG and PNG | done; layering proved, see below |
-| `PILean.Trust` | source links, fingerprints, manifests and their checker, and the theorems that tie a figure to its Lean object | later |
+| `PILean.Trust` | done: SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). Later: fingerprints of figure specifications and the theorems that tie a figure to its Lean object | partly done |
 
 ## Public API in Pillow's spirit
 

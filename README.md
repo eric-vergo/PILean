@@ -24,7 +24,8 @@ PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program
 | Text in images: a `TextEngine` interface; the built-in single-stroke lettering (131 characters: ASCII, typographic punctuation, math signs, Greek) draws labels into PNGs; SVG keeps real `<text>` | done ([specimen](examples/lettering-specimen.png)) |
 | Animations: one `Animation` (a drawing as a function of time, frame rate, duration, loops) written as animated SVG (SMIL only, interpolated attributes or frame switching), APNG and GIF, with a poster frame for reduced motion | done; outputs read back by PILean's readers and opened by macOS's ImageIO |
 | Graphs: nodes, edges and clusters; layered (Sugiyama) layout with cycle removal, crossing reduction and Brandes–Köpf coordinates, spline or orthogonal edges, arrowheads, edge labels; circular and tree layouts; SVG and PNG | done; layers and edge indices proved; about 0.2 s for 3000 nodes; compared with Graphviz in [`docs/DESIGN.md`](docs/DESIGN.md) |
-| Traceability (source links, fingerprints, manifests, theorems tying a figure to its Lean object) | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
+| Source information: the Lean declaration, file, line, repository, commit and version recorded in SVG (`<metadata>`, `<title>`, `<desc>`), PNG and APNG (`iTXt`) and GIF (comment) files and read back by a size-capped reader; `lake exe pilean-info FILE` prints it; SHA-256 in pure Lean | done; see [`docs/TRUST.md`](docs/TRUST.md); round trips tested on every format with hostile input, SHA-256 against FIPS and NIST vectors and `shasum`, padding and digest size proved |
+| Traceability beyond that (fingerprints of figure specifications, theorems tying a figure to its Lean object) | designed in [`docs/DESIGN.md`](docs/DESIGN.md), not started |
 
 ## Use
 

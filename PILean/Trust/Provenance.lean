@@ -20,7 +20,7 @@ SVG, PNG, APNG and GIF files and read back; `docs/TRUST.md` describes the vocabu
 * `Trust.withSourcePng`, `Trust.withSourceGif`, `Trust.withSource`: the source inserted into
   finished PNG, APNG and GIF files, so every writer gets it without change.
 * `Trust.Source.read?`: reads the record back from any of the formats.
-* `Trust.safeLink?`, `Trust.escapeControl`: how a reader shows what it read.
+* `Trust.safeLink?`, `Trust.escapeControl`, `Trust.infoLines`: how a reader shows what it read.
 
 ## Implementation notes
 
@@ -132,7 +132,8 @@ def Source.ofFields (kvs : Array (String × String)) : Except String Source := d
     | none => Except.error s!"the key {k} is missing"
   let num := fun (k : String) => do
     let v ← req k
-    if v.isEmpty || v.length > 9 || !v.all Char.isDigit then throw s!"the value of {k} is not a number"
+    if v.isEmpty || v.length > 9 || !v.all Char.isDigit then
+      throw s!"the value of {k} is not a number"
     return v.foldl (fun n c => 10 * n + (c.toNat - 48)) 0
   let fp := find "fingerprint"
   if let some f := fp then
@@ -390,6 +391,7 @@ def pngFields (d : ByteArray) : Except String (Array (String × String)) := do
 /-- The PNG or APNG file `d` with the source as `iTXt` chunks directly after `IHDR`. Fails if
 the file does not start with a signature and an `IHDR` chunk, or already has a source. -/
 def withSourcePng (d : ByteArray) (s : Source) : Except String ByteArray := do
+  s.validate
   if d.size < 33 || d.extract 0 8 != Png.pngSignature || Png.getBe32 d 8 != 13 ||
       d.extract 12 16 != "IHDR".toUTF8 then throw "not a PNG file with an IHDR chunk"
   if !(← pngFields d).isEmpty then throw "the PNG file already has a source"
@@ -454,7 +456,8 @@ def gifFields (d : ByteArray) : Except String (Option (Array (String × String))
       let label := Png.byteAt d (pos + 1)
       let cap := 16 * maxField
       let (data, cut, next) ← subBlocks d (pos + 2) cap
-      if label == 0xFE && (data.extract 0 (gifMagic.utf8ByteSize + 1) == (gifMagic ++ "\n").toUTF8 ||
+      let line1 := (gifMagic ++ "\n").toUTF8
+      if label == 0xFE && (data.extract 0 line1.size == line1 ||
           (cut && data.extract 0 gifMagic.utf8ByteSize == gifMagic.toUTF8)) then
         if cut then throw "the source comment is too large"
         let some text := String.fromUTF8? data | throw "the source comment is not UTF-8"
@@ -491,7 +494,10 @@ anything it reads. -/
 def Source.read? (d : ByteArray) : Except String Source := do
   if d.size > maxInput then throw "the input is too large"
   match Source.format? d with
-  | some "png" => Source.ofFields (← pngFields d)
+  | some "png" =>
+    let kvs ← pngFields d
+    if kvs.isEmpty then throw "the PNG file has no PILean source chunks"
+    Source.ofFields kvs
   | some "gif" =>
     match ← gifFields d with
     | some kvs => Source.ofFields kvs
@@ -514,5 +520,14 @@ def withSource (d : ByteArray) (s : Source) : Except String ByteArray :=
     | some t => (withSourceSvg t s).map String.toUTF8
     | none => .error "the SVG file is not valid UTF-8"
   | none => .error "not a PNG, GIF or SVG file"
+
+/-! ### Showing -/
+
+/-- The lines `key: value` of the source in a file, one per field, values with control characters
+shown as escapes (`escapeControl`); this is what `lake exe pilean-info` prints. Fails as
+`Source.read?` does. -/
+def infoLines (d : ByteArray) : Except String (Array String) := do
+  let s ← Source.read? d
+  return s.fields.map fun (k, v) => k ++ ": " ++ escapeControl v
 
 end PILean.Trust
