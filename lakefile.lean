@@ -8,8 +8,8 @@ import Lake
 # PILean's package
 
 The library `PILean` (imports `Init` and `Std` only), the gallery generator `pilean-gallery`
-(writes `examples/*.svg`), the tool `pilean-info` (shows the source information of an image), and
-the test driver `lake test` runs.
+(writes `examples/*.svg`), the tool `pilean-info` (shows the source information of an image), the
+build tools `pilean-build` and `pilean-verify`, and the test driver `lake test` runs.
 -/
 
 open Lake DSL
@@ -30,6 +30,16 @@ lean_exe «pilean-gallery» where
 APNG or GIF file written with `PILean.Trust.withSource`. -/
 lean_exe «pilean-info» where
   root := `PILeanTest.Info
+
+/-- Renders the figures of the gallery that carry `@[figure]` into a directory with a manifest, or
+checks a directory against what the build produces (`--check`). -/
+lean_exe «pilean-build» where
+  root := `PILeanTest.Build
+
+/-- Checks a directory written by `pilean-build` against its `manifest.json` and the source
+information inside each file. -/
+lean_exe «pilean-verify» where
+  root := `PILeanTest.Verify
 
 /-- The test driver: `lake test` runs it from the repository root. -/
 @[test_driver]

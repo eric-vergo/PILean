@@ -37,6 +37,12 @@ import PILean.Raster.Proofs
 import PILean.Trust.Sha256
 import PILean.Trust.Sha256Proofs
 import PILean.Trust.Provenance
+import PILean.Trust.Figure
+import PILean.Trust.Fingerprint
+import PILean.Trust.Json
+import PILean.Trust.Manifest
+import PILean.Trust.Build
+import PILean.Trust.Verify
 import PILean.Version
 
 /-!

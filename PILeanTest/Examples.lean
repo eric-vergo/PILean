@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean
 import PILeanTest.Graphs
+import PILean.Trust.Attr
 
 /-!
 # The example gallery
@@ -56,6 +57,7 @@ def normals (seed n : Nat) (mean : Float := 0) (sd : Float := 1) : Array Float :
     mean + sd * (s - 6)
 
 /-- Two trigonometric functions and the cardinal sine on `[-2π, 2π]`. -/
+@[figure]
 def functions : Figure where
   title := "Trigonometric functions"
   panels := #[{
@@ -231,6 +233,7 @@ open PILean.Graph
 
 /-- The modules of a small compiler, which import each other: a directed graph with two
 clusters and a labelled edge. -/
+@[figure]
 def compiler : PILean.Graph :=
   let names := #["Main", "Cli", "Config", "Log", "Parser", "Lexer", "Ast", "Error", "Eval",
     "Check", "Types", "Env", "Value", "Util", "Pretty"]
@@ -304,6 +307,7 @@ def waveFigure (t : Float) : Figure :=
           (dash := #[4, 4])] }] }
 
 /-- A travelling wave, two seconds, looping. -/
+@[figure]
 def wave : Animation :=
   { width := 640, height := 360, fps := 30, duration := 2, frame := fun t => (waveFigure t).draw,
     text := Style.light.text, fontFamily := Style.light.fontFamily }
