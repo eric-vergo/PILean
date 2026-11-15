@@ -239,4 +239,20 @@ def perfChecks : IO (Array (String × Bool)) := do
     out := out.push (s!"resize timing {name}", ok)
   return out
 
+#print axioms PILean.Image.generate_wellFormed
+#print axioms PILean.Image.new_wellFormed
+#print axioms PILean.Image.crop_width
+#print axioms PILean.Image.crop_height
+#print axioms PILean.Image.crop_wellFormed
+#print axioms PILean.Image.paste_wellFormed
+#print axioms PILean.Image.convert_wellFormed
+#print axioms PILean.Image.flipLeftRight_size
+#print axioms PILean.Image.flipLeftRight_wellFormed
+#print axioms PILean.Image.rotate90_size
+#print axioms PILean.Image.sample_generate
+#print axioms PILean.Image.generate_congr
+#print axioms PILean.Image.generate_sample
+#print axioms PILean.Image.flipLeftRight_flipLeftRight
+#print axioms PILean.Image.flipTopBottom_flipTopBottom
+
 end PILeanTest.Image
