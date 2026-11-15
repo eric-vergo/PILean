@@ -208,6 +208,14 @@ registered declaration of the environment (imported modules included, and the de
 it in the same module), sorted by module and then declaration name, each holding the recorded
 data and `fun _ => ToOutputs.outputs decl`.
 
+The command `figure_proves fig thm` links a theorem to a registered figure. It is an error, so
+the module does not build, unless `thm` is a theorem, depends on no `sorry` and on no axiom other
+than `propext`, `Classical.choice` and `Quot.sound`, and its statement mentions `fig` or a
+declaration of the module of `fig` that the definition of `fig` uses directly. The links are kept
+in an environment extension (`figureTheorems`). The check says that the theorem is proved and
+speaks of the figure's definitions; what the theorem says is for its reader to judge
+(`docs/PROOFS.md`).
+
 ## The fingerprint
 
 `PILean/Trust/Fingerprint.lean`. `fingerprint spec src` is the lowercase hexadecimal SHA-256 of

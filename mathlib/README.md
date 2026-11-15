@@ -1,0 +1,144 @@
+# PILean's plots against the real numbers
+
+`pilean-mathlib` is an optional package beside PILean. It holds what PILean's core cannot say,
+because the core has no real numbers: a specification, over ℝ, of what it means for a plotted
+curve to be near the graph of a function, and theorems that connect PILean's exact computations
+to that specification. It is an experiment: one specification, one general theorem, one figure.
+
+PILean itself has no dependencies, and nobody who uses PILean needs this package. It lives in
+its own folder, requires [Mathlib](https://github.com/leanprover-community/mathlib4) (pinned in
+`lakefile.lean`) and depends on PILean through the parent folder.
+
+## What is proved
+
+PILean plots an exact function `g : ℚ → ℚ` as the polyline through its exact samples
+`(x, g x)`, `x` on the grid `lo + k (hi - lo) / n`, `k = 0, …, n` (`PILean.Exact.samples`, in the
+core). The package reads those samples as points of the real plane.
+
+**The specification** (`PILeanMathlib/Polyline.lean`).
+
+* `PILean.polyline ps` is the union of the closed segments joining consecutive points of the
+  list `ps`.
+* `PILean.IsVerticallyWithin S f s δ` says that the set `S` of the plane is *vertically within
+  `δ`* of the graph of `f` over `s`: every point of `S` has its abscissa in `s`; above every
+  abscissa of `s` there is a point of `S`; and every point `(x, y)` of `S` has `|y - f x| ≤ δ`.
+
+The distance is measured vertically, above each abscissa, because that is how a plot is read:
+at `x`, how far is the curve from `f x`? It is the stronger of the two usual notions.
+`IsVerticallyWithin.hausdorffDist_le` proves that a set vertically within `δ` of a graph is
+within Hausdorff distance `δ` of it as a subset of the plane (for the maximum metric). The
+converse is false: where a graph is steep, the same graph moved sideways a little stays close to
+it as a set and is far from it above each abscissa.
+
+**The general theorem** (`PILeanMathlib/Interpolation.lean`, `PILeanMathlib/ExactPlot.lean`).
+
+* `PILean.abs_chord_sub_le`: if `f` is continuous on `[u, v]` and twice differentiable on the
+  open interval `(u, v)` with `|f''| ≤ M` there, the chord through `(u, f u)` and `(v, f v)` is
+  within `M (v - u)² / 8` of `f` on `[u, v]`. An example beside it shows that `1 / 8` cannot be
+  improved.
+* `PILean.Exact.isVerticallyWithin_plot`: let `g : ℚ → ℚ` be plotted with `n ≥ 1` steps on
+  `[lo, hi]`, `lo < hi`, and let `f : ℝ → ℝ` be continuous on `[lo, hi]` and twice differentiable
+  on `(lo, hi)` with `|f''| ≤ M` there. If `|g x - f x| ≤ ε` at every point `x` of the grid, then
+  the polyline through the exact samples of `g` is vertically within `ε + M h² / 8` of the graph
+  of `f` over `[lo, hi]`, where `h = (hi - lo) / n`.
+
+The hypotheses on `f` are stated with named derivatives: functions `f'` and `f''` such that
+`HasDerivAt f (f' x) x` and `HasDerivAt f' (f'' x) x` at every `x` of the open interval.
+Nothing is assumed at the two ends beyond the continuity of `f`. `abs_chord_sub_le_of_deriv` and
+`isVerticallyWithin_plot_of_deriv` are the same theorems with `deriv f` and `deriv (deriv f)`.
+
+**The example** (`PILeanMathlib/Examples/SineFigure.lean`, `PILeanMathlib/Examples/Sine.lean`).
+
+![the sine from 97 exact samples](examples/sine-proved.svg)
+
+The figure `sineFigure` plots `sineTaylor`, the Taylor polynomial of the sine at 0 of degree 15
+(an exact function on the rationals), on the grid of 96 steps from −3 to 3. The theorem
+`sineFigure_spec` says:
+
+* the figure has one panel, whose only series is `sineSeries`;
+* the points of that series are the 97 exact samples of `sineTaylor` on that grid,
+  converted one by one to floating point (the core's theorem about exact function plots);
+* the polyline through those exact samples is vertically within **δ = 1/2000** of the graph of
+  the real sine over `[−3, 3]`.
+
+The bound is `3¹⁷ / 17! + (1/16)² / 8`, rounded up: about `3.6 · 10⁻⁷` for the polynomial at the
+grid points (`PILeanMathlib.abs_sin_sub_taylor_le`, from Mathlib's Taylor theorem with the Lagrange
+remainder) and `1/2048` for joining samples `1/16` apart by straight segments, the second
+derivative of the sine being at most 1 in absolute value. At the gallery size, 640 × 400, one
+unit of the ordinate is 143.5 pixels, so δ is 0.072 pixel.
+
+The theorem is stated about the figure and the definitions it is built from (`sineFigure`,
+`sineSeries`, `sineTaylor`, `lo`, `hi`, `steps`). Changing the polynomial, the interval, the
+number of steps or the series the figure plots changes what must be proved, and the build fails
+until it is. `figure_proves sineFigure sineFigure_spec` checks, when the package is built, that
+the theorem is proved from the standard axioms and that its statement mentions the figure; it
+does not judge what the statement says.
+
+## What is not proved
+
+* **From the exact numbers to the pixels.** The theorem is about the exact samples, which are
+  rational numbers, and the polyline through them in the real plane. PILean then converts each
+  sample to a floating-point number, maps it to the page and rasterises the line; that last step
+  is floating point and tested, not proved. So the statement is not "the pixels are within 0.072
+  pixel of the sine"; it is "the exact polyline is within 1/2000 of the sine, and the picture is
+  drawn from the exact polyline by tested floating-point code".
+* The curve drawn is a line of a certain width; nothing is said about its width or its ends.
+* Only the sine has an example. The general theorem needs, for each function, a rational
+  approximation with a proved error at the grid points and a bound on the second derivative.
+
+## Axioms
+
+Every theorem depends on `propext`, `Classical.choice` and `Quot.sound` only.
+`PILeanMathlib/Axioms.lean` prints the axioms of each and fails the build if the list changes.
+There is no `sorry`, no `native_decide`, and no definition the compiler replaces under a
+theorem's subject.
+
+## Building
+
+The package needs Mathlib at the commit named in `lakefile.lean` and `lake-manifest.json`, on the
+Lean version of `lean-toolchain`. A built Mathlib takes several gigabytes of disk; if you do not
+have one, Lake downloads Mathlib's sources and `lake exe cache get` downloads its compiled files.
+
+```
+cd mathlib
+lake exe cache get   # only if Mathlib's compiled files are not already in .lake/packages
+lake build           # the library, with every theorem
+lake test            # the checks below
+lake exe pilean-mathlib-gallery   # writes examples/
+```
+
+With a built Mathlib already in `.lake/packages`, only the package's own modules are compiled. The
+gallery and test programs import only the
+module that defines the figure, so they contain no Mathlib code.
+
+`lake test` builds the library and then checks what the theorems do not cover: the files of
+`examples/` byte for byte, that the floating-point points of the figure lie where the exact ones
+do (`-3 + k/16`, within `10⁻⁶` of the platform's sine, midpoints of segments within `1/2000`),
+that every point has a position on the page, the number of pixels per unit used above, and that
+the lakefile and the manifest name the same Mathlib commit.
+
+## Use
+
+In a project's `lakefile.lean`:
+
+```lean
+require «pilean-mathlib» from git "https://github.com/eric-vergo/PILean" @ "<commit>" / "mathlib"
+```
+
+Then `import PILeanMathlib` and apply `PILean.Exact.isVerticallyWithin_plot` to your exact
+function, your real function, its two derivatives and the two bounds;
+`PILeanMathlib/Examples/Sine.lean` is a complete example, and
+`PILeanMathlib/ExactPlot.lean` ends with a smaller one (`x ↦ x²` on `[0, 1]`).
+
+## Next steps
+
+Not in this package yet:
+
+* interval arithmetic, to obtain the approximation `g` and its error bound mechanically instead
+  of by a hand-chosen Taylor polynomial (existing Lean libraries for it track other Mathlib
+  versions or use `native_decide` in places);
+* the exponential, the logarithm, square roots and other functions;
+* exact geometry: carrying the bound through the axis scales and the rasteriser, so that a
+  statement can be made about pixels;
+* grids that are not uniform, and bounds from a Lipschitz derivative instead of a second
+  derivative.

@@ -35,6 +35,11 @@ see LeAnTeX's `fonts/README.md`); none of LeAnTeX's code or fonts is copied into
 repository. The images of `leantex/examples/` contain glyph shapes of New Computer Modern drawn
 as paths, as any document typeset in a font does.
 
+## The package `pilean-mathlib` (`mathlib/`)
+
+It requires [Mathlib](https://github.com/leanprover-community/mathlib4) (Apache License 2.0) at a
+fixed commit; none of Mathlib's code is copied into this repository.
+
 ## PILean's own test data
 
 `PILeanTest/png/*.png` and `manifest.txt` are PILean's own files, written by

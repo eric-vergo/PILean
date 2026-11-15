@@ -187,6 +187,25 @@ theorem provedClock_spec (i : Nat) :
 /-- The hypotheses are met: the clock's frame rate is 10, so frame 5 is at half a second. -/
 example : provedClock.exactTime 5 = 1 / 2 := by decide +kernel
 
+/-! ### The links from the pictures to their theorems
+
+Each link is checked when this module is built: the theorem is proved from the standard axioms
+and its statement mentions the picture or a definition of this module the picture is built
+from. -/
+
+figure_proves provedFunction provedFunction_spec
+figure_proves provedData provedData_spec
+figure_proves provedGraph provedGraph_spec
+figure_proves provedClock provedClock_spec
+
+/--
+error: PILeanTest.ProvedExamples.provedData_spec does not mention
+PILeanTest.ProvedExamples.provedClock or a declaration of its module that
+PILeanTest.ProvedExamples.provedClock uses directly, so it is not a statement about this figure
+-/
+#guard_msgs in
+figure_proves provedClock provedData_spec
+
 end PILeanTest.ProvedExamples
 
 #print axioms PILean.Exact.gridPoint_eq

@@ -22,13 +22,18 @@ tested, not proved, so no theorem here speaks of a pixel ("Where floating point 
 says exactly where the line runs).
 
 **Samples, not graphs.** For a function plot the theorem says that the curve is drawn through
-exactly these sample points; it does not say that the curve is the graph of `f`. Between two
-consecutive samples the picture is a straight segment, and nothing in this library is proved about
-the distance from that segment to `f`.
+exactly these sample points (converted to floating point); it does not say that the curve is the
+graph of `f`. Between two consecutive samples the picture is a straight segment, and nothing in
+the core library is proved about the distance from that segment to `f`. The optional package
+`pilean-mathlib` proves such a bound over the real numbers, for the exact samples ("Plots against
+the real numbers" below).
 
 **Which functions.** The theorem is about functions with exact rational values. A plot of `sin`,
 `exp` or a square root made with `Series.function`, such as the first example of the README, is
-sampled in floating point by an adaptive sampler and has no theorem.
+sampled in floating point by an adaptive sampler and has no theorem. (The package
+`pilean-mathlib` has a plot of the sine with one: it plots a polynomial with rational
+coefficients and bounds the distance from the polyline through its exact samples to the real
+sine.)
 
 The rational numbers are `Rat`, the type of Lean's core library: a fraction in lowest terms, so
 equality of rationals is `=`. All the theorems about values are statements about exact numbers.
@@ -119,6 +124,43 @@ not rational-valued.
 * `Animation.frameSeq_getElem`, `Animation.frameTrees_getElem`: frame `i` of the raster frame
   sequence (animated PNG, GIF) and of the animated SVG is the drawing at that time.
 
+## Plots against the real numbers
+
+The core has no real numbers, so it cannot say that a curve is near `sin`. The optional package
+`pilean-mathlib` (folder [`mathlib/`](../mathlib/README.md), which requires Mathlib; users of the
+core never need it) adds a specification over ℝ and theorems that connect the exact samples to
+it.
+
+* **The specification.** `PILean.polyline ps` is the union of the segments joining consecutive
+  points of a list, a subset of the real plane; `PILean.Exact.plot g lo hi n` is the polyline
+  through the exact samples of `g`. `PILean.IsVerticallyWithin S f s δ` says: every point of `S`
+  has its abscissa in `s`, above every abscissa of `s` there is a point of `S`, and every point
+  `(x, y)` of `S` has `|y - f x| ≤ δ`.
+* **Why vertical distance.** A plot is read above an abscissa: at `x`, how far is the curve from
+  `f x`? This is stronger than the distance between the two curves as subsets of the plane:
+  `IsVerticallyWithin.hausdorffDist_le` proves that vertical distance at most `δ` gives Hausdorff
+  distance at most `δ` (for the maximum metric), and the converse fails where the graph is steep.
+* **The general theorem**, `PILean.Exact.isVerticallyWithin_plot`. Let `g : ℚ → ℚ` be plotted
+  with `n ≥ 1` steps on `[lo, hi]`, `lo < hi`. Let `f : ℝ → ℝ` be continuous on `[lo, hi]` and
+  twice differentiable on the open interval `(lo, hi)`, with `|f''| ≤ M` there. If
+  `|g x - f x| ≤ ε` at every grid point `x`, then the polyline through the exact samples of `g`
+  is vertically within `ε + M h² / 8` of the graph of `f` over `[lo, hi]`, `h = (hi - lo) / n`.
+  It rests on `PILean.abs_chord_sub_le`, the classical bound `M (v - u)² / 8` for the error of
+  linear interpolation, proved here by Rolle's theorem.
+* **The example**, `sineFigure` with `sineFigure_spec`. The figure plots the Taylor polynomial of
+  the sine of degree 15, which has rational coefficients, on the grid of 96 steps from −3 to 3.
+  The theorem says that the polyline through its 97 exact samples is vertically within `1/2000`
+  of the graph of the real sine over `[−3, 3]`. At the gallery size (640 × 400, 143.5 pixels for
+  one unit of the ordinate) that is 0.072 pixel.
+
+What this does not prove: anything after the exact samples. The conversion of each sample to a
+floating-point number, the position on the page and the rasteriser are the same tested,
+unproved code as for every other picture. The theorem bounds the distance from the *exact*
+polyline to the sine; that the pixels show that polyline is tested.
+
+Each theorem of the package depends on the three standard axioms only; its build prints them and
+fails if the list changes (`PILeanMathlib/Axioms.lean`).
+
 ## What is tested, not proved
 
 * The rasteriser (coverage, compositing, colour conversion), the PNG, APNG and GIF encoders and
@@ -164,5 +206,8 @@ not rational-valued.
 
 1. Find its source record (`lake exe pilean-info FILE`): the module, declaration and line.
 2. Read the theorem beside the declaration. It names the exact function, list, relation or time.
+   The command `figure_proves picture theorem` in the same file links the two, and fails the
+   build unless the theorem is proved from the standard axioms and its statement mentions the
+   picture or a definition of that file the picture is built from.
 3. Run `lake build` on that module; the theorem checks.
 4. For the part after floating point begins, the tests and `docs/TRUST.md` say what is compared.

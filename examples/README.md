@@ -80,6 +80,14 @@ trusted). The definitions and theorems are in
 | ![graph](graph-proved.svg) **Graph** (`provedGraph`) | `provedGraph_spec`: the nodes are the numbers 1 to 12, the edges are exactly the pairs `a < b` with `a ∣ b` (23 of them), each once, and the layout draws one route per edge, in order, with the edge's own index and ends (long edges pass through dummy nodes inside the layout and are still one route). |
 | ![animation](proved-clock.svg) **Animation** (`provedClock`) | `provedClock_spec`: frame `i` of the animation (10 frames, in the SVG, the APNG and the GIF) is the drawing `clockFrame` at the time `i / 10`, the conversion of the exact rational number `i/10` to a floating-point number. |
 
+A fifth picture has a theorem over the real numbers. It belongs to the optional package
+[`pilean-mathlib`](../mathlib/README.md), which requires Mathlib, and its files are in
+[`mathlib/examples/`](../mathlib/examples/):
+
+| Picture | Theorem |
+|---|---|
+| ![sine](../mathlib/examples/sine-proved.svg) **The sine** (`sineFigure`) | `sineFigure_spec`: the series' points are the 97 exact samples of the Taylor polynomial of the sine of degree 15 on the grid `−3 + k/16`, `k = 0, …, 96`, converted one by one; and the polyline through those exact samples is vertically within `δ = 1/2000` of the graph of the real sine over `[−3, 3]` (above every `x` of the interval, every point `(x, y)` of the polyline has `\|y − sin x\| ≤ 1/2000`). At this size, 640 × 400, one unit of the ordinate is 143.5 pixels, so `δ` is 0.072 pixel. The last step, from the exact numbers to the pixels, is floating point and tested, not proved. |
+
 The PNG of each has the same name with `.png`; the animation's other files are
 `proved-clock.png`, `proved-clock.gif` and `proved-clock-poster.png`.
 

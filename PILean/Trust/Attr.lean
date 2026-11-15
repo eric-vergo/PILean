@@ -14,6 +14,9 @@ of its source text (taken from the file being elaborated). `figures%` is a term 
 module where it is used, becomes an `Array FigureEntry` of every registered declaration of the
 environment (imported modules included), sorted by module and then declaration name.
 
+`figure_proves fig thm` links a theorem to a figure, after checking that it is a theorem about
+that figure, proved from the standard axioms.
+
 This is the only part of `PILean` that imports `Lean`; the library proper does not.
 -/
 
@@ -123,6 +126,68 @@ def figureDeclaration : Lean.Elab.Command.CommandElab := withFigures
 /-- An `attribute [figure] decl` command, treated the same way. -/
 @[command_elab Lean.Parser.Command.attribute]
 def figureAttribute : Lean.Elab.Command.CommandElab := withFigures
+
+/-! ### A theorem about a figure -/
+
+/-- The axioms a theorem linked to a figure may depend on. -/
+def allowedAxioms : List Name := [``propext, ``Classical.choice, ``Quot.sound]
+
+/-- What prevents `thm` from being linked to the figure `fig` as a theorem about it, if anything:
+`thm` must be a theorem, must not depend on `sorryAx` or on any axiom other than
+`allowedAxioms`, and its statement must mention `fig` or a declaration of the module of `fig`
+that the definition of `fig` uses directly (the theorems of the exact layer speak of the series
+or the relation a figure is built from). -/
+def figureTheoremProblem? (fig thm : Name) : CoreM (Option MessageData) := do
+  let env ← getEnv
+  let some info := env.find? thm | return some m!"unknown declaration {thm}"
+  unless info matches .thmInfo _ do
+    return some m!"{thm} is not a theorem; a figure links only to a theorem about it"
+  let axioms ← collectAxioms thm
+  if axioms.contains ``sorryAx then
+    return some m!"{thm} depends on `sorry`; a figure links only to a proved theorem"
+  for a in axioms do
+    unless allowedAxioms.contains a do
+      return some m!"{thm} depends on the axiom {a}; a figure links only to theorems \
+        that use propext, Classical.choice and Quot.sound at most"
+  let used := info.type.getUsedConstants
+  let figValue := (env.find? fig).bind (·.value?) |>.map (·.getUsedConstants) |>.getD #[]
+  let ingredients := figValue.filter fun c => env.getModuleIdxFor? c == env.getModuleIdxFor? fig
+  unless used.contains fig || ingredients.any used.contains do
+    return some m!"{thm} does not mention {fig} or a declaration of its module that \
+      {fig} uses directly, so it is not a statement about this figure"
+  return none
+
+/-- The links recorded by `figure_proves`: a figure and a theorem about it. -/
+initialize figureTheoremExt : SimplePersistentEnvExtension (Name × Name) (Array (Name × Name)) ←
+  registerSimplePersistentEnvExtension {
+    addEntryFn := fun s e => s.push e
+    addImportedFn := fun es => es.foldl (· ++ ·) #[] }
+
+/-- The theorems linked to the figure `fig` by `figure_proves`, in the environment. -/
+def figureTheorems (env : Environment) (fig : Name) : Array Name :=
+  (figureTheoremExt.getState env).filterMap fun (f, t) => if f == fig then some t else none
+
+/-- `figure_proves fig thm` links the theorem `thm` to the figure `fig`, a declaration with the
+attribute `@[figure]` (of this module or an imported one). The command fails, and with it the
+build, unless `thm` is a theorem about the figure in the sense of `figureTheoremProblem?`: a
+theorem, free of `sorry` and of axioms other than `propext`, `Classical.choice` and `Quot.sound`,
+whose statement mentions the figure or a declaration of the figure's module that the figure uses
+directly. -/
+syntax (name := figureProves) "figure_proves " ident ppSpace ident : command
+
+/-- The elaborator of `figure_proves`. -/
+@[command_elab figureProves]
+def elabFigureProves : Lean.Elab.Command.CommandElab := fun stx => do
+  let fig : Ident := ⟨stx[1]⟩
+  let thm : Ident := ⟨stx[2]⟩
+  let (figName, thmName) ← Lean.Elab.Command.liftCoreM do
+    let figName ← realizeGlobalConstNoOverloadWithInfo fig
+    unless (registeredFigures (← getEnv)).any (·.decl == figName) do
+      throwErrorAt fig "{figName} does not have the attribute @[figure]"
+    let thmName ← realizeGlobalConstNoOverloadWithInfo thm
+    if let some msg ← figureTheoremProblem? figName thmName then throwErrorAt thm msg
+    return (figName, thmName)
+  modifyEnv fun env => figureTheoremExt.addEntry env (figName, thmName)
 
 /-! ### `figures%` -/
 
