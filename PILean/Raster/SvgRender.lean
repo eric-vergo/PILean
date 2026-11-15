@@ -18,14 +18,19 @@ relative forms), `clipPath` in `defs`; the attributes `fill`, `stroke` (`#rgb`, 
 `none`), `fill-opacity`, `stroke-opacity`, `stroke-width`, `stroke-linecap`,
 `stroke-linejoin`, `stroke-miterlimit`, `stroke-dasharray`, `stroke-dashoffset`, `fill-rule`.
 
-Not drawn: `text` (a text layer is not part of PILean yet), images, gradients given as SVG
-elements (gradients are drawn through `Paint`), `transform`, `use`, filters, markers, CSS. An
+Gradients: `linearGradient` and `radialGradient` in `userSpaceOnUse` coordinates, padded,
+named by `fill="url(#id)"`, and `gradientNode` writes a `Paint` as one, its stops sampled so
+that SVG's sRGB interpolation shows PILean's linear-light gradient.
+
+Not drawn: `text` (a text layer is not part of PILean yet), images, `transform`, `use`,
+`objectBoundingBox` gradients, filters, markers, CSS. An
 element the renderer does not know is skipped, as is malformed data (a path's data is read up
 to its first error, as SVG does).
 
 ## Main definitions
 
 * `parseNumber?`, `parsePathData`: SVG numbers and path data.
+* `gradientNode`, `sampledStops`: gradients written for SVG.
 * `Svg.rasterize`: nodes drawn on a drawing of a given size.
 -/
 
@@ -137,10 +142,46 @@ def parsePathData (d : String) : Path := Id.run do
     | _ => return p
   return p
 
+/-- The number of stops written for each segment between two of a gradient's stops. -/
+def gradientSamples : Nat := 16
+
+/-- A gradient's stops sampled from its linear-light interpolation, as SVG stops (offset,
+colour): SVG interpolates between stops in sRGB, so stops this close make SVG show the
+linear-light gradient PILean draws (to within one 8-bit level between samples). -/
+def sampledStops (stops : Array Stop) : Array (Float × Rgba) := Id.run do
+  let mut out := #[]
+  for i in [0:stops.size] do
+    let some a := stops[i]? | continue
+    match stops[i + 1]? with
+    | none => out := out.push (a.offset, a.color)
+    | some b =>
+      for k in [0:gradientSamples] do
+        let t := a.offset + (b.offset - a.offset) * k.toFloat / gradientSamples.toFloat
+        out := out.push (t, (stopsAt stops t).toRgba)
+  return out
+
+/-- A gradient paint as an SVG gradient element with the given id (`userSpaceOnUse`
+coordinates, padded), its stops sampled (`sampledStops`); `none` for a solid paint. -/
+def gradientNode (id : String) : Paint → Option Node
+  | .solid _ => none
+  | .linear p0 p1 stops => some (el "linearGradient"
+      #[("id", id), ("gradientUnits", "userSpaceOnUse"), ("x1", fmtNum p0.x),
+        ("y1", fmtNum p0.y), ("x2", fmtNum p1.x), ("y2", fmtNum p1.y)] (stopNodes stops))
+  | .radial c r stops => some (el "radialGradient"
+      #[("id", id), ("gradientUnits", "userSpaceOnUse"), ("cx", fmtNum c.x), ("cy", fmtNum c.y),
+        ("r", fmtNum r)] (stopNodes stops))
+where
+  /-- The stop elements. -/
+  stopNodes (stops : Array Stop) : Array Node :=
+    (sampledStops stops).map fun (o, c) =>
+      el "stop" (#[("offset", fmtNum o 4)] ++ paint "stop-color" (some c))
+
 /-- The inherited presentation state. -/
 structure Style where
   /-- The fill colour, `none` for no fill. -/
   fill : Option Rgba := some ⟨0, 0, 0, 255⟩
+  /-- The fill's gradient, when it is a `url(#…)` reference to one. -/
+  fillPaint : Option Paint := none
   /-- The stroke colour. -/
   stroke : Option Rgba := none
   /-- `fill-opacity`. -/
@@ -234,9 +275,33 @@ def clipPaths (fuel : Nat) (n : Node) : Array (String × Path) :=
   | fuel + 1, .element _ _ children => children.foldl (fun acc c => acc ++ clipPaths fuel c) #[]
   | _ + 1, .text _ => #[]
 
-/-- Draws nodes nested at most `fuel` deep (deeper ones are skipped). -/
-def drawNodes (clips : Array (String × Path)) (fuel : Nat) (d : Draw) (s : Style)
-    (nodes : Array Node) : Draw :=
+/-- The gradients defined in a node, by id, as paints (`userSpaceOnUse` coordinates; stops
+with `offset`, `stop-color` and `stop-opacity`); nodes nested more than `fuel` deep are not
+searched. -/
+def gradients (fuel : Nat) (n : Node) : Array (String × Paint) :=
+  match fuel, n with
+  | 0, _ => #[]
+  | fuel + 1, .element name attrs children =>
+    let num := fun (k : String) => ((attr? attrs k).bind parseNumber?).getD 0
+    let stops := children.filterMap fun
+      | .element "stop" sa _ =>
+        let o := ((attr? sa "offset").bind parseNumber?).getD 0
+        let c := ((attr? sa "stop-color").bind Rgba.ofHex?).getD ⟨0, 0, 0, 255⟩
+        let op := ((attr? sa "stop-opacity").bind parseNumber?).getD 1
+        some ({ offset := o, color := { c with a := (op * c.a.toFloat).round.toUInt8 } } : Stop)
+      | _ => none
+    let here := match name, attr? attrs "id" with
+      | "linearGradient", some id =>
+        #[(id, Paint.linear ⟨num "x1", num "y1"⟩ ⟨num "x2", num "y2"⟩ stops)]
+      | "radialGradient", some id => #[(id, Paint.radial ⟨num "cx", num "cy"⟩ (num "r") stops)]
+      | _, _ => #[]
+    children.foldl (fun acc c => acc ++ gradients fuel c) here
+  | _ + 1, .text _ => #[]
+
+/-- Draws nodes nested at most `fuel` deep (deeper ones are skipped), `grads` the gradients a
+`fill="url(#…)"` may name. -/
+def drawNodes (clips : Array (String × Path)) (grads : Array (String × Paint)) (fuel : Nat)
+    (d : Draw) (s : Style) (nodes : Array Node) : Draw :=
   match fuel with
   | 0 => d
   | fuel + 1 => nodes.foldl (init := d) fun d n =>
@@ -244,8 +309,15 @@ def drawNodes (clips : Array (String × Path)) (fuel : Nat) (d : Draw) (s : Styl
     | .text _ => d
     | .element name attrs children =>
       let s := s.apply attrs
+      let s := match attr? attrs "fill" with
+        | some v =>
+          if v.startsWith "url(#" then
+            let id := ((v.dropPrefix "url(#").dropSuffix ")").toString
+            { s with fill := some ⟨0, 0, 0, 255⟩, fillPaint := (grads.find? (·.1 == id)).map (·.2) }
+          else { s with fillPaint := none }
+        | none => s
       match name with
-      | "defs" | "clipPath" | "text" => d
+      | "defs" | "clipPath" | "text" | "linearGradient" | "radialGradient" => d
       | "g" =>
         let clip := (attr? attrs "clip-path").bind fun v =>
           let id := ((v.dropPrefix "url(#").dropSuffix ")").toString
@@ -254,16 +326,17 @@ def drawNodes (clips : Array (String × Path)) (fuel : Nat) (d : Draw) (s : Styl
         let saved := d.mask
         let d := match clip with | some p => d.withClipPath p | none => d
         let d := if opacity < 1 then
-            d.group opacity fun g => drawNodes clips fuel g s children
-          else drawNodes clips fuel d s children
+            d.group opacity fun g => drawNodes clips grads fuel g s children
+          else drawNodes clips grads fuel d s children
         { d with mask := saved }
       | _ =>
         match shapeOf name attrs with
         | none => d
         | some p =>
-          let d := match s.fill with
-            | some c => d.fill p (.solid c) s.rule s.fillOpacity
-            | none => d
+          let d := match s.fillPaint, s.fill with
+            | some g, _ => d.fill p g s.rule s.fillOpacity
+            | none, some c => d.fill p (.solid c) s.rule s.fillOpacity
+            | none, none => d
           match s.stroke with
           | some c => if s.st.width > 0 then d.stroke p s.st (.solid c) s.strokeOpacity else d
           | none => d
@@ -274,6 +347,7 @@ colours in `space`. -/
 def Svg.rasterize (w h : Nat) (nodes : Array Node)
     (bg : Rgba := ⟨0, 0, 0, 0⟩) (space : Space := .linear) : Draw :=
   let clips := nodes.foldl (fun acc n => acc ++ clipPaths 64 n) #[]
-  drawNodes clips 64 (Draw.new w h bg space) {} nodes
+  let grads := nodes.foldl (fun acc n => acc ++ gradients 64 n) #[]
+  drawNodes clips grads 64 (Draw.new w h bg space) {} nodes
 
 end PILean.Raster

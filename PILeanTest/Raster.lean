@@ -118,6 +118,18 @@ def strokeChecks : Array (String × Bool) :=
       near (area (cov (polylinePieces { width := 10, cap := .round } #[⟨20, 20⟩, ⟨20, 20⟩] false)))
         (79 * 255) 255)]
 
+/-- A picture of gradients as SVG nodes: a linear and a radial gradient in aligned rectangles. -/
+def gradientNodes : Array Svg.Node :=
+  let lin := Paint.linear ⟨20, 0⟩ ⟨300, 0⟩ #[⟨0, ⟨230, 30, 30, 255⟩⟩, ⟨0.5, ⟨250, 220, 40, 255⟩⟩,
+    ⟨1, ⟨20, 60, 220, 255⟩⟩]
+  let rad := Paint.radial ⟨160, 140⟩ 60 #[⟨0, ⟨255, 255, 255, 255⟩⟩, ⟨1, ⟨0, 110, 60, 255⟩⟩]
+  #[Svg.rect 0 0 320 200 (some ⟨255, 255, 255, 255⟩),
+    Svg.el "defs" #[] ((gradientNode "lin" lin).toArray ++ (gradientNode "rad" rad).toArray),
+    Svg.el "rect" #[("x", "20"), ("y", "20"), ("width", "280"), ("height", "60"),
+      ("fill", "url(#lin)")],
+    Svg.el "rect" #[("x", "100"), ("y", "90"), ("width", "120"), ("height", "100"),
+      ("fill", "url(#rad)")]]
+
 /-- The paint and compositing checks. -/
 def paintChecks : Array (String × Bool) :=
   let red : Rgba := ⟨255, 0, 0, 255⟩
@@ -154,6 +166,14 @@ def paintChecks : Array (String × Bool) :=
         (Path.rect 0 0 10 10) (.solid red)
       (d.canvas.get 2 2).toRgba == red && (d.canvas.get 7 2).toRgba == ⟨255, 255, 255, 255⟩),
     ("paint: an RGB image of an opaque drawing", (solidRed.toImage .rgb).getpixel 0 0 == red),
+    ("paint: an SVG gradient (sampled stops) draws as the gradient itself, within 2 levels",
+      let d := Svg.rasterize 320 200 gradientNodes ⟨255, 255, 255, 255⟩
+      let lin := Paint.linear ⟨20, 0⟩ ⟨300, 0⟩ #[⟨0, ⟨230, 30, 30, 255⟩⟩,
+        ⟨0.5, ⟨250, 220, 40, 255⟩⟩, ⟨1, ⟨20, 60, 220, 255⟩⟩]
+      (List.range 280).all fun i =>
+        let a := (d.canvas.get (20 + i) 50).toRgba
+        let b := (lin.at (20 + i) 50).toRgba
+        near a.r.toNat b.r.toNat 2 && near a.g.toNat b.g.toNat 2 && near a.b.toNat b.b.toNat 2),
     ("paint: a transparent canvas gives transparent pixels",
       (Draw.new 2 2 ⟨0, 0, 0, 0⟩).toImage.getpixel 0 0 == ⟨0, 0, 0, 0⟩)]
 
@@ -181,9 +201,11 @@ light (`*-notext.png`) and, for comparing with renderers that mix in sRGB, in sR
 (`*-notext-srgb.png`). -/
 def writeCompare (dir : System.FilePath) : IO Unit := do
   IO.FS.createDirAll dir
-  for (name, fig) in PILeanTest.Examples.gallery do
-    let nodes := fig.render.filterMap (stripText 64)
-    let base := (System.FilePath.mk name).fileStem.getD name
+  let pictures := PILeanTest.Examples.gallery.map (fun (name, fig) =>
+    ((System.FilePath.mk name).fileStem.getD name, fig.width, fig.height,
+      fig.render.filterMap (stripText 64))) |>.push ("gradients", 320, 200, gradientNodes)
+  for (base, width, height, nodes) in pictures do
+    let fig : Figure := { width, height }
     IO.FS.writeFile (dir / s!"{base}-notext.svg") (Svg.document fig.width fig.height nodes)
     for (suffix, space) in [("", Space.linear), ("-srgb", Space.srgb)] do
       let img := (Svg.rasterize fig.width.round.toUInt64.toNat fig.height.round.toUInt64.toNat
