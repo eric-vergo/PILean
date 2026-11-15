@@ -385,10 +385,10 @@ def bench : IO Unit := do
     let x1 ← IO.lazyPure fun _ => refineBreadth size n chains order up down sep bw x0 o.refine
     let refined ← msSince t4b
     let t4c ← IO.monoNanosNow
-    let _ ← IO.lazyPure fun _ => simplexBreadth size n chains order sep bw x1 8 o.coordinateWork
+    let xs ← IO.lazyPure fun _ => simplexBreadth size n chains order sep bw x1 8 o.coordinateWork
     let simplexMs ← msSince t4c
     let t4d ← IO.monoNanosNow
-    let _ ← IO.lazyPure fun _ => simplexBreadth size n chains order sep bw x1 8 0
+    let xt ← IO.lazyPure fun _ => simplexBreadth size n chains order sep bw x1 8 0
     let treeMs ← msSince t4d
     let t5 ← IO.monoNanosNow
     let l ← IO.lazyPure fun _ => g.layout o st
@@ -404,8 +404,10 @@ def bench : IO Unit := do
     let png ← IO.lazyPure fun _ => img.writePng
     let pngMs ← msSince t8
     let crossingsNow := totalCrossings order down (positionsOf size order)
+    -- the widths of the two simplex results, so that neither computation is left out
+    let spread := fun (x : Array Float) => x.foldl max 0 - x.foldl min 0
     IO.println s!"{n} nodes, {g.edges.size} edges, {size - n} dummy nodes, {crossingsNow} \
-      crossings, picture {l.width} × {l.height}"
+      crossings, picture {l.width} × {l.height}, simplex widths {spread xs} and {spread xt}"
     IO.println s!"  layout {total} ms (cycles {cycles}, layers {layers}, chains {chainMs}, \
       ordering {ordering}, coordinates {coords}, refine {refined}, simplex {simplexMs} (tree \
       {treeMs})); SVG {svgMs} ms \

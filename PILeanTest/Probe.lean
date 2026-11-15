@@ -53,7 +53,9 @@ def main (args : List String) : IO UInt32 := do
       | [sw, cw] => { sweeps := sw.toNat!, coordinateWork := cw.toNat! }
       | _ => {}
     let l := Graph.layout g o
-    IO.println s!"ok {l.nodes.size} nodes {l.edges.size} routes {l.width}x{l.height}"
+    let svg := l.toSvg {}
+    IO.println s!"ok {l.nodes.size} nodes {l.edges.size} routes {l.width}x{l.height} \
+      svg {svg.utf8ByteSize} bytes"
     return 0
   let [kind, file] := args | do
     IO.eprintln "usage: pilean-probe png|gif|apng|zlib FILE"

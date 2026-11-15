@@ -18,7 +18,7 @@ LeAnTeX, at a fixed commit.
 open Lake DSL
 
 require leantex from git "https://github.com/eric-vergo/LeAnTeX" @
-  "0b90627a2a2d8f4660dcfcbc0a3ced93ba161191"
+  "45cae009ea2be14dc9c0fc850005dfcaebd70db4"
 require pilean from ".."
 
 package «pilean-leantex» where

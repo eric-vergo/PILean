@@ -38,7 +38,7 @@ open LeAnTeX LeAnTeX.Backend
 
 /-- The LeAnTeX commit this package is built against: the revision `lakefile.lean` requires,
 which the tests check against `lake-manifest.json`. -/
-def leantexRevision : String := "0b90627a2a2d8f4660dcfcbc0a3ced93ba161191"
+def leantexRevision : String := "45cae009ea2be14dc9c0fc850005dfcaebd70db4"
 
 /-- The longest string, in characters, typeset by LeAnTeX; a longer one is drawn by the
 lettering. -/

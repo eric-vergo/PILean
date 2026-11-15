@@ -59,7 +59,12 @@ def engineChecks (e : TextEngine) (fonts : LeAnTeX.Backend.Fonts) : Array (Strin
       e.measure long 10 == TextEngine.lettering.measure (fallbackText long) 10 &&
         (fallbackText long).length == maxLabel + 1),
     ("engine: plain text, ligatures and Unicode minus set by LeAnTeX",
-      (typesetLabel fonts "office −1.5" false).isOk)]
+      (typesetLabel fonts "office −1.5" false).isOk),
+    ("engine: the slash of \\ne lies over its equals sign, not left of the label",
+      -- the equals sign's ink is from 0.056 em to 0.722 em; the slash is centred on it
+      match (e.shape "$\\ne$" 20 1).fill.bounds, (e.shape "$=$" 20 1).fill.bounds with
+      | some n, some q => n.x0 ≥ q.x0 - 0.5 && n.x1 ≤ q.x1 + 0.5
+      | _, _ => false)]
 
 /-- The trust checks: the engine's identity and the fingerprints. -/
 def trustChecks (e : TextEngine) : Array (String × Bool) :=

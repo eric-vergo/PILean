@@ -15,7 +15,9 @@ fails if the child is killed, gives the wrong answer, or uses more memory than t
 reader's documentation states (the decoded buffers plus a fixed allowance for the runtime).
 
 The large inputs are generated here, not stored: a zlib stream of zeros made of 258-byte matches,
-and PNG files that wrap it; the hostile graphs are made by the probe (`hostileGraph`).
+and PNG files that wrap it; the hostile graphs are made by the probe (`hostileGraph`), which
+lays each out and writes its SVG, so the bounds cover the drawing as well as the layout (the
+100,000 routes of the self-loop case make an SVG of about 36 MB).
 
 ## Main definitions
 
@@ -221,7 +223,7 @@ def cases : Array Case :=
       expect := "ok 20000 nodes", maxRss := 256 <<< 20, maxUserMs := 15000 },
     { name := "graph: 10000 nodes with ten self-loops each", kind := "graph",
       bytes := pure .empty, argv := some #["graph", "loops", "10000"],
-      expect := "ok 10000 nodes", maxRss := 256 <<< 20, maxUserMs := 10000 },
+      expect := "ok 10000 nodes", maxRss := 384 <<< 20, maxUserMs := 10000 },
     { name := "graph: 20000 nodes, 40000 random edges", kind := "graph", bytes := pure .empty,
       argv := some #["graph", "sparse", "20000"], expect := "ok 20000 nodes",
       maxRss := 512 <<< 20, maxUserMs := 40000 }]

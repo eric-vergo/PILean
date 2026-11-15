@@ -164,8 +164,12 @@ def outline (fs : FontSet) (dl : DisplayList) (em : Int) (k : Float) : PILean.Pa
         let (shape, upem) := drawn.getD (notdefPath, 1000)
         let ks := s / upem
         let a := if mirroredAt dl i then -ks else ks
+        -- the back end's placement of glyphs New Computer Modern draws elsewhere than KaTeX
+        let pl := if drawn.isSome then fs.placement face c else {}
         let m : Affine := { a := a * k, c := -(Float.ofInt face.slant / 1000) * ks * k,
-                            d := ks * k, e := ox * k, f := oy * k }
+                            d := ks * k * Float.ofNat pl.yScale / 1000,
+                            e := (ox + Float.ofInt pl.dx * ks) * k,
+                            f := (oy - Float.ofInt pl.dy * ks) * k }
         out := out.append (shape.transform m)
       | .rule x y w h _ _ =>
         out := out.append (PILean.Path.rect ((lx + sp x) * k) ((ly + sp y) * k) (sp w * k)
