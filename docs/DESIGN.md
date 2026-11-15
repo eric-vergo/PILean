@@ -134,7 +134,7 @@ Four parts:
 3. **Fingerprint.** A SHA-256 (pure Lean) of the figure specification's canonical encoding, of the
    source declaration's text and of where it is, written into the file and into the manifest; a
    checker re-renders and compares (`pilean-build --check`).
-4. **Theorems.** A `Figure` holds the Lean objects it shows (the function, the data term, the
+4. **Theorems** (done for four kinds; see `docs/PROOFS.md`). A `Figure` holds the Lean objects it shows (the function, the data term, the
    relation of a graph), and the renderer's sampling and drawing functions are stated over them:
    the plotted function is the definition; each data point is the evaluated term; each drawn edge
    is in the declared relation and every related pair is drawn. Statements first, proofs second,

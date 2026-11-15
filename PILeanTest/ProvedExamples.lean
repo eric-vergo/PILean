@@ -173,7 +173,8 @@ theorem provedClock_spec (i : Nat) :
       (provedClock.frameTrees mode)[i] =
         Svg.el "g" #[] ((clockFrame (provedClock.time i)).render mode)) :=
   ⟨Animation.time_eq_exactTime .., rfl, rfl,
-    fun h => Animation.frameSeq_getElem _ i h, fun mode h => Animation.frameTrees_getElem _ mode i h⟩
+    fun h => Animation.frameSeq_getElem _ i h,
+    fun mode h => Animation.frameTrees_getElem _ mode i h⟩
 
 /-- The hypotheses are met: the clock's frame rate is 10, so frame 5 is at `5/10`. -/
 example : (provedClock.exactTime 5).num = 5 ∧ (provedClock.exactTime 5).den = 10 := by

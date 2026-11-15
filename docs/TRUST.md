@@ -4,7 +4,9 @@ An image can say which Lean declaration made it. PILean writes this into SVG, PN
 files and reads it back; `lake exe pilean-info FILE` prints it. The code is in
 `PILean/Trust/Provenance.lean`; the SHA-256 used for fingerprints is `PILean/Trust/Sha256.lean`.
 The sections from "Renderable figures" on say how a build produces the files with their source
-record, a fingerprint and a manifest, and how to check them.
+record, a fingerprint and a manifest, and how to check them. What a picture's theorems say about
+the Lean object it shows, and what stays tested or trusted, is on
+[`PROOFS.md`](PROOFS.md) ("What an image proves").
 
 ## The record
 

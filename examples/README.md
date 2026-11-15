@@ -57,6 +57,24 @@ also shows instead of the motion when the viewer asks for reduced motion.
 | **Growing bars**, played once (`growing-bars`) | ![](growing-bars.svg) | ![](growing-bars.png) | ![](growing-bars.gif) | ![](growing-bars-poster.png) |
 | **A graph building up**, layer by layer: every element in every frame, only opacities change, so the SVG interpolates (`graph-build`) | ![](graph-build.svg) | ![](graph-build.png) | ![](graph-build.gif) | ![](graph-build-poster.png) |
 
+## Pictures with a theorem
+
+One picture of each kind whose content is specified by a theorem about the Lean object it was
+drawn from (see [`docs/PROOFS.md`](../docs/PROOFS.md): what is proved, what is tested, what is
+trusted). The definitions and theorems are in
+[`PILeanTest/ProvedExamples.lean`](../PILeanTest/ProvedExamples.lean); each picture is tagged
+`@[figure]`. Light style shown; the dark style has the suffix `-dark`.
+
+| Picture | Theorem |
+|---|---|
+| ![function plot](proved-function.svg) **Function plot** (`provedFunction`) | `provedFunction_spec`: the series' points are the 25 exact samples `(x, f x)` of the cubic `x³ − x` on the grid `−3/2 + k/8`, `k = 0, …, 24`, converted one by one (`Q.toFloat` is where floating point begins); the grid starts at `−3/2`, ends at `3/2` and has the constant step `1/8`; every sample is `(x, f x)` with `x` on the grid. |
+| ![data plot](proved-data.svg) **Data plot** (`provedData`) | `provedData_spec`: the line's and the markers' points are the list `residues` of 25 integer pairs, converted point for point, in order; the integers are recovered from the exact points, so none is added, dropped or changed. |
+| ![graph](graph-proved.svg) **Graph** (`provedGraph`) | `provedGraph_spec`: the nodes are the numbers 1 to 12, the edges are exactly the pairs `a < b` with `a ∣ b` (23 of them), each once, and the layout draws one route per edge, in order, with the edge's own index and ends (long edges pass through dummy nodes inside the layout and are still one route). |
+| ![animation](proved-clock.svg) **Animation** (`provedClock`) | `provedClock_spec`: frame `i` of the animation (10 frames, in the SVG, the APNG and the GIF) is the drawing `clockFrame` at the time `i / 10`, the conversion of the exact fraction `i/10`. |
+
+The PNG of each has the same name with `.png`; the animation's other files are
+`proved-clock.png`, `proved-clock.gif` and `proved-clock-poster.png`.
+
 ## Checks against other software
 
 ```

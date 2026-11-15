@@ -225,7 +225,8 @@ example : relationPairs [1, 2] (fun a b => a != b) = [(0, 1), (1, 0)] := by deci
 
 /-- The hypotheses of `ofNames_layout_edges` can be met. -/
 example : ∀ p ∈ ([(0, 1), (1, 2)] : List (Nat × Nat)),
-    p.1 < (#["a", "b", "c"] : Array String).size ∧ p.2 < (#["a", "b", "c"] : Array String).size := by
+    p.1 < (#["a", "b", "c"] : Array String).size ∧
+      p.2 < (#["a", "b", "c"] : Array String).size := by
   decide
 
 end Graph

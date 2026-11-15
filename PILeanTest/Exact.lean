@@ -76,7 +76,8 @@ def checks : Array (String × Bool) :=
       reduced (Q.ofFrac 2 3 * Q.ofFrac (-3) 4) == (-1, 2) &&
       reduced (Q.ofFrac 1 2 - Q.ofFrac 1 3) == (1, 6)),
     ("Q: equivalence and order of unreduced fractions",
-      decide (Q.Equiv (Q.ofFrac 2 4) (Q.ofFrac 1 2)) && decide (Q.lt (Q.ofFrac 1 3) (Q.ofFrac 1 2)) &&
+      decide (Q.Equiv (Q.ofFrac 2 4) (Q.ofFrac 1 2)) &&
+        decide (Q.lt (Q.ofFrac 1 3) (Q.ofFrac 1 2)) &&
         !decide (Q.lt (Q.ofFrac 1 2) (Q.ofFrac 2 4))),
     ("toFloat: exact for dyadic fractions, nearest otherwise",
       (Q.ofFrac (-15) 8).toFloat == -1.875 && third.toFloat == 1.0 / 3.0 &&
