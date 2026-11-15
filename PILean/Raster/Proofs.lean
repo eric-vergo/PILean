@@ -16,27 +16,51 @@ import PILean.Raster.Canvas
 * `encode16_decode8`: the sRGB tables round-trip every 8-bit value.
 * `mask_zero`: where a clip mask is 0 the coverage applied is 0.
 
-Each with an example showing that its hypotheses can be met. What is tested and not proved:
+Each statement with hypotheses has an example showing that they can be met. What is tested and not proved:
 the coverage values themselves (against known areas), strokes, paints and compositing.
 -/
 
 namespace PILean.Raster
 
+/-- A pixel's coverage is at most a whole pixel. -/
 theorem coverageOf_le (rule : FillRule) (v : Int) : coverageOf rule v ≤ 255 := by
-  sorry
+  unfold coverageOf
+  have h : ∀ m, m ≤ 131072 → (m * 255 + 131072 / 2) / 131072 ≤ 255 := by
+    intro m hm; omega
+  cases rule with
+  | nonZero => exact h _ (Nat.min_le_right _ _)
+  | evenOdd =>
+    apply h
+    dsimp only
+    split <;> omega
 
+example : coverageOf .evenOdd 393216 = 255 := by decide
+
+/-- Every span of a fill lies inside the clip rectangle and the image. -/
 theorem coverage_inside {polys : Array (Array Point)} {rule : FillRule} {w h : Nat}
     {clip : IRect} {spans : Array Span} (hs : coverage polys rule w h clip = some spans) :
     ∀ s ∈ spans, Span.inside (clip.inter ⟨0, 0, w, h⟩) s = true := by
-  sorry
+  unfold coverage at hs
+  cases hr : coverageRaw polys rule w h clip with
+  | none => rw [hr] at hs; cases hs
+  | some raw =>
+    rw [hr] at hs
+    simp only [Option.map_some, Option.some.injEq] at hs
+    intro s hm
+    rw [← hs] at hm
+    exact (Array.mem_filter.mp hm).2
 
-example : ∃ spans, coverage #[#[⟨0, 0⟩, ⟨1, 0⟩, ⟨1, 1⟩]] .nonZero 2 2 ⟨0, 0, 2, 2⟩ = some spans := by
-  sorry
+example : ∃ spans,
+    coverage #[#[⟨0, 0⟩, ⟨1, 0⟩, ⟨1, 1⟩]] .nonZero 2 2 ⟨0, 0, 2, 2⟩ = some spans := by
+  unfold coverage coverageRaw
+  exact ⟨_, rfl⟩
 
+/-- The sRGB tables round-trip every 8-bit value. -/
 theorem encode16_decode8 : ∀ n < 256, encode16 (decode8 n.toUInt8) = n.toUInt8 := by
-  sorry
+  decide +kernel
 
+/-- Where the clip mask is 0, the coverage `Canvas.fillSpans` applies is 0. -/
 theorem mask_zero (a op : Nat) : mulDiv a (mulDiv op 0 255) 65535 = 0 := by
-  sorry
+  simp [mulDiv]
 
 end PILean.Raster

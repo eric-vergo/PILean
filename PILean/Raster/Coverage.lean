@@ -206,10 +206,8 @@ def coverageOf (rule : FillRule) (v : Int) : Nat :=
 /-- `coverageOf` as a byte (it is at most 255, `coverageOf_le`, so nothing is cut off). -/
 def alphaOf (rule : FillRule) (v : Int) : UInt8 := (coverageOf rule v).toUInt8
 
-/-- The spans of the pixels that closed polylines cover, in an image `w` × `h`, clipped to
-`clip`: rows top to bottom, spans left to right, none of coverage 0; or `none` past
-`maxPoints`. Every span lies inside `clip` and the image (`coverage_inside`). -/
-def coverage (polys : Array (Array Point)) (rule : FillRule) (w h : Nat) (clip : IRect) :
+/-- The spans of a fill (see `coverage`), before the spans are filtered to the clip (`coverage`). -/
+def coverageRaw (polys : Array (Array Point)) (rule : FillRule) (w h : Nat) (clip : IRect) :
     Option (Array Span) := Id.run do
   let total := polys.foldl (fun n p => n + p.size) 0
   if total > maxPoints then return none
@@ -258,8 +256,15 @@ def coverage (polys : Array (Array Point)) (rule : FillRule) (w h : Nat) (clip :
       let s := max (cx + 1) clip.x0
       let e := min next.toNat clip.x1
       if runA != 0 && s < e then out := out.push ⟨y, s, e - s, runA⟩
-  -- every span is inside the clip by construction; the filter makes that a guarantee
-  return some (out.filter (Span.inside clip))
+  return some out
+
+/-- The spans of the pixels that closed polylines cover, in an image `w` × `h`, clipped to
+`clip`: rows top to bottom, spans left to right, none of coverage 0; or `none` past
+`maxPoints`. Every span lies inside `clip` and the image (`coverage_inside`): the spans are
+inside by construction, and the filter makes that a guarantee. -/
+def coverage (polys : Array (Array Point)) (rule : FillRule) (w h : Nat) (clip : IRect) :
+    Option (Array Span) :=
+  (coverageRaw polys rule w h clip).map (·.filter (Span.inside (clip.inter ⟨0, 0, w, h⟩)))
 
 /-- The coverage of pixel `(x, y)` in a list of spans (0 outside them). -/
 def spansAlpha (spans : Array Span) (x y : Nat) : UInt8 :=

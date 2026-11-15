@@ -12,12 +12,12 @@ import PILean.Image.Ops
 import PILean.Image.Proofs
 import PILean.Plot.Ticks
 import PILean.Plot.Figure
-import PILean.Image.Basic
 import PILean.Raster.Coverage
 import PILean.Raster.Canvas
 import PILean.Raster.Stroke
 import PILean.Raster.Draw
 import PILean.Raster.SvgRender
+import PILean.Raster.Proofs
 import PILean.Plot.Raster
 
 /-!

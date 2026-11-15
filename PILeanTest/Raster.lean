@@ -239,3 +239,8 @@ def bench : IO Unit := do
 def checks : Array (String × Bool) := coverageChecks ++ strokeChecks ++ paintChecks
 
 end PILeanTest.Raster
+
+#print axioms PILean.Raster.coverageOf_le
+#print axioms PILean.Raster.coverage_inside
+#print axioms PILean.Raster.encode16_decode8
+#print axioms PILean.Raster.mask_zero
