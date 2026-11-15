@@ -84,7 +84,8 @@ def ticks : Array (String × Bool) :=
     ("ticks: values are exact multiples", (niceTicks 0 0.3 3).values.all fun v =>
       near (v / 0.1) (v / 0.1).round 1e-9),
     ("labels: decimals from the step", tickLabel t1 0.4 == "0.4" && tickLabel t2 40 == "40"),
-    ("labels: typographic minus, no −0", fmtFixed (-1.5) 1 == "−1.5" && fmtFixed (-0.01) 1 == "0.0")]
+    ("labels: typographic minus, no −0",
+      fmtFixed (-1.5) 1 == "−1.5" && fmtFixed (-0.01) 1 == "0.0")]
 
 /-- All unit checks. -/
 def checks : Array (String × Bool) := geometry ++ svg ++ ticks

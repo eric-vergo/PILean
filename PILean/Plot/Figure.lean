@@ -25,8 +25,9 @@ graphs of functions). `Figure.toSvg` lays it out and writes it as an SVG documen
 * A function is sampled at `samples` equally spaced points; a sample whose value is not finite
   breaks the curve there. Data and curves are clipped to the plot area.
 * The legend is drawn when a figure has more than one mark, inside the plot area at its top
-  left, on a translucent plate whose width estimates the labels' width. Labels are plain SVG text in the theme's font family; measuring text waits for the text
-  layer, so every label is anchored (start, middle or end) rather than measured.
+  left, on a translucent plate whose width estimates the labels' width. Labels are plain SVG
+  text in the theme's font family; measuring text waits for the text layer, so every label is
+  anchored (start, middle or end) rather than measured.
 -/
 
 namespace PILean.Plot
