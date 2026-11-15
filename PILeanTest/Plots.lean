@@ -159,19 +159,21 @@ def animBench : IO Unit := do
   let a : Animation := { Animations.wave with duration := 4 }
   let load ← try (IO.Process.output { cmd := "sysctl", args := #["-n", "vm.loadavg"] })
     catch _ => pure { exitCode := 1, stdout := "", stderr := "" }
-  let time := fun {α : Type} (f : Unit → α) => do
-    let t0 ← IO.monoNanosNow
-    let r ← IO.lazyPure f
-    let t1 ← IO.monoNanosNow
-    return (r, (t1 - t0) / 1000000)
-  let (frames, tf) ← time fun _ => a.frameSeq
-  let (svg, ts) ← time fun _ => a.toSvg
-  let (apng, ta) ← time fun _ => frames.toApng
-  let (gif, tg) ← time fun _ => frames.toGif
+  let t0 ← IO.monoNanosNow
+  let frames : FrameSeq ← IO.lazyPure fun _ => a.frameSeq
+  let t1 ← IO.monoNanosNow
+  let svg : String ← IO.lazyPure fun _ => a.toSvg
+  let t2 ← IO.monoNanosNow
+  let apng ← IO.lazyPure fun _ => frames.toApng
+  let t3 ← IO.monoNanosNow
+  let gif ← IO.lazyPure fun _ => frames.toGif
+  let t4 ← IO.monoNanosNow
+  let ms := fun (a b : Nat) => (b - a) / 1000000
+  let (tf, ts, ta, tg) := (ms t0 t1, ms t1 t2, ms t2 t3, ms t3 t4)
   IO.println s!"{a.frameCount} frames of {a.width} × {a.height} (load {load.stdout.trimAscii}):"
   IO.println s!"  draw the frames {tf} ms; SVG {ts} ms, {svg.utf8ByteSize} bytes"
-  IO.println s!"  APNG encode {ta} ms, {(apng.toOption.map (·.size)).getD 0} bytes"
-  IO.println s!"  GIF encode {tg} ms, {(gif.toOption.map (·.size)).getD 0} bytes"
+  IO.println s!"  APNG encode {ta} ms, {(apng.toOption.map ByteArray.size).getD 0} bytes"
+  IO.println s!"  GIF encode {tg} ms, {(gif.toOption.map ByteArray.size).getD 0} bytes"
 
 /-- All the checks. -/
 def checks : Array (String × Bool) :=
