@@ -54,8 +54,9 @@ def fixedLitLens : Array Nat :=
   Array.ofFn (n := 288) fun i =>
     if i.val < 144 then 8 else if i.val < 256 then 9 else if i.val < 280 then 7 else 8
 
-/-- The code lengths of the fixed distance code (30 symbols, all of length 5). -/
-def fixedDistLens : Array Nat := Array.replicate 30 5
+/-- The code lengths of the fixed distance code (32 symbols, all of length 5; the symbols 30
+and 31 never occur in valid data). -/
+def fixedDistLens : Array Nat := Array.replicate 32 5
 
 /-- The length symbol index `k` (symbol `257 + k`) that encodes the match length `len`
 (`3 ≤ len ≤ 258`; 258 is encoded by the last symbol). -/
