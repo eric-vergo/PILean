@@ -71,7 +71,7 @@ What PILean takes from Pillow is the shape of the API and its documented behavio
 - **Exact (integers, rationals):** pixel dimensions, image buffers and their indexing, PNG and
   DEFLATE (bit-exact by construction and by round-trip tests), CRC and Adler checksums,
   fingerprints, tick values (integer multiples of a step), the manifest. Data values that come
-  from Lean (`Nat`, `Int`, `Rat`-like) stay exact until they are mapped to the page.
+  from Lean (`Nat`, `Int`, `Rat`) stay exact until they are mapped to the page.
 - **Integers in the rasteriser:** coordinates are rounded to 1/256 pixel and everything after
   that is integer arithmetic: the cells and their areas, the coverage, compositing (16 bits a
   channel, premultiplied, in linear light) and the sRGB conversions (two tables of integers,

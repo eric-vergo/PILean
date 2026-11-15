@@ -10,7 +10,7 @@ import PILean.Anim.Animation
 Frame `i` of an animation is the drawing at the time `i / fps`.
 
 * `time_eq_exactTime`: the time the writers pass to the drawing function, `Animation.time i`, is
-  the `Float` conversion (`Q.toFloat`) of the exact fraction `Animation.exactTime i = i / fps`.
+  the `Float` conversion (`Exact.toFloat`) of the exact rational `Animation.exactTime i = i / fps`.
 * `frameSeq_size`, `frameSeq_getElem`: the frame sequence that the animated PNG and GIF writers
   receive has `frameCount` frames, and frame `i` is `Animation.image i`, the rasterised drawing
   `a.frame (a.time i)`.
@@ -30,13 +30,19 @@ namespace Animation
 variable (a : Animation)
 
 /-- The time of frame `i` is the conversion of the exact fraction `i / fps`. -/
-theorem time_eq_exactTime (i : Nat) : a.time i = (a.exactTime i).toFloat := rfl
+theorem time_eq_exactTime (i : Nat) : a.time i = Exact.toFloat (a.exactTime i) := rfl
 
-/-- The exact times of consecutive frames differ by one frame, `1 / fps`: the numerators are
-consecutive and the denominator is the same. -/
+/-- The exact time of frame `i` is `i / fps` when the frame rate is positive. -/
+theorem exactTime_eq (i : Nat) (h : 0 < a.fps) : a.exactTime i = (i : Rat) / a.fps := by
+  rw [exactTime, Nat.max_eq_left h]
+
+/-- The exact times of consecutive frames differ by one frame, `1 / fps` (a frame rate of zero
+counts as one). -/
 theorem exactTime_succ (i : Nat) :
-    (a.exactTime (i + 1)).den = (a.exactTime i).den ∧
-      (a.exactTime (i + 1)).num = (a.exactTime i).num + 1 := ⟨rfl, rfl⟩
+    a.exactTime (i + 1) - a.exactTime i = 1 / (max a.fps 1 : Nat) := by
+  simp only [exactTime]
+  push_cast
+  grind
 
 /-- Frame `i` is the rasterised drawing at the time `time i`. -/
 theorem image_eq (i : Nat) :
@@ -66,11 +72,10 @@ theorem frameTrees_getElem (mode : TextMode) (i : Nat) (h : i < (a.frameTrees mo
     (a.frameTrees mode)[i] = Svg.el "g" #[] ((a.frame (a.time i)).render mode) := by
   simp [frameTrees]
 
-/-- The hypotheses can be met: at 30 frames per second, frame 15 is at the fraction `15 / 30`
-(half a second). -/
-example (a : Animation) (h : a.fps = 30) :
-    (a.exactTime 15).num = 15 ∧ (a.exactTime 15).den = 30 := by
-  simp [exactTime, h]
+/-- The hypotheses can be met: at 30 frames per second, frame 15 is at half a second. -/
+example (a : Animation) (h : a.fps = 30) : a.exactTime 15 = 1 / 2 := by
+  rw [a.exactTime_eq 15 (by omega), h]
+  decide +kernel
 
 end Animation
 

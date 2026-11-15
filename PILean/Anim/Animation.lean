@@ -76,13 +76,12 @@ def frameCount : Nat :=
   let n := (a.duration * a.fps.toFloat).round
   if n.isNaN || n < 1 then 1 else min 10000 n.toUInt64.toNat
 
-/-- The time of frame `i`. -/
-def time (i : Nat) : Float := i.toFloat / (max a.fps 1).toFloat
+/-- The exact time of frame `i`: the rational number `i / fps` (a frame rate of zero counts as
+one). -/
+def exactTime (i : Nat) : Rat := (i : Rat) / (max a.fps 1 : Nat)
 
-/-- The exact time of frame `i`: the fraction `i / fps` (a frame rate of zero counts as one).
-`time i` is its conversion to a `Float` (`time_eq_exactTime`). -/
-def exactTime (i : Nat) : Q :=
-  ⟨i, max a.fps 1, Nat.lt_of_lt_of_le Nat.one_pos (Nat.le_max_right _ _)⟩
+/-- The time of frame `i`: the exact time `i / fps` converted to a `Float`. -/
+def time (i : Nat) : Float := Exact.toFloat (a.exactTime i)
 
 /-- The poster frame's time. -/
 def poster : Float := a.posterTime.getD (a.time (a.frameCount - 1))

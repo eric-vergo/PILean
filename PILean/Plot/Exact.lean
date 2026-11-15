@@ -11,14 +11,14 @@ import PILean.Plot.Figure
 Two kinds of series whose plotted points are specified exactly, before any floating-point number
 exists:
 
-* **Function plots.** `Series.ofExact label f lo hi n` plots an exact function `f : Q → Q` on the
-  grid of `n + 1` points `lo + k (hi - lo) / n` (`Q.grid`). The exact samples are
-  `Q.samples f lo hi n`.
+* **Function plots.** `Series.ofExact label f lo hi n` plots an exact function `f : Rat → Rat` on
+  the grid of `n + 1` points `lo + k (hi - lo) / n` (`Exact.grid`). The exact samples are
+  `Exact.samples f lo hi n`.
 * **Data plots.** `Series.ofSamples` plots a list of exact points, `Series.ofIntPoints` a list of
   integer pairs; the list is plotted point for point.
 
-Floating point begins at `Q.toFloat`: `Q.toPoint` converts one exact sample to a data point, and
-the series holds exactly the converted samples, in order (`ofExact_points`,
+Floating point begins at `Exact.toFloat`: `Exact.toPoint` converts one exact sample to a data
+point, and the series holds exactly the converted samples, in order (`ofExact_points`,
 `ofSamples_points`). What the drawing code does with them is stated by
 `drawSeries_line_unmarked` and `drawSeries_scatter` (a polyline through the points that have a
 position, a marker at each one) and, for the series built here, `ofExact_draw`,
@@ -34,8 +34,9 @@ panel (`PanelLayout.pos`), the picture is one polyline through the pixels of exa
   are about the function that breaks a polyline (`polylinesWith`), which `PanelLayout.polylines`
   calls.
 * Tested, not proved: the position function itself (`PanelLayout.toPx`, floating-point scales,
-  clamping), the rasteriser, and that `Q.toFloat` is the nearest `Float` (it is when numerator
-  and denominator have at most 53 significant bits, as in the tests).
+  clamping), the rasteriser, and how near `Exact.toFloat` is to the rational number (the correctly
+  rounded quotient when numerator and denominator have at most 53 significant bits, as in the
+  tests, if the platform's conversions and division round as IEEE 754 says).
 * `Series.function`, the adaptive sampler for `Float → Float`, is unchanged: its guarantee is
   weaker (it is tested for refinement, poles and jumps, not proved).
 
@@ -46,12 +47,15 @@ namespace PILean
 
 open Canvas
 
-namespace Q
+namespace Exact
 
 /-- An exact sample as a data point: where floating point begins. -/
-def toPoint (p : Q × Q) : Point := ⟨p.1.toFloat, p.2.toFloat⟩
+def toPoint (p : Rat × Rat) : Point := ⟨toFloat p.1, toFloat p.2⟩
 
-end Q
+/-- An integer pair as an exact point. -/
+def ofIntPair (p : Int × Int) : Rat × Rat := (p.1, p.2)
+
+end Exact
 
 namespace Plot
 
@@ -189,84 +193,83 @@ theorem drawSeries_scatter_all (st : Style) (l : PanelLayout) (label : String)
 namespace Series
 
 /-- A line through exact points, in order: the series holds the points converted one by one
-(`Q.toPoint`), without markers. -/
-def ofSamples (label : String) (ps : List (Q × Q)) (color : Option Rgba := none)
+(`Exact.toPoint`), without markers. -/
+def ofSamples (label : String) (ps : List (Rat × Rat)) (color : Option Rgba := none)
     (dash : Array Float := #[]) : Series :=
-  .line label (ps.map Q.toPoint).toArray color false dash
+  .line label (ps.map Exact.toPoint).toArray color false dash
 
 /-- Exact points as markers, in order. -/
-def scatterOfSamples (label : String) (ps : List (Q × Q)) (color : Option Rgba := none)
+def scatterOfSamples (label : String) (ps : List (Rat × Rat)) (color : Option Rgba := none)
     (radius : Option Float := none) : Series :=
-  .scatter label (ps.map Q.toPoint).toArray color radius
+  .scatter label (ps.map Exact.toPoint).toArray color radius
 
 /-- The graph of the exact function `f` on the grid of `n + 1` points `lo + k (hi - lo) / n`, as
-a line through the exact samples `Q.samples f lo hi n`. -/
-def ofExact (label : String) (f : Q → Q) (lo hi : Q) (n : Nat) (color : Option Rgba := none)
-    (dash : Array Float := #[]) : Series :=
-  ofSamples label (Q.samples f lo hi n) color dash
-
-/-- An integer pair as an exact point. -/
-def _root_.PILean.Q.ofIntPair (p : Int × Int) : Q × Q := (Q.ofInt p.1, Q.ofInt p.2)
+a line through the exact samples `Exact.samples f lo hi n`. -/
+def ofExact (label : String) (f : Rat → Rat) (lo hi : Rat) (n : Nat)
+    (color : Option Rgba := none) (dash : Array Float := #[]) : Series :=
+  ofSamples label (Exact.samples f lo hi n) color dash
 
 /-- A line through integer data points, in order, without markers. -/
 def ofIntPoints (label : String) (ps : List (Int × Int)) (color : Option Rgba := none)
     (dash : Array Float := #[]) : Series :=
-  ofSamples label (ps.map Q.ofIntPair) color dash
+  ofSamples label (ps.map Exact.ofIntPair) color dash
 
 /-- Integer data points as markers, in order. -/
 def scatterOfIntPoints (label : String) (ps : List (Int × Int)) (color : Option Rgba := none)
     (radius : Option Float := none) : Series :=
-  scatterOfSamples label (ps.map Q.ofIntPair) color radius
+  scatterOfSamples label (ps.map Exact.ofIntPair) color radius
 
 /-- The points of a line through exact points are the points converted one by one, in order. -/
-theorem ofSamples_points (label : String) (ps : List (Q × Q)) (c : Option Rgba)
-    (d : Array Float) : (ofSamples label ps c d).points = (ps.map Q.toPoint).toArray := rfl
+theorem ofSamples_points (label : String) (ps : List (Rat × Rat)) (c : Option Rgba)
+    (d : Array Float) : (ofSamples label ps c d).points = (ps.map Exact.toPoint).toArray := rfl
 
 /-- The points of a scatter series of exact points are the points converted one by one, in
 order. -/
-theorem scatterOfSamples_points (label : String) (ps : List (Q × Q)) (c : Option Rgba)
-    (r : Option Float) : (scatterOfSamples label ps c r).points = (ps.map Q.toPoint).toArray :=
+theorem scatterOfSamples_points (label : String) (ps : List (Rat × Rat)) (c : Option Rgba)
+    (r : Option Float) : (scatterOfSamples label ps c r).points = (ps.map Exact.toPoint).toArray :=
   rfl
 
 /-- Every point of an exact function series is a converted exact sample `(x, f x)` with `x` on
 the grid, and only those, in order. -/
-theorem ofExact_points (label : String) (f : Q → Q) (lo hi : Q) (n : Nat) (c : Option Rgba)
+theorem ofExact_points (label : String) (f : Rat → Rat) (lo hi : Rat) (n : Nat) (c : Option Rgba)
     (d : Array Float) :
-    (ofExact label f lo hi n c d).points = ((Q.samples f lo hi n).map Q.toPoint).toArray := rfl
+    (ofExact label f lo hi n c d).points =
+      ((Exact.samples f lo hi n).map Exact.toPoint).toArray := rfl
 
 /-- The abscissae of an exact function series are the grid converted, in order: `n + 1` of them,
-from `lo` to `hi` in equal steps (see `Q.gridPoint_equiv`). -/
-theorem ofExact_xs (label : String) (f : Q → Q) (lo hi : Q) (n : Nat) (c : Option Rgba)
+from `lo` to `hi` in equal steps (see `Exact.gridPoint_eq`). -/
+theorem ofExact_xs (label : String) (f : Rat → Rat) (lo hi : Rat) (n : Nat) (c : Option Rgba)
     (d : Array Float) :
-    (ofExact label f lo hi n c d).points.toList.map (·.x) = (Q.grid lo hi n).map Q.toFloat := by
-  simp [ofExact, ofSamples, Series.points, Q.samples, Function.comp_def, Q.toPoint]
+    (ofExact label f lo hi n c d).points.toList.map (·.x) =
+      (Exact.grid lo hi n).map Exact.toFloat := by
+  simp [ofExact, ofSamples, Series.points, Exact.samples, Function.comp_def, Exact.toPoint]
 
 /-- The ordinates of an exact function series are the values of `f` on the grid, converted. -/
-theorem ofExact_ys (label : String) (f : Q → Q) (lo hi : Q) (n : Nat) (c : Option Rgba)
+theorem ofExact_ys (label : String) (f : Rat → Rat) (lo hi : Rat) (n : Nat) (c : Option Rgba)
     (d : Array Float) :
     (ofExact label f lo hi n c d).points.toList.map (·.y) =
-      (Q.grid lo hi n).map fun x => (f x).toFloat := by
-  simp [ofExact, ofSamples, Series.points, Q.samples, Function.comp_def, Q.toPoint]
+      (Exact.grid lo hi n).map fun x => Exact.toFloat (f x) := by
+  simp [ofExact, ofSamples, Series.points, Exact.samples, Function.comp_def, Exact.toPoint]
 
 /-- An exact function series has `n + 1` points. -/
-theorem ofExact_size (label : String) (f : Q → Q) (lo hi : Q) (n : Nat) (c : Option Rgba)
+theorem ofExact_size (label : String) (f : Rat → Rat) (lo hi : Rat) (n : Nat) (c : Option Rgba)
     (d : Array Float) : (ofExact label f lo hi n c d).points.size = n + 1 := by
-  simp [ofExact, ofSamples, Series.points, Q.samples, Q.grid_length]
+  simp [ofExact, ofSamples, Series.points, Exact.samples, Exact.grid_length]
 
 /-- The drawing of a line through exact points. If every converted point has a position on the
 panel, the picture is one polyline through the positions of exactly those points, in order (none
 for fewer than two points), drawn in one line style. -/
-theorem ofSamples_draw (st : Style) (l : PanelLayout) (label : String) (ps : List (Q × Q))
+theorem ofSamples_draw (st : Style) (l : PanelLayout) (label : String) (ps : List (Rat × Rat))
     (c : Option Rgba) (d : Array Float) (index : Nat)
-    (h : ∀ p ∈ ps, (l.pos (Q.toPoint p)).isSome) :
+    (h : ∀ p ∈ ps, (l.pos (Exact.toPoint p)).isSome) :
     ∃ ln : Line, drawSeries st l (ofSamples label ps c d) index =
       if 1 < ps.length then
         #[Shape.path (Path.polyline
-          (ps.map fun p => (l.pos (Q.toPoint p)).getD ⟨0, 0⟩).toArray) none (some ln)]
+          (ps.map fun p => (l.pos (Exact.toPoint p)).getD ⟨0, 0⟩).toArray) none (some ln)]
       else #[] := by
-  obtain ⟨ln, e⟩ := drawSeries_line_unmarked st l label (ps.map Q.toPoint).toArray c d index
+  obtain ⟨ln, e⟩ := drawSeries_line_unmarked st l label (ps.map Exact.toPoint).toArray c d index
   refine ⟨ln, ?_⟩
-  show drawSeries st l (.line label (ps.map Q.toPoint).toArray c false d) index = _
+  show drawSeries st l (.line label (ps.map Exact.toPoint).toArray c false d) index = _
   rw [e, PanelLayout.polylines, polylinesWith_all]
   · by_cases hs : 1 < ps.length
     · simp [hs, Function.comp_def]
@@ -279,18 +282,18 @@ theorem ofSamples_draw (st : Style) (l : PanelLayout) (label : String) (ps : Lis
 /-- The drawing of an exact function series: when every converted sample has a position, one
 polyline through the positions of exactly the exact samples, in order (a single point, `n = 0`,
 draws nothing). -/
-theorem ofExact_draw (st : Style) (l : PanelLayout) (label : String) (f : Q → Q) (lo hi : Q)
-    (n : Nat) (c : Option Rgba) (d : Array Float) (index : Nat)
-    (h : ∀ p ∈ Q.samples f lo hi n, (l.pos (Q.toPoint p)).isSome) :
+theorem ofExact_draw (st : Style) (l : PanelLayout) (label : String) (f : Rat → Rat)
+    (lo hi : Rat) (n : Nat) (c : Option Rgba) (d : Array Float) (index : Nat)
+    (h : ∀ p ∈ Exact.samples f lo hi n, (l.pos (Exact.toPoint p)).isSome) :
     ∃ ln : Line, drawSeries st l (ofExact label f lo hi n c d) index =
       if 0 < n then
         #[Shape.path (Path.polyline
-          ((Q.samples f lo hi n).map fun p => (l.pos (Q.toPoint p)).getD ⟨0, 0⟩).toArray)
+          ((Exact.samples f lo hi n).map fun p => (l.pos (Exact.toPoint p)).getD ⟨0, 0⟩).toArray)
           none (some ln)]
       else #[] := by
-  obtain ⟨ln, e⟩ := ofSamples_draw st l label (Q.samples f lo hi n) c d index h
+  obtain ⟨ln, e⟩ := ofSamples_draw st l label (Exact.samples f lo hi n) c d index h
   refine ⟨ln, e.trans ?_⟩
-  simp only [Q.samples_length]
+  simp only [Exact.samples_length]
   by_cases hn : 0 < n
   · simp [hn, show 1 < n + 1 by omega]
   · simp [hn, show ¬ 1 < n + 1 by omega]
@@ -298,11 +301,11 @@ theorem ofExact_draw (st : Style) (l : PanelLayout) (label : String) (f : Q → 
 /-- The drawing of a scatter series of exact points: when every converted point has a position,
 one marker at the position of each, in order. -/
 theorem scatterOfSamples_draw (st : Style) (l : PanelLayout) (label : String)
-    (ps : List (Q × Q)) (c : Option Rgba) (r : Option Float) (index : Nat)
-    (h : ∀ p ∈ ps, (l.pos (Q.toPoint p)).isSome) :
+    (ps : List (Rat × Rat)) (c : Option Rgba) (r : Option Float) (index : Nat)
+    (h : ∀ p ∈ ps, (l.pos (Exact.toPoint p)).isSome) :
     ∃ (col : Rgba) (rad : Float), drawSeries st l (scatterOfSamples label ps c r) index =
-      (ps.map fun p => marker st ((l.pos (Q.toPoint p)).getD ⟨0, 0⟩) col rad).toArray := by
-  obtain ⟨col, rad, e⟩ := drawSeries_scatter_all st l label (ps.map Q.toPoint).toArray c r index
+      (ps.map fun p => marker st ((l.pos (Exact.toPoint p)).getD ⟨0, 0⟩) col rad).toArray := by
+  obtain ⟨col, rad, e⟩ := drawSeries_scatter_all st l label (ps.map Exact.toPoint).toArray c r index
     (by
       intro p hp
       simp only [List.mem_toArray, List.mem_map] at hp
@@ -314,14 +317,15 @@ theorem scatterOfSamples_draw (st : Style) (l : PanelLayout) (label : String)
 /-- The integer points are recovered from the exact points: nothing is added, dropped or
 reordered by the exact layer. -/
 theorem ofIntPairs_recover (ps : List (Int × Int)) :
-    (ps.map Q.ofIntPair).map (fun q => (q.1.num, q.2.num)) = ps := by
-  simp [Q.ofIntPair, Q.ofInt, Function.comp_def]
+    (ps.map Exact.ofIntPair).map (fun q => (q.1.num, q.2.num)) = ps := by
+  simp [Exact.ofIntPair, Function.comp_def]
 
 /-- The points of a line through integer data are the data converted one by one, in order: as
 many as given, none added or dropped. -/
 theorem ofIntPoints_points (label : String) (ps : List (Int × Int)) (c : Option Rgba)
     (d : Array Float) :
-    (ofIntPoints label ps c d).points = (ps.map fun p => Q.toPoint (Q.ofIntPair p)).toArray := by
+    (ofIntPoints label ps c d).points =
+      (ps.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray := by
   simp [ofIntPoints, ofSamples, Series.points, Function.comp_def]
 
 /-- The points of a scatter series of integer data are the data converted one by one, in
@@ -329,13 +333,11 @@ order. -/
 theorem scatterOfIntPoints_points (label : String) (ps : List (Int × Int)) (c : Option Rgba)
     (r : Option Float) :
     (scatterOfIntPoints label ps c r).points =
-      (ps.map fun p => Q.toPoint (Q.ofIntPair p)).toArray := by
+      (ps.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray := by
   simp [scatterOfIntPoints, scatterOfSamples, Series.points, Function.comp_def]
 
 /-- The hypotheses can be met: a function of three samples (`n = 2`), and the grid it uses. -/
-example : (Q.samples (fun x => x * x) (Q.ofInt 0) (Q.ofInt 2) 2).map
-    (fun p => ((p.1.num, p.1.den), (p.2.num, p.2.den))) =
-    [((0, 2), (0, 4)), ((2, 2), (4, 4)), ((4, 2), (16, 4))] := by decide
+example : Exact.samples (fun x => x * x) 0 2 2 = [(0, 0), (1, 1), (2, 4)] := by decide +kernel
 
 end Series
 

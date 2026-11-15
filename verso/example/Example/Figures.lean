@@ -28,16 +28,16 @@ open PILean PILean.Plot
 /-! ### A function plot -/
 
 /-- The cubic `x³ − 3x`, exact. -/
-def cubic (x : Q) : Q := x * x * x - Q.ofInt 3 * x
+def cubic (x : Rat) : Rat := x * x * x - 3 * x
 
 /-- Its derivative `3x² − 3`, exact. -/
-def cubic' (x : Q) : Q := Q.ofInt 3 * x * x - Q.ofInt 3
+def cubic' (x : Rat) : Rat := 3 * x * x - 3
 
 /-- The left end of the interval: `-2`. -/
-def lo : Q := Q.ofInt (-2)
+def lo : Rat := -2
 
 /-- The right end of the interval: `2`. -/
-def hi : Q := Q.ofInt 2
+def hi : Rat := 2
 
 /-- The number of steps of the grid. -/
 def steps : Nat := 32
@@ -60,13 +60,13 @@ def cubicPlot : Figure where
 abscissae are the grid from `-2` to `2` in steps of `1/8` and whose ordinates are the exact
 values of `cubic`. -/
 theorem cubicPlot_spec :
-    cubicSeries.points = ((Q.samples cubic lo hi steps).map Q.toPoint).toArray ∧
+    cubicSeries.points = ((Exact.samples cubic lo hi steps).map Exact.toPoint).toArray ∧
     cubicSeries.points.size = 33 ∧
-    ∀ p ∈ Q.samples cubic lo hi steps, p.1 ∈ Q.grid lo hi steps ∧ p.2 = cubic p.1 :=
-  ⟨Series.ofExact_points .., Series.ofExact_size .., fun _ hp => (Q.mem_samples ..).1 hp⟩
+    ∀ p ∈ Exact.samples cubic lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic p.1 :=
+  ⟨Series.ofExact_points .., Series.ofExact_size .., fun _ hp => (Exact.mem_samples ..).1 hp⟩
 
 /-- The hypotheses are met: the grid's step is `1/8`. -/
-example : Q.Equiv (Q.gridStep lo hi steps) (Q.ofFrac 1 8) := by decide
+example : Exact.gridStep lo hi steps = 1 / 8 := by decide +kernel
 
 /-! ### A data plot -/
 
@@ -95,10 +95,10 @@ def collatzPlot : Figure where
 dropped or changed. -/
 theorem collatzPlot_spec :
     (Series.ofIntPoints "steps" collatzData).points =
-        (collatzData.map fun p => Q.toPoint (Q.ofIntPair p)).toArray ∧
+        (collatzData.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       (Series.scatterOfIntPoints "n" collatzData).points =
-        (collatzData.map fun p => Q.toPoint (Q.ofIntPair p)).toArray ∧
-      (collatzData.map Q.ofIntPair).map (fun q => (q.1.num, q.2.num)) = collatzData :=
+        (collatzData.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
+      (collatzData.map Exact.ofIntPair).map (fun q => (q.1.num, q.2.num)) = collatzData :=
   ⟨Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
     Series.ofIntPairs_recover _⟩
 
@@ -166,17 +166,17 @@ def circleAnimation : Animation :=
     text := Style.light.text, fontFamily := Style.light.fontFamily }
 
 /-- Frame `i` of `circleAnimation` is the drawing at the time `i / 15`: the time passed is the
-conversion of that exact fraction, and the raster frames are drawn from it. -/
+conversion of that exact rational number, and the raster frames are drawn from it. -/
 theorem circleAnimation_spec (i : Nat) :
-    circleAnimation.time i = (circleAnimation.exactTime i).toFloat ∧
-    (circleAnimation.exactTime i).num = i ∧ (circleAnimation.exactTime i).den = 15 ∧
+    circleAnimation.time i = Exact.toFloat (circleAnimation.exactTime i) ∧
+    circleAnimation.exactTime i = i / 15 ∧
     (∀ h : i < circleAnimation.frameSeq.frames.size, circleAnimation.frameSeq.frames[i] =
       (circleAnimation.frame (circleAnimation.time i)).toImage 240 240 Style.light.text
         ⟨255, 255, 255, 255⟩) :=
-  ⟨Animation.time_eq_exactTime .., rfl, rfl, fun h => Animation.frameSeq_getElem _ i h⟩
+  ⟨Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
+    fun h => Animation.frameSeq_getElem _ i h⟩
 
-/-- The hypotheses are met: frame 5 is at `5/15`. -/
-example : (circleAnimation.exactTime 5).num = 5 ∧ (circleAnimation.exactTime 5).den = 15 := by
-  decide
+/-- The hypotheses are met: frame 5 is at a third of a second. -/
+example : circleAnimation.exactTime 5 = 1 / 3 := by decide +kernel
 
 end Example

@@ -18,13 +18,24 @@ namespace PILeanTest.ExactChecks
 
 open PILean PILean.Plot PILeanTest.ProvedExamples
 
-/-- A grid point as `(numerator, denominator)` reduced by the greatest common divisor. -/
-def reduced (q : Q) : Int × Nat :=
-  let g := Nat.gcd q.num.natAbs q.den
-  (q.num / g, q.den / g)
+/-- A rational number as `(numerator, denominator)`, in lowest terms. -/
+def reduced (q : Rat) : Int × Nat := (q.num, q.den)
 
-/-- The reduced grid of `n` steps from `lo` to `hi`. -/
-def gridOf (lo hi : Q) (n : Nat) : List (Int × Nat) := (Q.grid lo hi n).map reduced
+/-- The grid of `n` steps from `lo` to `hi`, each point as numerator and denominator. -/
+def gridOf (lo hi : Rat) (n : Nat) : List (Int × Nat) := (Exact.grid lo hi n).map reduced
+
+/-- The quotient of an integer and a natural number, each converted to a `Float` as given
+(not reduced to lowest terms first). -/
+def quotient (a : Int) (b : Nat) : Float := Float.ofInt a / b.toFloat
+
+/-- Whether `Exact.toFloat` of `a c / (b c)` is the `Float` quotient of `a c` and `b c` for
+every `|a| ≤ 40`, `1 ≤ b ≤ 40` and each common factor `c` given: the conversion of the fraction
+in lowest terms and of the same fraction not reduced agree. -/
+def reducedAgrees (factors : List Nat) : Bool :=
+  factors.all fun c => (List.range 81).all fun i => (List.range 40).all fun j =>
+    let a : Int := (Int.ofNat i - 40) * c
+    let b : Nat := (j + 1) * c
+    Exact.toFloat ((a : Rat) / (b : Rat)) == quotient a b
 
 /-- The panel layouts of a figure and its style. -/
 def layoutsOf (fig : Figure) : Array PanelLayout := fig.layout
@@ -43,9 +54,9 @@ def pixels (fig : Figure) (s : Series) : Array Point :=
 
 /-- The checks. -/
 def checks : Array (String × Bool) :=
-  let zero := Q.ofInt 0
-  let one := Q.ofInt 1
-  let third := Q.ofFrac 1 3
+  let zero : Rat := 0
+  let one : Rat := 1
+  let third : Rat := 1 / 3
   let l := (layoutsOf provedFunction)[0]!
   let st := provedFunction.style
   let cubicDraw := drawSeries st l cubicSeries 0
@@ -63,25 +74,38 @@ def checks : Array (String × Bool) :=
     ("grid: a degenerate interval repeats its point",
       gridOf third third 3 == [(1, 3), (1, 3), (1, 3), (1, 3)]),
     ("grid: a negative start with a fractional end",
-      gridOf (Q.ofFrac (-3) 2) (Q.ofFrac 3 2) 3 == [(-3, 2), (-1, 2), (1, 2), (3, 2)]),
-    ("grid: n + 1 points", (Q.grid zero one 24).length == 25),
+      gridOf (-3 / 2) (3 / 2) 3 == [(-3, 2), (-1, 2), (1, 2), (3, 2)]),
+    ("grid: n + 1 points", (Exact.grid zero one 24).length == 25),
     ("samples: the cubic at -3/2, 0 and 3/2",
-      ((Q.samples cubic lo hi steps).map (fun (x, y) => (reduced x, reduced y))).take 1 ==
+      ((Exact.samples cubic lo hi steps).map (fun (x, y) => (reduced x, reduced y))).take 1 ==
         [((-3, 2), (-15, 8))] &&
       (reduced (cubic zero) == (0, 1)) && (reduced (cubic hi) == (15, 8))),
     ("samples: the parabola at its end",
       reduced (parabola hi) == (5, 4)),
-    ("Q: sums and products by cross multiplication",
-      reduced (Q.ofFrac 1 2 + Q.ofFrac 1 3) == (5, 6) &&
-      reduced (Q.ofFrac 2 3 * Q.ofFrac (-3) 4) == (-1, 2) &&
-      reduced (Q.ofFrac 1 2 - Q.ofFrac 1 3) == (1, 6)),
-    ("Q: equivalence and order of unreduced fractions",
-      decide (Q.Equiv (Q.ofFrac 2 4) (Q.ofFrac 1 2)) &&
-        decide (Q.lt (Q.ofFrac 1 3) (Q.ofFrac 1 2)) &&
-        !decide (Q.lt (Q.ofFrac 1 2) (Q.ofFrac 2 4))),
+    ("rationals: sums and products, in lowest terms",
+      reduced (1 / 2 + 1 / 3) == (5, 6) && reduced (2 / 3 * (-3 / 4)) == (-1, 2) &&
+      reduced (1 / 2 - 1 / 3) == (1, 6) && reduced (2 / 4) == (1, 2)),
+    ("rationals: equality and order of fractions",
+      decide ((2 / 4 : Rat) = 1 / 2) && decide ((1 / 3 : Rat) < 1 / 2) &&
+        !decide ((1 / 2 : Rat) < 2 / 4)),
     ("toFloat: exact for dyadic fractions, nearest otherwise",
-      (Q.ofFrac (-15) 8).toFloat == -1.875 && third.toFloat == 1.0 / 3.0 &&
-      (Q.ofInt (-7)).toFloat == -7.0),
+      Exact.toFloat (-15 / 8) == -1.875 && Exact.toFloat third == 1.0 / 3.0 &&
+      Exact.toFloat (-7) == -7.0),
+    ("toFloat: the fraction in lowest terms and the same fraction not reduced convert alike",
+      reducedAgrees [1, 2, 3, 96, 884736, 2 ^ 20 * 3 ^ 5]),
+    ("toFloat: at 53 significant bits",
+      Exact.toFloat (((2 : Rat) ^ 53 - 1) / 2 ^ 52) == 1.9999999999999998 &&
+      Exact.toFloat ((2 : Rat) ^ 53 - 1) == 9007199254740991.0 &&
+      Exact.toFloat (1 / ((2 : Rat) ^ 53 - 1)) == 1.0 / 9007199254740991.0 &&
+      Exact.toFloat (((2 : Rat) ^ 53 - 1) / ((2 : Rat) ^ 53 - 3)) ==
+        9007199254740991.0 / 9007199254740989.0),
+    ("toFloat: the samples of the gallery's cubic, as fractions over 96 and 96⁴ not reduced",
+      (List.range 25).all fun k =>
+        let a : Int := -144 + 12 * Int.ofNat k
+        Exact.gridPoint lo hi steps k == (a : Rat) / 96 &&
+        Exact.toFloat (Exact.gridPoint lo hi steps k) == quotient a 96 &&
+        Exact.toFloat (cubic ((a : Rat) / 96)) ==
+          quotient (a * a * a * 96 - a * 884736) 84934656),
     ("ofExact: 25 points from -1.5 to 1.5 in equal steps",
       cubicSeries.points.size == 25 && (cubicSeries.points[0]?.map (·.x)) == some (-1.5) &&
       (cubicSeries.points[24]?.map (·.x)) == some 1.5 &&
@@ -158,9 +182,13 @@ def checks : Array (String × Bool) :=
     ("animation: ten frames at the times 0, 1/10, …, 9/10",
       provedClock.frameSeq.frames.size == 10 && provedClock.frameCount == 10 &&
       provedClock.time 3 == 0.3 && provedClock.time 0 == 0 &&
-      (provedClock.exactTime 3).num == 3 && (provedClock.exactTime 3).den == 10),
+      provedClock.exactTime 3 == 3 / 10 && provedClock.exactTime 5 == 1 / 2),
     ("animation: a frame rate of zero counts as one",
-      (noFps.exactTime 5).den == 1 && noFps.time 5 == 5),
+      noFps.exactTime 5 == 5 && noFps.time 5 == 5),
+    ("animation: the time of a frame is the quotient of its number and the frame rate",
+      [1, 7, 10, 24, 25, 30, 50, 60, 90, 120, 144, 1000].all fun fps =>
+        (List.range 2000).all fun i =>
+          ({ provedClock with fps := fps } : Animation).time i == i.toFloat / fps.toFloat),
     ("animation: the frames are the drawings at those times",
       (provedClock.frameSeq.frames[3]?.map (·.data)) ==
         some ((clockFrame (provedClock.time 3)).toImage 200 200 Style.light.text

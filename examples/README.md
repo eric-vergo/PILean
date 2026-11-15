@@ -14,7 +14,7 @@ same everywhere.
 
 | Figure | Light | Dark |
 |---|---|---|
-| **Functions** — `sin x`, `cos x`, `sin x / x`, sampled adaptively (`function-plot`) | ![](function-plot.svg) | ![](function-plot-dark.svg) |
+| **Functions** — `sin x`, `cos x`, `sin x / x`, sampled adaptively in floating point; this picture has no theorem (`function-plot`) | ![](function-plot.svg) | ![](function-plot-dark.svg) |
 | **Poles and jumps** — `tan x`, `1 / x`, `⌊x⌋ / 2`: broken at poles and jumps, no line across them (`poles`) | ![](poles.svg) | ![](poles-dark.svg) |
 | **Step and dashed function** — π(n) as a step line against `n / ln n` (`primes-step-plot`) | ![](primes-step-plot.svg) | ![](primes-step-plot-dark.svg) |
 | **Line with markers and a labelled point** — Collatz stopping times (`collatz-data-plot`) | ![](collatz-data-plot.svg) | ![](collatz-data-plot-dark.svg) |
@@ -75,10 +75,10 @@ trusted). The definitions and theorems are in
 
 | Picture | Theorem |
 |---|---|
-| ![function plot](proved-function.svg) **Function plot** (`provedFunction`) | `provedFunction_spec`: the series' points are the 25 exact samples `(x, f x)` of the cubic `x³ − x` on the grid `−3/2 + k/8`, `k = 0, …, 24`, converted one by one (`Q.toFloat` is where floating point begins); the grid starts at `−3/2`, ends at `3/2` and has the constant step `1/8`; every sample is `(x, f x)` with `x` on the grid. |
+| ![function plot](proved-function.svg) **Function plot** (`provedFunction`) | `provedFunction_spec`: the series' points are the 25 exact samples `(x, f x)` of the cubic `x³ − x` on the grid `−3/2 + k/8`, `k = 0, …, 24`, converted one by one (`Exact.toFloat` is where floating point begins); the grid starts at `−3/2` and ends at `3/2`; every sample is `(x, f x)` with `x` on the grid. Nothing is proved about the curve between two samples. |
 | ![data plot](proved-data.svg) **Data plot** (`provedData`) | `provedData_spec`: the line's and the markers' points are the list `residues` of 25 integer pairs, converted point for point, in order; the integers are recovered from the exact points, so none is added, dropped or changed. |
 | ![graph](graph-proved.svg) **Graph** (`provedGraph`) | `provedGraph_spec`: the nodes are the numbers 1 to 12, the edges are exactly the pairs `a < b` with `a ∣ b` (23 of them), each once, and the layout draws one route per edge, in order, with the edge's own index and ends (long edges pass through dummy nodes inside the layout and are still one route). |
-| ![animation](proved-clock.svg) **Animation** (`provedClock`) | `provedClock_spec`: frame `i` of the animation (10 frames, in the SVG, the APNG and the GIF) is the drawing `clockFrame` at the time `i / 10`, the conversion of the exact fraction `i/10`. |
+| ![animation](proved-clock.svg) **Animation** (`provedClock`) | `provedClock_spec`: frame `i` of the animation (10 frames, in the SVG, the APNG and the GIF) is the drawing `clockFrame` at the time `i / 10`, the conversion of the exact rational number `i/10` to a floating-point number. |
 
 The PNG of each has the same name with `.png`; the animation's other files are
 `proved-clock.png`, `proved-clock.gif` and `proved-clock-poster.png`.

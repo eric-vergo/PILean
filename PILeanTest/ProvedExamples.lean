@@ -32,16 +32,16 @@ open PILean PILean.Plot
 /-! ### A function plot -/
 
 /-- The cubic `x³ - x`, exact. -/
-def cubic (x : Q) : Q := x * x * x - x
+def cubic (x : Rat) : Rat := x * x * x - x
 
 /-- The parabola `x² - 1`, exact. -/
-def parabola (x : Q) : Q := x * x - Q.ofInt 1
+def parabola (x : Rat) : Rat := x * x - 1
 
 /-- The left end of the interval: `-3/2`. -/
-def lo : Q := Q.ofFrac (-3) 2
+def lo : Rat := -3 / 2
 
 /-- The right end of the interval: `3/2`. -/
-def hi : Q := Q.ofFrac 3 2
+def hi : Rat := 3 / 2
 
 /-- The number of steps of the grid. -/
 def steps : Nat := 24
@@ -60,23 +60,31 @@ def provedFunction : Figure where
       x := { label := "x" }, y := { label := "y" },
       series := #[cubicSeries, parabolaSeries] }]
 
-/-- The curve of `provedFunction` is the exact samples converted one by one, and nothing else:
-25 points, the abscissae the grid `-3/2 + k/8` (`k = 0, …, 24`: from `lo` to `hi` in equal
-steps), the ordinates the exact values of `cubic` there; floating point enters only through
-`Q.toFloat`. -/
-theorem provedFunction_spec :
-    cubicSeries.points = ((Q.samples cubic lo hi steps).map Q.toPoint).toArray ∧
-    cubicSeries.points.size = 25 ∧
-    (∀ p ∈ Q.samples cubic lo hi steps, p.1 ∈ Q.grid lo hi steps ∧ p.2 = cubic p.1) ∧
-    Q.Equiv (Q.gridPoint lo hi steps 0) lo ∧ Q.Equiv (Q.gridPoint lo hi steps steps) hi ∧
-    (∀ k, Q.Equiv (Q.gridPoint lo hi steps (k + 1) - Q.gridPoint lo hi steps k)
-      (Q.gridStep lo hi steps)) :=
-  ⟨Series.ofExact_points .., Series.ofExact_size .., fun p hp => (Q.mem_samples ..).1 hp,
-    Q.gridPoint_zero .., Q.gridPoint_last _ _ _ (by decide),
-    fun k => Q.gridPoint_succ _ _ _ k (by decide)⟩
+/-- The step of the grid is `1/8`. -/
+theorem gridStep_lo_hi : Exact.gridStep lo hi steps = 1 / 8 := by decide +kernel
 
-/-- The hypotheses are met: the step is `1/8` (the grid's denominators are `2 · 2 · 24`). -/
-example : Q.Equiv (Q.gridStep lo hi steps) (Q.ofFrac 1 8) := by decide
+/-- The points of the series `cubicSeries`, which `provedFunction` draws as its first curve, are
+the exact samples converted one by one, and nothing else: 25 points, the abscissae the grid
+`-3/2 + k/8` (`k = 0, …, 24`, from `lo` to `hi`), the ordinates the exact values of `cubic`
+there; floating point enters only through `Exact.toFloat`. Nothing is said about the curve
+between two samples (the picture joins them by straight segments). -/
+theorem provedFunction_spec :
+    cubicSeries.points = ((Exact.samples cubic lo hi steps).map Exact.toPoint).toArray ∧
+    cubicSeries.points.size = 25 ∧
+    (∀ p ∈ Exact.samples cubic lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic p.1) ∧
+    Exact.grid lo hi steps = (List.range 25).map (fun k : Nat => (-3 / 2 + k / 8 : Rat)) ∧
+    Exact.gridPoint lo hi steps 0 = lo ∧ Exact.gridPoint lo hi steps steps = hi := by
+  refine ⟨Series.ofExact_points .., Series.ofExact_size ..,
+    fun p hp => (Exact.mem_samples ..).1 hp, ?_, Exact.gridPoint_zero ..,
+    Exact.gridPoint_last _ _ _ (by decide)⟩
+  refine List.map_congr_left fun k _ => ?_
+  rw [Exact.gridPoint, gridStep_lo_hi, lo]
+  grind
+
+/-- The hypotheses are met: the grid is not degenerate, its first three points are `-3/2`,
+`-11/8` and `-5/4`, and the cubic's value at `-3/2` is `-15/8`. -/
+example : (Exact.grid lo hi steps).take 3 = [-3 / 2, -11 / 8, -5 / 4] ∧ cubic lo = -15 / 8 := by
+  decide +kernel
 
 /-! ### A data plot -/
 
@@ -94,13 +102,13 @@ def provedData : Figure where
 
 /-- The line and the markers of `provedData` are the input list converted point for point: as
 many points as given, in the given order, none added, dropped or changed (the integers are
-recovered from the exact points); floating point enters only through `Q.toFloat`. -/
+recovered from the exact points); floating point enters only through `Exact.toFloat`. -/
 theorem provedData_spec :
     (Series.ofIntPoints "line" residues).points =
-        (residues.map fun p => Q.toPoint (Q.ofIntPair p)).toArray ∧
+        (residues.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       (Series.scatterOfIntPoints "points" residues).points =
-        (residues.map fun p => Q.toPoint (Q.ofIntPair p)).toArray ∧
-      (residues.map Q.ofIntPair).map (fun q => (q.1.num, q.2.num)) = residues ∧
+        (residues.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
+      (residues.map Exact.ofIntPair).map (fun q => (q.1.num, q.2.num)) = residues ∧
       residues.length = 25 :=
   ⟨Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
     Series.ofIntPairs_recover _, by simp [residues]⟩
@@ -162,33 +170,32 @@ def provedClock : Animation :=
     text := Style.light.text, fontFamily := Style.light.fontFamily }
 
 /-- Frame `i` of the clock is the drawing `clockFrame` at the time `i / 10`: the time the writers
-pass is the conversion of the exact fraction with numerator `i` and denominator 10, and both the
-raster frames and the SVG frames are built from that drawing at that time. -/
+pass is the conversion of the exact rational number `i / 10`, and both the raster frames and the
+SVG frames are built from that drawing at that time. -/
 theorem provedClock_spec (i : Nat) :
-    provedClock.time i = (provedClock.exactTime i).toFloat ∧
-    (provedClock.exactTime i).num = i ∧ (provedClock.exactTime i).den = 10 ∧
+    provedClock.time i = Exact.toFloat (provedClock.exactTime i) ∧
+    provedClock.exactTime i = i / 10 ∧
     (∀ h : i < provedClock.frameSeq.frames.size, provedClock.frameSeq.frames[i] =
       (clockFrame (provedClock.time i)).toImage 200 200 Style.light.text ⟨255, 255, 255, 255⟩) ∧
     (∀ (mode : Canvas.TextMode) (h : i < (provedClock.frameTrees mode).size),
       (provedClock.frameTrees mode)[i] =
         Svg.el "g" #[] ((clockFrame (provedClock.time i)).render mode)) :=
-  ⟨Animation.time_eq_exactTime .., rfl, rfl,
+  ⟨Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
     fun h => Animation.frameSeq_getElem _ i h,
     fun mode h => Animation.frameTrees_getElem _ mode i h⟩
 
-/-- The hypotheses are met: the clock's frame rate is 10, so frame 5 is at `5/10`. -/
-example : (provedClock.exactTime 5).num = 5 ∧ (provedClock.exactTime 5).den = 10 := by
-  decide
+/-- The hypotheses are met: the clock's frame rate is 10, so frame 5 is at half a second. -/
+example : provedClock.exactTime 5 = 1 / 2 := by decide +kernel
 
 end PILeanTest.ProvedExamples
 
-#print axioms PILean.Q.gridPoint_equiv
-#print axioms PILean.Q.gridPoint_zero
-#print axioms PILean.Q.gridPoint_last
-#print axioms PILean.Q.gridPoint_succ
-#print axioms PILean.Q.mem_samples
-#print axioms PILean.Q.samples_fst
-#print axioms PILean.Q.samples_length
+#print axioms PILean.Exact.gridPoint_eq
+#print axioms PILean.Exact.gridPoint_zero
+#print axioms PILean.Exact.gridPoint_last
+#print axioms PILean.Exact.gridPoint_succ
+#print axioms PILean.Exact.mem_samples
+#print axioms PILean.Exact.samples_fst
+#print axioms PILean.Exact.samples_length
 #print axioms PILean.Plot.runs_map_some
 #print axioms PILean.Plot.runs_length
 #print axioms PILean.Plot.runs_sublist
@@ -214,6 +221,8 @@ end PILeanTest.ProvedExamples
 #print axioms PILean.Graph.ofRelation_layout_edges
 #print axioms PILean.Graph.ofNames_layout_edges
 #print axioms PILean.Animation.time_eq_exactTime
+#print axioms PILean.Animation.exactTime_eq
+#print axioms PILean.Animation.exactTime_succ
 #print axioms PILean.Animation.frameSeq_getElem
 #print axioms PILean.Animation.frameTrees_getElem
 #print axioms PILeanTest.ProvedExamples.provedFunction_spec

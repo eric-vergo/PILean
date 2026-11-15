@@ -27,7 +27,7 @@ PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program
 | Graphs: nodes, edges and nested clusters; layered (Sugiyama) layout with cycle removal, network simplex layering, weighted-median crossing reduction under cluster constraints, Brandes–Köpf and network simplex coordinates, spline or orthogonal edges that keep clear of nodes, arrowheads, edge labels; circular and tree layouts; a bounded DOT reader and laid-out DOT writer; SVG and PNG | done; layers and edge indices proved, cluster boxes and edge clearance checked; compared with Graphviz's `dot` in [`docs/DESIGN.md`](docs/DESIGN.md) |
 | Source information: the Lean declaration, file, line, repository, commit and version recorded in SVG (`<metadata>`, `<title>`, `<desc>`), PNG and APNG (`iTXt`) and GIF (comment) files and read back by a size-capped reader; `lake exe pilean-info FILE` prints it; SHA-256 in pure Lean; `Svg.isInert` checks that an SVG runs no script and loads nothing | done; see [`docs/TRUST.md`](docs/TRUST.md); round trips tested on every format with hostile input, SHA-256 against FIPS and NIST vectors and `shasum`, padding and digest size proved |
 | Traceable builds: the attribute `@[figure]` and the term `figures%` collect the figures of a project; fingerprints (SHA-256 of the drawing's SVG encoding, the declaration's source text and position, and the version); `lake exe pilean-build` renders them deterministically with a `manifest.json` (`--check` compares a directory with the build), `lake exe pilean-verify DIR` checks a directory against its manifest | done; see [`docs/TRUST.md`](docs/TRUST.md) (including use in CI); tested end to end with damaged, missing, extra and hostile files |
-| Theorems tying a figure to its Lean object: an exact function plot (the curve is the exact samples on a stated grid), a data plot (the points are the input list), a graph (nodes and edges are the relation and one route is drawn per edge) and an animation (frame `i` is the drawing at `i / fps`) | done for these four; see [`docs/PROOFS.md`](docs/PROOFS.md) for what is proved, tested and trusted; one example of each in the gallery |
+| Theorems tying a figure to its Lean object: a plot of an exact function on the rationals (the plotted points are exactly its values on a stated grid; nothing is proved between two samples), a data plot (the points are the input list), a graph (nodes and edges are the relation and the layout has one route per edge) and an animation (frame `i` is the drawing at `i / fps`). The theorems are about exact numbers and lists; the step from them to pixels is floating point and tested, not proved | done for these four; see [`docs/PROOFS.md`](docs/PROOFS.md) for what is proved, tested and trusted; one example of each in the gallery |
 
 ## Use
 
@@ -47,6 +47,11 @@ def fig : Figure where
   | none => pure ()
 #eval IO.FS.writeFile "sin-dark.svg" { fig with style := Style.dark }.toSvg
 ```
+
+This picture has no theorem: `Series.function` samples a floating-point function (`Float.sin`
+is the platform's) adaptively, which is tested, not proved. The plots with a theorem are those of
+exact functions on the rationals and of exact data, `Series.ofExact` and `Series.ofIntPoints`
+([`docs/PROOFS.md`](docs/PROOFS.md)).
 
 A graph is a value too, laid out in layers (or on a circle, or as a tree) and written as SVG or PNG:
 
