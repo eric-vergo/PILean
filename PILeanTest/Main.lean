@@ -13,8 +13,8 @@ import PILeanTest.Png
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`) and
 compares every gallery figure's SVG with its file in `examples/` (the goldens), byte for byte; it
 also renders each figure twice to check that the output is deterministic.
-`lake exe pilean-test --update` rewrites the goldens (as `lake exe pilean-gallery` does). `lake exe pilean-test --png-out DIR`
-writes the PNG writer's files to `DIR` for `tools/png-check.py`.
+`lake exe pilean-test --update` rewrites the goldens (as `lake exe pilean-gallery` does).
+`lake exe pilean-test --png-out DIR` writes the PNG writer's files to `DIR` for `tools/png-check.py`.
 -/
 
 open PILeanTest

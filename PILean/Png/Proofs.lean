@@ -295,18 +295,31 @@ theorem zlibHeader_valid (level : Nat) :
     (zlibHeader level).1.toNat &&& 15 = 8 ∧ (zlibHeader level).1.toNat >>> 4 ≤ 7 ∧
     ((zlibHeader level).1.toNat * 256 + (zlibHeader level).2.toNat) % 31 = 0 ∧
     (zlibHeader level).2.toNat &&& 32 = 0 := by
-  sorry
+  unfold zlibHeader
+  split
+  · decide
+  · split
+    · decide
+    · split
+      · decide
+      · decide
 
 /-- The decompressor reads back the Adler-32 that the compressor wrote as the trailer. -/
 theorem trailerValue_trailerBytes (a : UInt32) :
     trailerValue (a >>> 24).toUInt8 (a >>> 16).toUInt8 (a >>> 8).toUInt8 a.toUInt8 = a.toNat := by
-  sorry
+  have := a.toNat_lt
+  simp only [trailerValue, UInt32.toNat_toUInt8, UInt32.toNat_shiftRight,
+    Nat.shiftRight_eq_div_pow]
+  simp
+  omega
 
 /-- The `LEN` and `NLEN` fields the compressor writes for a stored block of `len` bytes satisfy
 the decompressor's check that they are complements. -/
 theorem stored_length_check (len : Nat) (h : len < 65536) :
     len ^^^ (len ^^^ 0xFFFF) = 0xFFFF ∧ len ^^^ 0xFFFF < 65536 := by
-  sorry
+  refine ⟨by rw [← Nat.xor_assoc, Nat.xor_self, Nat.zero_xor], ?_⟩
+  have : len ^^^ 0xFFFF < 2 ^ 16 := Nat.xor_lt_two_pow (n := 16) (by omega) (by omega)
+  omega
 
 /-- The header check can be met (the default level). -/
 example : (zlibHeader 6).1.toNat &&& 15 = 8 := (zlibHeader_valid 6).1
