@@ -197,8 +197,8 @@ def resizeChecks : Array (String × Bool) :=
       let im := generate .l 2 1 fun x _ _ => if x == 0 then 0 else 200
       let r := im.resize 4 1 .bilinear
       -- centres at -0.25.. : weights 1, .75/.25, .25/.75, 1 (edges clamp)
-      return px r 0 0 ⟨0, 0, 0, 255⟩ && px r 1 0 ⟨50, 50, 50, 255⟩ && px r 2 0 ⟨150, 150, 150, 255⟩ &&
-        px r 3 0 ⟨200, 200, 200, 255⟩),
+      return px r 0 0 ⟨0, 0, 0, 255⟩ && px r 1 0 ⟨50, 50, 50, 255⟩ &&
+        px r 2 0 ⟨150, 150, 150, 255⟩ && px r 3 0 ⟨200, 200, 200, 255⟩),
     ("resize RGBA: transparent pixels do not bleed colour", filters.all fun f => Id.run do
       let im := generate .rgba 4 4 fun x _ k =>
         if x < 2 then (if k == 3 then 255 else 10) else (if k == 3 then 0 else 250)
