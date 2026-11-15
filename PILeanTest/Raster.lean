@@ -26,7 +26,8 @@ open PILean PILean.Raster PILean.Plot
 def area (spans : Array Span) : Nat := spans.foldl (fun n s => n + s.len * s.alpha.toNat) 0
 
 /-- The spans of polygons in a 64 × 64 image. -/
-def cov (polys : Array (Array Point)) (rule : FillRule := .nonZero) (clip : IRect := ⟨0, 0, 64, 64⟩) :
+def cov (polys : Array (Array Point)) (rule : FillRule := .nonZero)
+    (clip : IRect := ⟨0, 0, 64, 64⟩) :
     Array Span := (coverage polys rule 64 64 clip).getD #[]
 
 /-- A square of side `s` at `(x, y)`. -/
@@ -84,7 +85,8 @@ def strokeChecks : Array (String × Bool) :=
   #[("stroke: a one-pixel hairline on a pixel centre covers one row exactly",
       let s := strokeCov seg { width := 1 }
       area s == 20 * 255 && s.all (fun sp => sp.y == 20 && sp.alpha == 255)),
-    ("stroke: crisp puts coordinates on pixel centres", Raster.crisp 7.2 == 7.5 && Raster.crisp 7.9 == 7.5),
+    ("stroke: crisp puts coordinates on pixel centres",
+      Raster.crisp 7.2 == 7.5 && Raster.crisp 7.9 == 7.5),
     ("stroke: width 4 butt covers 80 pixels",
       near (area (strokeCov seg { width := 4 })) (80 * 255) 64),
     ("stroke: square caps add half a width at each end",
@@ -140,7 +142,9 @@ def paintChecks : Array (String × Bool) :=
   let g := Paint.linear ⟨1, 0⟩ ⟨101, 0⟩ #[⟨0, red⟩, ⟨1, blue⟩]
   let grp := (Draw.new 4 4 ⟨255, 255, 255, 255⟩).group 0.5 fun d =>
     (d.fill (Path.rect 0 0 4 4) (.solid red)).fill (Path.rect 0 0 4 4) (.solid red)
-  let twice := ((Draw.new 4 4 ⟨255, 255, 255, 255⟩).fill (Path.rect 0 0 4 4) (.solid red) (opacity := 0.5)).fill
+  let half := (Draw.new 4 4 ⟨255, 255, 255, 255⟩).fill (Path.rect 0 0 4 4) (.solid red)
+    (opacity := 0.5)
+  let twice := half.fill
     (Path.rect 0 0 4 4) (.solid red) (opacity := 0.5)
   #[("paint: an opaque fill replaces the background", (solidRed.canvas.get 1 1).toRgba == red),
     ("paint: black at alpha 128 over white mixes in linear light (sRGB 187, not 127)",

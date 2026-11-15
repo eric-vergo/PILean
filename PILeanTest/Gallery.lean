@@ -8,8 +8,8 @@ import PILean.Plot.Raster
 /-!
 # The gallery writer
 
-`lake exe pilean-gallery` writes every figure of `PILeanTest.Examples.gallery` to `examples/`, as SVG and
-as PNG.
+`lake exe pilean-gallery` writes every figure of `PILeanTest.Examples.gallery` to `examples/`,
+as SVG and as PNG.
 -/
 
 open PILeanTest.Examples PILean.Plot

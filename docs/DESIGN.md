@@ -28,9 +28,9 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Path` | `PathCmd`, `Path`, shapes, `transform`, `flatten`, `bounds` | done |
 | `PILean.Svg` | the SVG document model and writer | done |
 | `PILean.Plot.Ticks`, `PILean.Plot.Figure` | nice ticks, the `Figure` spec and its SVG | first version |
-| `PILean.Raster` | anti-aliased scanline fill (non-zero and even-odd), the stroker (joins, caps, miter limit, dashes), gradients, Porter–Duff compositing, clipping | next |
-| `PILean.Image` | `Image` (mode, size, pixels in a `ByteArray`), `ImageDraw`-style operations on it, crop, paste, resize (box, bilinear, Lanczos), channel operations | next |
-| `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt` chunks | next |
+| `PILean.Raster` | anti-aliased scanline fill by area coverage in integers (non-zero and even-odd), clipping to rectangles and paths, the stroker (joins, caps, miter limit, dashes), gradients, compositing in linear light, group opacity, `Draw` (in the spirit of `ImageDraw`), SVG nodes drawn | done |
+| `PILean.Image` | `Image` (mode, size, pixels in a `ByteArray`), `getpixel`, `putpixel`, crop, paste with a mask, convert, flips and quarter turns, resize (nearest, bilinear, box, Lanczos) | done |
+| `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`; the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Canvas` | a retained vector canvas: layers, groups, transforms, styles, text runs; rendered to SVG or through `Raster` to PNG | later |
 | `PILean.Text` | text through the companion typesetting library: its OpenType reader (outlines, advances, kerning, ligatures) and, later, its text and math layout; labels become outlines or SVG text | later |
 | `PILean.Plot.*` | scales (linear, log, symlog, time), axes, scatter, bar, histogram, area, error bars, legends, facets; LaTeX labels through the companion typesetting library | later |
@@ -71,24 +71,54 @@ What PILean takes from Pillow is the shape of the API and its documented behavio
   DEFLATE (bit-exact by construction and by round-trip tests), CRC and Adler checksums,
   fingerprints, tick values (integer multiples of a step), the manifest. Data values that come
   from Lean (`Nat`, `Int`, `Rat`-like) stay exact until they are mapped to the page.
-- **Floating point (`Float`, IEEE double, deterministic):** geometry, transforms, path
-  flattening, the rasteriser's coverage, colour conversions, scales. These are tested against
-  published values and goldens, not proved; the stated limit of the trust layer is that a figure's
-  *content* (which function, which data points, which edges) is proved, its *rendering* tested.
+- **Integers in the rasteriser:** coordinates are rounded to 1/256 pixel and everything after
+  that is integer arithmetic: the cells and their areas, the coverage, compositing (16 bits a
+  channel, premultiplied, in linear light) and the sRGB conversions (two tables of integers,
+  `PILean/Raster/SrgbTables.lean`, written by `tools/gen-srgb.py`). The coverage is exact area
+  coverage for edges on that grid, except where two edges cross inside one pixel (the usual
+  approximation of both fill rules).
+- **Floating point (`Float`, IEEE double):** geometry, transforms, path flattening, the
+  conversion of coordinates to the 1/256 grid, a gradient's parameter at a pixel, stroke
+  offsets, the weights of the bilinear and Lanczos filters, scales. The basic operations
+  (`+ − × ÷ √`) are correctly rounded by IEEE 754 and so the same everywhere; the trigonometric
+  functions (round caps and joins, arcs, Lanczos) come from the platform's library and may differ
+  in the last bit between platforms, which moves a point by far less than the 1/256 pixel it is
+  rounded to. These parts are tested against published values and goldens, not proved; the
+  stated limit of the trust layer is that a figure's *content* (which function, which data
+  points, which edges) is proved, its *rendering* tested.
 - **Output formatting:** every number written to SVG goes through one formatter with a fixed
   number of decimals and no exponent, so output is byte-stable.
 
-## The rasteriser: what it adds to an earlier path filler
+## The rasteriser
 
-An earlier path filler by the same authors parses SVG path data, flattens to a fixed device
-tolerance and computes exact per-line coverage under the non-zero rule, sampled on 16 lines per
-pixel row, into an alpha mask. `PILean.Raster` builds on its approach and must add: the even-odd
-rule; a stroker (round, miter and bevel joins with a miter limit; butt, round and square caps;
-dashes with an offset) producing fill paths; analytic area coverage (signed area per cell, as in
-font rasterisers) for exact anti-aliasing instead of sub-row sampling, or sub-rows kept with a
-tolerance argument; clipping by a path; linear and radial gradients; Porter–Duff compositing in
-linear light with premultiplied alpha; and bounded work for hostile paths (caps on segment count
-and image size).
+`PILean.Raster` draws paths by area coverage (`Raster/Coverage.lean` has the method): every edge
+is cut at the pixel grid into pieces that add their winding (*cover*) and the area left of them
+to their cell; a sweep along each row gives each pixel's winding area, which the non-zero rule
+clamps to one pixel and the even-odd rule folds. Work is bounded by the image and the edges
+(rows outside the image are not visited, edges left of it become vertical, right of it are
+dropped), and inputs with more than four million points are refused. Strokes are the union of
+one rectangle per segment, joins (miter within the limit, else bevel; round as a sector) and caps
+(round as half discs), all wound the same way so that their non-zero fill has no seams; dashes
+cut the flattened path first. The canvas keeps premultiplied linear light at 16 bits a channel,
+composites source over destination there, and converts to 8-bit sRGB with straight alpha at
+the end (the pixel model: straight alpha in `Image`, premultiplied inside). A group is drawn on
+a layer of its own and composited at its opacity.
+
+`Svg.rasterize` draws PILean's SVG nodes with it, so one description of a picture gives both
+files: a figure's PNG is drawn from the nodes its SVG is written from. Measured against macOS's
+SVG renderer (`tools/compare-render.py`, `sips`), the gallery's PNGs differ by 0.01 to 0.05
+levels on average when PILean mixes colours as that renderer does (in sRGB); in linear light,
+PILean's default, anti-aliased edges and overlaps come out lighter or darker by design.
+
+Gradients interpolate in linear light. SVG interpolates in sRGB (its `color-interpolation`
+attribute is not implemented for gradients by browsers), so PILean writes a gradient to SVG with
+sixteen stops per segment sampled from its own interpolation (`gradientNode`), and both outputs
+show the same colours (0.3 levels on average in the comparison).
+
+The figure of a 2000 × 1200 function plot: drawing 244 ms, conversion to an 8-bit image 87 ms,
+PNG encoding 689 ms (one core of an Apple M2 Ultra, under load; `lake exe pilean-test --bench`).
+PNG encoding dominates (LZ77 matching and Huffman coding at level 6); drawing is dominated by the
+full-image background and the canvas's 16-bit stores.
 
 ## Trust
 

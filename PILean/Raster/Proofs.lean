@@ -16,7 +16,8 @@ import PILean.Raster.Canvas
 * `encode16_decode8`: the sRGB tables round-trip every 8-bit value.
 * `mask_zero`: where a clip mask is 0 the coverage applied is 0.
 
-Each statement with hypotheses has an example showing that they can be met. What is tested and not proved:
+Each statement with hypotheses has an example showing that they can be met. What is tested and
+not proved:
 the coverage values themselves (against known areas), strokes, paints and compositing.
 -/
 
