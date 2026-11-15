@@ -8,6 +8,7 @@ import PILean.Path
 import PILean.Svg
 import PILean.Png
 import PILean.Anim
+import PILean.Text.Engine
 import PILean.Style
 import PILean.Canvas
 import PILean.Image.Basic

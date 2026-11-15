@@ -2,39 +2,57 @@
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
-import PILean.Path
+import PILean.Text.Lettering
 
 /-!
-# Text engines (placeholder, replaced by the lettering branch)
+# The text engine interface
+
+What a plot needs of a typesetter: the width of a string, the ascent and descent, and the shape of
+a string as filled outlines, as centre lines to stroke, or both. The built-in single-stroke
+lettering implements it; a richer typesetting library can implement it later.
+
+## Main definitions
+
+* `TextShape`: the shape of a string: outlines to fill, centre lines to stroke, the stroke width.
+* `TextEngine`: the interface.
+* `TextEngine.lettering`: the built-in lettering as an engine.
 -/
 
 namespace PILean
 
-/-- A shaped string. -/
+/-- The shape of a string: filled outlines and/or centre lines to stroke, with the baseline origin
+at `(0, 0)` and `y` down. -/
 structure TextShape where
-  /-- Filled outlines. -/
+  /-- Closed outlines to fill. -/
   fill : Path := {}
-  /-- Centre lines. -/
+  /-- Centre lines to stroke with round caps and joins. -/
   strokes : Path := {}
-  /-- Stroke width. -/
+  /-- The stroke width in pixels. -/
   strokeWidth : Float := 0
 
-/-- A text engine. -/
+/-- A text engine: measures strings and shapes them. -/
 structure TextEngine where
-  /-- Advance width. -/
+  /-- The advance width of a string at a size in pixels. -/
   measure : String → Float → Float
-  /-- Ascent. -/
+  /-- The ascent as a fraction of the size. -/
   ascent : Float
-  /-- Descent. -/
+  /-- The descent as a fraction of the size, positive. -/
   descent : Float
-  /-- Shape. -/
+  /-- A string at a size in pixels and a weight (1 is regular), its baseline origin at `(0, 0)`
+  and `y` down. -/
   shape : String → Float → Float → TextShape
 
-/-- A crude engine. -/
-def TextEngine.lettering : TextEngine where
-  measure s size := 0.55 * size * s.length.toFloat
-  ascent := 0.74
-  descent := 0.2
-  shape _ _ _ := {}
+namespace TextEngine
+
+/-- The built-in single-stroke lettering as an engine. -/
+def lettering : TextEngine where
+  measure s size := Lettering.measure s size
+  ascent := Lettering.ascent
+  descent := Lettering.descent
+  shape s size weight :=
+    let (p, w) := Lettering.shape s size weight
+    { strokes := p, strokeWidth := w }
+
+end TextEngine
 
 end PILean

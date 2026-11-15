@@ -10,6 +10,7 @@ import PILeanTest.Png
 import PILeanTest.Image
 import PILeanTest.Anim
 import PILeanTest.Plots
+import PILeanTest.Lettering
 
 /-!
 # The test driver
@@ -42,7 +43,7 @@ def main (args : List String) : IO UInt32 := do
   | _ => pure ()
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++
-    Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks
+    Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"
