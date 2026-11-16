@@ -204,21 +204,51 @@ example : provedClock.exactTime 5 = 1 / 2 := by decide +kernel
 /-! ### The links from the pictures to their theorems
 
 Each link is checked when this module is built: the theorem is proved from the standard axioms
-and its statement mentions the picture or a definition of this module the picture is built
-from. Here every statement mentions the picture itself. -/
+and its statement names the picture itself. A theorem of another picture, a true statement
+about a series the picture uses, and a statement that names the picture only in an unused `let`
+are refused below. -/
 
 figure_proves provedFunction provedFunction_spec
 figure_proves provedData provedData_spec
 figure_proves provedGraph provedGraph_spec
 figure_proves provedClock provedClock_spec
 
+/-- A true statement about a series the function plot uses, which does not name the plot. -/
+theorem cubicSeries_size : cubicSeries.points.size = 25 := Series.ofExact_size ..
+
+/-- A statement that names the plot only in a `let` whose value it does not use. -/
+theorem cubicSeries_size_let : let _unused := provedFunction; cubicSeries.points.size = 25 :=
+  Series.ofExact_size ..
+
 /--
-error: PILeanTest.ProvedExamples.provedData_spec does not mention
-PILeanTest.ProvedExamples.provedClock or a declaration of its module that
-PILeanTest.ProvedExamples.provedClock uses directly, so it is not a statement about this figure
+error: the statement of PILeanTest.ProvedExamples.provedData_spec does not mention the figure
+PILeanTest.ProvedExamples.provedClock. A theorem linked to a figure must be a statement about
+the figure itself: state it of PILeanTest.ProvedExamples.provedClock or of its fields (for
+instance, begin with an equation that says which series, edges or frames
+PILeanTest.ProvedExamples.provedClock holds), not only of definitions it is built from
 -/
 #guard_msgs in
 figure_proves provedClock provedData_spec
+
+/--
+error: the statement of PILeanTest.ProvedExamples.cubicSeries_size does not mention the figure
+PILeanTest.ProvedExamples.provedFunction. A theorem linked to a figure must be a statement about
+the figure itself: state it of PILeanTest.ProvedExamples.provedFunction or of its fields (for
+instance, begin with an equation that says which series, edges or frames
+PILeanTest.ProvedExamples.provedFunction holds), not only of definitions it is built from
+-/
+#guard_msgs in
+figure_proves provedFunction cubicSeries_size
+
+/--
+error: the statement of PILeanTest.ProvedExamples.cubicSeries_size_let does not mention the
+figure PILeanTest.ProvedExamples.provedFunction. A theorem linked to a figure must be a statement
+about the figure itself: state it of PILeanTest.ProvedExamples.provedFunction or of its fields
+(for instance, begin with an equation that says which series, edges or frames
+PILeanTest.ProvedExamples.provedFunction holds), not only of definitions it is built from
+-/
+#guard_msgs in
+figure_proves provedFunction cubicSeries_size_let
 
 end PILeanTest.ProvedExamples
 

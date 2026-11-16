@@ -32,6 +32,9 @@ def notATheorem : Nat := 3
 /-- A statement about a declaration the figure does not use. -/
 theorem aboutDivisors : Example.divisors24.length = 8 := rfl
 
+/-- A true statement about a series the plot uses, which does not name the plot. -/
+theorem aboutSeries : Example.cubicSeries.points.size = 33 := PILean.Plot.Series.ofExact_size ..
+
 -- The theorem of each example figure is accepted.
 #guard_msgs in
 run_meta do
@@ -42,13 +45,13 @@ run_meta do
     unless ← accepts f t do throwError "{t} was refused for {f}"
 
 -- A theorem about something else, a definition, and a theorem of another figure are refused;
--- so is a theorem about a declaration of the figure's module that the figure does not use.
+-- so is a theorem about a declaration of the figure's module, whether the figure uses it or not.
 #guard_msgs in
 run_meta do
   for (f, t) in [(``Example.cubicPlot, ``unrelated), (``Example.cubicPlot, ``notATheorem),
       (``Example.cubicPlot, ``Example.collatzPlot_spec),
       (``Example.collatzPlot, ``Example.divisorGraph_spec),
-      (``Example.cubicPlot, ``aboutDivisors)] do
+      (``Example.cubicPlot, ``aboutDivisors), (``Example.cubicPlot, ``aboutSeries)] do
     if ← accepts f t then throwError "{t} was accepted for {f}"
 
 /-- The figures of the example, rendered for a site. -/

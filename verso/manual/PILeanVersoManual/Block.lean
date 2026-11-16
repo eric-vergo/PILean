@@ -29,10 +29,10 @@ empty, is the caption; an empty body takes the declaration's doc string. The nam
   the backdrop carries the text alternative, the figure is laid over it at the same size.
 * `proves := name`: a theorem about the figure, by PILean's rule (`figure_proves`,
   `PILean.Trust.figureTheoremProblem?`): it must not depend on `sorryAx` or any axiom other than
-  `propext`, `Classical.choice` and `Quot.sound`, and its statement must mention the figure or a
-  declaration of the figure's module that the figure uses directly. A theorem about a function
-  defined elsewhere is linked through a theorem of the figure's module that applies it to the
-  values the figure draws (the example's `trianglePoints_spec`).
+  `propext`, `Classical.choice` and `Quot.sound`, and its statement must name the figure itself
+  (a statement about a definition the figure is built from is refused). A theorem about a
+  function defined elsewhere is linked through a theorem that says what the figure holds and
+  applies it to those values (the example's `trianglePoints_spec`).
 
 Figures are numbered in document order, "Figure 1", "Figure 2", …; the caption ends with a line
 that names the declaration that made the picture with its file and line, the fingerprint, and the

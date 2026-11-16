@@ -14,8 +14,8 @@ of its source text (taken from the file being elaborated). `figures%` is a term 
 module where it is used, becomes an `Array FigureEntry` of every registered declaration of the
 environment (imported modules included), sorted by module and then declaration name.
 
-`figure_proves fig thm` links a theorem to a figure, after checking that it is a theorem about
-that figure, proved from the standard axioms.
+`figure_proves fig thm` links a theorem to a figure, after checking that it is proved from the
+standard axioms and that its statement names the figure itself.
 
 This is the only part of `PILean` that imports `Lean`; the library proper does not.
 -/
@@ -132,11 +132,33 @@ def figureAttribute : Lean.Elab.Command.CommandElab := withFigures
 /-- The axioms a theorem linked to a figure may depend on. -/
 def allowedAxioms : List Name := [``propext, ``Classical.choice, ``Quot.sound]
 
+/-- The statement `type` with every `let` (and `have`) replaced by its value, so that a name
+that occurs only in the value of a binding the statement does not use is gone. -/
+def unfoldLets (type : Expr) : CoreM Expr :=
+  Core.transform type (pre := fun e =>
+    match e with
+    | .letE _ _ v b _ => return .visit (b.instantiate1 v)
+    | _ => return .continue)
+
+/-- Whether the statement of the declaration `thm` names the figure `fig`: the constant `fig`
+occurs in the statement as it is elaborated, after its `let`s are replaced by their values
+(`unfoldLets`). The fields of the figure are applications of projections to `fig`, so a statement
+about `fig.panels`, `fig.edges` or `fig.frameSeq` names it. Nothing is unfolded: a statement
+about a definition the figure is built from, or about a term equal to the figure, does not name
+it. -/
+def statementNamesFigure (fig thm : Name) : CoreM Bool := do
+  let some info := (← getEnv).find? thm | return false
+  return (← unfoldLets info.type).getUsedConstants.contains fig
+
 /-- What prevents `thm` from being linked to the figure `fig` as a theorem about it, if anything:
 `thm` must be a theorem, must not depend on `sorryAx` or on any axiom other than
-`allowedAxioms`, and its statement must mention `fig` or a declaration of the module of `fig`
-that the definition of `fig` uses directly (the theorems of the exact layer speak of the series
-or the relation a figure is built from). -/
+`allowedAxioms`, and its statement must name the figure itself (`statementNamesFigure`): a
+statement about a definition the figure is built from is refused, since the figure could change
+and leave it true.
+
+The rule is about names. It does not judge what the statement says: a statement that names the
+figure and says nothing of substance about it (`fig = fig`, or the figure in a hypothesis that is
+never used) passes. -/
 def figureTheoremProblem? (fig thm : Name) : CoreM (Option MessageData) := do
   let env ← getEnv
   let some info := env.find? thm | return some m!"unknown declaration {thm}"
@@ -149,12 +171,11 @@ def figureTheoremProblem? (fig thm : Name) : CoreM (Option MessageData) := do
     unless allowedAxioms.contains a do
       return some m!"{thm} depends on the axiom {a}; a figure links only to theorems \
         that use propext, Classical.choice and Quot.sound at most"
-  let used := info.type.getUsedConstants
-  let figValue := (env.find? fig).bind (·.value?) |>.map (·.getUsedConstants) |>.getD #[]
-  let ingredients := figValue.filter fun c => env.getModuleIdxFor? c == env.getModuleIdxFor? fig
-  unless used.contains fig || ingredients.any used.contains do
-    return some m!"{thm} does not mention {fig} or a declaration of its module that \
-      {fig} uses directly, so it is not a statement about this figure"
+  unless ← statementNamesFigure fig thm do
+    return some m!"the statement of {thm} does not mention the figure {fig}. A theorem linked \
+      to a figure must be a statement about the figure itself: state it of {fig} or of its \
+      fields (for instance, begin with an equation that says which series, edges or frames \
+      {fig} holds), not only of definitions it is built from"
   return none
 
 /-- The links recorded by `figure_proves`: a figure and a theorem about it. -/
@@ -171,8 +192,7 @@ def figureTheorems (env : Environment) (fig : Name) : Array Name :=
 attribute `@[figure]` (of this module or an imported one). The command fails, and with it the
 build, unless `thm` is a theorem about the figure in the sense of `figureTheoremProblem?`: a
 theorem, free of `sorry` and of axioms other than `propext`, `Classical.choice` and `Quot.sound`,
-whose statement mentions the figure or a declaration of the figure's module that the figure uses
-directly. -/
+whose statement names the figure itself. -/
 syntax (name := figureProves) "figure_proves " ident ppSpace ident : command
 
 /-- The elaborator of `figure_proves`. -/

@@ -216,10 +216,11 @@ fails if the list changes (`PILeanMathlib/Axioms.lean`).
 1. Find its source record (`lake exe pilean-info FILE`): the module, declaration and line.
 2. Read the theorem beside the declaration. It names the exact function, list, relation or time.
    The command `figure_proves picture theorem` in the same file links the two, and fails the
-   build unless the theorem is proved from the standard axioms and its statement mentions the
-   picture or a definition of that file the picture is built from. That check is about names
-   only: it cannot tell a strong statement from an empty one that mentions the picture, so the
-   statement is still yours to read. The gallery's four theorems each mention the picture
-   itself, which the tests check.
+   build unless the theorem is proved from the standard axioms and its statement names the
+   picture itself (the picture's constant occurs in the statement; a statement about a
+   definition the picture is built from is refused; `docs/TRUST.md` has the exact rule). That
+   check is about names only: it cannot tell a strong statement from an empty one that names
+   the picture, so the statement is still yours to read. The link is a pointer to a statement,
+   not a certificate that the picture is correct.
 3. Run `lake build` on that module; the theorem checks.
 4. For the part after floating point begins, the tests and `docs/TRUST.md` say what is compared.

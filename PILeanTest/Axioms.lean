@@ -40,8 +40,8 @@ here), and the test modules listed above, which are those the test driver import
 fails if a module of the library is missing.
 
 `#assert_figure_theorems_name_figures` checks every link made by `figure_proves` in the imported
-modules: the statement of the theorem must mention the figure itself, which is more than the rule
-of `figure_proves` asks (it also accepts a statement about a definition the figure uses).
+modules again, by the rule of `figure_proves` (`PILean.Trust.statementNamesFigure`): the
+statement of the theorem names the figure itself.
 -/
 
 open Lean Elab Command
@@ -82,8 +82,7 @@ elab "#assert_figure_theorems_name_figures " n:num : command => do
   for fig in figures do
     for thm in PILean.Trust.figureTheorems env fig do
       links := links + 1
-      let some info := env.find? thm | throwError "unknown theorem {thm}"
-      unless info.type.getUsedConstants.contains fig do
+      unless ← liftCoreM (PILean.Trust.statementNamesFigure fig thm) do
         throwError "the statement of {thm} does not mention the figure {fig}"
   unless n.getNat ≤ links do
     throwError "{links} links from figures to theorems, expected at least {n.getNat}"

@@ -219,13 +219,27 @@ data and `fun _ => ToOutputs.outputs decl`.
 
 The command `figure_proves fig thm` links a theorem to a registered figure. It is an error, so
 the module does not build, unless `thm` is a theorem, depends on no `sorry` and on no axiom other
-than `propext`, `Classical.choice` and `Quot.sound`, and its statement mentions `fig` or a
-declaration of the module of `fig` that the definition of `fig` uses directly. The links are kept
-in an environment extension (`figureTheorems`). The check says that the theorem is proved and
-that its statement names the figure or one of the figure's definitions. It is a check of names:
-a statement that mentions the figure and says nothing of substance about it would pass, so what
-the theorem says is for its reader to judge (`docs/PROOFS.md`). A link is a pointer from a
-picture to a statement to read, not a certificate that the picture is correct.
+than `propext`, `Classical.choice` and `Quot.sound`, and its statement names the figure itself.
+The links are kept in an environment extension (`figureTheorems`).
+
+The rule, exactly (`statementNamesFigure`): the constant `fig` occurs in the statement of `thm`
+as Lean elaborates it, after every `let` and `have` of the statement is replaced by its value.
+
+* A field of the figure is a projection applied to it, so a statement about `fig.panels`,
+  `fig.edges`, `fig.nodes` or `fig.frameSeq` names the figure. The usual shape begins with an
+  equation that says what the figure holds, `fig.panels.map (·.series) = #[#[s₁, s₂]]`, and goes
+  on about `s₁` and `s₂`.
+* Nothing is unfolded. A statement about a definition the figure is built from (a series, a data
+  list, a relation), or about a term that happens to equal the figure, does not name it and is
+  refused: the figure could be changed and leave such a statement true.
+* A name that occurs only in the value of a `let` the statement does not use does not count.
+* The rule is about names; it does not judge what the statement says. A statement that names
+  the figure and says nothing of substance about it passes: `fig = fig`, the figure in a
+  hypothesis that is never used, a property that holds of every figure. What the theorem says
+  is for its reader to judge (`docs/PROOFS.md`).
+
+A link is a pointer from a picture to a statement to read, not a certificate that the picture is
+correct.
 
 ## The fingerprint
 

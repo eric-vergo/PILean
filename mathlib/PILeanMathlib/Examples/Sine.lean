@@ -102,6 +102,21 @@ theorem sineFigure_spec :
 
 figure_proves sineFigure sineFigure_spec
 
+/-- The points of `sineSeries`, a statement that does not name the figure. -/
+theorem sineSeries_points :
+    sineSeries.points = ((Exact.samples sineTaylor lo hi steps).map Exact.toPoint).toArray :=
+  Series.ofExact_points ..
+
+/--
+error: the statement of PILeanMathlib.Examples.sineSeries_points does not mention the figure
+PILeanMathlib.Examples.sineFigure. A theorem linked to a figure must be a statement about the
+figure itself: state it of PILeanMathlib.Examples.sineFigure or of its fields (for instance,
+begin with an equation that says which series, edges or frames PILeanMathlib.Examples.sineFigure
+holds), not only of definitions it is built from
+-/
+#guard_msgs in
+figure_proves sineFigure sineSeries_points
+
 /-- The statement has content: the same polyline is not vertically within `1 / 2000` of the graph
 of the cosine, since its point `(0, 0)` (the sample of index 48) is at vertical distance `1`. -/
 example :

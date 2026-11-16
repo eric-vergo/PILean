@@ -174,9 +174,9 @@ def moduleOf? (env : Environment) (n : Name) : Option ModuleIdx := env.getModule
 /-- Checks the theorem `thm` named by `proves :=` for the figure `fig`, by PILean's own rule
 (`PILean.Trust.figureTheoremProblem?`, the check of `figure_proves`): it is a theorem, depends on
 no `sorry` and no axiom beyond `propext`, `Classical.choice` and `Quot.sound`, and its statement
-mentions `fig` or a declaration of `fig`'s module that `fig`'s definition uses directly. A
-theorem about a function the figure calls from elsewhere is linked through a theorem of the
-figure's module that applies it to the values the figure draws. -/
+names `fig` itself (a statement about a definition `fig` is built from is refused). A theorem
+about a function the figure calls from elsewhere is linked through a theorem that says what the
+figure holds and applies it to those values. -/
 def checkTheorem (fig : Name) (thm : Ident) : CoreM Name := do
   let thmName ← realizeGlobalConstNoOverloadWithInfo thm
   if let some msg ← figureTheoremProblem? fig thmName then throwErrorAt thm msg

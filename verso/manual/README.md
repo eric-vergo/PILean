@@ -47,9 +47,11 @@ the name as code and the file linked to the repository when the build names one 
 * When the chapter is elaborated: the declaration has `@[figure]`; the text alternative is given;
   the theorem named by `proves` passes PILean's rule (`figure_proves`): it is a theorem, depends
   on no `sorry` and no axiom beyond `propext`, `Classical.choice` and `Quot.sound`, and its
-  statement mentions the figure or a declaration of the figure's module that the figure uses
-  directly (a theorem about a function from elsewhere is linked through one of the figure's module
-  that applies it to the figure's values);
+  statement names the figure itself: the figure's constant occurs in the statement, and a
+  statement about a definition the figure is built from is refused (a theorem about a function
+  from elsewhere is linked through one that says what the figure holds and applies it to those
+  values). The rule is about names: the link is a pointer to a statement to read, not a
+  certificate that the picture is correct;
   `format`, `width` and `backdrop` are valid.
 * When the manual is generated: every figure is rendered with PILean, every SVG must be inert
   (`PILean.Svg.inertProblem?`), and the figures folder the generator wrote

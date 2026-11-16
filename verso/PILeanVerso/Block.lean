@@ -29,10 +29,9 @@ optional:
   `svg` is its animated SVG.
 * `width := "..."`: the picture's width as a CSS length (`60%`, `24rem`, `480px`).
 * `proves := name`: a theorem about the figure. It must exist, must not depend on `sorryAx` or any
-  axiom other than `propext`, `Classical.choice` and `Quot.sound`, and its statement must mention
-  the figure's declaration or a declaration of the figure's module that the figure's definition
-  uses directly (the theorems of PILean's exact layer speak of the series or the relation a figure
-  is built from).
+  axiom other than `propext`, `Classical.choice` and `Quot.sound`, and its statement must name
+  the figure itself (PILean's rule, `figure_proves`): a statement about a series or a relation
+  the figure is built from is refused, so the theorem begins by saying what the figure holds.
 
 The figure is numbered as the Blueprint numbers its blocks (`verso.blueprint.numbering`,
 `verso.blueprint.subNumberingPrefix`), with its own counter: "Figure 2.1". Its caption ends with a

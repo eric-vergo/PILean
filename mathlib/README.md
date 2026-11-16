@@ -71,8 +71,8 @@ The theorem is stated about the figure and the definitions it is built from (`si
 `sineSeries`, `sineTaylor`, `lo`, `hi`, `steps`). Changing the polynomial, the interval, the
 number of steps or the series the figure plots changes what must be proved, and the build fails
 until it is. `figure_proves sineFigure sineFigure_spec` checks, when the package is built, that
-the theorem is proved from the standard axioms and that its statement mentions the figure; it
-does not judge what the statement says.
+the theorem is proved from the standard axioms and that its statement names the figure itself
+(a statement about `sineSeries` alone is refused); it does not judge what the statement says.
 
 ## What is not proved
 

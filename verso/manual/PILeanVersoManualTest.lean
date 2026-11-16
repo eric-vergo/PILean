@@ -17,6 +17,29 @@ its backdrop, the reference), the figures page, the same bytes from both builds,
 
 open PILean PILeanVerso Verso.Genre.Manual
 
+/-- A true statement about the points the plot uses, which does not name the plot. -/
+theorem aboutPoints : ∀ p ∈ ManualExample.trianglePoints, 0 ≤ p.2 := by
+  intro p hp
+  simp only [ManualExample.trianglePoints, List.mem_map, List.mem_range] at hp
+  obtain ⟨n, -, rfl⟩ := hp
+  exact Int.natCast_nonneg _
+
+-- The directive's check of `proves :=` accepts the theorems of the example and refuses a
+-- statement that names only what a figure is built from, or another figure's theorem.
+#guard_msgs in
+open Lean Elab in
+run_meta do
+  let accepts (fig thm : Name) : CoreM Bool := do
+    try discard <| PILeanVerso.checkTheorem fig (mkIdent thm); return true
+    catch _ => return false
+  for (f, t) in [(``ManualExample.trianglePlot, ``ManualExample.trianglePoints_spec),
+      (``ManualExample.divisorGraph, ``ManualExample.covers_count)] do
+    unless ← accepts f t do throwError "{t} was refused for {f}"
+  for (f, t) in [(``ManualExample.trianglePlot, ``aboutPoints),
+      (``ManualExample.trianglePlot, ``ManualExample.covers_count),
+      (``ManualExample.trianglePlot, ``ManualExample.two_mul_triangle)] do
+    if ← accepts f t then throwError "{t} was accepted for {f}"
+
 /-- The example's configuration: its two backdrops. -/
 def exampleConfig : RenderConfig :=
   let base : RenderConfig := {}

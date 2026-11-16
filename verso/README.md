@@ -77,8 +77,11 @@ default), `title`, `format` (`svg` by default, or `png`, `apng`, `gif`), `width`
 
 * When the chapter is elaborated: the declaration has `@[figure]`; the theorem named by `proves`
   exists, is a theorem, depends on no `sorry` and no axiom beyond `propext`, `Classical.choice` and
-  `Quot.sound`, and its statement mentions the figure or a declaration of the figure's module that
-  the figure's definition uses directly; `format` and `width` are valid.
+  `Quot.sound`, and its statement names the figure itself (PILean's rule, `figure_proves`: the
+  figure's constant occurs in the statement; a statement about a definition the figure is built
+  from is refused). The rule is about names: the link under the caption is a pointer to a
+  statement to read, not a certificate that the picture is correct. `format` and `width` are
+  valid.
 * When the site is generated: every figure the document uses is rendered with PILean
   (`pilean-build`'s rendering, file names and manifest), every SVG must be inert
   (`PILean.Svg.inertProblem?`: no script, no event handler, nothing loaded from elsewhere), and
