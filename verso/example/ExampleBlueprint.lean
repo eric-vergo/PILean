@@ -9,6 +9,13 @@ import VersoBlueprint.Commands.Summary
 import PILeanVerso
 import ExampleBlueprint.Pictures
 
+/-!
+# The example Blueprint
+
+The document of the example: one chapter of pictures (`ExampleBlueprint.Pictures`) and the
+Blueprint's summary.
+-/
+
 open Verso.Genre
 open Verso.Genre.Manual
 open Informal

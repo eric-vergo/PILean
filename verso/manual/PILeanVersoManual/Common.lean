@@ -467,7 +467,7 @@ def sourceLineWith (s : DeclStyle) (p : Placed) (fp : String) : Html :=
   let d := p.data
   let thm : Html := match d.proves with
     | some t => {{<span class="pilean-source-item">
-        <span class="pilean-source-key">"Proved by"</span> {{s.decl t.name}}
+        <span class="pilean-source-key">"Theorem"</span> {{s.decl t.name}}
         {{s.place t p.theoremHref}}</span>}}
     | none => .empty
   let src : DeclRef := { name := d.decl, module := d.module, file := d.file, line := d.line }

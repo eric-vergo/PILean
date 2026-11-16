@@ -8,6 +8,13 @@ import VersoBlueprint
 import PILeanVerso
 import Example
 
+/-!
+# The chapter of pictures
+
+Four figures of `Example.Figures` in a Blueprint chapter, each linked to its declaration and to
+the theorem about it.
+-/
+
 open Verso.Genre
 open Verso.Genre.Manual
 open Informal
@@ -27,8 +34,10 @@ The cubic $`f(x) = x^3 - 3x`, with exact rational arithmetic.
 :::
 
 :::theorem "cubic_samples" (lean := "Example.cubicPlot_spec")
-The curve of {figref "cubic"}[] passes through exactly the 33 points $`(x, f(x))` with $`x` on
-the grid from $`-2` to $`2` in steps of $`\tfrac{1}{8}`, and through no others.
+The curve of {figref "cubic"}[] is drawn from exactly 33 sample points, the points $`(x, f(x))`
+with $`x` on the grid from $`-2` to $`2` in steps of $`\tfrac{1}{8}`, each converted to a
+floating-point number; between two of them the picture is a straight segment, about which
+nothing is proved.
 This is a statement about {uses "cubic"}[].
 :::
 

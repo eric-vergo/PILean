@@ -56,14 +56,20 @@ def cubicPlot : Figure where
       x := { label := "x" }, y := { label := "y" },
       series := #[cubicSeries, cubicSeries'] }]
 
-/-- The cubic's curve in `cubicPlot` is its exact samples converted one by one: 33 points, whose
+/-- The figure `cubicPlot` has one panel, whose series are `cubicSeries` and `cubicSeries'` and
+no other. The points of each are its exact samples converted one by one: 33 points, whose
 abscissae are the grid from `-2` to `2` in steps of `1/8` and whose ordinates are the exact
-values of `cubic`. -/
+values of `cubic` (of `cubic'`). Nothing is said about the curve between two samples. -/
 theorem cubicPlot_spec :
+    cubicPlot.panels.map (·.series) = #[#[cubicSeries, cubicSeries']] ∧
     cubicSeries.points = ((Exact.samples cubic lo hi steps).map Exact.toPoint).toArray ∧
-    cubicSeries.points.size = 33 ∧
-    ∀ p ∈ Exact.samples cubic lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic p.1 :=
-  ⟨Series.ofExact_points .., Series.ofExact_size .., fun _ hp => (Exact.mem_samples ..).1 hp⟩
+    cubicSeries'.points = ((Exact.samples cubic' lo hi steps).map Exact.toPoint).toArray ∧
+    cubicSeries.points.size = 33 ∧ cubicSeries'.points.size = 33 ∧
+    (∀ p ∈ Exact.samples cubic lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic p.1) ∧
+    ∀ p ∈ Exact.samples cubic' lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic' p.1 :=
+  ⟨by simp [cubicPlot], Series.ofExact_points .., Series.ofExact_points ..,
+    Series.ofExact_size .., Series.ofExact_size ..,
+    fun _ hp => (Exact.mem_samples ..).1 hp, fun _ hp => (Exact.mem_samples ..).1 hp⟩
 
 /-- The hypotheses are met: the grid's step is `1/8`. -/
 example : Exact.gridStep lo hi steps = 1 / 8 := by decide +kernel
@@ -91,15 +97,18 @@ def collatzPlot : Figure where
       series := #[.ofIntPoints "steps" collatzData,
         .scatterOfIntPoints "n" collatzData] }]
 
-/-- The line and the markers of `collatzPlot` are the computed list point for point: none added,
-dropped or changed. -/
+/-- The figure `collatzPlot` has one panel, whose series are a line and markers over
+`collatzData` and no other; the points of both are the computed list point for point: none
+added, dropped or changed. -/
 theorem collatzPlot_spec :
-    (Series.ofIntPoints "steps" collatzData).points =
+    collatzPlot.panels.map (·.series) =
+        #[#[.ofIntPoints "steps" collatzData, .scatterOfIntPoints "n" collatzData]] ∧
+      (Series.ofIntPoints "steps" collatzData).points =
         (collatzData.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       (Series.scatterOfIntPoints "n" collatzData).points =
         (collatzData.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       (collatzData.map Exact.ofIntPair).map (fun q => (q.1.num, q.2.num)) = collatzData :=
-  ⟨Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
+  ⟨by simp [collatzPlot], Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
     Series.ofIntPairs_recover _⟩
 
 /-- The data are what they should be: 27 takes 111 steps, and 1, 2, 3 take 0, 1 and 7. -/
@@ -165,13 +174,14 @@ def circleAnimation : Animation :=
       circleFrame (t / 2), posterTime := some 0.25,
     text := Style.light.text, fontFamily := Style.light.fontFamily }
 
-/-- Frame `i` of `circleAnimation` is the drawing at the time `i / 15`: the time passed is the
-conversion of that exact rational number, and the raster frames are drawn from it. -/
+/-- Frame `i` of `circleAnimation` is the drawing `circleFrame` at half the time `i / 15` (one
+turn takes two seconds): the time passed is the conversion of that exact rational number, and the
+raster frames are drawn from it. The halving is a floating-point division. -/
 theorem circleAnimation_spec (i : Nat) :
     circleAnimation.time i = Exact.toFloat (circleAnimation.exactTime i) ∧
     circleAnimation.exactTime i = i / 15 ∧
     (∀ h : i < circleAnimation.frameSeq.frames.size, circleAnimation.frameSeq.frames[i] =
-      (circleAnimation.frame (circleAnimation.time i)).toImage 240 240 Style.light.text
+      (circleFrame (circleAnimation.time i / 2)).toImage 240 240 Style.light.text
         ⟨255, 255, 255, 255⟩) :=
   ⟨Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
     fun h => Animation.frameSeq_getElem _ i h⟩

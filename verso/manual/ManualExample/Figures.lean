@@ -24,15 +24,6 @@ open PILean PILean.Plot PILean.Trust
 def trianglePoints : List (Int × Int) :=
   (List.range 13).map fun n => (Int.ofNat n, Int.ofNat (triangle n))
 
-/-- Every point of `trianglePlot` satisfies the closed form of `two_mul_triangle`: twice its
-height is `n (n + 1)`. -/
-theorem trianglePoints_spec : ∀ p ∈ trianglePoints, 2 * p.2 = p.1 * (p.1 + 1) := by
-  intro p hp
-  simp only [trianglePoints, List.mem_map, List.mem_range] at hp
-  obtain ⟨n, -, rfl⟩ := hp
-  show (2 : Int) * (triangle n : Int) = (n : Int) * ((n : Int) + 1)
-  exact_mod_cast two_mul_triangle n
-
 /-- The triangular numbers 0 to 12. -/
 @[figure]
 def trianglePlot : Figure where
@@ -41,6 +32,26 @@ def trianglePlot : Figure where
       x := { label := "n" }, y := { label := "0 + 1 + … + n" },
       series := #[.ofIntPoints "triangle n" trianglePoints,
         .scatterOfIntPoints "n" trianglePoints] }]
+
+/-- The figure `trianglePlot` has one panel, whose series are a line and markers over
+`trianglePoints` and no other; the points of both are that list converted point for point; and
+every point of the list satisfies the closed form of `two_mul_triangle`: twice its height is
+`n (n + 1)`. -/
+theorem trianglePoints_spec :
+    trianglePlot.panels.map (·.series) =
+        #[#[.ofIntPoints "triangle n" trianglePoints,
+          .scatterOfIntPoints "n" trianglePoints]] ∧
+      (Series.ofIntPoints "triangle n" trianglePoints).points =
+        (trianglePoints.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
+      (Series.scatterOfIntPoints "n" trianglePoints).points =
+        (trianglePoints.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
+      ∀ p ∈ trianglePoints, 2 * p.2 = p.1 * (p.1 + 1) := by
+  refine ⟨by simp [trianglePlot], Series.ofIntPoints_points ..,
+    Series.scatterOfIntPoints_points .., fun p hp => ?_⟩
+  simp only [trianglePoints, List.mem_map, List.mem_range] at hp
+  obtain ⟨n, -, rfl⟩ := hp
+  show (2 : Int) * (triangle n : Int) = (n : Int) * ((n : Int) + 1)
+  exact_mod_cast two_mul_triangle n
 
 /-- The divisors of 12. -/
 def divisors12 : List Nat := [1, 2, 3, 4, 6, 12]
@@ -54,8 +65,13 @@ def covers (a b : Nat) : Bool :=
 @[figure]
 def divisorGraph : PILean.Graph := Graph.ofRelation divisors12 covers toString
 
-/-- The covering relation of `divisorGraph` has 7 pairs. -/
-theorem covers_count : (Graph.relationPairs divisors12 covers).length = 7 := by decide +kernel
+/-- The edges of `divisorGraph` are exactly the covering pairs among the divisors of 12, in
+order, and there are 7 of them. -/
+theorem covers_count :
+    divisorGraph.edges.toList.map (fun e => (e.src, e.dst)) =
+        Graph.relationPairs divisors12 covers ∧
+      (Graph.relationPairs divisors12 covers).length = 7 :=
+  ⟨Graph.ofRelation_edge_pairs divisors12 covers toString true, by decide +kernel⟩
 
 /-- Numbered marks to be drawn over a picture: the picture's size and the marks' centres. -/
 structure Marks where

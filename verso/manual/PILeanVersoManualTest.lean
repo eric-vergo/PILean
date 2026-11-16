@@ -54,7 +54,7 @@ def main : IO UInt32 := do
       !validBackdrop "a b.png" && !validBackdrop "") "unsafe or empty backdrops are refused"
     check (backdropUrl "s/w-{theme}.png" "dark" == "s/w-dark.png") "a backdrop's dark address"
     check (isCssLength "60%" && !isCssLength "60") "widths are CSS lengths"
-    let tmp := System.FilePath.mk "/tmp" / s!"pilean-verso-manual-test-{← IO.monoNanosNow}"
+    let tmp := System.FilePath.mk ".lake" / s!"pilean-verso-manual-test-{← IO.monoNanosNow}"
     let out1 := tmp / "a"
     let out2 := tmp / "b"
     let c1 ← generate ["--output", out1.toString]
@@ -83,8 +83,8 @@ def main : IO UInt32 := do
     check (has numbers "alt=\"A line through the points") "the text alternative is the given one"
     check (has numbers "pilean-figure-has-dark" && has numbers "trianglePlot-dark.svg")
       "a figure has its dark picture"
-    check (has numbers "Proved by" && has numbers "ManualExample.trianglePoints_spec")
-      "the theorem is named"
+    check (has numbers ">Theorem<" && !has numbers "Proved by" &&
+      has numbers "ManualExample.trianglePoints_spec") "the theorem is named"
     check (has numbers "ManualExample/Figures.lean:") "the source line names the file and line"
     check (has numbers "class=\"pilean-figref\"") "the reference links to the figure"
     let marks ← IO.FS.readFile (out1 / "html-multi" / "Marks-over-a-picture" / "index.html")
