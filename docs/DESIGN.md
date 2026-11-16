@@ -2,7 +2,7 @@
 
 PILean is a pure-Lean image library: what Pillow is to Python, with plots, a vector canvas and
 graphs of nodes and edges on top, SVG and PNG output, and a traceability layer that ties every
-image to the Lean that produced it. This note gives the planned module layout, the public API in
+image to the Lean that produced it. This note gives the module layout, the public API in
 outline, what is exact and what is floating point, and the open choices.
 
 ## Principles
@@ -11,8 +11,10 @@ outline, what is exact and what is floating point, and the open choices.
    images goes through an interface (`TextEngine`) with a built-in lettering; LeAnTeX implements
    it in a separate package of this repository (`leantex/`, "Text in images").
 2. **Values first.** An image, a figure, a drawing or a graph is a Lean value; output is a
-   function of it. The same value gives the same bytes on every machine (deterministic number
-   formatting, stable ordering, no clocks or randomness).
+   function of it. The same value gives the same bytes on every run (deterministic number
+   formatting, stable ordering, no clocks or randomness), and on every machine as far as the
+   floating-point steps agree ("Exact and floating point" says where the platform's library can
+   differ in a last bit).
 3. **Untrusted input everywhere.** Labels, data, fonts and images read from files are treated as
    hostile: escaped, bounded, checked; no panics, every loop bounded by its input.
 4. **Craft.** Defaults that look deliberate without tuning: whole-pixel plot areas, hairlines on
@@ -36,7 +38,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline or orthogonal edges, arrowheads, edge labels and clusters, circular and tree layouts, drawing on the canvas as SVG and PNG | done; layering proved, see below |
-| `PILean.Trust` | done: SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`. Later: the theorems that tie a figure to its Lean object | partly done |
+| `PILean.Trust` | done: SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_proves` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
 
 ## Public API in Pillow's spirit
 
@@ -45,22 +47,23 @@ idiom (values instead of mutation; `IO` only at the edges):
 
 ```lean
 -- Image (Pillow: Image.new, Image.open, im.save, im.crop, im.resize, im.paste)
-def Image.new (mode : Mode) (w h : Nat) (fill : Rgba) : Image
-def Image.readPng (bytes : ByteArray) : Except PngError Image
-def Image.writePng (im : Image) (meta : Metadata := {}) : ByteArray
-def Image.crop (im : Image) (box : IntBox) : Image
-def Image.resize (im : Image) (w h : Nat) (filter : Filter := .lanczos) : Image
-def Image.paste (dst src : Image) (at : Nat × Nat) (mask : Option Image := none) : Image
+def Image.new (mode : Mode) (width height : Nat) (fill : Rgba := ⟨0, 0, 0, 255⟩) : Image
+def Image.readPng (bytes : ByteArray) (lim : Png.Limits := {}) : Except Png.PngError Image
+def Image.writePng (im : Image) (md : Png.Metadata := {}) : Except Png.PngError ByteArray
+def Image.crop (im : Image) (x0 y0 x1 y1 : Int) : Image
+def Image.resize (im : Image) (w h : Nat) (filter : Filter := .box) : Image
+def Image.paste (dst src : Image) (x y : Int) (mask : Option Image := none) : Image
 
--- ImageDraw (Pillow: draw.line, draw.rectangle, draw.ellipse, draw.polygon, draw.text)
-def Draw.line (pts : Array Point) (stroke : Stroke) : Draw → Draw
-def Draw.path (p : Path) (fill : Option Paint) (stroke : Option Stroke) : Draw → Draw
-def Draw.text (at : Point) (s : String) (font : Font) (fill : Rgba) : Draw → Draw
-def Draw.toImage (d : Draw) (w h : Nat) : Image        -- through Raster
-def Draw.toSvg (d : Draw) (w h : Float) : String
+-- ImageDraw (Pillow: draw.line, draw.rectangle); in the namespace PILean.Raster
+def Draw.new (w h : Nat) (bg : Rgba := ⟨255, 255, 255, 255⟩) (space : Space := .linear) : Draw
+def Draw.line (d : Draw) (pts : Array Point) (paint : Paint) (width : Float := 1)
+    (cap : Cap := .butt) (join : Join := .miter) : Draw
+def Draw.rectangle (d : Draw) (x0 y0 x1 y1 : Float) (fill : Option Paint := none)
+    (outline : Option Paint := none) (width : Float := 1) : Draw
+def Draw.toImage (d : Draw) (mode : Mode := .rgba) : Image
 
 -- ImageColor (Pillow: ImageColor.getrgb)
-def Rgba.ofHex? (s : String) : Option Rgba             -- done
+def Rgba.ofHex? (s : String) : Option Rgba
 ```
 
 What PILean takes from Pillow is the shape of the API and its documented behaviour (modes such as
@@ -146,11 +149,14 @@ Four parts:
 3. **Fingerprint.** A SHA-256 (pure Lean) of the figure specification's canonical encoding, of the
    source declaration's text and of where it is, written into the file and into the manifest; a
    checker re-renders and compares (`pilean-build --check`).
-4. **Theorems** (done for four kinds; see `docs/PROOFS.md`). A `Figure` holds the Lean objects it shows (the function, the data term, the
-   relation of a graph), and the renderer's sampling and drawing functions are stated over them:
-   the plotted function is the definition; each data point is the evaluated term; each drawn edge
-   is in the declared relation and every related pair is drawn. Statements first, proofs second,
-   about the functions the code calls.
+4. **Theorems** (for four kinds of picture; see `docs/PROOFS.md`). A series built with
+   `Series.ofExact` or `Series.ofIntPoints`, a graph built with `Graph.ofRelation` and an
+   `Animation` have theorems about the exact objects they are built from: the plotted points are
+   the exact samples of the function on a stated grid, or the data list, converted one by one;
+   the layout has one route for each related pair; frame `i` is the drawing at `i / fps`. The
+   statements are about exact numbers and lists and about the functions the code calls. The
+   steps from there to pixels (the conversion to floating point, the scales, the rasteriser) are
+   tested, not proved, and nothing is proved about a curve between two samples.
 
 ## Graph layout
 

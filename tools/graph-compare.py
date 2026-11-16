@@ -3,7 +3,7 @@
 #
 # Compares PILean's layered graph layout with Graphviz's `dot` by measures that do not depend on
 # the eye: the number of edge pairs that cross, the total length of the edges, and the area of
-# the drawing. `lake exe pilean-test --graph-quality DIR` (or the older `--graph-compare-out DIR`)
+# the drawing. `lake exe pilean-test --graph-quality DIR` (or `--graph-compare-out DIR`)
 # writes, for each of a few graphs,
 # DIR/<name>.dot (the graph with PILean's node sizes and gaps, and its clusters as `cluster`
 # subgraphs) and DIR/<name>.layout (PILean's

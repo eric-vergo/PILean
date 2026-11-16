@@ -132,7 +132,7 @@ function, your real function, its two derivatives and the two bounds;
 
 ## Next steps
 
-Not in this package yet:
+Not in this package:
 
 * interval arithmetic, to obtain the approximation `g` and its error bound mechanically instead
   of by a hand-chosen Taylor polynomial (existing Lean libraries for it track other Mathlib

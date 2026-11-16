@@ -19,16 +19,21 @@ import PILean.Trust.Sha256
 
 namespace PILean.Sha256
 
+/-- The length field of the padding has 8 bytes. -/
 theorem lengthBytes_size (n : Nat) : (lengthBytes n).size = 8 := rfl
 
+/-- A word is written as 4 bytes. -/
 theorem wordBytes_size (x : UInt32) : (wordBytes x).size = 4 := rfl
 
+/-- The marker of the padding is one byte. -/
 theorem marker_size : (⟨#[0x80]⟩ : ByteArray).size = 1 := rfl
 
+/-- An array of `k` zero bytes has `k` bytes. -/
 theorem zeros_size (k : Nat) : (⟨Array.replicate k 0⟩ : ByteArray).size = k := by
   show (Array.replicate k 0).size = k
   simp
 
+/-- The size of the padded message: the message, the marker, the zeros and the length field. -/
 theorem pad_size (m : ByteArray) : (pad m).size = m.size + 1 + zeroCount m.size + 8 := by
   unfold pad
   rw [ByteArray.size_append, ByteArray.size_append, ByteArray.size_append, lengthBytes_size,
@@ -36,8 +41,10 @@ theorem pad_size (m : ByteArray) : (pad m).size = m.size + 1 + zeroCount m.size 
   show m.size + 1 + _ + 8 = _
   rfl
 
+/-- Fewer than 64 zero bytes are added. -/
 theorem zeroCount_lt (n : Nat) : zeroCount n < 64 := Nat.mod_lt _ (by decide)
 
+/-- An index inside the first of two appended byte arrays reads from the first. -/
 theorem getElem!_append_left (a b : ByteArray) (i : Nat) (h : i < a.size) :
     (a ++ b)[i]! = a[i]! := by
   have h1 : i < (a ++ b).size := by rw [ByteArray.size_append]; omega

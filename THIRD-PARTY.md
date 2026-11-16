@@ -40,8 +40,14 @@ as paths, as any document typeset in a font does.
 It requires [Mathlib](https://github.com/leanprover-community/mathlib4) (Apache License 2.0) at a
 fixed commit; none of Mathlib's code is copied into this repository.
 
+## The packages `pilean-verso` and `pilean-verso-manual` (`verso/`, `verso/manual/`)
+
+They require [Verso](https://github.com/leanprover/verso) and
+[SubVerso](https://github.com/leanprover/subverso) (both Apache License 2.0), and `pilean-verso`
+also Verso Blueprint (its source files state the Apache License 2.0), each from a fork at a fixed
+commit named in the lakefiles; none of their code is copied into this repository.
+
 ## PILean's own test data
 
 `PILeanTest/png/*.png` and `manifest.txt` are PILean's own files, written by
 `tools/png-check.py` with Python's standard library.
-

@@ -22,8 +22,10 @@ def rep (s : String) (n : Nat) : String := String.join (List.replicate n s)
 /-- A hostile label of a kind. -/
 def hostile : String → String
   | "recursive-macro" => "\\def\\a{\\a\\a}\\a"
-  | "newcommand-bomb" => "\\newcommand\\a{xxxxxxxxxx}\\newcommand\\b{\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a}" ++
-      "\\newcommand\\c{\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b}\\newcommand\\d{\\c\\c\\c\\c\\c\\c\\c\\c\\c\\c}" ++
+  | "newcommand-bomb" =>
+      "\\newcommand\\a{xxxxxxxxxx}\\newcommand\\b{\\a\\a\\a\\a\\a\\a\\a\\a\\a\\a}" ++
+      "\\newcommand\\c{\\b\\b\\b\\b\\b\\b\\b\\b\\b\\b}" ++
+      "\\newcommand\\d{\\c\\c\\c\\c\\c\\c\\c\\c\\c\\c}" ++
       "\\d\\d\\d\\d\\d\\d\\d\\d\\d\\d"
   | "math-macro" => "$\\def\\a{\\a\\a}\\a$"
   | "deep-groups" => rep "{" 900 ++ "x" ++ rep "}" 900

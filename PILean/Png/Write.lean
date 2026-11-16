@@ -21,8 +21,8 @@ file.
 
 ## Implementation notes
 
-* Chunks, in order: `IHDR`, `sRGB`, `gAMA`, `pHYs`, the text chunks, `IDAT` (the zlib stream split into
-  pieces of `idatChunkSize` bytes), `IEND`. Colour types are 0, 2 and 6 at bit depth 8; there
+* Chunks, in order: `IHDR`, `sRGB`, `gAMA`, `pHYs`, the text chunks, `IDAT` (the zlib stream
+  split into pieces of `idatChunkSize` bytes), `IEND`. Colour types are 0, 2 and 6 at bit depth 8; there
   is no interlacing.
 * Filters: every row is filtered with the filter (types 0 to 4) that gives the smallest sum of
   absolute values of the filtered bytes taken as signed 8-bit numbers, the heuristic the

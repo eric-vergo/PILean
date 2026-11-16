@@ -22,7 +22,7 @@ Gradients: `linearGradient` and `radialGradient` in `userSpaceOnUse` coordinates
 named by `fill="url(#id)"`, and `gradientNode` writes a `Paint` as one, its stops sampled so
 that SVG's sRGB interpolation shows PILean's linear-light gradient.
 
-Not drawn: `text` (a text layer is not part of PILean yet), images, `transform`, `use`,
+Not drawn: `text` (labels reach a PNG as shapes, through a `TextEngine`), images, `transform`, `use`,
 `objectBoundingBox` gradients, filters, markers, CSS. An
 element the renderer does not know is skipped, as is malformed data (a path's data is read up
 to its first error, as SVG does).

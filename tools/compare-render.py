@@ -3,7 +3,7 @@
 #
 # The same picture twice: compares PILean's PNG of each gallery figure with the figure's SVG as
 # macOS renders it. `lake exe pilean-test --compare-out DIR` writes DIR/<name>-notext.svg and two
-# PNGs without text (which the PNG does not draw yet): <name>-notext.png, mixed in linear light
+# PNGs without text (text is left out of this comparison): <name>-notext.png, mixed in linear light
 # as PILean draws, and <name>-notext-srgb.png, mixed in the sRGB encoding as macOS (like most
 # renderers) mixes. This script renders each SVG with `sips` (no window; its output goes into DIR),
 # decodes the PNGs with the standard library, and compares their RGB samples. The sRGB-mixed PNG

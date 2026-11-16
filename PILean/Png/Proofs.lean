@@ -25,8 +25,8 @@ facts above are the proved parts of it that concern the framing.
 
 ## Implementation notes
 
-Only the axioms `propext`, `Classical.choice` and `Quot.sound` are used (checked in the tests
-with `#print axioms`).
+Only the axioms `propext`, `Classical.choice` and `Quot.sound` are used; the build of the tests
+checks it for every declaration of the library (`PILeanTest/Axioms.lean`).
 
 ## References
 
@@ -37,6 +37,8 @@ namespace PILean.Png
 
 /-! ### Folds over byte arrays -/
 
+/-- The loop of `ByteArray.foldlM` in the identity monad, from index `j` for `i` steps, is the fold
+over that stretch of the list of bytes. -/
 theorem foldlM_loop_eq {β : Type} (f : β → UInt8 → β) (as : ByteArray) (stop : Nat)
     (h : stop ≤ as.size) (i j : Nat) (b : β) (hij : j + i = stop) :
     (ByteArray.foldlM.loop (m := Id) (fun x y => pure (f x y)) as stop h i j b) =
@@ -69,6 +71,7 @@ theorem bytearray_foldl_eq {β : Type} (f : β → UInt8 → β) (b : β) (as : 
 
 /-! ### CRC-32 -/
 
+/-- Masking distributes over exclusive or. -/
 theorem uint32_and_xor (a b c : UInt32) : (a ^^^ b) &&& c = (a &&& c) ^^^ (b &&& c) := by
   apply UInt32.toBitVec_inj.mp
   apply BitVec.eq_of_getElem_eq
@@ -76,6 +79,7 @@ theorem uint32_and_xor (a b c : UInt32) : (a ^^^ b) &&& c = (a &&& c) ^^^ (b &&&
   simp [BitVec.getElem_and, BitVec.getElem_xor]
   cases a.toBitVec[i] <;> cases b.toBitVec[i] <;> cases c.toBitVec[i] <;> simp
 
+/-- The lowest bit of a word is 0 or 1. -/
 theorem uint32_and_one_cases (x : UInt32) : x &&& 1 = 0 ∨ x &&& 1 = 1 := by
   have h : (x &&& 1).toNat = x.toNat % 2 := by
     rw [UInt32.toNat_and]; exact Nat.and_one_is_mod _
@@ -84,6 +88,7 @@ theorem uint32_and_one_cases (x : UInt32) : x &&& 1 = 0 ∨ x &&& 1 = 1 := by
   · left; apply UInt32.toNat_inj.mp; simp [h, h0]
   · right; apply UInt32.toNat_inj.mp; simp [h, h0]
 
+/-- One bit step of the CRC is linear over exclusive or. -/
 theorem crcBitStep_xor (a b : UInt32) :
     crcBitStep (a ^^^ b) = crcBitStep a ^^^ crcBitStep b := by
   unfold crcBitStep
@@ -93,10 +98,12 @@ theorem crcBitStep_xor (a b : UInt32) :
   · exact UInt32.xor_comm _ _
   · rw [UInt32.xor_comm (b >>> 1), ← UInt32.xor_assoc, UInt32.xor_self, UInt32.zero_xor]
 
+/-- Eight bit steps of the CRC are linear over exclusive or. -/
 theorem crcByteBits_xor (a b : UInt32) :
     crcByteBits (a ^^^ b) = crcByteBits a ^^^ crcByteBits b := by
   simp only [crcByteBits, crcBitStep_xor]
 
+/-- On an even word a bit step of the CRC is a shift by one. -/
 theorem crcBitStep_of_even (y : UInt32) (h : y.toNat % 2 = 0) : crcBitStep y = y >>> 1 := by
   have h1 : y &&& 1 = 0 := by
     apply UInt32.toNat_inj.mp
@@ -105,12 +112,15 @@ theorem crcBitStep_of_even (y : UInt32) (h : y.toNat % 2 = 0) : crcBitStep y = y
     simp [this, h]
   simp [crcBitStep, h1]
 
+/-- Shifting a word right by one halves it. -/
 theorem uint32_shr_one_toNat (y : UInt32) : (y >>> 1).toNat = y.toNat / 2 := by
   simp [UInt32.toNat_shiftRight, Nat.shiftRight_eq_div_pow]
 
+/-- Shifting a word right by eight divides it by 256. -/
 theorem uint32_shr_eight_toNat (y : UInt32) : (y >>> 8).toNat = y.toNat / 256 := by
   simp [UInt32.toNat_shiftRight, Nat.shiftRight_eq_div_pow]
 
+/-- A word is its low byte and its upper three bytes. -/
 theorem uint32_split (c : UInt32) : c = (c <<< 24 >>> 24) ^^^ ((c >>> 8) <<< 8) := by
   apply UInt32.toBitVec_inj.mp
   apply BitVec.eq_of_getElem_eq
@@ -126,6 +136,7 @@ theorem uint32_split (c : UInt32) : c = (c <<< 24 >>> 24) ^^^ ((c >>> 8) <<< 8) 
     have h3 : ¬ 24 + i < 32 := by omega
     simp [h, h2, h3]
 
+/-- Shifting the upper three bytes of a word back down gives them. -/
 theorem uint32_hi_shift (c : UInt32) : ((c >>> 8) <<< 8) >>> 8 = c >>> 8 := by
   apply UInt32.toBitVec_inj.mp
   apply BitVec.eq_of_getElem_eq
@@ -137,6 +148,7 @@ theorem uint32_hi_shift (c : UInt32) : ((c >>> 8) <<< 8) >>> 8 = c >>> 8 := by
   have := BitVec.getLsbD_of_ge c.toBitVec (8 + i) (by omega)
   simp_all
 
+/-- The upper three bytes of a word, as a number. -/
 theorem uint32_hi_toNat (c : UInt32) :
     ((c >>> 8) <<< 8).toNat = c.toNat / 256 * 256 := by
   simp [UInt32.toNat_shiftLeft, UInt32.toNat_shiftRight, Nat.shiftRight_eq_div_pow,
@@ -179,6 +191,7 @@ theorem crcByteBits_table (x : UInt32) :
     omega
   simp only [crcTable, Vector.getElem_ofFn, h]
 
+/-- The table step of the CRC for one byte is eight bit steps. -/
 theorem crcStep_eq (c : UInt32) (b : UInt8) : crcStep c b = crcByteBits (c ^^^ b.toUInt32) := by
   unfold crcStep
   simp only
@@ -204,10 +217,12 @@ theorem crc32_eq_crc32Bits (data : ByteArray) : crc32 data = crc32Bits data := b
 def adlerBSum (l : List UInt8) : Nat :=
   ((List.range l.length).map fun k => 1 + byteSum (l.take (k + 1))).sum
 
+/-- The sum of bytes after one more byte. -/
 theorem byteSum_append_singleton (l : List UInt8) (x : UInt8) :
     byteSum (l ++ [x]) = byteSum l + x.toNat := by
   simp [byteSum]
 
+/-- The second sum of Adler-32 after one more byte. -/
 theorem adlerBSum_append_singleton (l : List UInt8) (x : UInt8) :
     adlerBSum (l ++ [x]) = adlerBSum l + (1 + byteSum l + x.toNat) := by
   unfold adlerBSum
@@ -240,6 +255,7 @@ def adlerFold (l : List UInt8) : UInt32 × UInt32 :=
     let a := (s.1 + b.toUInt32) % 65521
     (a, (s.2 + a) % 65521)) (1, 0)
 
+/-- The byte-by-byte fold of Adler-32 computes the two sums of the specification. -/
 theorem adlerFold_spec (l : List UInt8) :
     (adlerFold l).1.toNat = (1 + byteSum l) % adlerMod ∧
       (adlerFold l).2.toNat = adlerBSum l % adlerMod := by

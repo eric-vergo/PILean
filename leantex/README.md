@@ -25,7 +25,8 @@ open PILean PILean.Plot
 def fig (e : TextEngine) : Figure where
   title := "The Gaussian $e^{-x^2/2}$"
   style := { Style.light with text := e }
-  panels := #[{ x := { label := "$x$" }, y := { label := "$\\varphi(x)$" },
+  panels := #[{
+    x := { label := "$x$" }, y := { label := "$\\varphi(x)$" },
     series := #[.function "$\\frac{1}{\\sqrt{2\\pi}} e^{-x^2/2}$"
       (fun x => (-x * x / 2).exp / 2.5066282746310002) (-4) 4] }]
 
