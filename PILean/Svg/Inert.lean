@@ -171,6 +171,8 @@ def checkAttribute (name : String) (value : ByteArray) : Scan Unit := do
   if has compact "data:" then throw s!"data: in {shown}"
   if hasByte lv 92 then throw s!"a backslash in {shown}"
   if !urlsAreLocal lv then throw s!"a url( to something other than a fragment in {shown}"
+  for w in ["image(", "image-set(", "cross-fade(", "src("] do
+    if has compact w then throw s!"{w} in {shown}"
 
 /-- Checks the text of a `style` element. -/
 def checkStyleText (css : ByteArray) : Scan Unit := do
@@ -213,7 +215,7 @@ def scanAttributes (d : ByteArray) (name : String) (i : Nat) : Scan (Nat × Bool
     if ve ≥ d.size then throw "an unterminated attribute value"
     let value ← decodeValue (d.extract (q + 1) ve)
     checkAttribute aname value
-    if animates && aname == "attributeName" && activeAttributeName value then
+    if animates && aname.toLower == "attributename" && activeAttributeName value then
       throw s!"an animation of the link or event handler {(ascii value).take 40}"
     j := ve + 1
   throw "internal error"

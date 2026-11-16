@@ -66,22 +66,25 @@ theorem gridStep_lo_hi : Exact.gridStep lo hi steps = 1 / 8 := by decide +kernel
 
 /-- The figure `provedFunction` has one panel, whose series are `cubicSeries` and
 `parabolaSeries` and no other. The points of each are the exact samples converted one by one, and
-nothing else: 25 points, the abscissae the grid `-3/2 + k/8` (`k = 0, …, 24`, from `lo` to `hi`),
-the ordinates the exact values of `cubic` (of `parabola`) there; floating point enters only
-through `Exact.toFloat`. Nothing is said about the curve between two samples (the picture joins
-them by straight segments). -/
+nothing else: 25 points, the abscissae the grid `-3/2 + k/8` (`k = 0, …, 24`, from `lo` to `hi`)
+in order, the ordinates the exact values of `cubic` (of `parabola`) there; the conversion is
+`Exact.toPoint`. The statement is about the points the series hold: nothing is said here about
+how they are drawn (`Series.ofExact_draw`, under its hypotheses), about the axes, or about the
+curve between two samples. -/
 theorem provedFunction_spec :
     provedFunction.panels.map (·.series) = #[#[cubicSeries, parabolaSeries]] ∧
     cubicSeries.points = ((Exact.samples cubic lo hi steps).map Exact.toPoint).toArray ∧
     parabolaSeries.points = ((Exact.samples parabola lo hi steps).map Exact.toPoint).toArray ∧
     cubicSeries.points.size = 25 ∧ parabolaSeries.points.size = 25 ∧
+    (Exact.samples cubic lo hi steps).map Prod.fst = Exact.grid lo hi steps ∧
+    (Exact.samples parabola lo hi steps).map Prod.fst = Exact.grid lo hi steps ∧
     (∀ p ∈ Exact.samples cubic lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic p.1) ∧
     (∀ p ∈ Exact.samples parabola lo hi steps,
       p.1 ∈ Exact.grid lo hi steps ∧ p.2 = parabola p.1) ∧
     Exact.grid lo hi steps = (List.range 25).map (fun k : Nat => (-3 / 2 + k / 8 : Rat)) ∧
     Exact.gridPoint lo hi steps 0 = lo ∧ Exact.gridPoint lo hi steps steps = hi := by
   refine ⟨by simp [provedFunction], Series.ofExact_points .., Series.ofExact_points ..,
-    Series.ofExact_size .., Series.ofExact_size ..,
+    Series.ofExact_size .., Series.ofExact_size .., Exact.samples_fst .., Exact.samples_fst ..,
     fun p hp => (Exact.mem_samples ..).1 hp, fun p hp => (Exact.mem_samples ..).1 hp, ?_,
     Exact.gridPoint_zero .., Exact.gridPoint_last _ _ _ (by decide)⟩
   refine List.map_congr_left fun k _ => ?_

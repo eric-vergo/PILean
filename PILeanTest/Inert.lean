@@ -107,6 +107,14 @@ def checks : Array (String × Bool) :=
       bad (doc "<set attributeName=\"xlink:href\" to=\"#a\"/>")),
     ("inert: animating an event handler is refused",
       bad (doc "<animate attributeName=\"onclick\" values=\"a;b\" dur=\"1s\"/>")),
+    ("inert: attributeName in another letter case is still checked",
+      bad (doc "<set attributename=\"onclick\" to=\"f()\"/>") &&
+        bad (doc "<set ATTRIBUTENAME=\"href\" to=\"#a\"/>")),
+    ("inert: an image function in an attribute value is refused",
+      bad (doc "<g cursor=\"image-set(&quot;http://e/x.png&quot; 1x),auto\"/>") &&
+        bad (doc "<g fill=\"image(&quot;http://e/x.png&quot;)\"/>") &&
+        bad (doc "<set attributeName=\"cursor\" to=\"cross-fade(a, b)\"/>") &&
+        bad (doc "<g fill=\"src(&quot;http://e/x&quot;)\"/>")),
     ("inert: an unknown entity is refused", bad (doc "<g fill=\"&foo;\"/>")),
     ("inert: an entity without a semicolon is refused", bad (doc "<g fill=\"a & b\"/>")),
     ("inert: a reference to NUL is refused", bad (doc "<g fill=\"&#0;\"/>")),

@@ -130,13 +130,16 @@ animations, and files with a source record) and refuses anything else that could
   starting with `on` (in any letter case) are refused, as are `style` attributes and `xml:base`.
   `href`, `xlink:href` and any name ending in `:href` are accepted only with a value that starts
   with `#`. A `url(` in a value must be followed by `#`. `javascript:` and `data:` are refused
-  in any value, also with white space inside. A backslash in a value is refused. An animation
+  in any value, also with white space inside, as are the CSS image functions `image(`,
+  `image-set(`, `cross-fade(` and `src(`. A backslash in a value is refused. An animation
   (`animate`, `set`, `animateTransform`) of `href`, a name ending in `:href`, or a name starting
-  with `on` is refused.
+  with `on` is refused (`attributeName` is recognised in any letter case, as an HTML parser
+  reads it).
 * Values are decoded before they are checked: the five XML entities and numeric character
   references are decoded, any other `&name;` is refused, so a reference cannot hide a word.
-* The text of a `style` element may not contain `@import`, `url(` that is not followed by `#`,
-  `expression`, `javascript:`, a backslash, a character reference, or any `<` other than the
+* The text of a `style` element may not contain `@import`, `@font-face`, `url(` that is not
+  followed by `#`, `image(`, `image-set(`, `cross-fade(`, `src(`, `expression`, `binding`,
+  `behavior`, `javascript:`, a backslash, a character reference, or any `<` other than the
   closing `</style>`. Text in other elements is not examined; a raw `<` always starts a tag.
 * Elements are closed and nested properly, at most 256 deep; there is exactly one root element,
   `svg`, and nothing but white space and comments after it.

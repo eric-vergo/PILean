@@ -5,6 +5,25 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILean
 import PILean.Trust.Attr
 import PILeanTest.ProvedExamples
+import PILeanTest.Color
+import PILeanTest.Units
+import PILeanTest.Examples
+import PILeanTest.Raster
+import PILeanTest.Blur
+import PILeanTest.Png
+import PILeanTest.Image
+import PILeanTest.Anim
+import PILeanTest.Plots
+import PILeanTest.Lettering
+import PILeanTest.Graphs
+import PILeanTest.GraphQuality
+import PILeanTest.GraphDot
+import PILeanTest.Exact
+import PILeanTest.Trust
+import PILeanTest.TrustBuild
+import PILeanTest.Inert
+import PILeanTest.Bounds
+import PILeanTest.Tools
 
 /-!
 # The axioms of the library, checked by the build
@@ -15,7 +34,10 @@ the given prefixes and fails, and with it the build of the tests, if one of them
 axiom other than `propext`, `Classical.choice` and `Quot.sound`. A `sorry` (`sorryAx`), a
 `native_decide` or a `bv_decide` (`Lean.ofReduceBool`, `Lean.trustCompiler`) in the library
 would be such an axiom. The check does not rely on a list of theorem names, so a theorem added
-later is covered without anyone remembering to list it.
+later is covered without anyone remembering to list it. It sees the modules this file imports:
+`PILean` (whose root file imports every module of the library but `PILean.Trust.Attr`, imported
+here), and the test modules listed above, which are those the test driver imports; a check below
+fails if a module of the library is missing.
 
 `#assert_figure_theorems_name_figures` checks every link made by `figure_proves` in the imported
 modules: the statement of the theorem must mention the figure itself, which is more than the rule
@@ -65,6 +87,31 @@ elab "#assert_figure_theorems_name_figures " n:num : command => do
         throwError "the statement of {thm} does not mention the figure {fig}"
   unless n.getNat ≤ links do
     throwError "{links} links from figures to theorems, expected at least {n.getNat}"
+
+/-- The modules below the folder `dir` (relative to the package root, where Lake runs Lean):
+one name for each `.lean` file, with the folder's name as the first component. -/
+partial def modulesBelow (dir : System.FilePath) (pre : Name) : IO (Array Name) := do
+  let mut out := #[]
+  for e in ← dir.readDir do
+    if ← e.path.isDir then
+      out := out ++ (← modulesBelow e.path (pre.str e.fileName))
+    else if e.fileName.endsWith ".lean" then
+      out := out.push (pre.str (e.fileName.dropEnd 5).toString)
+  return out
+
+/-- `#assert_modules_imported PILean` fails unless every `.lean` file below the folder `PILean`
+is a module this file imports, directly or not, so that no module of the library is outside the
+checks of this file. -/
+elab "#assert_modules_imported " root:ident : command => do
+  let env ← getEnv
+  let r := root.getId
+  let found ← modulesBelow r.toString r
+  if found.isEmpty then throwError "no module found below the folder {r}"
+  let missing := found.filter fun m => !env.header.moduleNames.contains m
+  unless missing.isEmpty do
+    throwError "modules that are not imported, and so not checked: {missing}"
+
+#assert_modules_imported PILean
 
 #assert_standard_axioms PILean PILeanTest
 

@@ -75,8 +75,8 @@ proved.
 Every theorem below depends on no axiom beyond Lean's three standard ones (`propext`,
 `Classical.choice`, `Quot.sound`); there is no `sorry`, no `native_decide` and no `bv_decide`
 anywhere in the library. The build of the tests checks this for every declaration of the library
-and of the tests, theorems and definitions alike, without a list of names
-(`PILeanTest/Axioms.lean`). Each main theorem sits beside an `example` that shows its hypotheses
+and of the test modules the test driver imports, theorems and definitions alike, without a list
+of names (`PILeanTest/Axioms.lean`). Each main theorem sits beside an `example` that shows its hypotheses
 can be met. The gallery pictures (`examples/README.md`) each carry theirs next to the code in
 `PILeanTest/ProvedExamples.lean`.
 

@@ -55,7 +55,8 @@ is the platform's) adaptively, which is tested, not proved. The plots with a the
 exact functions on the rationals and of exact data, `Series.ofExact` and `Series.ofIntPoints`
 ([`docs/PROOFS.md`](docs/PROOFS.md)).
 
-A graph is a value too, laid out in layers (or on a circle, or as a tree) and written as SVG or PNG:
+A graph is a value too, laid out in layers (or on a circle, or as a tree) and written as SVG or
+PNG (this block and the next continue a file that starts with `import PILean`):
 
 ```lean
 open PILean
