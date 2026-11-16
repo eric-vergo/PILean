@@ -132,23 +132,40 @@ def figureAttribute : Lean.Elab.Command.CommandElab := withFigures
 /-- The axioms a theorem linked to a figure may depend on. -/
 def allowedAxioms : List Name := [``propext, ``Classical.choice, ``Quot.sound]
 
-/-- The statement `type` with every `let` (and `have`) replaced by its value, so that a name
-that occurs only in the value of a binding the statement does not use is gone. -/
-def unfoldLets (type : Expr) : CoreM Expr :=
-  Core.transform type (pre := fun e =>
-    match e with
-    | .letE _ _ v b _ => return .visit (b.instantiate1 v)
-    | _ => return .continue)
+/-- One step of the reduction the rule applies to a statement, if `e` admits one: a `let` or
+`have` is replaced by its body with the value put for the variable; `letFun v f` (the form
+`have` took in earlier versions of Lean) becomes `f v`; an application of a `fun` to arguments is
+beta-reduced. No constant is unfolded. -/
+def ruleStep? (e : Expr) : Option Expr :=
+  match e with
+  | .letE _ _ v b _ => some (b.instantiate1 v)
+  | _ =>
+    if e.isAppOf ``letFun && e.getAppNumArgs ≥ 4 then
+      let args := e.getAppArgs
+      some (mkAppN (mkApp args[3]! args[2]!) (args.extract 4 args.size))
+    else if e.isHeadBetaTarget then some e.headBeta
+    else none
+
+/-- The statement `type` as the rule reads it: every `let` and `have` replaced by its value and
+every beta-redex reduced, everywhere in the term, until none is left (`ruleStep?`). A name that
+occurs only in the value of a binding the statement does not use, or only as the argument of a
+`fun` that discards it, is gone. Nothing is unfolded, and eta-reduction is not applied (it removes
+a binder and a variable, never a constant, so it could not change which constants occur). The
+statement of a declaration has no metavariables, so there are none to instantiate. -/
+def ruleStatement (type : Expr) : CoreM Expr :=
+  Core.transform type
+    (pre := fun e => return match ruleStep? e with | some e' => .visit e' | none => .continue)
+    (post := fun e => return match ruleStep? e with | some e' => .visit e' | none => .done e)
 
 /-- Whether the statement of the declaration `thm` names the figure `fig`: the constant `fig`
-occurs in the statement as it is elaborated, after its `let`s are replaced by their values
-(`unfoldLets`). The fields of the figure are applications of projections to `fig`, so a statement
-about `fig.panels`, `fig.edges` or `fig.frameSeq` names it. Nothing is unfolded: a statement
-about a definition the figure is built from, or about a term equal to the figure, does not name
-it. -/
+occurs in the statement as it is elaborated, after its `let`s are replaced by their values and
+its beta-redexes are reduced (`ruleStatement`). The fields of the figure are applications of
+projections to `fig`, so a statement about `fig.panels`, `fig.edges` or `fig.frameSeq` names it.
+Nothing is unfolded: a statement about a definition the figure is built from, or about a term
+equal to the figure, does not name it. -/
 def statementNamesFigure (fig thm : Name) : CoreM Bool := do
   let some info := (← getEnv).find? thm | return false
-  return (← unfoldLets info.type).getUsedConstants.contains fig
+  return (← ruleStatement info.type).getUsedConstants.contains fig
 
 /-- What prevents `thm` from being linked to the figure `fig` as a theorem about it, if anything:
 `thm` must be a theorem, must not depend on `sorryAx` or on any axiom other than

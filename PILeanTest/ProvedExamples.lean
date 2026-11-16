@@ -143,11 +143,12 @@ def properDivisor (a b : Nat) : Bool := a < b && b % a == 0
 def provedGraph : PILean.Graph :=
   Graph.ofRelation numbers properDivisor toString
 
-/-- The graph's nodes are the numbers 1 to 12 (as labels, in order), its edges are exactly the
-pairs of positions whose numbers are related, each once, and the layout draws one route for each
-of them, in order: route `i` has index `i` and the ends of the `i`-th edge. (A route of an edge
-over several layers passes through dummy nodes inside the layout and is still one route.) -/
+/-- The graph is the relation `properDivisor` on `numbers`; its nodes are the numbers 1 to 12
+(as labels, in order), its edges are exactly the pairs of positions whose numbers are related,
+each once, and the layout draws one route for each of them, in order: route `i` has index `i`
+and the ends of the `i`-th edge (a route over several layers is still one route). -/
 theorem provedGraph_spec (o : Graph.LayeredOptions) (st : Style) :
+    provedGraph = Graph.ofRelation numbers properDivisor toString ∧
     provedGraph.nodes.toList.map (·.label) = numbers.map toString ∧
     (∀ i j, (i, j) ∈ Graph.relationPairs numbers properDivisor ↔
       ∃ a b, numbers[i]? = some a ∧
@@ -156,11 +157,10 @@ theorem provedGraph_spec (o : Graph.LayeredOptions) (st : Style) :
     (provedGraph.layout o st).edges.toList.map (fun e => (e.index, e.src, e.dst)) =
       (List.range (Graph.relationPairs numbers properDivisor).length).zip
         (Graph.relationPairs numbers properDivisor) := by
-  refine ⟨?_, fun i j => Graph.mem_relationPairs .., Graph.relationPairs_nodup .., ?_⟩
-  · unfold provedGraph
-    exact (Graph.ofRelation_node_labels numbers properDivisor toString true)
-  · unfold provedGraph
-    exact Graph.ofRelation_layout_edges numbers properDivisor toString true o st
+  have hg : provedGraph = Graph.ofRelation numbers properDivisor toString := rfl
+  refine ⟨hg, ?_, fun i j => Graph.mem_relationPairs .., Graph.relationPairs_nodup .., ?_⟩
+  · rw [hg]; exact Graph.ofRelation_node_labels numbers properDivisor toString true
+  · rw [hg]; exact Graph.ofRelation_layout_edges numbers properDivisor toString true o st
 
 /-- The hypotheses are met: 2 divides 6 (positions 1 and 5), and the graph has 23 edges. -/
 example : (1, 5) ∈ Graph.relationPairs numbers properDivisor ∧
@@ -183,20 +183,24 @@ def provedClock : Animation :=
   { width := 200, height := 200, fps := 10, duration := 1, loops := 1, frame := clockFrame,
     text := Style.light.text, fontFamily := Style.light.fontFamily }
 
-/-- Frame `i` of the clock is the drawing `clockFrame` at the time `i / 10`: the time the writers
-pass is the conversion of the exact rational number `i / 10`, and both the raster frames and the
-SVG frames are built from that drawing at that time. -/
+/-- The clock draws its frames with `clockFrame`, and frame `i` is that drawing at the time
+`i / 10`: the time the writers pass is the conversion of the exact rational number `i / 10`, and
+both the raster frames and the SVG frames are built from that drawing at that time. -/
 theorem provedClock_spec (i : Nat) :
+    provedClock.frame = clockFrame ∧
     provedClock.time i = Exact.toFloat (provedClock.exactTime i) ∧
     provedClock.exactTime i = i / 10 ∧
     (∀ h : i < provedClock.frameSeq.frames.size, provedClock.frameSeq.frames[i] =
       (clockFrame (provedClock.time i)).toImage 200 200 Style.light.text ⟨255, 255, 255, 255⟩) ∧
     (∀ (mode : Canvas.TextMode) (h : i < (provedClock.frameTrees mode).size),
       (provedClock.frameTrees mode)[i] =
-        Svg.el "g" #[] ((clockFrame (provedClock.time i)).render mode)) :=
-  ⟨Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
-    fun h => Animation.frameSeq_getElem _ i h,
-    fun mode h => Animation.frameTrees_getElem _ mode i h⟩
+        Svg.el "g" #[] ((clockFrame (provedClock.time i)).render mode)) := by
+  have hf : provedClock.frame = clockFrame := rfl
+  refine ⟨hf, Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
+    fun h => ?_, fun mode h => ?_⟩
+  · rw [Animation.frameSeq_getElem _ i h, hf]
+    rfl
+  · rw [Animation.frameTrees_getElem _ mode i h, hf]
 
 /-- The hypotheses are met: the clock's frame rate is 10, so frame 5 is at half a second. -/
 example : provedClock.exactTime 5 = 1 / 2 := by decide +kernel
@@ -205,8 +209,8 @@ example : provedClock.exactTime 5 = 1 / 2 := by decide +kernel
 
 Each link is checked when this module is built: the theorem is proved from the standard axioms
 and its statement names the picture itself. A theorem of another picture, a true statement
-about a series the picture uses, and a statement that names the picture only in an unused `let`
-are refused below. -/
+about a series the picture uses, and statements that name the picture only in an unused `let` or
+as the argument of a `fun` that discards it are refused below. -/
 
 figure_proves provedFunction provedFunction_spec
 figure_proves provedData provedData_spec
@@ -215,6 +219,19 @@ figure_proves provedClock provedClock_spec
 
 /-- A true statement about a series the function plot uses, which does not name the plot. -/
 theorem cubicSeries_size : cubicSeries.points.size = 25 := Series.ofExact_size ..
+
+/-- A statement that names the plot only as the argument of a `fun` that discards it. -/
+theorem cubicSeries_size_beta :
+    (fun _ : Figure => cubicSeries.points.size = 25) provedFunction :=
+  Series.ofExact_size ..
+
+set_option linter.deprecated false in
+/-- The same, with the discarding `fun` passed to a `fun` that applies it to the plot, and in
+the form `letFun`. -/
+theorem cubicSeries_size_nested :
+    (fun f : Figure → Prop => f provedFunction) (fun _ => cubicSeries.points.size = 25) ∧
+      letFun provedFunction (fun _ => cubicSeries.points.size = 25) :=
+  ⟨Series.ofExact_size .., Series.ofExact_size ..⟩
 
 /-- A statement that names the plot only in a `let` whose value it does not use. -/
 theorem cubicSeries_size_let : let _unused := provedFunction; cubicSeries.points.size = 25 :=
@@ -249,6 +266,26 @@ PILeanTest.ProvedExamples.provedFunction holds), not only of definitions it is b
 -/
 #guard_msgs in
 figure_proves provedFunction cubicSeries_size_let
+
+/--
+error: the statement of PILeanTest.ProvedExamples.cubicSeries_size_beta does not mention the
+figure PILeanTest.ProvedExamples.provedFunction. A theorem linked to a figure must be a statement
+about the figure itself: state it of PILeanTest.ProvedExamples.provedFunction or of its fields
+(for instance, begin with an equation that says which series, edges or frames
+PILeanTest.ProvedExamples.provedFunction holds), not only of definitions it is built from
+-/
+#guard_msgs in
+figure_proves provedFunction cubicSeries_size_beta
+
+/--
+error: the statement of PILeanTest.ProvedExamples.cubicSeries_size_nested does not mention the
+figure PILeanTest.ProvedExamples.provedFunction. A theorem linked to a figure must be a statement
+about the figure itself: state it of PILeanTest.ProvedExamples.provedFunction or of its fields
+(for instance, begin with an equation that says which series, edges or frames
+PILeanTest.ProvedExamples.provedFunction holds), not only of definitions it is built from
+-/
+#guard_msgs in
+figure_proves provedFunction cubicSeries_size_nested
 
 end PILeanTest.ProvedExamples
 

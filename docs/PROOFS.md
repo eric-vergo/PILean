@@ -76,9 +76,10 @@ Every theorem below depends on no axiom beyond Lean's three standard ones (`prop
 `Classical.choice`, `Quot.sound`); there is no `sorry`, no `native_decide` and no `bv_decide`
 anywhere in the library. The build of the tests checks this for every declaration of the library
 and of the test modules the test driver imports, theorems and definitions alike, without a list
-of names (`PILeanTest/Axioms.lean`). Each main theorem sits beside an `example` that shows its hypotheses
-can be met. The gallery pictures (`examples/README.md`) each carry theirs next to the code in
-`PILeanTest/ProvedExamples.lean`.
+of names, and reports any `axiom` they declare, used or not (`PILeanTest/Axioms.lean`); every
+`lake test` checks that no file of the library is left out of that check. Each main theorem sits
+beside an `example` that shows its hypotheses can be met. The gallery pictures
+(`examples/README.md`) each carry theirs next to the code in `PILeanTest/ProvedExamples.lean`.
 
 **Function plots** (`PILean/Exact.lean`, `PILean/Plot/Exact.lean`)
 
@@ -202,9 +203,10 @@ fails if the list changes (`PILeanMathlib/Axioms.lean`).
   Lean's responsibility), the standard library, and the three standard axioms.
 * **The build**: that the bytes in a file are the ones the build produced from the declaration
   they name. `docs/TRUST.md` describes how this is made checkable (the source record, the
-  fingerprint, the manifest, `pilean-build --check` and `pilean-verify`); a theorem is in the same
-  module as its picture, so building the module checks it, but a file edited afterwards is only
-  detected by those tools.
+  fingerprint, the manifest, `pilean-build --check` and `pilean-verify`). The theorem of each
+  gallery picture is in the picture's module, so building that module checks it (the Mathlib
+  package keeps its theorem in a module that imports the picture's, and building that module
+  checks it); a file edited afterwards is only detected by those tools.
 * **The viewer** that displays the file: a browser, an image program or a printer draws the SVG or
   PNG its own way.
 * The reader of the theorem: that the statement says what you mean. The statements are short and
@@ -214,13 +216,14 @@ fails if the list changes (`PILeanMathlib/Axioms.lean`).
 ## How to read a picture's guarantee
 
 1. Find its source record (`lake exe pilean-info FILE`): the module, declaration and line.
-2. Read the theorem beside the declaration. It names the exact function, list, relation or time.
-   The command `figure_proves picture theorem` in the same file links the two, and fails the
-   build unless the theorem is proved from the standard axioms and its statement names the
-   picture itself (the picture's constant occurs in the statement; a statement about a
-   definition the picture is built from is refused; `docs/TRUST.md` has the exact rule). That
-   check is about names only: it cannot tell a strong statement from an empty one that names
-   the picture, so the statement is still yours to read. The link is a pointer to a statement,
-   not a certificate that the picture is correct.
+2. Read the theorem beside the declaration (in the Mathlib package, in the module that imports
+   the declaration's: `PILeanMathlib.Examples.Sine` for `SineFigure`). It names the exact
+   function, list, relation or time. The command `figure_proves picture theorem` links the two,
+   and fails the build unless the theorem is proved from the standard axioms and its statement
+   names the picture itself (the picture's constant occurs in the statement once its `let`s and
+   beta-redexes are reduced; a statement about a definition the picture is built from is
+   refused; `docs/TRUST.md` has the exact rule). That check is about names only: it cannot tell
+   a strong statement from an empty one that names the picture, so the statement is still yours
+   to read. The link is a pointer to a statement, not a certificate that the picture is correct.
 3. Run `lake build` on that module; the theorem checks.
 4. For the part after floating point begins, the tests and `docs/TRUST.md` say what is compared.

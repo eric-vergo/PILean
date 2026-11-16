@@ -86,7 +86,7 @@ def main (args : List String) : IO UInt32 := do
     Graphs.checks ++ GraphQuality.checks ++ GraphDot.checks ++ Trust.checks ++
     (← Trust.ioChecks) ++ TrustBuild.checks ++
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
-    (← Bounds.ioChecks) ++ (← Tools.ioChecks)
+    (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks)
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"

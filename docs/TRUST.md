@@ -222,21 +222,46 @@ the module does not build, unless `thm` is a theorem, depends on no `sorry` and 
 than `propext`, `Classical.choice` and `Quot.sound`, and its statement names the figure itself.
 The links are kept in an environment extension (`figureTheorems`).
 
-The rule, exactly (`statementNamesFigure`): the constant `fig` occurs in the statement of `thm`
-as Lean elaborates it, after every `let` and `have` of the statement is replaced by its value.
+The rule, exactly (`statementNamesFigure`, with `ruleStatement`):
+
+1. The statement of `thm` is taken as Lean elaborates it and reduced, everywhere in the term and
+   until nothing is left to reduce, by three steps and no others: a `let` or `have` is replaced
+   by its body with the value put for the variable; `letFun v f` (the form `have` took in
+   earlier versions of Lean) becomes `f v`; an application of a `fun` to arguments is
+   beta-reduced. A declared statement has no metavariables, so none are instantiated.
+   Eta-reduction is not applied: it removes a binder and a variable, never a constant, so it
+   could not change the outcome. A statement whose reduction runs past Lean's limits
+   (heartbeats, recursion depth) is refused with Lean's error.
+2. The constant `fig` must occur in the result.
+
+Where `thm` is declared is not part of the rule. It is usually the figure's module. In the
+Mathlib package it is a module that imports the figure's: the figure's module imports nothing
+from Mathlib, so that the program that draws it does not contain Mathlib, and the theorem needs
+Mathlib.
+
+What this means:
 
 * A field of the figure is a projection applied to it, so a statement about `fig.panels`,
   `fig.edges`, `fig.nodes` or `fig.frameSeq` names the figure. The usual shape begins with an
-  equation that says what the figure holds, `fig.panels.map (·.series) = #[#[s₁, s₂]]`, and goes
-  on about `s₁` and `s₂`.
-* Nothing is unfolded. A statement about a definition the figure is built from (a series, a data
-  list, a relation), or about a term that happens to equal the figure, does not name it and is
-  refused: the figure could be changed and leave such a statement true.
-* A name that occurs only in the value of a `let` the statement does not use does not count.
+  equation that says what the figure holds, `fig.panels.map (·.series) = #[#[s₁, s₂]]` or
+  `fig = builder data`, and goes on about `s₁` and `s₂`, or about `data`.
+* No definition is unfolded. A statement about a definition the figure is built from (a series, a
+  data list, a relation), or about a term that happens to equal the figure, does not name it and
+  is refused: the figure could be changed and leave such a statement true.
+* A name that occurs only in the value of a `let` the statement does not use, or only as the
+  argument of a `fun` that discards it (`(fun _ => P) fig`, also when the `fun` is passed
+  through other `fun`s first), does not count: the reduction removes it.
+* The reduction stops at definitions, so a name that a definition would discard still counts.
+  These are accepted although the figure plays no part in what they say, and the rule does not
+  try to see through them: a `match` on the figure (`match fig with | _ => P`), a projection of
+  a structure or pair built around it (`(fig, P).2`), a definition that ignores an argument
+  (`Function.const _ P fig`, or one of the author's own), and an `if` whose condition settles
+  the branch.
 * The rule is about names; it does not judge what the statement says. A statement that names
   the figure and says nothing of substance about it passes: `fig = fig`, the figure in a
-  hypothesis that is never used, a property that holds of every figure. What the theorem says
-  is for its reader to judge (`docs/PROOFS.md`).
+  hypothesis that is never used or in a branch that is never taken, a property that holds of
+  every figure, and the shapes of the previous item. What the theorem says is for its reader to
+  judge (`docs/PROOFS.md`).
 
 A link is a pointer from a picture to a statement to read, not a certificate that the picture is
 correct.
