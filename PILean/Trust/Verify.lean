@@ -16,8 +16,14 @@ must be a regular file there, read with a size cap (`readRegular`) and the bound
 character makes the whole manifest invalid before any file is touched. Each listed file must be
 a regular file inside the directory, every directory on its way a real directory, with the size
 and the SHA-256 of the manifest, and the source record inside the file (`Source.read?`) must
-agree with the manifest's fields and fingerprint. Every string from the directory is printed
-through `escapeControl`.
+agree with the manifest's fields and fingerprint. A file below the directory that the manifest
+does not list is reported as extra. Every string from the directory is printed through
+`escapeControl`.
+
+An answer of `ok` for every file says that the directory and its manifest agree with each other.
+It does not say where they came from: someone who can write both the files and the manifest can
+make a directory that passes. The source record in a file is a statement by whoever wrote the
+file, and nothing here is signed.
 
 The check does not render anything; `pilean-build --check` is the check that a file is what the
 build produces now.
@@ -39,6 +45,8 @@ inductive Verdict where
   | sourceDiffers
   /-- The file has no readable source record. -/
   | noSource
+  /-- A file below the directory that the manifest does not list. -/
+  | extra
 deriving BEq, Repr
 
 /-- The word a verdict is printed as. -/
@@ -49,6 +57,7 @@ def Verdict.text : Verdict → String
   | .notRegular => "not a regular file"
   | .sourceDiffers => "source differs"
   | .noSource => "no source"
+  | .extra => "extra"
 
 /-- Whether a source record is the one the manifest entry describes. -/
 def ManifestEntry.matches (m : ManifestEntry) (s : Source) : Bool :=
@@ -74,7 +83,9 @@ def verifyFile (root : System.FilePath) (m : ManifestEntry) : IO Verdict := do
       | .error _ => return .noSource
       | .ok s => return if m.matches s then .ok else .sourceDiffers
 
-/-- Verifies the directory: the verdict on every file of its manifest, in the manifest's order;
+/-- Verifies the directory: the verdict on every file of its manifest, in the manifest's order,
+then `extra` for every other file below the directory (other than the manifest itself; a
+symbolic link counts as a file and is not followed), sorted;
 fails with a message if the directory cannot be resolved or the manifest cannot be read (it
 must be a regular file, not a link, of at most `maxJsonInput` bytes) or is invalid. -/
 def verifyDir (dir : System.FilePath) : IO (Except String (Array (String × Verdict))) := do
@@ -90,6 +101,10 @@ def verifyDir (dir : System.FilePath) : IO (Except String (Array (String × Verd
     let mut out := #[]
     for m in entries do
       out := out.push (m.path, ← verifyFile root m)
+    let listed : Std.HashSet String :=
+      entries.foldl (fun s m => s.insert m.path) (({} : Std.HashSet String).insert manifestName)
+    for r in ← listFiles root do
+      if !listed.contains r then out := out.push (r, .extra)
     return .ok out
 
 /-- The `main` of `pilean-verify DIR`: one line `verdict: path` for each file; 0 if every file is

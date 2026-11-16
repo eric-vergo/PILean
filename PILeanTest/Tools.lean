@@ -138,7 +138,9 @@ def ioChecks : IO (Array (String × Bool)) := do
     let _ ← symlink (good / "PILeanTest") (linked / "PILeanTest")
     let vd ← tool "pilean-verify" #[linked.toString] scratch
     r := r.push ("verify: files reached through a linked directory are not ok",
-      vd.status == some 1 && (vd.out.splitOn "\n").all (·.startsWith "not a regular file: "))
+      vd.status == some 1 && (vd.out.splitOn "\n").all (fun l =>
+        l.startsWith "not a regular file: " || l == "extra: PILeanTest") &&
+        (vd.out.splitOn "\n").contains "extra: PILeanTest")
     let one := scratch / "one-link"
     IO.FS.createDirAll (one / "PILeanTest" / "TrustBuild")
     IO.FS.writeFile (one / manifestName) manifest

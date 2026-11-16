@@ -118,7 +118,9 @@ not an XML parser, and it is strict: it accepts the SVG PILean writes (figures, 
 animations, and files with a source record) and refuses anything else that could be active.
 
 * A document above 64 MiB is refused without being read; the work is linear in its size.
-* The only markup is one `<?xml ...?>` declaration at the very start, comments, and elements
+* The only markup is one `<?xml ...?>` declaration at the very start (with no `<` or `>`
+  inside it), comments (without `--` inside, not starting with `>` or `->` and not ending with
+  `-`, so that an HTML parser and an XML parser end them at the same place), and elements
   from a fixed list: `svg g path rect circle ellipse line polyline polygon text tspan title desc
   metadata pilean:source defs clipPath linearGradient radialGradient stop animate
   animateTransform set style`. `script`, `foreignObject`, `image`, `use`, `a`, any unknown
@@ -140,7 +142,11 @@ animations, and files with a source record) and refuses anything else that could
   `svg`, and nothing but white space and comments after it.
 
 An SVG that passes can be placed in a page as an image or inline; the check says nothing about
-whether the figure is the right one (see the fingerprint for that).
+whether the figure is the right one (see the fingerprint for that). Placed inline, the rules of
+its `style` element apply to the whole page, as those of any inline SVG do: they cannot run
+script or load anything, but they can restyle what is around the picture. The check is tested
+against hand-written hostile documents; it is not proved, and no browser is part of the tests of
+the core.
 
 ## `pilean-info`
 
@@ -213,8 +219,10 @@ the module does not build, unless `thm` is a theorem, depends on no `sorry` and 
 than `propext`, `Classical.choice` and `Quot.sound`, and its statement mentions `fig` or a
 declaration of the module of `fig` that the definition of `fig` uses directly. The links are kept
 in an environment extension (`figureTheorems`). The check says that the theorem is proved and
-speaks of the figure's definitions; what the theorem says is for its reader to judge
-(`docs/PROOFS.md`).
+that its statement names the figure or one of the figure's definitions. It is a check of names:
+a statement that mentions the figure and says nothing of substance about it would pass, so what
+the theorem says is for its reader to judge (`docs/PROOFS.md`). A link is a pointer from a
+picture to a statement to read, not a certificate that the picture is correct.
 
 ## The fingerprint
 
@@ -317,7 +325,7 @@ digits only, no repeated key, nothing after the value). The manifest is rejected
 any file is touched, if a path is empty, longer than 1024 bytes, absolute, has `..` or `.` or an
 empty component, a backslash, a colon or any character outside `[A-Za-z0-9._/-]`, if a path is
 listed twice, a format is unknown or a hash is not 64 lowercase hexadecimal digits. Then each
-listed file gets one line:
+listed file gets one line, and after them each file that is not listed:
 
 | Line | Meaning |
 |---|---|
@@ -327,12 +335,32 @@ listed file gets one line:
 | `not a regular file: PATH` | the file, or a directory on its way below `DIR`, is a symbolic link, a directory, a FIFO or a device (nothing is followed or opened) |
 | `source differs: PATH` | the source record in the file differs from the manifest |
 | `no source: PATH` | the file has no readable source record |
+| `extra: PATH` | a file below `DIR` that the manifest does not list (other than the manifest; a symbolic link counts as a file and is not followed) |
 
 Every path and message printed comes from the folder and goes through `escapeControl`, so no
 line can be forged or hidden by the manifest. Exit status 0 only if every line is `ok`; 1
 otherwise, or if the manifest is missing or invalid; 2
-on a wrong command line. `pilean-verify` does not render anything: it proves that the directory is
-what its manifest says. `pilean-build --check` proves that it is what the build produces now.
+on a wrong command line. `pilean-verify` does not render anything: it checks that the directory
+is what its manifest says. `pilean-build --check` checks that it is what the build produces now.
+
+### What the answers establish
+
+* `pilean-info` prints what a file says about itself. A source record is written by whoever
+  wrote the file; nothing is signed, so the record alone establishes nothing.
+* `pilean-verify` exiting 0 establishes that the directory and its manifest agree: every listed
+  file is there with the listed size and SHA-256 and carries the listed source record, and
+  there is no other file. It does not establish where either came from. Someone who can write
+  both the files and the manifest can make a directory that passes, with any source record; the
+  fingerprint is compared with the manifest's, not recomputed.
+* `pilean-build --check` exiting 0 establishes that the directory holds, byte for byte, what
+  the driver that was run renders now from the declarations compiled into it, and nothing else.
+  That ties the files to the Lean source to the extent that the driver was built from that
+  source by a toolchain you trust, on the checkout you mean. It is the only one of the three
+  that looks at the Lean declarations.
+* None of them says that a picture is correct: the fingerprint identifies a drawing and its
+  declaration, and the theorems (`docs/PROOFS.md`) are about the Lean object, not the pixels.
+* The file checks are made with `lstat` before each open; a folder that another process changes
+  during the check is outside what they defend against (`PILean/Trust/Files.lean`).
 
 ## Use in CI
 

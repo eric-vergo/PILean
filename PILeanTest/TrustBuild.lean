@@ -244,6 +244,7 @@ def ioChecks : IO (Array (String × Bool)) := do
   IO.FS.createDirAll (a / "other")
   IO.FS.writeFile (a / "other" / "x.txt") "x"
   let reportExtra ← checkReport mine a
+  let verdictExtra ← verdicts a
   IO.FS.removeFile (a / "PILeanTest" / "TrustBuild" / "stray.svg")
   IO.FS.removeDirAll (a / "other")
   -- the same size and hash but another source: the manifest says another line
@@ -326,6 +327,10 @@ def ioChecks : IO (Array (String × Bool)) := do
     ("check: extra files, also in other directories, are reported",
       reportExtra == ["extra: PILeanTest/TrustBuild/stray.svg", "extra: other/x.txt"] ||
         reportExtra == ["extra: other/x.txt", "extra: PILeanTest/TrustBuild/stray.svg"]),
+    ("verify: files the manifest does not list are reported",
+      verdictExtra.contains "extra PILeanTest/TrustBuild/stray.svg" &&
+        verdictExtra.contains "extra other/x.txt" &&
+        (verdictExtra.filter (·.startsWith "ok ")).length == entries.size),
     ("verify: a source that differs from the manifest is reported",
       verdictDiffers.contains "source differs PILeanTest/TrustBuild/sampleGraph.svg"),
     ("verify: a file without source information is reported",

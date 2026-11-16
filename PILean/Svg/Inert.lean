@@ -242,11 +242,17 @@ def step (d : ByteArray) (s : State) : Scan State := do
   if c == 63 then
     if i == 0 && startsAt d (bytes "<?xml") 0 && isWs (byteAt d 5) then
       let some e := findPat d (bytes "?>") 2 | throw "an unterminated XML declaration"
+      let inner := d.extract 2 e
+      if hasByte inner 62 || hasByte inner 60 then throw "a < or > inside the XML declaration"
       return { s with pos := e + 2 }
     throw "a processing instruction"
   else if c == 33 then
     if startsAt d (bytes "<!--") i then
       let some e := findPat d (bytes "-->") (i + 4) | throw "an unterminated comment"
+      let inner := d.extract (i + 4) e
+      if has inner "--" || byteAt inner 0 == 62 || startsAt inner (bytes "->") 0 ||
+          (inner.size > 0 && byteAt inner (inner.size - 1) == 45) then
+        throw "a comment with -- inside, or one that starts with > or -> or ends with -"
       return { s with pos := e + 3 }
     throw "a declaration (document type, entity or CDATA section)"
   else if c == 47 then

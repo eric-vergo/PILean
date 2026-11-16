@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Trust.Provenance
+import PILean.Sort
 
 /-!
 # Reading and writing files of untrusted folders
@@ -16,6 +17,7 @@ build into a folder that may already hold files. These are the only ways they to
 * `locateInside`: a path below a folder whose every component exists and is a real directory
   or, the last, a regular file (no symbolic link is followed).
 * `writeInside`: writes a file below a folder under the same rule, creating directories.
+* `listFiles`: the files below a folder, without following a symbolic link.
 
 ## Implementation notes
 
@@ -107,5 +109,20 @@ def writeInside (root : System.FilePath) (rel : String) (bytes : ByteArray) :
           (symbolic links are not followed)"
   IO.FS.writeBinFile cur bytes
   return .ok ()
+
+/-- Every path below `dir` that is not a directory, relative to `dir` with `/`; a symbolic link
+counts as a file and is not followed. At most 100000 files and 32 levels are visited. -/
+def listFiles (dir : System.FilePath) : IO (Array String) := do
+  let mut out : Array String := #[]
+  let mut todo : Array (System.FilePath × String × Nat) := #[(dir, "", 0)]
+  for _ in [0:100000] do
+    let some (d, rel, depth) := todo.back? | break
+    todo := todo.pop
+    if depth > 32 then continue
+    for ent in (← d.readDir) do
+      let r := if rel.isEmpty then ent.fileName else rel ++ "/" ++ ent.fileName
+      if (← ent.path.symlinkMetadata).type == .dir then todo := todo.push (ent.path, r, depth + 1)
+      else out := out.push r
+  return out.sortStable (· < ·)
 
 end PILean.Trust

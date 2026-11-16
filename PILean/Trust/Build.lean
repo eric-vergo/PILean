@@ -14,7 +14,6 @@ directory holds what a build produces. A project's driver is three lines:
 ```lean
 import MyFigures
 import PILean.Trust.Build
-import PILean.Sort
 def main (args : List String) : IO UInt32 := PILean.Trust.buildMain figures% args
 ```
 
@@ -95,21 +94,6 @@ def renderAll (entries : Array FigureEntry) (opts : BuildOptions := {}) :
     if files[i - 1]!.entry.path == files[i]!.entry.path then
       errors := errors.push s!"two outputs have the path {files[i]!.entry.path}"
   if errors.isEmpty then return .ok files else return .error ("\n".intercalate errors.toList)
-
-/-- Every path below `dir` that is not a directory, relative to `dir` with `/`; a symbolic link
-counts as a file and is not followed. At most 100000 files and 32 levels are visited. -/
-def listFiles (dir : System.FilePath) : IO (Array String) := do
-  let mut out : Array String := #[]
-  let mut todo : Array (System.FilePath × String × Nat) := #[(dir, "", 0)]
-  for _ in [0:100000] do
-    let some (d, rel, depth) := todo.back? | break
-    todo := todo.pop
-    if depth > 32 then continue
-    for ent in (← d.readDir) do
-      let r := if rel.isEmpty then ent.fileName else rel ++ "/" ++ ent.fileName
-      if (← ent.path.symlinkMetadata).type == .dir then todo := todo.push (ent.path, r, depth + 1)
-      else out := out.push r
-  return out.sortStable (· < ·)
 
 /-- Whether the file at `rel` below `root` holds exactly `bytes`: it must be a regular file with
 no symbolic link on its way, and its size is read first, so a large file of the wrong size is

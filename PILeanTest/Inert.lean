@@ -121,6 +121,15 @@ def checks : Array (String × Bool) :=
     ("inert: an unknown element is refused", bad (doc "<blink/>")),
     ("inert: nesting deeper than 256 is refused", bad (nested 300)),
     ("inert: an unterminated comment is refused", bad (doc "<!-- x")),
+    ("inert: a comment an HTML parser would end at once is refused",
+      bad (doc "<!--><script>alert(1)</script>-->") &&
+        bad (doc "<!---><script>alert(1)</script>-->")),
+    ("inert: a comment with -- inside, which an HTML parser may end early, is refused",
+      bad (doc "<!-- a --!><script>alert(1)</script> -->") && bad (doc "<!-- a -- b -->") &&
+        bad (doc "<!-- a --->")),
+    ("inert: a declaration with a > or a < inside is refused",
+      bad ("<?xml version=\"1.0\" a=\">\"<script>alert(1)</script> ?>" ++ doc "") &&
+        bad ("<?xml version=\"1.0\" a=\"<\"?>" ++ doc "")),
     ("inert: an attribute without quotes is refused", bad (doc "<g fill=red/>")),
     ("inert: an attribute without a value is refused", bad (doc "<g fill/>")),
     ("inert: an unterminated value is refused", bad (doc "<g fill=\"red/>")),
