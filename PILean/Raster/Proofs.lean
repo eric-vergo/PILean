@@ -14,7 +14,9 @@ import PILean.Raster.Canvas
   so a fill never writes outside the clip. `coverage` filters its spans to the clip before
   returning them, so this holds by construction; the tests show the filter removes nothing.
 * `encode16_decode8`: the sRGB tables round-trip every 8-bit value.
-* `mask_zero`: where a clip mask is 0 the coverage applied is 0.
+* `mask_zero`: the factor `Canvas.fillSpans` multiplies a paint by, `mulDiv a (mulDiv op m 255)
+  65535` for a span's coverage `a`, the opacity `op` and the clip mask's value `m`, is 0 when
+  `m = 0`. The statement is about that expression, not about `fillSpans` as a whole.
 
 Each statement with hypotheses has an example showing that they can be met. What is tested and
 not proved:
@@ -60,7 +62,8 @@ example : ∃ spans,
 theorem encode16_decode8 : ∀ n < 256, encode16 (decode8 n.toUInt8) = n.toUInt8 := by
   decide +kernel
 
-/-- Where the clip mask is 0, the coverage `Canvas.fillSpans` applies is 0. -/
+/-- The factor `Canvas.fillSpans` computes for a pixel, `mulDiv a (mulDiv op m 255) 65535`, is 0
+where the clip mask `m` is 0. -/
 theorem mask_zero (a op : Nat) : mulDiv a (mulDiv op 0 255) 65535 = 0 := by
   simp [mulDiv]
 

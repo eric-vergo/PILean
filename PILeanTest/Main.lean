@@ -21,6 +21,7 @@ import PILeanTest.TrustBuild
 import PILeanTest.Inert
 import PILeanTest.Bounds
 import PILeanTest.Tools
+import PILeanTest.Axioms
 
 /-!
 # The test driver

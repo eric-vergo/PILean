@@ -191,7 +191,3 @@ def checks : Array (String × Bool) :=
   scales ++ sampler ++ figures ++ canvas ++ animation ++ galleryTicks
 
 end PILeanTest.Plots
-
-#print axioms PILean.Plot.tickMultipliers_strictlyIncreasing
-#print axioms PILean.Plot.mem_tickMultipliers
-#print axioms PILean.Plot.tickMultipliers_length

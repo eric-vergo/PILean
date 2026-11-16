@@ -93,8 +93,9 @@ theorem runs_length {α : Type} (xs : List (Option α)) (cur : List α) :
       · exact ih [] r hr
     | some a => exact ih (a :: cur)
 
-/-- The values in the runs are some of the values of the list, in order; a value is lost only
-if it is alone between two missing ones (or at an end). -/
+/-- The values in the runs are some of the values of the list, in order: nothing is added and
+nothing is reordered. (Which values are left out is not part of this statement: by its
+definition `runs` drops a value that stands alone between two missing ones or at an end.) -/
 theorem runs_sublist {α : Type} (xs : List (Option α)) (cur : List α) :
     (runs xs cur).flatten.Sublist (cur.reverse ++ xs.reduceOption) := by
   induction xs generalizing cur with

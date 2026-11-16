@@ -37,10 +37,15 @@ sine.)
 
 The rational numbers are `Rat`, the type of Lean's core library: a fraction in lowest terms, so
 equality of rationals is `=`. All the theorems about values are statements about exact numbers.
-A theorem is stated about the very definition the figure is built from (for instance
-`provedFunction_spec` mentions `cubicSeries`, the series that `provedFunction` plots), so
-changing the figure changes what is proved, and a figure that no longer satisfies its theorem
-does not build.
+The theorem of a gallery picture names the picture: `provedFunction_spec` begins by saying that
+the series of the figure `provedFunction` are `cubicSeries` and `parabolaSeries` and no other,
+and then says what the points of those series are. So changing the figure changes what is
+proved, and a figure that no longer satisfies its theorem does not build.
+
+Many of these theorems are short: the series constructors are defined to hold the converted
+samples, so `Series.ofExact_points` holds by unfolding the definition. They are stated as theorems
+so that the specification of a picture can be read without reading the code, and so that a
+change to the code that broke it would be caught.
 
 ## Where floating point begins
 
@@ -57,7 +62,9 @@ theorems say about the *data* is before that point. After it:
   `Series.ofSamples_draw` say the picture is one polyline through the page positions of exactly
   those points in order (and `Series.scatterOfSamples_draw`, one marker at each). When some do
   not, `Plot.runs_sublist` and `Plot.runs_length` say what remains: runs of at least two
-  consecutive positioned points, in order, and nothing that was not there.
+  positioned points, in order, and nothing that was not there. (That a run is a stretch of
+  consecutive points, and which points are left out, follows from the definition of `Plot.runs`
+  and is tested, not stated by these theorems.)
 
 The value of `Exact.toFloat` (how near it is to the rational number), the position of a point
 (the axis scale, clamping to the page) and everything after it are floating-point and tested, not
@@ -67,8 +74,10 @@ proved.
 
 Every theorem below depends on no axiom beyond Lean's three standard ones (`propext`,
 `Classical.choice`, `Quot.sound`); there is no `sorry`, no `native_decide` and no `bv_decide`
-anywhere in the library. Each main theorem sits beside an `example` that shows its hypotheses can
-be met. The gallery pictures (`examples/README.md`) each carry theirs next to the code in
+anywhere in the library. The build of the tests checks this for every declaration of the library
+and of the tests, theorems and definitions alike, without a list of names
+(`PILeanTest/Axioms.lean`). Each main theorem sits beside an `example` that shows its hypotheses
+can be met. The gallery pictures (`examples/README.md`) each carry theirs next to the code in
 `PILeanTest/ProvedExamples.lean`.
 
 **Function plots** (`PILean/Exact.lean`, `PILean/Plot/Exact.lean`)
@@ -208,6 +217,9 @@ fails if the list changes (`PILeanMathlib/Axioms.lean`).
 2. Read the theorem beside the declaration. It names the exact function, list, relation or time.
    The command `figure_proves picture theorem` in the same file links the two, and fails the
    build unless the theorem is proved from the standard axioms and its statement mentions the
-   picture or a definition of that file the picture is built from.
+   picture or a definition of that file the picture is built from. That check is about names
+   only: it cannot tell a strong statement from an empty one that mentions the picture, so the
+   statement is still yours to read. The gallery's four theorems each mention the picture
+   itself, which the tests check.
 3. Run `lake build` on that module; the theorem checks.
 4. For the part after floating point begins, the tests and `docs/TRUST.md` say what is compared.

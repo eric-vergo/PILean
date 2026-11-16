@@ -21,8 +21,9 @@ from (see `docs/PROOFS.md`):
 * `provedClock`: an animation. Frame `i` is the drawing at the time `i / 10`
   (`provedClock_spec`).
 
-Each theorem is about the same definition that the figure is built from, so changing the figure
-changes what is proved.
+Each theorem names its figure: the plots' theorems say which series the figure holds, the
+graph's and the animation's are statements about the figure itself. So a change to a figure
+changes what is proved, and a figure that no longer satisfies its theorem does not build.
 -/
 
 namespace PILeanTest.ProvedExamples
@@ -63,27 +64,34 @@ def provedFunction : Figure where
 /-- The step of the grid is `1/8`. -/
 theorem gridStep_lo_hi : Exact.gridStep lo hi steps = 1 / 8 := by decide +kernel
 
-/-- The points of the series `cubicSeries`, which `provedFunction` draws as its first curve, are
-the exact samples converted one by one, and nothing else: 25 points, the abscissae the grid
-`-3/2 + k/8` (`k = 0, …, 24`, from `lo` to `hi`), the ordinates the exact values of `cubic`
-there; floating point enters only through `Exact.toFloat`. Nothing is said about the curve
-between two samples (the picture joins them by straight segments). -/
+/-- The figure `provedFunction` has one panel, whose series are `cubicSeries` and
+`parabolaSeries` and no other. The points of each are the exact samples converted one by one, and
+nothing else: 25 points, the abscissae the grid `-3/2 + k/8` (`k = 0, …, 24`, from `lo` to `hi`),
+the ordinates the exact values of `cubic` (of `parabola`) there; floating point enters only
+through `Exact.toFloat`. Nothing is said about the curve between two samples (the picture joins
+them by straight segments). -/
 theorem provedFunction_spec :
+    provedFunction.panels.map (·.series) = #[#[cubicSeries, parabolaSeries]] ∧
     cubicSeries.points = ((Exact.samples cubic lo hi steps).map Exact.toPoint).toArray ∧
-    cubicSeries.points.size = 25 ∧
+    parabolaSeries.points = ((Exact.samples parabola lo hi steps).map Exact.toPoint).toArray ∧
+    cubicSeries.points.size = 25 ∧ parabolaSeries.points.size = 25 ∧
     (∀ p ∈ Exact.samples cubic lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic p.1) ∧
+    (∀ p ∈ Exact.samples parabola lo hi steps,
+      p.1 ∈ Exact.grid lo hi steps ∧ p.2 = parabola p.1) ∧
     Exact.grid lo hi steps = (List.range 25).map (fun k : Nat => (-3 / 2 + k / 8 : Rat)) ∧
     Exact.gridPoint lo hi steps 0 = lo ∧ Exact.gridPoint lo hi steps steps = hi := by
-  refine ⟨Series.ofExact_points .., Series.ofExact_size ..,
-    fun p hp => (Exact.mem_samples ..).1 hp, ?_, Exact.gridPoint_zero ..,
-    Exact.gridPoint_last _ _ _ (by decide)⟩
+  refine ⟨by simp [provedFunction], Series.ofExact_points .., Series.ofExact_points ..,
+    Series.ofExact_size .., Series.ofExact_size ..,
+    fun p hp => (Exact.mem_samples ..).1 hp, fun p hp => (Exact.mem_samples ..).1 hp, ?_,
+    Exact.gridPoint_zero .., Exact.gridPoint_last _ _ _ (by decide)⟩
   refine List.map_congr_left fun k _ => ?_
   rw [Exact.gridPoint, gridStep_lo_hi, lo]
   grind
 
-/-- The hypotheses are met: the grid is not degenerate, its first three points are `-3/2`,
-`-11/8` and `-5/4`, and the cubic's value at `-3/2` is `-15/8`. -/
-example : (Exact.grid lo hi steps).take 3 = [-3 / 2, -11 / 8, -5 / 4] ∧ cubic lo = -15 / 8 := by
+/-- The statement has content: the grid is not degenerate, its first three points are `-3/2`,
+`-11/8` and `-5/4`, and the values at `-3/2` are `-15/8` (the cubic) and `5/4` (the parabola). -/
+example : (Exact.grid lo hi steps).take 3 = [-3 / 2, -11 / 8, -5 / 4] ∧ cubic lo = -15 / 8 ∧
+    parabola lo = 5 / 4 := by
   decide +kernel
 
 /-! ### A data plot -/
@@ -100,17 +108,20 @@ def provedData : Figure where
       x := { label := "k" }, y := { label := "k^2 mod 17, minus 8" },
       series := #[.ofIntPoints "line" residues, .scatterOfIntPoints "points" residues] }]
 
-/-- The line and the markers of `provedData` are the input list converted point for point: as
-many points as given, in the given order, none added, dropped or changed (the integers are
-recovered from the exact points); floating point enters only through `Exact.toFloat`. -/
+/-- The figure `provedData` has one panel, whose series are a line and markers over the list
+`residues` and no other. The points of both are the input list converted point for point: as many
+points as given, in the given order, none added, dropped or changed (the integers are recovered
+from the exact points); floating point enters only through `Exact.toFloat`. -/
 theorem provedData_spec :
-    (Series.ofIntPoints "line" residues).points =
+    provedData.panels.map (·.series) =
+        #[#[.ofIntPoints "line" residues, .scatterOfIntPoints "points" residues]] ∧
+      (Series.ofIntPoints "line" residues).points =
         (residues.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       (Series.scatterOfIntPoints "points" residues).points =
         (residues.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       (residues.map Exact.ofIntPair).map (fun q => (q.1.num, q.2.num)) = residues ∧
       residues.length = 25 :=
-  ⟨Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
+  ⟨by simp [provedData], Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
     Series.ofIntPairs_recover _, by simp [residues]⟩
 
 /-- The data are not degenerate: the first three are `(0, -8)`, `(1, -7)`, `(2, -4)`. -/
@@ -191,7 +202,7 @@ example : provedClock.exactTime 5 = 1 / 2 := by decide +kernel
 
 Each link is checked when this module is built: the theorem is proved from the standard axioms
 and its statement mentions the picture or a definition of this module the picture is built
-from. -/
+from. Here every statement mentions the picture itself. -/
 
 figure_proves provedFunction provedFunction_spec
 figure_proves provedData provedData_spec
@@ -208,43 +219,3 @@ figure_proves provedClock provedData_spec
 
 end PILeanTest.ProvedExamples
 
-#print axioms PILean.Exact.gridPoint_eq
-#print axioms PILean.Exact.gridPoint_zero
-#print axioms PILean.Exact.gridPoint_last
-#print axioms PILean.Exact.gridPoint_succ
-#print axioms PILean.Exact.mem_samples
-#print axioms PILean.Exact.samples_fst
-#print axioms PILean.Exact.samples_length
-#print axioms PILean.Plot.runs_map_some
-#print axioms PILean.Plot.runs_length
-#print axioms PILean.Plot.runs_sublist
-#print axioms PILean.Plot.polylinesWith_all
-#print axioms PILean.Plot.drawSeries_line_unmarked
-#print axioms PILean.Plot.drawSeries_scatter
-#print axioms PILean.Plot.drawSeries_scatter_all
-#print axioms PILean.Plot.Series.ofExact_points
-#print axioms PILean.Plot.Series.ofExact_xs
-#print axioms PILean.Plot.Series.ofExact_ys
-#print axioms PILean.Plot.Series.ofExact_size
-#print axioms PILean.Plot.Series.ofSamples_draw
-#print axioms PILean.Plot.Series.ofExact_draw
-#print axioms PILean.Plot.Series.scatterOfSamples_draw
-#print axioms PILean.Plot.Series.ofIntPairs_recover
-#print axioms PILean.Plot.Series.ofIntPoints_points
-#print axioms PILean.Graph.mem_relationPairs
-#print axioms PILean.Graph.relationPairs_nodup
-#print axioms PILean.Graph.ofRelation_node_labels
-#print axioms PILean.Graph.ofRelation_edge_pairs
-#print axioms PILean.Graph.layout_edge_endpoints
-#print axioms PILean.Graph.layout_edges_of_valid
-#print axioms PILean.Graph.ofRelation_layout_edges
-#print axioms PILean.Graph.ofNames_layout_edges
-#print axioms PILean.Animation.time_eq_exactTime
-#print axioms PILean.Animation.exactTime_eq
-#print axioms PILean.Animation.exactTime_succ
-#print axioms PILean.Animation.frameSeq_getElem
-#print axioms PILean.Animation.frameTrees_getElem
-#print axioms PILeanTest.ProvedExamples.provedFunction_spec
-#print axioms PILeanTest.ProvedExamples.provedData_spec
-#print axioms PILeanTest.ProvedExamples.provedGraph_spec
-#print axioms PILeanTest.ProvedExamples.provedClock_spec

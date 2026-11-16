@@ -465,10 +465,4 @@ def checks : Array (String × Bool) := checksums ++ zlibChecks ++ pngChecks ++ r
 def ioChecks : IO (Array (String × Bool)) := do
   return (← fixtureChecks) ++ (← perfChecks)
 
-#print axioms crc32_eq_crc32Bits
-#print axioms adler32_eq_adlerSpec
-#print axioms zlibHeader_valid
-#print axioms trailerValue_trailerBytes
-#print axioms stored_length_check
-
 end PILeanTest.Png
