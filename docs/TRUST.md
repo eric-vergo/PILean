@@ -254,9 +254,10 @@ What this means:
 * The reduction stops at definitions, so a name that a definition would discard still counts.
   These are accepted although the figure plays no part in what they say, and the rule does not
   try to see through them: a `match` on the figure (`match fig with | _ => P`), a projection of
-  a structure or pair built around it (`(fig, P).2`), a definition that ignores an argument
-  (`Function.const _ P fig`, or one of the author's own), and an `if` whose condition settles
-  the branch.
+  a structure or pair built around it (`(fig, P).2`), a definition that ignores an argument or
+  passes a `fun` on (`Function.const _ P fig`, `id (fun _ => P) fig`, or one of the author's
+  own), a recursor whose unused case holds the figure (`Nat.rec P (fun _ _ => fig = fig) 0`),
+  and an `if` whose condition settles the branch.
 * The rule is about names; it does not judge what the statement says. A statement that names
   the figure and says nothing of substance about it passes: `fig = fig`, the figure in a
   hypothesis that is never used or in a branch that is never taken, a property that holds of
