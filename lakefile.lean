@@ -7,7 +7,7 @@ import Lake
 /-!
 # PILean's package
 
-The library `PILean` (imports `Init` and `Std` only), the gallery generator `pilean-gallery`
+The library `PILean` (`import PILean` reaches `Init` and `Std` only; `PILean.Trust.Attr`, which imports `Lean`, is imported separately), the gallery generator `pilean-gallery`
 (writes `examples/*.svg`), the tool `pilean-info` (shows the source information of an image), the
 build tools `pilean-build` and `pilean-verify`, and the test driver `lake test` runs.
 -/

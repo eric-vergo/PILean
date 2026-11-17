@@ -7,9 +7,12 @@ outline, what is exact and what is floating point, and the open choices.
 
 ## Principles
 
-1. **Pure Lean, `Init` and `Std` only.** No FFI, no Mathlib, no large dependencies. Text in
-   images goes through an interface (`TextEngine`) with a built-in lettering; LeAnTeX implements
-   it in a separate package of this repository (`leantex/`, "Text in images").
+1. **Pure Lean, `Init` and `Std` only.** The drawing library (`import PILean`) imports nothing
+   else; the module of the attribute `@[figure]` and the build-time checks, `PILean.Trust.Attr`,
+   imports `Lean` and is imported only by code that uses them. No FFI, no Mathlib, no large
+   dependencies. Text in images goes through an interface (`TextEngine`) with a built-in
+   lettering; LeAnTeX implements it in a separate package of this repository (`leantex/`, "Text
+   in images").
 2. **Values first.** An image, a figure, a drawing or a graph is a Lean value; output is a
    function of it. The same value gives the same bytes on every run (deterministic number
    formatting, stable ordering, no clocks or randomness), and on every machine as far as the
@@ -498,7 +501,7 @@ identity (`Trust.rendererWith`), so a new LeAnTeX revision or a changed font cha
 fingerprint. Reading the fonts and hashing them takes a few seconds once per program run.
 
 *Why a separate package and not a dependency of PILean itself:* PILean's first principle is
-`Init` and `Std` only, so that any Lean program can use it without a large dependency. LeAnTeX
+`Init` and `Std` only for the drawing library, so that any Lean program can use it without a large dependency. LeAnTeX
 is a large library with about 20 MB of fonts that a program reads at run time; making it a
 dependency of the core would put that weight on every user, including those who need no LaTeX.
 The interface was designed for this split: the core knows only `TextEngine`, and the package in

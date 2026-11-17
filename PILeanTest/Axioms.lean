@@ -48,6 +48,9 @@ test driver runs on every `lake test`, compares the files below `PILean/` on dis
 with the modules this file was compiled against, so a new library file that nothing imports is
 reported even when the build of this file comes from the cache.
 
+`Axioms.ioChecks` also reads the `import` lines of the sources and fails if `import PILean` reaches
+`Lean` or `PILean.Trust.Attr`, or any module outside `Init` and `Std`.
+
 `#assert_figure_links` checks every link made by `figure_proves` in the imported modules again,
 by the check of `figure_proves` (`PILean.Trust.figureTheoremProblem?`).
 
@@ -100,6 +103,39 @@ elab "checked_modules%" : term => do
 /-- The modules of `PILean` the checks of this file cover. -/
 def checkedModules : Array Name := checked_modules%
 
+/-- The modules a source file imports: the lines `import M` that follow its licence comment. -/
+def headerImports (src : String) : Array Name := Id.run do
+  let mut out := #[]
+  let mut started := false
+  for line in src.splitOn "\n" do
+    if !started then
+      started := line.trimAscii.toString == "-/"
+    else if line.startsWith "import " then
+      out := out.push (line.drop 7).trimAscii.toString.toName
+    else if !line.trimAscii.isEmpty then
+      break
+  return out
+
+/-- The modules `root` imports, directly or not, among those whose sources are found from the
+current folder (`A.B` as `A/B.lean`), and the modules outside that tree that they import
+(`Init`, `Std` and the like). -/
+partial def importClosure (root : Name) : IO (Array Name × Array Name) := do
+  let mut seen : Array Name := #[]
+  let mut external : Array Name := #[]
+  let mut todo := #[root]
+  while !todo.isEmpty do
+    let m := todo.back!
+    todo := todo.pop
+    unless seen.contains m do
+      seen := seen.push m
+      let file : System.FilePath := (m.components.foldl (· / ·.toString) "." : System.FilePath)
+        |>.withExtension "lean"
+      if root.isPrefixOf m && (← file.pathExists) then
+        todo := todo ++ headerImports (← IO.FS.readFile file)
+      else
+        external := external.push m
+  return (seen, external)
+
 /-- The checks of the test driver: every `.lean` file below `PILean/` on disk when `lake test`
 runs is one of the modules this file checked when it was compiled, so that a new file that no
 module imports is reported even when this file is not rebuilt; and the comparison reports a
@@ -116,7 +152,13 @@ def Axioms.ioChecks : IO (Array (String × Bool)) := do
       IO.FS.writeFile (dir / "X" / "notes.txt") ""
       unknownModules (dir / "X") `X #[`X.A]
     finally IO.FS.removeDirAll dir
+  let (closure, external) ← importClosure `PILean
+  let leanFree := external.all fun m => m == `Init || m == `Std || (`Std).isPrefixOf m
   return #[
+    ("imports: `import PILean` reaches Init and Std only, not Lean",
+      leanFree && closure.size > 50 && !external.isEmpty && !closure.contains `PILean.Trust.Attr),
+    ("imports: the module with the attribute `figure` imports Lean",
+      headerImports (← IO.FS.readFile "PILean/Trust/Attr.lean") |>.contains `Lean),
     ("axioms: every module below PILean/ is covered by the axiom check",
       missing.isEmpty && checkedModules.contains `PILean.Trust.Attr),
     ("axioms: a module file that is not imported is reported", stray == #[`X.B.C])]

@@ -5,7 +5,10 @@ a drawing canvas, SVG and PNG output, plots, graphs of nodes and edges, and anim
 SVG, APNG, GIF).
 Every image is meant to be traceable to the Lean that made it.
 
-PILean depends on Lean's `Init` and `Std` only (no Mathlib), so any Lean program can use it.
+The drawing library (`import PILean`) depends on Lean's `Init` and `Std` only (no Mathlib), so any
+Lean program can use it. The one module that needs more, `PILean.Trust.Attr` (the attribute
+`@[figure]` and the build-time checks), imports `Lean`; `import PILean` does not import it, and
+only code that uses the attribute or the checks does.
 
 ## Status
 
