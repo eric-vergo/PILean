@@ -369,12 +369,12 @@ code site C (0.02 on its largest module, where `dot` draws 1,003 crossings again
 Edge length is within the aim on every graph without clusters but the sparse graph (1.12), the
 tree (1.31), the chain (1.15) and one neighbourhood (1.19) (PILean's ends are spread along the
 node's side and enter perpendicular to it; the curves are longer than `dot`'s diagonals), and not
-on the graphs with clusters: 1.05, 1.67 and 1.56 on the blueprint graphs and 3.36 on code site C
+on the graphs with clusters: 1.04, 1.64 and 1.54 on the blueprint graphs and 3.36 on code site C
 (1.66 packed), where 85 clusters and 5,455 edges that enter a cluster holding neither of their ends
 are what PILean handles worst (`compactGroups` shortens the clusters' spans at the cost of longer
 edges, and long edges leave a cluster through its side and run outside it).
 
-Crossings on the blueprint graphs with clusters are 1.33, 1.25 and 1.11 times `dot`'s: under the
+Crossings on the blueprint graphs with clusters are 1.29, 1.19 and 1.10 times `dot`'s: under the
 cluster rules the reduction runs the sweeps and transposition from the same starts (the seeded
 ones included) but does not sift. What would close the gaps: a layering that ranks clusters
 recursively as `dot` does (its own cluster skeleton), which lets the crossing reduction move whole
