@@ -17,6 +17,11 @@ environment (imported modules included), sorted by module and then declaration n
 `figure_proves fig thm` links a theorem to a figure, after checking that it is proved from the
 standard axioms and that its statement names the figure itself.
 
+`#assert_standard_axioms A` checks the axioms of every declaration of the modules whose names
+start with `A`, by walking the modules rather than a list of names; `#assert_modules_imported A`
+checks that every file below the folder `A` is among the modules such a check sees. A package
+that builds on PILean can run both on its own modules.
+
 This is the only part of `PILean` that imports `Lean`; the library proper does not.
 -/
 
@@ -225,6 +230,93 @@ def elabFigureProves : Lean.Elab.Command.CommandElab := fun stx => do
     if let some msg ← figureTheoremProblem? figName thmName then throwErrorAt thm msg
     return (figName, thmName)
   modifyEnv fun env => figureTheoremExt.addEntry env (figName, thmName)
+
+/-! ### The axioms of a package -/
+
+/-- The module of the declaration `n` in the environment: the current module for a declaration
+of the file being elaborated. -/
+def declModule (env : Environment) (n : Name) : Name :=
+  match env.getModuleIdxFor? n with
+  | some i => env.header.moduleNames[i.toNat]!
+  | none => env.mainModule
+
+/-- The declarations of the environment whose module (`declModule`, the current module
+included) satisfies `inScope`, paired with each axiom outside `allowedAxioms` that they declare
+or depend on: an `axiom` is reported with itself, whether anything uses it or not; a theorem,
+definition or opaque constant with each axiom it depends on. -/
+def nonStandardAxioms (inScope : Name → Bool) : CoreM (Array (Name × Name)) := do
+  let env ← getEnv
+  let decls := env.constants.fold (init := #[]) fun acc c info =>
+    if inScope (declModule env c) then acc.push (c, info) else acc
+  let mut bad := #[]
+  for (c, info) in decls do
+    match info with
+    | .axiomInfo _ =>
+      unless allowedAxioms.contains c do bad := bad.push (c, c)
+    | .thmInfo _ | .defnInfo _ | .opaqueInfo _ =>
+      for a in ← collectAxioms c do
+        unless allowedAxioms.contains a do bad := bad.push (c, a)
+    | _ => pure ()
+  return bad
+
+/-- `#assert_standard_axioms A B …` fails unless no declaration of the imported modules (and of
+this one) whose module names start with `A`, `B`, … is an axiom or depends on an axiom other than
+those of `allowedAxioms`, and unless each prefix has at least one theorem. It walks the modules,
+not a list of names, so a declaration added later is covered without anyone listing it, and an
+`axiom` declared in one of them is reported whether anything uses it or not. -/
+elab "#assert_standard_axioms " roots:(ppSpace ident)+ : command => do
+  let env ← getEnv
+  let roots := roots.map (·.getId)
+  for r in roots do
+    let found := env.constants.fold (init := false) fun acc c info =>
+      acc || (info matches .thmInfo _ && r.isPrefixOf (declModule env c))
+    unless found do
+      throwError "no theorem found in the modules of {r}: nothing was checked"
+  let bad ← Lean.Elab.Command.liftCoreM (nonStandardAxioms fun m => roots.any (·.isPrefixOf m))
+  unless bad.isEmpty do
+    let lines := bad.toList.map fun (c, a) =>
+      if c == a then m!"the axiom {a} is declared" else m!"{c} depends on the axiom {a}"
+    throwError "declarations with a non-standard axiom:{indentD (MessageData.joinSep lines "\n")}"
+
+/-- The modules below the folder `dir`: one name for each `.lean` file, with `pre` as the first
+component and the names of the folders and the file below `dir` after it. -/
+partial def modulesBelow (dir : System.FilePath) (pre : Name) : IO (Array Name) := do
+  let mut out := #[]
+  for e in ← dir.readDir do
+    if ← e.path.isDir then
+      out := out ++ (← modulesBelow e.path (pre.str e.fileName))
+    else if e.fileName.endsWith ".lean" then
+      out := out.push (pre.str (e.fileName.dropEnd 5).toString)
+  return out
+
+/-- The modules below the folder `dir` (named from `pre`, as in `modulesBelow`) that are not in
+`known`. -/
+def unknownModules (dir : System.FilePath) (pre : Name) (known : Array Name) :
+    IO (Array Name) := do
+  return (← modulesBelow dir pre).filter (!known.contains ·)
+
+/-- The folder the module `m` is found from, given its source file `file`: `file` without its
+last `n` components, where `n` is the number of components of `m` (`a/b/A/B.lean` for `A.B`
+gives `a/b`, and a relative `A/B.lean` gives `.`). -/
+def sourceRoot (file : System.FilePath) (m : Name) : System.FilePath :=
+  m.components.foldl (init := file) fun p _ =>
+    match p.parent with
+    | some q => if q.toString.isEmpty then "." else q
+    | none => "."
+
+/-- `#assert_modules_imported A` fails unless every `.lean` file below the folder `A` is the
+current module or a module it imports, directly or not, so that no module of the folder is
+outside the checks that run in the current module, such as `#assert_standard_axioms A`. The
+folder is found next to the current module's own source tree (`sourceRoot`), so the check does
+not depend on the directory Lean runs in. -/
+elab "#assert_modules_imported " root:ident : command => do
+  let env ← getEnv
+  let r := root.getId
+  let dir := sourceRoot (← getFileName) env.mainModule / r.toString
+  if (← modulesBelow dir r).isEmpty then throwError "no module found below the folder {dir}"
+  let missing ← unknownModules dir r (env.header.moduleNames.push env.mainModule)
+  unless missing.isEmpty do
+    throwError "modules that are not imported, and so not checked: {missing}"
 
 /-! ### `figures%` -/
 

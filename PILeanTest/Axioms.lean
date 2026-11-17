@@ -49,55 +49,14 @@ reported even when the build of this file comes from the cache.
 
 `#assert_figure_links` checks every link made by `figure_proves` in the imported modules again,
 by the check of `figure_proves` (`PILean.Trust.figureTheoremProblem?`).
+
+`#assert_standard_axioms` and `#assert_modules_imported` are defined in `PILean.Trust.Attr`, so
+that a package built on PILean can run them on its own modules; the Mathlib package does.
 -/
 
-open Lean Elab Command
+open Lean Elab Command PILean.Trust
 
 namespace PILeanTest
-
-/-- The module of the declaration `n` in the environment: the current module for a declaration
-of the file being elaborated. -/
-def declModule (env : Environment) (n : Name) : Name :=
-  match env.getModuleIdxFor? n with
-  | some i => env.header.moduleNames[i.toNat]!
-  | none => env.mainModule
-
-/-- The declarations of the environment whose module (`declModule`, the current module
-included) satisfies `inScope`, paired with each axiom outside
-`PILean.Trust.allowedAxioms` that they declare or depend on: an `axiom` is reported with itself,
-whether anything uses it or not; a theorem, definition or opaque constant with each axiom it
-depends on. -/
-def nonStandardAxioms (inScope : Name → Bool) : CoreM (Array (Name × Name)) := do
-  let env ← getEnv
-  let decls := env.constants.fold (init := #[]) fun acc c info =>
-    if inScope (declModule env c) then acc.push (c, info) else acc
-  let mut bad := #[]
-  for (c, info) in decls do
-    match info with
-    | .axiomInfo _ =>
-      unless PILean.Trust.allowedAxioms.contains c do bad := bad.push (c, c)
-    | .thmInfo _ | .defnInfo _ | .opaqueInfo _ =>
-      for a in ← collectAxioms c do
-        unless PILean.Trust.allowedAxioms.contains a do bad := bad.push (c, a)
-    | _ => pure ()
-  return bad
-
-/-- `#assert_standard_axioms A B …` fails unless no declaration of the imported modules (and of
-this one) whose names start with `A`, `B`, … is an axiom or depends on an axiom other than those
-of `PILean.Trust.allowedAxioms`, and unless each prefix has at least one theorem. -/
-elab "#assert_standard_axioms " roots:(ppSpace ident)+ : command => do
-  let env ← getEnv
-  let roots := roots.map (·.getId)
-  for r in roots do
-    let found := env.constants.fold (init := false) fun acc c info =>
-      acc || (info matches .thmInfo _ && r.isPrefixOf (declModule env c))
-    unless found do
-      throwError "no theorem found in the modules of {r}: nothing was checked"
-  let bad ← liftCoreM (nonStandardAxioms fun m => roots.any (·.isPrefixOf m))
-  unless bad.isEmpty do
-    let lines := bad.toList.map fun (c, a) =>
-      if c == a then m!"the axiom {a} is declared" else m!"{c} depends on the axiom {a}"
-    throwError "declarations with a non-standard axiom:{indentD (MessageData.joinSep lines "\n")}"
 
 -- An axiom declared in a checked module is reported even when nothing uses it, and so is a
 -- theorem that uses one. The declarations are made and checked inside `withoutModifyingEnv`,
@@ -130,34 +89,6 @@ elab "#assert_figure_links " n:num : command => do
         throwError "the link from {fig} to {thm}: {msg}"
   unless n.getNat ≤ links do
     throwError "{links} links from figures to theorems, expected at least {n.getNat}"
-
-/-- The modules below the folder `dir` (relative to the package root, where Lake runs Lean):
-one name for each `.lean` file, with the folder's name as the first component. -/
-partial def modulesBelow (dir : System.FilePath) (pre : Name) : IO (Array Name) := do
-  let mut out := #[]
-  for e in ← dir.readDir do
-    if ← e.path.isDir then
-      out := out ++ (← modulesBelow e.path (pre.str e.fileName))
-    else if e.fileName.endsWith ".lean" then
-      out := out.push (pre.str (e.fileName.dropEnd 5).toString)
-  return out
-
-/-- The modules below the folder `dir` (named from `pre`, as in `modulesBelow`) that are not in
-`known`. -/
-def unknownModules (dir : System.FilePath) (pre : Name) (known : Array Name) :
-    IO (Array Name) := do
-  return (← modulesBelow dir pre).filter (!known.contains ·)
-
-/-- `#assert_modules_imported PILean` fails unless every `.lean` file below the folder `PILean`
-is a module this file imports, directly or not, so that no module of the library is outside the
-checks of this file. -/
-elab "#assert_modules_imported " root:ident : command => do
-  let env ← getEnv
-  let r := root.getId
-  if (← modulesBelow r.toString r).isEmpty then throwError "no module found below the folder {r}"
-  let missing ← unknownModules r.toString r env.header.moduleNames
-  unless missing.isEmpty do
-    throwError "modules that are not imported, and so not checked: {missing}"
 
 /-- `checked_modules%` is the `Array Name` of the modules of `PILean` this module imports, as
 they were when it was compiled. -/

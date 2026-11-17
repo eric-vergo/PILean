@@ -168,8 +168,11 @@ floating-point number, the position on the page and the rasteriser are the same 
 unproved code as for every other picture. The theorem bounds the distance from the *exact*
 polyline to the sine; that the pixels show that polyline is tested.
 
-Each theorem of the package depends on the three standard axioms only; its build prints them and
-fails if the list changes (`PILeanMathlib/Axioms.lean`).
+Each theorem of the package depends on the three standard axioms only. Its build checks this for
+every declaration of the package's modules, without a list of names, reports any `axiom` they
+declare, used or not, and fails if a file of the package is left out of the check
+(`PILeanMathlib/Axioms.lean`, with the commands of `PILean.Trust.Attr`); every `lake test` of the
+package checks that no file is left out.
 
 ## What is tested, not proved
 

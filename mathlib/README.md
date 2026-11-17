@@ -89,7 +89,10 @@ the theorem is proved from the standard axioms and that its statement names the 
 ## Axioms
 
 Every theorem depends on `propext`, `Classical.choice` and `Quot.sound` only.
-`PILeanMathlib/Axioms.lean` prints the axioms of each and fails the build if the list changes.
+`PILeanMathlib/Axioms.lean` checks every declaration of the package's modules (theorems and
+definitions alike, without a list of names) and fails the build if one depends on another axiom,
+or if the package declares an `axiom`, used or not; the build and `lake test` both fail if a file
+of the package is left out of the check.
 There is no `sorry`, no `native_decide`, and no definition the compiler replaces under a
 theorem's subject.
 

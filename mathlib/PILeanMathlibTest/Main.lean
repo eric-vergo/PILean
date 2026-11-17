@@ -19,7 +19,10 @@ the theorems do not cover:
   on the page;
 * **pixels**: one unit of the ordinate is 143.5 pixels at the gallery size, the number the
   documents use to state the bound in pixels;
-* **the pin**: `lakefile.lean` and `lake-manifest.json` name the same Mathlib revision.
+* **the pin**: `lakefile.lean` and `lake-manifest.json` name the same Mathlib revision;
+* **the modules**: every file below `PILeanMathlib/` on disk is imported by
+  `PILeanMathlib/Axioms.lean`, whose axiom check covers the modules it imports, so a new file is
+  reported even when that module's build comes from the cache.
 
 None of these is a theorem.
 -/
@@ -76,12 +79,27 @@ def pinChecks : IO (Array (String × Bool)) := do
   return #[("pin: lakefile.lean and lake-manifest.json name the same Mathlib revision",
     has lakefile rev && has manifest s!"\"rev\": \"{rev}\"")]
 
+/-- Every file below `PILeanMathlib/` but `PILeanMathlib/Axioms.lean` is named by an `import`
+line of `PILeanMathlib/Axioms.lean`. -/
+def moduleChecks : IO (Array (String × Bool)) := do
+  let mods ← (PILean.Trust.modulesBelow "PILeanMathlib" `PILeanMathlib) <|> pure #[]
+  let axioms ← (IO.FS.readFile ("PILeanMathlib" / "Axioms.lean")) <|> pure ""
+  let imports := (axioms.splitOn "\n").filterMap fun l =>
+    if l.startsWith "import " then some (l.drop 7).trimAscii.toString else none
+  let missing := mods.filter fun m =>
+    m != `PILeanMathlib.Axioms && !imports.contains m.toString
+  unless missing.isEmpty do
+    IO.eprintln s!"modules below PILeanMathlib/ that the axiom check does not import: {missing}"
+  return #[("modules: every file below PILeanMathlib/ is imported by the axiom check",
+    !mods.isEmpty && missing.isEmpty)]
+
 end PILeanMathlibTest
 
 open PILeanMathlibTest in
 /-- Runs the checks; `--update` rewrites the goldens. -/
 def main (args : List String) : IO UInt32 := do
-  let all := floatChecks ++ (← goldenChecks (args == ["--update"])) ++ (← pinChecks)
+  let all := floatChecks ++ (← goldenChecks (args == ["--update"])) ++ (← pinChecks) ++
+    (← moduleChecks)
   let mut failed := 0
   for (name, ok) in all do
     if ok then IO.println s!"ok {name}" else
