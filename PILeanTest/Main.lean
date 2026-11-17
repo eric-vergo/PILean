@@ -67,6 +67,13 @@ def main (args : List String) : IO UInt32 := do
   | ["--graph-bench"] => Graphs.bench; return 0
   | ["--graph-quality"] => GraphQuality.report none; return 0
   | ["--graph-quality", dir] => GraphQuality.report (some dir); return 0
+  | ["--graph-quality-files", src] =>
+    GraphQuality.reportGraphs (← GraphQuality.fileGraphs src) none; return 0
+  | ["--graph-quality-files", src, dir] =>
+    GraphQuality.reportGraphs (← GraphQuality.fileGraphs src) (some dir); return 0
+  | ["--graph-quality-files", src, dir, "packed"] =>
+    GraphQuality.reportGraphs (← GraphQuality.fileGraphs src) (some dir) (packed := true)
+    return 0
   | ["--graph-problems", name] => GraphQuality.problems name; return 0
   | ["--layout-dot", file] =>
     match PILean.Graph.layoutDot (← IO.FS.readFile file) with
@@ -83,8 +90,8 @@ def main (args : List String) : IO UInt32 := do
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++ Blur.checks ++
     Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
-    Graphs.checks ++ GraphQuality.checks ++ GraphDot.checks ++ Trust.checks ++
-    (← Trust.ioChecks) ++ TrustBuild.checks ++
+    Graphs.checks ++ GraphQuality.checks ++ (← GraphQuality.ioChecks) ++ GraphDot.checks ++
+    Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
     (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks)
   for (name, ok) in checks do

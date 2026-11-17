@@ -16,7 +16,11 @@
 #
 # Usage, from the repository root:
 #   lake exe pilean-test --graph-quality /tmp/pilean-graphs
-#   python3 -I tools/graph-compare.py /tmp/pilean-graphs [DOT]
+#   python3 -I tools/graph-compare.py /tmp/pilean-graphs [DOT] [--tsv FILE] [--suffix S]
+#
+# With `--tsv FILE`, also writes dot's measures, one tab-separated row per graph (graph, nodes,
+# edges, crossings, length, area) after a header row, to FILE; `--suffix S` appends S to every
+# graph name there (`+packed` for a measurement made with components packed).
 
 import glob
 import os
@@ -154,14 +158,25 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__ if __doc__ else "usage: graph-compare.py DIR [DOT]")
         return 1
-    directory = sys.argv[1]
-    dot = sys.argv[2] if len(sys.argv) > 2 else shutil.which("dot")
+    args = sys.argv[1:]
+    options = {}
+    for flag in ("--tsv", "--suffix"):
+        if flag in args:
+            i = args.index(flag)
+            if i + 1 >= len(args):
+                print(f"{flag} needs a value")
+                return 1
+            options[flag] = args[i + 1]
+            del args[i:i + 2]
+    directory = args[0]
+    dot = args[1] if len(args) > 1 else shutil.which("dot")
     if not dot:
         print("no dot program found")
         return 1
     print(f"{'graph':16} {'nodes':>5} {'edges':>5} | {'':7} {'crossings':>9} "
           f"{'edge length':>12} {'area (px^2)':>13} {'layout ms':>9}")
     ratios = []
+    recorded = []
     for path in sorted(glob.glob(os.path.join(directory, "*.dot"))):
         name = os.path.basename(path)[:-4]
         ours = metrics(read_pilean(os.path.join(directory, name + ".layout")))
@@ -177,11 +192,17 @@ def main():
             print(f"{name:16} {m[3]:5} {m[4]:5} | {label:7} {m[0]:9} {m[1]:12.0f} {m[2]:13.0f} "
                   f"{ms:>9}")
         ratios.append((name, ours, theirs, load))
+        recorded.append((name + options.get("--suffix", ""), theirs))
     print()
     print(f"{'graph':16} {'crossings':>10} {'length':>8} {'area':>8}   (PILean / dot)")
     for name, o, t, load in ratios:
         r = lambda a, b: f"{a / b:8.2f}" if b else "     n/a"
         print(f"{name:16} {r(o[0], t[0]):>10} {r(o[1], t[1])} {r(o[2], t[2])}   load {load}")
+    if "--tsv" in options:
+        with open(options["--tsv"], "w") as f:
+            f.write("graph\tnodes\tedges\tcrossings\tlength\tarea\n")
+            for name, m in recorded:
+                f.write(f"{name}\t{m[3]}\t{m[4]}\t{m[0]}\t{m[1]:.0f}\t{m[2]:.0f}\n")
     return 0
 
 

@@ -210,16 +210,45 @@ def dotText (g : Graph) (o : LayeredOptions) (st : Style) : String := Id.run do
     out := out ++ s!"  n{e.src} -> n{e.dst};\n"
   return out ++ "}\n"
 
-/-- Prints the measures of every graph; with a directory, also writes the files of
+/-- A graph from the text of a `.graph` file: a line `n LENGTH SHAPE` for each node (a label of
+that many letters; `e` for an ellipse, anything else for a rounded box), `e SRC DST` for each
+edge, and `c LENGTH PARENT MEMBERS…` for each cluster (a title of that many letters, the number
+of the cluster it is inside or `-1`, its nodes). Other lines are ignored. The real graphs
+measured here are kept in this form: names removed, lengths kept. -/
+def parseGraphFile (text : String) : Graph := Id.run do
+  let mut nodes : Array Graph.Node := #[]
+  let mut edges : Array Graph.Edge := #[]
+  let mut clusters : Array Cluster := #[]
+  for line in text.splitOn "\n" do
+    match (line.splitOn " ").filter (· != "") with
+    | ["n", len, shape] =>
+      nodes := nodes.push { label := letters len.toNat!,
+                            style := { shape := if shape == "e" then some .ellipse else none } }
+    | ["e", a, b] => edges := edges.push { src := a.toNat!, dst := b.toNat! }
+    | "c" :: len :: parent :: members =>
+      clusters := clusters.push { name := letters len.toNat!, parent := parent.toNat?,
+                                  members := members.toArray.map (·.toNat!) }
+    | _ => pure ()
+  return { nodes, edges, clusters }
+
+/-- The graphs of the `.graph` files of a directory, by file name, in name order. -/
+def fileGraphs (dir : System.FilePath) : IO (Array (String × Graph)) := do
+  let entries := (← dir.readDir).filter (·.path.extension == some "graph")
+  let sorted := entries.qsort fun a b => a.fileName < b.fileName
+  sorted.mapM fun e => do
+    return ((e.path.fileStem.getD e.fileName), parseGraphFile (← IO.FS.readFile e.path))
+
+/-- Prints the measures of the graphs; with a directory, also writes the files of
 `tools/graph-compare.py` there. -/
-def report (dir? : Option String) : IO Unit := do
+def reportGraphs (graphs : Array (String × Graph)) (dir? : Option String)
+    (packed : Bool := false) : IO Unit := do
   if let some dir := dir? then IO.FS.createDirAll dir
   IO.println s!"load {← Graphs.loadAverage}"
   IO.println ("graph                  nodes edges   ms  crossings   length(px)   area(Mpx2) " ++
     "clu clr ent")
   for (name, g) in graphs do
     let t0 ← IO.monoNanosNow
-    let l ← IO.lazyPure fun _ => g.layout
+    let l ← IO.lazyPure fun _ => if packed then g.layoutPacked else g.layout
     let ms ← Graphs.msSince t0
     let m := measure g l
     let pad := fun (s : String) (w : Nat) => String.ofList (List.replicate (w - s.length) ' ') ++ s
@@ -230,19 +259,25 @@ def report (dir? : Option String) : IO Unit := do
       {pad (toString m.clusterViolations) 3} {pad (toString m.clearanceViolations) 3} \
       {pad (toString m.clusterEntries) 3}"
     if let some dir := dir? then
-      IO.FS.writeFile s!"{dir}/{name}.dot" (dotText g {} {})
+      let dot := dotText g {} {}
+      IO.FS.writeFile s!"{dir}/{name}.dot"
+        (if packed then dot.replace "digraph G {\n" "digraph G {\n  pack=true;\n" else dot)
       IO.FS.writeFile s!"{dir}/{name}.layout" (Graphs.layoutText l)
       IO.FS.writeFile s!"{dir}/{name}.time" s!"{ms} {← Graphs.loadAverage}\n"
-      IO.FS.writeFile s!"{dir}/{name}.svg" (g.toSvg)
+      IO.FS.writeFile s!"{dir}/{name}.svg" (l.toSvg {})
+
+/-- Prints the measures of every graph of `graphs`; with a directory, also writes the files of
+`tools/graph-compare.py` there. -/
+def report (dir? : Option String) : IO Unit := reportGraphs graphs dir?
 
 /-- The bounds the checks hold the measures to, by graph: crossings, edge length (pixels) and
 area (square pixels), each about a tenth above the values measured when they were set. -/
 def bounds : Array (String × Nat × Float × Float) :=
-  #[("own-imports", 255, 104000, 4.6e6), ("project-imports", 172, 46700, 2.4e6),
-    ("blueprint-a", 345, 74200, 2.8e6), ("blueprint-a-chapters", 460, 147400, 4.0e6),
-    ("blueprint-a-nested", 470, 187600, 6.0e6), ("blueprint-b", 112, 37700, 2.4e6),
-    ("blueprint-b-chapters", 220, 88200, 5.3e6), ("module-800", 9380, 1.1e6, 3.0e7),
-    ("dense-dag", 935, 90900, 2.5e6), ("sparse-dag", 390, 70400, 4.5e6),
+  #[("own-imports", 230, 110900, 4.6e6), ("project-imports", 116, 47700, 3.0e6),
+    ("blueprint-a", 285, 67700, 2.6e6), ("blueprint-a-chapters", 513, 111900, 3.1e6),
+    ("blueprint-a-nested", 556, 177500, 4.5e6), ("blueprint-b", 97, 37000, 2.4e6),
+    ("blueprint-b-chapters", 255, 89700, 4.7e6), ("module-800", 8542, 1074700, 2.96e7),
+    ("dense-dag", 827, 89800, 2.7e6), ("sparse-dag", 274, 62600, 4.9e6),
     ("tree", 0, 13700, 2.4e6), ("chain", 0, 7900, 5.3e5)]
 
 /-- A small graph whose clusters invite overlap: two clusters whose members sit in the same
@@ -301,6 +336,94 @@ def checks : Array (String × Bool) := Id.run do
         m.crossings ≤ c)
       out := out.push (s!"graph quality {name}: edge length within bound", m.length ≤ len)
       out := out.push (s!"graph quality {name}: area within bound", m.area ≤ a)
+  return out
+
+/-- What the recorded Graphviz measures of a graph were (`PILeanTest/graphs/dot-recorded.tsv`):
+nodes, edges, crossings, edge length and area. -/
+structure Recorded where
+  /-- The number of nodes. -/
+  nodes : Nat
+  /-- The number of edges. -/
+  edges : Nat
+  /-- Crossing pairs of edges. -/
+  crossings : Nat
+  /-- Total edge length (pixels). -/
+  length : Float
+  /-- Area (square pixels). -/
+  area : Float
+
+/-- The rows of `dot-recorded.tsv` (the text of the file) by graph name; lines that do not have
+six fields of numbers after the name, such as comments and the header, are ignored. -/
+def parseRecorded (text : String) : Array (String × Recorded) := Id.run do
+  let mut out := #[]
+  for line in text.splitOn "\n" do
+    match line.splitOn "\t" with
+    | [name, n, e, c, len, a] =>
+      if let (some n, some e, some c, some len, some a) :=
+          (n.toNat?, e.toNat?, c.toNat?, len.toNat?, a.toNat?) then
+        out := out.push (name, { nodes := n, edges := e, crossings := c, length := len.toFloat,
+                                 area := a.toFloat })
+    | _ => pure ()
+  return out
+
+/-- The most the crossings and the edge length of a drawing may be, as a multiple of Graphviz's
+recorded values, by graph (each about `0.1` above the ratio measured when it was set; for a graph
+Graphviz draws without crossings, no crossing is allowed). -/
+def ratios : Array (String × Float × Float) :=
+  #[("blueprint-a", 1.13, 0.96), ("blueprint-a-chapters", 1.61, 1.30),
+    ("blueprint-a-nested", 1.65, 1.73), ("blueprint-b", 1.20, 1.19),
+    ("blueprint-b-chapters", 1.42, 1.69), ("chain", 0, 1.25), ("dense-dag", 1.16, 0.85),
+    ("module-800", 1.36, 1.09), ("own-imports", 1.09, 1.04), ("project-imports", 0.85, 1.04),
+    ("sparse-dag", 1.03, 1.22), ("tree", 0, 1.41),
+    ("code-site-c-largest-module", 0.12, 1.09), ("code-site-c-modules", 1.23, 1.13),
+    ("code-site-c", 1.39, 3.47), ("neighbourhood-150", 0.89, 0.82),
+    ("neighbourhood-290", 0.97, 0.95), ("neighbourhood-34", 1.02, 1.08),
+    ("neighbourhood-46", 1.20, 0.99), ("neighbourhood-46b", 1.13, 1.30),
+    ("neighbourhood-50", 1.09, 1.00), ("neighbourhood-star-401", 0, 1.12)]
+
+/-- The graphs the checks against Graphviz leave out for the time they take: the largest of the
+measured graphs. -/
+def slowGraphs : Array String := #["module-3000", "code-site-c"]
+
+/-- The checks against the recorded Graphviz measures: reads the `.graph` files and
+`dot-recorded.tsv` of `PILeanTest/graphs` (no `dot` needed) and holds every graph (the built-in
+ones and the files') to no cluster violation, no edge passing a node, and crossings and edge
+length within `ratios` times Graphviz's; and the packed layout of the largest module without its
+cluster (which holds every node, so that it cannot be packed with it) to a picture narrower than
+the layered one. (The module has a node with 400 neighbours, which stand in one layer, so the
+picture stays far wider than tall.) -/
+def ioChecks : IO (Array (String × Bool)) := do
+  let dir : System.FilePath := "PILeanTest" / "graphs"
+  let recorded := parseRecorded (← IO.FS.readFile (dir / "dot-recorded.tsv"))
+  let files ← fileGraphs dir
+  let mut out : Array (String × Bool) :=
+    #[(s!"graph files: {files.size} graphs and {recorded.size} recorded rows",
+        files.size == 10 && recorded.size == 25)]
+  for (name, g) in graphs ++ files do
+    if slowGraphs.contains name then continue
+    let l := g.layout
+    let m := measure g l
+    out := out.push (s!"graph files {name}: cluster boxes contain exactly their nodes and nest",
+      m.clusterViolations == 0)
+    out := out.push (s!"graph files {name}: no edge passes a node it does not end at",
+      m.clearanceViolations == 0)
+    match recorded.find? (·.1 == name), ratios.find? (·.1 == name) with
+    | some (_, r), some (_, rc, rl) =>
+      out := out.push (s!"graph files {name}: {g.nodes.size} nodes and {g.edges.size} edges as \
+        recorded", r.nodes == g.nodes.size && r.edges == g.edges.size)
+      out := out.push (s!"graph files {name}: crossings {m.crossings} at most {rc} times \
+        Graphviz's {r.crossings}", m.crossings.toFloat ≤ rc * r.crossings.toFloat)
+      out := out.push (s!"graph files {name}: edge length {m.length} at most {rl} times \
+        Graphviz's {r.length}", m.length ≤ rl * r.length)
+    | _, _ => out := out.push (s!"graph files {name}: recorded measures and ratios present", false)
+  if let some (_, g) := files.find? (·.1 == "code-site-c-largest-module") then
+    -- the one cluster of the file holds every node, so its components cannot be told apart
+    let whole := g.layoutPacked
+    out := out.push (s!"graph files: the packed largest module, one cluster, is the layered \
+      layout", whole.width == g.layout.width && whole.height == g.layout.height)
+    let p := { g with clusters := #[] }.layoutPacked
+    out := out.push (s!"graph files: the packed largest module without its cluster is {p.width} \
+      by {p.height}, narrower than the layered {g.layout.width}", p.width < g.layout.width)
   return out
 
 /-- Prints the violations of the cluster and clearance rules in the layout of the graph named
