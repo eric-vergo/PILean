@@ -274,9 +274,9 @@ def report (dir? : Option String) : IO Unit := reportGraphs graphs dir?
 area (square pixels), each about a tenth above the values measured when they were set. -/
 def bounds : Array (String × Nat × Float × Float) :=
   #[("own-imports", 230, 110900, 4.6e6), ("project-imports", 116, 47700, 3.0e6),
-    ("blueprint-a", 285, 67700, 2.6e6), ("blueprint-a-chapters", 513, 111900, 3.1e6),
-    ("blueprint-a-nested", 556, 177500, 4.5e6), ("blueprint-b", 97, 37000, 2.4e6),
-    ("blueprint-b-chapters", 255, 89700, 4.7e6), ("module-800", 8542, 1074700, 2.96e7),
+    ("blueprint-a", 285, 67700, 2.6e6), ("blueprint-a-chapters", 455, 98300, 3.6e6),
+    ("blueprint-a-nested", 450, 183000, 5.3e6), ("blueprint-b", 97, 37000, 2.4e6),
+    ("blueprint-b-chapters", 216, 88000, 4.9e6), ("module-800", 8542, 1074700, 2.96e7),
     ("dense-dag", 827, 89800, 2.7e6), ("sparse-dag", 274, 62600, 4.9e6),
     ("tree", 0, 13700, 2.4e6), ("chain", 0, 7900, 5.3e5)]
 
@@ -370,9 +370,9 @@ def parseRecorded (text : String) : Array (String × Recorded) := Id.run do
 recorded values, by graph (each about `0.1` above the ratio measured when it was set; for a graph
 Graphviz draws without crossings, no crossing is allowed). -/
 def ratios : Array (String × Float × Float) :=
-  #[("blueprint-a", 1.13, 0.96), ("blueprint-a-chapters", 1.61, 1.30),
-    ("blueprint-a-nested", 1.65, 1.73), ("blueprint-b", 1.20, 1.19),
-    ("blueprint-b-chapters", 1.42, 1.69), ("chain", 0, 1.25), ("dense-dag", 1.16, 0.85),
+  #[("blueprint-a", 1.13, 0.96), ("blueprint-a-chapters", 1.43, 1.16),
+    ("blueprint-a-nested", 1.36, 1.78), ("blueprint-b", 1.20, 1.19),
+    ("blueprint-b-chapters", 1.22, 1.66), ("chain", 0, 1.25), ("dense-dag", 1.16, 0.85),
     ("module-800", 1.36, 1.09), ("own-imports", 1.09, 1.04), ("project-imports", 0.85, 1.04),
     ("sparse-dag", 1.03, 1.22), ("tree", 0, 1.41),
     ("code-site-c-largest-module", 0.12, 1.09), ("code-site-c-modules", 1.23, 1.13),

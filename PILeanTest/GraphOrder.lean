@@ -377,10 +377,10 @@ def checks : Array (String × Bool) :=
         count webSvg "id=\"n4&lt;&gt;&amp;&quot;&#39;\"" == 1 &&
         count webSvg "class=\"node\"" + count webSvg "class=\"node " == 5 &&
         count webSvg "<title>" == 5 && count webSvg "<desc>" == 1),
-    ("toWebSvg: a group per edge and per cluster, an ellipse, a dashed outline",
+    ("toWebSvg: a path per edge, a group per cluster, an ellipse, a dashed outline, the heads",
       count webSvg "class=\"edge " + count webSvg "class=\"edge\"" == 5 &&
         count webSvg "<g class=\"cluster\">" == 1 && count webSvg "<ellipse" == 1 &&
-        Graphs.has webSvg "stroke-dasharray=\"4 2\"" && count webSvg "class=\"head\"" == 5),
+        Graphs.has webSvg "stroke-dasharray=\"4 2\"" && count webSvg "<g class=\"heads\"" == 1),
     ("toWebSvg: the same twice",
       webSvg == webGraph.layout.toWebSvg webNodes #[{ classes := "e\" onload=\"x", dash := "3 3" }]
         { classes := "w\" onload=\"x", attrs := #[("data-x", "\"<>&")] }),

@@ -59,6 +59,10 @@ structure LayeredOptions where
   /-- The most rounds of weighted-median sweeps (each followed by transposition) of the
   crossing reduction. -/
   sweeps : Nat := 24
+  /-- The most extra starts of the crossing reduction, from depth-first orders drawn from a fixed
+  sequence (`orderLayers`, `reduceClustered`); fewer are made on a large graph. More starts find
+  fewer crossings and take longer. -/
+  starts : Nat := 16
   /-- The number of passes that straighten edges before the network simplex assignment starts. -/
   refine : Nat := 8
   /-- The work allowed to the network simplex coordinate assignment (see `simplexBreadth`): about

@@ -338,15 +338,23 @@ def reduceFromClustered (t : ClusterTree) (bs : Borders) (start : Array (Array N
 
 /-- The order of the nodes inside the layers under the cluster rules: `reduceFromClustered` from
 the unconstrained order `start` and, up to 6000 nodes, from the depth-first and breadth-first
-orders of `PILean.Graph.Ordering` too; the one with the fewest crossings (border edges included;
-the first on a tie). `up` and `down` are the neighbours of the real and dummy nodes. -/
+orders of `PILean.Graph.Ordering` and from up to `starts` depth-first orders drawn from a fixed
+sequence (`initialLayersSeeded`; as many as `extraStarts` allows for the graph's size); the one
+with the fewest crossings (border edges included; the first on a tie). `up` and `down` are the
+neighbours of the real and dummy nodes. -/
 def reduceClustered (t : ClusterTree) (bs : Borders) (start : Array (Array Nat))
-    (up down : Array (Array Nat)) (sweeps : Nat) : Array (Array Nat) := Id.run do
+    (up down : Array (Array Nat)) (sweeps : Nat) (starts : Nat := 16) : Array (Array Nat) :=
+  Id.run do
   let layerAll := bs.layerAll.extract 0 up.size
   let mut best := reduceFromClustered t bs start sweeps
   if up.size ≤ 6000 then
     for s in [initialLayers layerAll up down, initialLayersBfs layerAll up down] do
       let r := reduceFromClustered t bs s sweeps
+      if r.2 < best.2 then best := r
+    let pairs := best.1.foldl (fun s l => s + l.size * l.size) 0
+    for k in [0:extraStarts pairs starts] do
+      if best.2 == 0 then break
+      let r := reduceFromClustered t bs (initialLayersSeeded layerAll up down k) sweeps
       if r.2 < best.2 then best := r
   return best.1
 

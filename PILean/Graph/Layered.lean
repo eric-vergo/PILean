@@ -175,11 +175,13 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
             (tree.nodeCluster.getD (c.getD (c.size - 1) 0) none)
           for j in [1:c.size - 1] do b := b.setIfInBounds (c.getD j 0) l
     return b
-  let order0 := orderLayers layerAll up down o.sweeps
+  -- with clusters the order is found under the cluster rules; the free order is only a start
+  let order0 := orderLayers layerAll up down o.sweeps (if clustered then 0 else o.starts)
   let bs : Borders := if clustered then addBorders tree layerAll up down block
     else { layerAll, up, down, block, part := Array.replicate size .node,
            span := #[], firstBorders := #[] }
-  let order := if clustered then reduceClustered tree bs order0 up down o.sweeps else order0
+  let order := if clustered then reduceClustered tree bs order0 up down o.sweeps o.starts
+    else order0
   let total := bs.layerAll.size
   -- sizes: nodes, label plates (border nodes have no width)
   let mut bw : Array Float := (Array.range total).map fun v =>

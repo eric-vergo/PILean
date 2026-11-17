@@ -23,8 +23,8 @@ The structure, back to front:
 
 * `g.graph` holds everything;
 * `g.cluster`: a `path` (the box) and a `text` (the title);
-* `g.edge` (with the edge's classes): a `path` (the curve) and, for a directed edge, a
-  `path.head` (the arrowhead);
+* `g.edges` holds a `path.edge` (with the edge's classes) for every edge, its curve, and
+  `g.heads` a `path` for every arrowhead; the two groups carry the edges' colour;
 * `g.node` (with the node's `id` and classes): a `title` (the node's name), a `desc` (its
   tooltip, when it has one), the outline (a `path`, or an `ellipse`) and one `text` per line.
 
@@ -160,13 +160,10 @@ def Layout.toWebSvg (l : Layout) (nodes : Array WebNode) (edges : Array WebEdge)
   let edgeNodes := l.edges.map fun e =>
     let w := edges.getD e.index {}
     let cls := if w.classes.isEmpty then "edge" else "edge " ++ w.classes
-    let curve := Svg.el "path" (#[("d", Svg.pathData e.path 1), ("fill", "none"),
-      ("stroke", o.edge), ("stroke-width", fmtNum w.width 2)] ++ dashAttr w.dash)
-    let head := match e.head with
-      | some h => #[Svg.el "path" #[("class", "head"), ("d", Svg.pathData h 1), ("fill", o.edge),
-          ("stroke", "none")]]
-      | none => #[]
-    Svg.el "g" #[("class", cls)] (#[curve] ++ head)
+    Svg.el "path" (#[("class", cls), ("d", Svg.pathData e.path 1)] ++
+      (if w.width == 1 then #[] else #[("stroke-width", fmtNum w.width 2)]) ++ dashAttr w.dash)
+  let headNodes := l.edges.filterMap fun e => e.head.map fun h =>
+    Svg.el "path" #[("d", Svg.pathData h 1)]
   let nodeNodes := l.nodes.map fun n =>
     let w := nodes.getD n.index {}
     let half := w.strokeWidth / 2
@@ -199,7 +196,9 @@ def Layout.toWebSvg (l : Layout) (nodes : Array WebNode) (edges : Array WebEdge)
     #[Svg.el "g" #[("class", "graph"), ("font-family", o.fontFamily),
         ("font-size", fmtNum o.fontSize 2), ("text-anchor", "middle")]
       (#[Svg.el "g" #[("class", "clusters"), ("text-anchor", "start")] clusterNodes,
-         Svg.el "g" #[("class", "edges")] edgeNodes,
+         Svg.el "g" #[("class", "edges"), ("fill", "none"), ("stroke", o.edge),
+           ("stroke-width", "1")] edgeNodes,
+         Svg.el "g" #[("class", "heads"), ("fill", o.edge), ("stroke", "none")] headNodes,
          Svg.el "g" #[("class", "nodes")] nodeNodes])]
   Svg.render 0 root ++ "\n"
 

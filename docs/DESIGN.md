@@ -330,10 +330,10 @@ file (including its start).
 | own imports | 92, 205 | 399 / 40 | 0.98 | 0.93 | 0.75 | – | 0 | – |
 | project imports | 88, 173 | 178 / 35 | 0.75 | 0.93 | 0.77 | – | 0 | – |
 | blueprint A | 58, 146 | 226 / 27 | 1.03 | 0.85 | 0.70 | – | 0 | – |
-| blueprint A by chapter | 58, 146 | 265 / 63 | 1.50 | 1.20 | 0.74 | 0 | 0 | 9 |
-| blueprint A by chapter and section | 58, 146 | 264 / 59 | 1.55 | 1.62 | 0.92 | 0 | 0 | 60 |
+| blueprint A by chapter | 58, 146 | 88 / 63 | 1.33 | 1.05 | 0.85 | 0 | 0 | 8 |
+| blueprint A by chapter and section | 58, 146 | 93 / 59 | 1.25 | 1.67 | 1.09 | 0 | 0 | 64 |
 | blueprint B | 69, 111 | 72 / 20 | 1.10 | 1.08 | 0.77 | – | 0 | – |
-| blueprint B by chapter | 69, 111 | 88 / 55 | 1.31 | 1.59 | 1.13 | 0 | 0 | 20 |
+| blueprint B by chapter | 69, 111 | 44 / 55 | 1.11 | 1.56 | 1.20 | 0 | 0 | 25 |
 | module graph | 800, 1077 | 1858 / 513 | 1.25 | 0.99 | 0.64 | – | 0 | – |
 | module graph | 3000, 4019 | 7433 / 3545 | 0.87 | 0.84 | 1.29 | – | 0 | – |
 | dense random | 120, 387 | 428 / 48 | 1.05 | 0.75 | 0.34 | – | 0 | – |
@@ -369,31 +369,24 @@ code site C (0.02 on its largest module, where `dot` draws 1,003 crossings again
 Edge length is within the aim on every graph without clusters but the sparse graph (1.12), the
 tree (1.31), the chain (1.15) and one neighbourhood (1.19) (PILean's ends are spread along the
 node's side and enter perpendicular to it; the curves are longer than `dot`'s diagonals), and not
-on the graphs with clusters: 1.20, 1.62 and 1.59 on the blueprint graphs and 3.36 on code site C
+on the graphs with clusters: 1.05, 1.67 and 1.56 on the blueprint graphs and 3.36 on code site C
 (1.66 packed), where 85 clusters and 5,455 edges that enter a cluster holding neither of their ends
 are what PILean handles worst (`compactGroups` shortens the clusters' spans at the cost of longer
 edges, and long edges leave a cluster through its side and run outside it).
 
-The sifting and the seeded starts lowered the crossings of the graphs without clusters (the
-blueprint graphs 312 to 259 and 101 to 88, the 800-node module graph 8,526 to 7,765, the 3000-node
-one 115,430 to 92,969, the dense and sparse graphs 846 to 751 and 353 to 249, the import graphs 230
-to 209 and 156 to 105) and the edges entering foreign clusters (17, 68 and 25 to 9, 60 and 20),
-but raised the crossings of the three blueprint graphs with clusters (417, 427 and 198 to 466,
-505 and 231), the edge length of the import graph (94,251 to 100,807 pixels) and the area of the
-import graph of the project, the dense and the sparse graph. The reduction under the cluster
-rules takes the unconstrained order as one of its three starts and runs without sifting, so the
-better unconstrained order does not carry over to it. What would close the gaps: a layering that
-ranks clusters recursively as `dot` does (its own cluster skeleton), which lets the crossing
-reduction move whole clusters; seeded starts and sifting under the cluster rules; and a cheaper
-network simplex exchange (the low/lim numbering of Gansner et al. for the cut search) so that the
-coordinate phase can finish within the bound on larger graphs.
+Crossings on the blueprint graphs with clusters are 1.33, 1.25 and 1.11 times `dot`'s: under the
+cluster rules the reduction runs the sweeps and transposition from the same starts (the seeded
+ones included) but does not sift. What would close the gaps: a layering that ranks clusters
+recursively as `dot` does (its own cluster skeleton), which lets the crossing reduction move whole
+clusters; sifting under the cluster rules; and a cheaper network simplex exchange (the low/lim
+numbering of Gansner et al. for the cut search) so that the coordinate phase can finish within
+the bound on larger graphs.
 
-PILean is slower than `dot` on most of these graphs, which it was not before the seeded starts and
-the sifting: the layout of the blueprint graphs took 15 to 28 ms, the 800-node module graph 303 ms
-and the 3000-node one 2,259 ms; now they take 72 to 265 ms, 1,858 ms and 7,433 ms, against `dot`'s
-20 to 63 ms, 513 ms and 3,545 ms. PILean is faster only on the tree, the chain, the node with 400
-neighbours and code site C (844 ms against 1,654 ms), where the work bounds leave the extra starts
-out or there is little to reduce.
+PILean is slower than `dot` on most of these graphs: the seeded starts and the sifting take most
+of the time (the blueprint graphs without clusters 50 to 160 ms, the 800-node module graph about
+1.5 s and the 3000-node one about 6 s, against `dot`'s 20 to 63 ms, 0.5 s and 3.5 s).
+`LayeredOptions.starts` sets the number of extra starts; with none the layouts take a tenth to a
+fifth of these times and have more crossings.
 
 ## Plots
 
