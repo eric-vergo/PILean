@@ -161,11 +161,12 @@ Four parts:
 ## Graph layout
 
 `PILean.Graph` draws a `Graph` (labelled nodes, edges with optional labels, clusters) in layers
-(`Graph.layout`, files `Graph/Layering`, `Simplex`, `Ordering`, `Coordinates`, `Layered`; with the components laid out apart and packed, `Graph.layoutPacked`, `Graph/Pack`), or on a circle
-(`circularLayout`) or as a tree (`treeLayout`), and draws the `Layout` on the vector canvas
-(`Graph/Draw`), so that the SVG and the PNG show the same picture. Nothing in it depends on
-Mathlib or on any other library; it follows the published algorithms, listed in the module
-docstrings.
+(`Graph.layout`, files `Graph/Layering`, `Nested`, `Simplex`, `Ordering`, `Compound`, `Coordinates`,
+`Route`, `Layered`; with the components laid out apart and packed, `Graph.layoutPacked`,
+`Graph/Pack`), or on a circle (`circularLayout`) or as a tree (`treeLayout`), and draws the
+`Layout` on the vector canvas (`Graph/Draw`), so that the SVG and the PNG show the same picture.
+Nothing in it depends on Mathlib or on any other library; it follows the published algorithms,
+listed in the module docstrings.
 
 **Phases and their bounds** (`V` nodes, `E` edges, `L` layers, `D` dummy nodes, the sum of the
 spans of the edges, at most `E (L - 1)`; `C` clusters):
@@ -175,13 +176,24 @@ spans of the edges, at most `E (L - 1)`; `C` clusters):
    `3V + 2` steps, `O(V + E)` plus a scan of the nodes each time no source or sink is left.
    Self-loops are set aside and drawn as small loops.
 2. *Layers*: the layers of least total edge span by network simplex (Gansner, Koutsofios, North
-   and Vo, 1993; `Graph/Simplex`) from the longest-path layering; two balancing passes; then the
-   nodes of each cluster pulled towards their cluster's median layer within the layers their
-   edges leave free (`compactGroups`, so a cluster spans few layers, as dot ranks a cluster's
-   nodes together); then `fixLayers`, which relaxes the edges sorted by the order of their source
-   and so makes every edge point down whatever came before (proved). `O(E log V)` for the start,
-   `O(V + E)` per exchange at worst. When an edge has a label the layers are doubled so that the
-   label has a layer half-way along its edge.
+   and Vo, 1993; `Graph/Simplex`) from the longest-path layering; two balancing passes; then
+   `fixLayers`, which relaxes the edges sorted by the order of their source and so makes every
+   edge point down whatever came before (proved). `O(E log V)` for the start, `O(V + E)` per
+   exchange at worst. When an edge has a label the layers are doubled so that the label has a
+   layer half-way along its edge. With `maxLayerWidth`, the nodes of a layer wider than that are
+   split over rows put in between (`wrapLayers`: a row is filled until the next node would pass
+   the limit, the nodes with more edges from above first); edges keep pointing down, the drawing
+   gets narrower and taller, and the edges to the lower rows pass between the nodes of the upper
+   ones.
+   *With clusters* (`Graph/Nested`, the default; Gansner et al. rank clusters recursively, and
+   Sander's compound graphs are layered the same way): the graph is layered from the inside out.
+   At one level (the whole graph, or the inside of one cluster) the items are the nodes standing
+   there directly and the clusters directly inside, each already layered and so many layers high;
+   an edge between two items makes its target item begin below the whole of its source item
+   (network simplex with the heights as the least lengths of the edges, cycles between items
+   removed first). So every cluster keeps a block of layers to itself, two clusters that an edge
+   joins lie one wholly above the other, and an edge between them leaves the one through its
+   lower side and enters the other through its upper side.
 3. *Crossing reduction*: long edges become chains of `D` dummy nodes; from a depth-first start
    order (and, up to 6000 nodes, a breadth-first and a bottom-up one, and more depth-first
    orders from a fixed pseudo-random sequence, `initialLayersSeeded`, keeping the best) at most
@@ -203,15 +215,24 @@ spans of the edges, at most `E (L - 1)`; `C` clusters):
    layered graph, so a large graph gets none. Crossings are counted per round in `O(E log V)`
    with a Fenwick tree (the accumulator tree of Barth, Jünger and Mutzel). The seeded starts
    and the sifting are tested for what they promise (a permutation of every layer, never more
-   crossings, the same result on every run), not proved.
+   crossings, the same result on every run), not proved. The starts are searched at the same
+   time (tasks), and the first of the best results is kept, as if they had been searched one
+   after the other: the result does not depend on the number of processors.
 4. *Clusters* (`Graph/Compound`, after Sander's layout of compound graphs): a dummy node belongs
-   to the innermost cluster holding both ends of its edge; every cluster gets a left and a right
+   to the innermost cluster around one of its edge's ends whose layers reach the dummy node's
+   layer, else to the innermost cluster holding both ends; every cluster gets a left and a right
    border node in each layer of its span, joined from layer to layer by edges that count in the
-   crossing count (so an edge crossing a cluster's side is a crossing like any other); in every
-   layer a cluster's nodes stand together between its borders, nested clusters inside their
-   parent's block, sibling blocks in one order in every layer (the mean relative position of
-   their nodes); the sweeps and transposition run under these rules from three start orders (the unconstrained order of phase 3 is one of them; the seeded starts and sifting of phase 3 do not run under the cluster rules).
-   `O(C L)` border nodes.
+   crossing count eight times (an edge crossing a cluster's side passes through the cluster); in
+   every layer a cluster's nodes stand together between its borders, nested clusters inside
+   their parent's block, sibling blocks in one order in every layer. In a sweep a free node keeps
+   the side of every nested cluster that its middle neighbour in the layer before has there
+   (`arrangeBlock`), and a cluster that begins in a layer is seated between the siblings that its
+   edges from the layer before come between (`seatClusters`); the sweeps and transposition run
+   under these rules from the same starts as phase 3 (without sifting). Where an edge would still
+   pass through a cluster that holds neither of its ends (`strays`), the first three phases are
+   run again with that cluster and the item the edge leads to kept one above the other, up to
+   `clusterRounds` (12) times, and the attempt with the fewest such edges is kept: the edge then
+   passes the cluster's lower or upper side instead. `O(C L)` border nodes.
 5. *Coordinates*: Brandes and Köpf's four alignments with type 1 conflict marking, balanced; then
    `refine` (8) passes towards the median of the neighbours; then network simplex on the weighted
    horizontal length of the edges (Gansner et al., section 4.2: weight 1 for two real nodes, 2 for
@@ -221,17 +242,28 @@ spans of the edges, at most `E (L - 1)`; `C` clusters):
    a cluster are straight, and so its box holds exactly its nodes. The leaving edge is found by
    partial pricing (the most negative of the next 32 candidates); the search has a bound on the
    work (`coordinateWork`, 90 million) and returns the best assignment so far when it is used up
-   (a 3000-node graph finishes about 1800 exchanges).
-6. *Edges*: an edge passes a dummy node straight along the layers through the band of that
-   layer's boxes, and crosses a gap as a cubic leaving and entering perpendicular to the layers;
-   a step that goes sideways more than eight times the gap is one cubic too, whose long sideways
-   stretch runs at the height of a track of its own (the tracks of steps going right lie below
-   those of the overlapping steps going right that start further right, so that their descents
-   do not cross; steps going left likewise), and a gap with many such steps grows, up to three
-   times, to keep them three pixels apart; or horizontal and vertical segments with rounded corners on the same tracks
-   (`Routing.orthogonal`). Ends are spread along the node's side in the order of the other ends;
-   arrowheads aligned with the end of the curve; labels on plates of the page colour at the middle
-   of the edge.
+   (a 3000-node graph finishes about 1800 exchanges). With `compact`, the width of every layer
+   counts in the total too (an edge of that weight from the first to the last node of each
+   layer): the drawing gets narrower and its edges more slanted.
+6. *Edges* (`Graph/Route`, after section 5 of Gansner et al.): the room of an edge is a sequence
+   of *gates*: at the lower edge of the layer it leaves, at the upper and lower edge of every
+   layer it crosses and at the upper edge of the layer it enters, the stretch across the layer
+   between its neighbours there (half of the free space towards a neighbouring dummy node, so
+   that the edges of a bundle stay apart; up to a few pixels from a neighbouring box or cluster
+   side); between two layers the room is free. The route is the shortest polyline through the
+   gates (`tautRoute`, the funnel of Lee and Preparata; an edge with nothing in its way is one
+   straight line), and the curve is the quadratic B-spline of that polyline (`roundedPieces`):
+   a parabola around every bend from the middle of the part before it to the middle of the part
+   after, so that the curve turns no more than the polyline and never the other way. Where a
+   parabola would leave the room of its edge (the boxes and cluster sides beside it in a layer,
+   the sides of the clusters that reach on between two layers) it is drawn closer to its bend,
+   by halves, down to the corner itself (`fitPieces`). An edge never turns back across the
+   layers. A gap grows, up to `sidewaysGap` (2.5) times, until its widest step is no flatter
+   than `flattest` (12) to one; orthogonal routes (`Routing.orthogonal`) are horizontal and
+   vertical segments with rounded corners on tracks of their own. Ends are spread along the
+   node's side in the order of the other ends; an arrowhead lies along the end of its curve, with
+   Graphviz's proportion to the node; labels on plates of the page colour at the middle of the
+   edge.
 
 Node boxes are whole even pixels from the label measured with the style's text engine (or, for a node with a `size`, that size made whole and even, for a caller that measures its labels itself), and each
 layer is as tall as its tallest box; outlines are one pixel on pixel centres. The result of every
@@ -246,8 +278,8 @@ the nodes the cluster holds and no part of any other node's box; boxes of cluste
 holds the other and are apart otherwise) and `clearanceProblems` (no edge comes within two pixels
 of the box of a node it does not end at; an edge between nodes that a cluster does not hold does
 not enter that cluster's box). The tests hold every measured graph to no violation of the first
-and of the node part of the second; edges entering foreign clusters are counted (they are avoided
-where the order allows, not always).
+and of the node part of the second, and the blueprint graphs with clusters to no edge entering a
+cluster that holds neither of its ends; on the largest graph such edges are counted.
 
 **Components packed** (`Graph/Pack`). `Graph.layoutPacked` lays every connected component out on
 its own (`Graph.layout`'s phases) and packs the drawings into rows instead of one wide row of
@@ -286,9 +318,14 @@ starts puts every target below its source, from any starting layers), `assignLay
 `assignLayers_lt_input` (for the function the layout calls, which runs the network simplex,
 balances, compacts the clusters and relaxes the result, every acyclic edge, and so every input
 edge turned to point from the node that comes first, has `layer src < layer dst`, whatever the
-earlier steps returned), `compactGroups_size`, and `layout_edge_indices`, `layout_edges_nodup`,
+earlier steps returned), `assignNested_lt` and `assignWide_lt` (the same for the layers of a graph
+with clusters, layered from the inside out, and for the layers with their wide ones split into
+rows), `compactGroups_size`, and `layout_edge_indices`, `layout_edges_nodup`,
 `layout_edges_complete` (the routed edges are exactly the valid input edges, in order, each once,
-by index). The cluster and clearance conditions are checked, not proved.
+by index). The cluster and clearance conditions and the properties of the routes (inside their
+gates, shortest, the curve inside its zones, never back across the layers) are checked on every
+measured graph and on random cases, each check with a planted fault that it must report
+(`PILeanTest/GraphRoutes.lean`), not proved.
 
 **DOT in and out** (`Graph/Dot`): `layoutDot` reads the DOT a program would hand to
 `dot -Tdot` (graphs and digraphs, node, edge and graph defaults, chains of edges, nested `cluster`
@@ -304,89 +341,94 @@ item, string length); ports, HTML strings and subgraphs as edge ends are refused
 `--graph-quality-files PILeanTest/graphs [DIR [packed]]` for the graph files; the measures are
 computed from the finished layout: pairs of edges that cross, edges sharing a node not counted,
 on the flattened curves; total edge length; the area of the box around nodes, clusters and edges;
-violations of the two checks; time). With `DIR`, the same graphs are written as DOT with PILean's
-node sizes and gaps and their clusters, and `python3 -I tools/graph-compare.py DIR` compares with
-Graphviz's `dot` when it is installed. The built-in graphs: this library's import graph and that
-of a project of 89 modules (names replaced by ids), the dependency graphs of two blueprints
-(names removed, label lengths kept) without clusters, by chapter and, for the first, by chapter and
-section, random module graphs of 800 and 3000 nodes, random dense and sparse acyclic graphs, a
-binary tree and a chain with shortcuts (`PILeanTest/GraphQuality.lean`). The graph files
-(`PILeanTest/graphs/`, described in its `README.md`; names removed, label lengths kept) are a code
-site of about 2,900 declarations in 85 modules (code site C), its modules and its largest module,
-and views of the neighbourhood of one declaration of 34 to 401 nodes. Graphviz's numbers are the
-recorded ones in `PILeanTest/graphs/dot-recorded.tsv` (Graphviz 16.1.0), so that `lake test` needs
-no `dot`: it holds every graph but the two largest (the 3000-node module graph and code site C)
-to no cluster violation, no edge passing a node, crossings and edge length within a ratio of the
-recorded ones (a constant per graph, about 0.1 above the measured ratio), and, for the older
-graphs, to bounds about a tenth above the values measured.
+violations of the two checks; time; and what the eye objects to: the mean turning of an edge (the
+sum of the angles by which it changes direction, in degrees), its mean number of inflections
+(changes from bending one way to bending the other, a bend counting from five degrees), the
+length of the edges outside the box around the nodes, the least distance between an edge and a
+node it does not end at, and the edges that turn back across the layers). With `DIR`, the same
+graphs are written as DOT with PILean's node sizes and gaps and their clusters, and
+`python3 -I tools/graph-compare.py DIR` compares with Graphviz's `dot` when it is installed. The
+built-in graphs: this library's import graph and that of a project of 89 modules (names replaced
+by ids), the dependency graphs of two blueprints (names removed, label lengths kept) without
+clusters, by chapter and, for the first, by chapter and section, random module graphs of 800 and
+3000 nodes, random dense and sparse acyclic graphs, a binary tree and a chain with shortcuts
+(`PILeanTest/GraphQuality.lean`). The graph files (`PILeanTest/graphs/`, described in its
+`README.md`; names removed, label lengths kept) are a code site of about 2,900 declarations in 85
+modules (code site C), its modules and its largest module, and views of the neighbourhood of one
+declaration of 34 to 401 nodes. Graphviz's numbers are the recorded ones in
+`PILeanTest/graphs/dot-recorded.tsv` (Graphviz 16.1.0), so that `lake test` needs no `dot`: it
+holds every graph but the two largest (the 3000-node module graph and code site C) to no cluster
+violation, no edge passing a node or nearer than three pixels to one, no edge turning back across
+the layers, crossings, edge length, turning and inflections within a ratio of the recorded ones (a
+constant per graph, about 0.1 above the measured ratio), and, for the older graphs, to bounds
+about a tenth above the values measured.
 
-Measured with the machine's load average about 8 to 11 (both programs under the same load).
-Ratios are PILean over `dot`; `dot`'s area leaves out its cluster boxes (its plain output has
-none), PILean's includes them. Times are one run each: PILean's layout alone, and `dot` on the
-file (including its start).
+Measured with the machine's load average about 3 to 12 (PILean's runs under the higher load).
+Ratios are PILean over `dot`; where two numbers stand in a cell they are PILean's and `dot`'s.
+`dot`'s area leaves out its cluster boxes (its plain output has none), PILean's includes them.
+Times are one run each: PILean's layout alone (the starts of the crossing reduction on several
+processors), and `dot` on the file (including its start).
 
-| Graph | Nodes, edges | Time PILean / dot (ms) | Crossings | Edge length | Area | Cluster violations | Edges passing a node | Edges entering a foreign cluster |
-|---|---|---|---|---|---|---|---|---|
-| own imports | 92, 205 | 273 / 40 | 1.04 | 0.90 | 0.75 | – | 0 | – |
-| project imports | 88, 173 | 132 / 35 | 0.75 | 0.93 | 0.77 | – | 0 | – |
-| blueprint A | 58, 146 | 159 / 27 | 1.01 | 0.85 | 0.70 | – | 0 | – |
-| blueprint A by chapter | 58, 146 | 88 / 63 | 1.29 | 1.04 | 0.85 | 0 | 0 | 8 |
-| blueprint A by chapter and section | 58, 146 | 90 / 59 | 1.19 | 1.64 | 1.09 | 0 | 0 | 69 |
-| blueprint B | 69, 111 | 52 / 20 | 1.07 | 1.16 | 0.77 | – | 0 | – |
-| blueprint B by chapter | 69, 111 | 43 / 55 | 1.10 | 1.54 | 1.20 | 0 | 0 | 26 |
-| module graph | 800, 1077 | 1432 / 513 | 1.23 | 0.96 | 0.64 | – | 0 | – |
-| module graph | 3000, 4019 | 6070 / 3545 | 0.86 | 0.82 | 1.29 | – | 0 | – |
-| dense random | 120, 387 | 304 / 48 | 1.05 | 0.75 | 0.34 | – | 0 | – |
-| sparse random | 300, 325 | 193 / 34 | 0.92 | 1.11 | 0.50 | – | 0 | – |
-| tree | 127, 126 | 6 / 22 | – (0 / 0) | 1.30 | 1.00 | – | 0 | – |
-| chain | 80, 99 | 7 / 18 | – (0 / 0) | 1.15 | 1.14 | – | 0 | – |
-| code site C | 2866, 5516 | 775 / 1654 | 1.26 | 3.35 | 1.63 | 0 | 0 | 5682 |
-| code site C, its modules | 85, 159 | 175 / 34 | 1.13 | 1.02 | 0.75 | – | 0 | – |
-| code site C, its largest module | 561, 422 | 148 / 81 | 0.02 | 0.98 | 2.24 | 0 | 0 | 0 |
-| neighbourhood, a node with 400 neighbours | 401, 400 | 13 / 33 | – (0 / 0) | 1.01 | 1.73 | – | 0 | – |
-| neighbourhood of 290 nodes | 290, 793 | 1564 / 165 | 0.86 | 0.82 | 1.20 | – | 0 | – |
-| neighbourhood of 150 nodes | 150, 468 | 931 / 156 | 0.77 | 0.69 | 0.71 | – | 0 | – |
-| neighbourhood of 50 nodes | 50, 152 | 154 / 30 | 0.96 | 0.89 | 0.76 | – | 0 | – |
-| neighbourhood of 46 nodes (1) | 46, 119 | 120 / 26 | 1.09 | 0.88 | 0.76 | – | 0 | – |
-| neighbourhood of 46 nodes (2) | 46, 72 | 23 / 21 | 0.95 | 1.19 | 0.94 | – | 0 | – |
-| neighbourhood of 34 nodes | 34, 93 | 74 / 23 | 0.92 | 0.96 | 0.68 | – | 0 | – |
+| Graph | Nodes, edges | Time (ms) | Crossings | Edge length | Area | Turning of an edge (degrees) | Inflections of an edge | Nearest node to an edge (px) | Edges entering a foreign cluster |
+|---|---|---|---|---|---|---|---|---|---|
+| own imports | 92, 205 | 68 / 37 | 1.04 | 0.89 | 0.80 | 46 / 44.8 | 0.26 / 0.29 | 5 / 0.6 | – |
+| project imports | 88, 173 | 40 / 30 | 0.75 | 0.86 | 0.79 | 23.5 / 25 | 0.12 / 0.2 | 4.1 / 0.9 | – |
+| blueprint A | 58, 146 | 45 / 27 | 1.01 | 0.83 | 0.89 | 48.4 / 43.6 | 0.25 / 0.29 | 4.9 / 0.3 | – |
+| blueprint A by chapter | 58, 146 | 196 / 63 | 0.85 | 0.90 | 1.11 | 75 / 52 | 0.59 / 0.53 | 5 / 0.2 | 0 |
+| blueprint A by chapter and section | 58, 146 | 258 / 61 | 0.98 | 0.90 | 1.13 | 99.5 / 66.1 | 0.77 / 0.69 | 5 / 0.1 | 0 |
+| blueprint B | 69, 111 | 18 / 20 | 1.06 | 1.14 | 1.05 | 15 / 18 | 0.07 / 0.03 | 5.7 / 1.2 | – |
+| blueprint B by chapter | 69, 111 | 81 / 60 | 0.60 | 0.88 | 0.96 | 42.1 / 39.4 | 0.35 / 0.38 | 4.5 / 0.1 | 0 |
+| module graph | 800, 1077 | 794 / 434 | 1.23 | 0.98 | 0.97 | 34.2 / 39.4 | 0.5 / 0.6 | 4.2 / 0.1 | – |
+| module graph | 3000, 4019 | 6466 / 3193 | 0.85 | 0.80 | 1.48 | 67.3 / 59.2 | 0.99 / 1.05 | 3.5 / 0 | – |
+| dense random | 120, 387 | 93 / 52 | 1.05 | 0.69 | 0.33 | 32.1 / 29.4 | 0.21 / 0.12 | 5 / 1.7 | – |
+| sparse random | 300, 325 | 55 / 32 | 0.92 | 1.08 | 0.59 | 6 / 9.1 | 0.05 / 0.1 | 5.8 / 0.8 | – |
+| tree | 127, 126 | 8 / 19 | – (0 / 0) | 1.21 | 1.20 | 0 / 0.1 | 0 / 0 | 27.2 / 24.6 | – |
+| chain | 80, 99 | 8 / 19 | – (0 / 0) | 1.09 | 1.14 | 0 / 1.4 | 0 / 0 | 22 / 14 | – |
+| code site C | 2866, 5516 | 25181 / 1590 | 0.48 | 1.04 | 5.53 | 111.5 / 108.7 | 1.06 / 1.37 | 3.5 / 0 | 13 |
+| code site C, its modules | 85, 159 | 114 / 33 | 1.13 | 1.01 | 0.97 | 44.8 / 40.1 | 0.36 / 0.31 | 5.7 / 0.9 | – |
+| code site C, its largest module | 561, 422 | 160 / 75 | 0.02 | 0.99 | 1.99 | 6 / 34.8 | 0 / 0.1 | 5.9 / 0 | 0 |
+| neighbourhood, a node with 400 neighbours | 401, 400 | 26 / 32 | – (0 / 0) | 1.01 | 1.55 | 2.1 / 32.4 | 0 / 0.07 | 5.9 / 0.1 | – |
+| neighbourhood of 290 nodes | 290, 793 | 1115 / 155 | 0.86 | 0.78 | 1.22 | 69 / 61.7 | 0.63 / 0.66 | 4.6 / 0 | – |
+| neighbourhood of 150 nodes | 150, 468 | 651 / 145 | 0.77 | 0.70 | 0.99 | 87.4 / 83.5 | 0.75 / 0.98 | 4.5 / 0 | – |
+| neighbourhood of 50 nodes | 50, 152 | 106 / 27 | 0.95 | 0.85 | 0.88 | 61.7 / 57 | 0.36 / 0.49 | 5.4 / 1.1 | – |
+| neighbourhood of 46 nodes (1) | 46, 119 | 84 / 24 | 1.09 | 0.88 | 1.02 | 50.1 / 49.7 | 0.26 / 0.42 | 5.3 / 0.8 | – |
+| neighbourhood of 46 nodes (2) | 46, 72 | 22 / 18 | 0.95 | 1.10 | 1.03 | 14.6 / 14 | 0.08 / 0.1 | 6 / 1.8 | – |
+| neighbourhood of 34 nodes | 34, 93 | 52 / 23 | 0.92 | 0.93 | 0.79 | 52.5 / 43.4 | 0.29 / 0.26 | 4.6 / 1.3 | – |
 
-Packed (`layoutPacked` against `dot` with `pack=true`; measured for code site C and its largest
-module): code site C has 1.15 times `dot`'s crossings, 1.66 times its edge length and 0.41 times
-its area (unpacked: 1.29, 3.36 and 1.63); its largest module is one component (its one cluster
-holds every node), so packing changes nothing there.
+No drawing has a cluster violation, an edge passing a node, or an edge that turns back across the
+layers. Packed (`layoutPacked` against `dot` with `pack=true`): code site C has 0.38 times `dot`'s
+crossings, 0.81 times its edge length and 1.56 times its area; its largest module is one
+component (its one cluster holds every node), so packing changes nothing there.
 
-Against the aim of 1.1 times `dot`'s crossings and edge length and 1.25 times its area with
-correct clusters. The clusters are correct on every graph (boxes disjoint or nested, holding
-exactly their nodes) and no edge passes a node. The area is within the aim on every graph but four:
-the 3000-node module graph (1.29: PILean's layering of least total span gives fewer, wider layers
-than `dot`'s), code site C (1.63) and the two graphs that are one very wide layer of leaves, the
-node with 400 neighbours (1.73) and the largest module of code site C (2.24), whose drawings are
-about 107,000 and 142,000 pixels wide. Crossings are within the aim on every graph without
-clusters but the 800-node module graph (1.25), and on all the neighbourhoods (0.78 to 1.10); on the
-graphs with clusters they are not: 1.50, 1.55 and 1.31 on the three blueprint graphs and 1.29 on
-code site C (0.02 on its largest module, where `dot` draws 1,003 crossings against PILean's 16).
-Edge length is within the aim on every graph without clusters but the sparse graph (1.12), the
-tree (1.31), the chain (1.15) and one neighbourhood (1.19) (PILean's ends are spread along the
-node's side and enter perpendicular to it; the curves are longer than `dot`'s diagonals), and not
-on the graphs with clusters: 1.04, 1.64 and 1.54 on the blueprint graphs and 3.36 on code site C
-(1.66 packed), where 85 clusters and 5,455 edges that enter a cluster holding neither of their ends
-are what PILean handles worst (`compactGroups` shortens the clusters' spans at the cost of longer
-edges, and long edges leave a cluster through its side and run outside it).
+What the table says. Without clusters the drawings have about as many crossings as `dot`'s (0.75
+to 1.23 times), shorter edges on most graphs (0.69 to 1.14 times; the tree 1.21, because the ends
+are spread along the node's side) and a smaller or similar area. An edge turns about as much as in
+`dot`'s drawing (within a sixth on most graphs: 48 degrees against 44 on blueprint A, 15 against
+18 on blueprint B) and changes the side it bends to less often on most. No edge comes nearer than
+3.5 pixels to a node it does not end at, where `dot`'s edges touch or cross such nodes on most
+graphs. With clusters, layered from the inside out, the blueprint graphs have fewer crossings and
+shorter edges than `dot`'s (0.60 to 0.98 and 0.88 to 0.90 times) and no edge through a cluster it
+does not end in, at the cost of more turning (75 and 100 degrees an edge against 52 and 66: an
+edge goes round a cluster where `dot`'s goes through it) and of drawings that are about as tall
+as wide where `dot`'s are wide strips. Code site C has half of `dot`'s crossings and edges 1.04
+times as long; 13 times an edge still passes through a cluster that holds neither of its ends
+after the twelve rounds (in `dot`'s drawing 896 of the 5,516 edges do, through 3,104 clusters in
+all), and its drawing is five and a half times the area of `dot`'s, about 251,000 by 28,000
+pixels against 325,000 by 4,000: most of its width is the room of the edges between the clusters.
 
-Crossings on the blueprint graphs with clusters are 1.29, 1.19 and 1.10 times `dot`'s: under the
-cluster rules the reduction runs the sweeps and transposition from the same starts (the seeded
-ones included) but does not sift. What would close the gaps: a layering that ranks clusters
-recursively as `dot` does (its own cluster skeleton), which lets the crossing reduction move whole
-clusters; sifting under the cluster rules; and a cheaper network simplex exchange (the low/lim
-numbering of Gansner et al. for the cut search) so that the coordinate phase can finish within
-the bound on larger graphs.
+PILean takes one to two times as long as `dot` on most graphs without clusters (45 ms against 27
+on blueprint A, 0.8 s against 0.4 s on the 800-node module graph) and up to seven times on the
+dense neighbourhoods (1.1 s against 0.16 s for 290 nodes), with the starts of the crossing
+reduction on several processors; `LayeredOptions.starts` sets the number of extra starts. A
+graph with clusters takes longer: the cluster rules make a sweep slower, and code site C takes
+about 25 s for its twelve rounds (`clusterRounds`; one round is about 2 s, and `dot` takes 1.6 s
+for a drawing with the edges through the clusters).
 
-PILean is slower than `dot` on most of these graphs: the seeded starts and the sifting take most
-of the time (the blueprint graphs without clusters 50 to 160 ms, the 800-node module graph about
-1.5 s and the 3000-node one about 6 s, against `dot`'s 20 to 63 ms, 0.5 s and 3.5 s).
-`LayeredOptions.starts` sets the number of extra starts; with none the layouts take a tenth to a
-fifth of these times and have more crossings.
+What would close the remaining gaps: an order of the sibling clusters found for the whole level at
+once, so that fewer rounds are needed; sifting under the cluster rules; bundling the edges between
+the same two clusters, which is what would make the drawing of a graph like code site C narrow;
+and a cheaper network simplex exchange (the low/lim numbering of Gansner et al. for the cut
+search) so that the coordinate phase can finish within the bound on larger graphs.
 
 ## Plots
 

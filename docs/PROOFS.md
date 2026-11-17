@@ -125,6 +125,16 @@ not rational-valued.
   about that pass. Nothing is proved about the layers network simplex and balancing produce
   before it (`layersBeforeRepair`); a test checks, on random graphs, the fixtures and the import
   graphs, that the repair changes nothing there, so the layers you see are the simplex's own.
+* `Graph.assignNested_lt`, `Graph.assignWide_lt`: the same for the two other layerings the layout
+  calls: of a graph with clusters, layered from the inside out (every edge between two different
+  nodes points, from the node that comes first in the order `assignNested` returns, to a deeper
+  layer), and of a graph whose wide layers are split into rows. Both hold by the same repair
+  pass; that the pass changes nothing after them, so that a cluster keeps its block of layers,
+  is tested, not proved.
+* Not proved: the routes of the edges (`Graph/Route`): that a route passes every gate and is the
+  shortest, that the curve stays in its zones and that no edge turns back across the layers are
+  checked on random cases and on every measured graph, each check with a planted fault it must
+  report (`PILeanTest/GraphRoutes.lean`). The coordinates are floating point.
 * Not proved: the crossing reduction's sifting and seeded starts, the packing of components
   (`Graph.layoutPacked`), `Layout.mirror` and the SVG for web pages (`Layout.toWebSvg`). They are
   tested (`PILeanTest/GraphOrder.lean`), not proved; that every edge of the input has one route
