@@ -13,6 +13,7 @@ import PILeanTest.Anim
 import PILeanTest.Plots
 import PILeanTest.Lettering
 import PILeanTest.Graphs
+import PILeanTest.GraphOrder
 import PILeanTest.GraphQuality
 import PILeanTest.GraphDot
 import PILeanTest.Exact
@@ -28,7 +29,7 @@ import PILeanTest.Axioms
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
 `PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`, `PILeanTest.Plots`,
-`PILeanTest.Graphs`, `PILeanTest.Trust`, `PILeanTest.TrustBuild`, `PILeanTest.Inert`,
+`PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.Trust`, `PILeanTest.TrustBuild`, `PILeanTest.Inert`,
 `PILeanTest.Exact`) and compares
 every gallery figure's SVG and PNG, every gallery graph's SVG and PNG, and every gallery
 animation's SVG, APNG, GIF and poster, with
@@ -90,7 +91,8 @@ def main (args : List String) : IO UInt32 := do
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++ Blur.checks ++
     Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
-    Graphs.checks ++ GraphQuality.checks ++ (← GraphQuality.ioChecks) ++ GraphDot.checks ++
+    Graphs.checks ++ GraphOrder.checks ++ GraphQuality.checks ++ (← GraphQuality.ioChecks) ++
+    GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
     (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks)

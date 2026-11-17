@@ -16,6 +16,7 @@ import PILeanTest.Anim
 import PILeanTest.Plots
 import PILeanTest.Lettering
 import PILeanTest.Graphs
+import PILeanTest.GraphOrder
 import PILeanTest.GraphQuality
 import PILeanTest.GraphDot
 import PILeanTest.Exact
