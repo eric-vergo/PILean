@@ -30,6 +30,8 @@ import PILean.Graph.Ordering
 import PILean.Graph.Compound
 import PILean.Graph.Coordinates
 import PILean.Graph.Layered
+import PILean.Graph.Pack
+import PILean.Graph.Web
 import PILean.Graph.Simple
 import PILean.Graph.Draw
 import PILean.Graph.Check

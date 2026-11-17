@@ -148,6 +148,59 @@ def initialLayersBfs (layerAll : Array Nat) (up down : Array (Array Nat)) : Arra
         layers := layers.modify (layerAll.getD v 0) (·.push v)
     return layers
 
+/-- A step of a fixed pseudo-random sequence (a linear congruential generator): the next state
+and a number below `2 ^ 31`. The extra starts of the crossing reduction draw from it, so they are
+the same on every run. -/
+def nextRandom (s : UInt64) : UInt64 × Nat :=
+  let s := s * 6364136223846793005 + 1442695040888963407
+  (s, (s >>> 33).toNat)
+
+/-- `xs` in an order drawn from the sequence at state `s` (Fisher and Yates), with the state
+after it. -/
+def shuffle (xs : Array Nat) (s : UInt64) : Array Nat × UInt64 := Id.run do
+  let mut xs := xs
+  let mut s := s
+  for k in [0:xs.size] do
+    let i := xs.size - 1 - k
+    let (s', r) := nextRandom s
+    s := s'
+    let j := r % (i + 1)
+    let a := xs.getD i 0
+    xs := (xs.setIfInBounds i (xs.getD j 0)).setIfInBounds j a
+  return (xs, s)
+
+/-- The nodes by layer in the order of a depth-first search as `initialLayers` makes it, but
+from the roots in an order drawn from the fixed sequence at `seed`, each node's lower neighbours
+in a drawn order too. Work: `O(V + E)`. -/
+def initialLayersSeeded (layerAll : Array Nat) (up down : Array (Array Nat)) (seed : Nat) :
+    Array (Array Nat) := Id.run do
+  let size := layerAll.size
+  let count := layerAll.foldl (fun m l => max m (l + 1)) 0
+  let mut layers : Array (Array Nat) := Array.replicate count #[]
+  let mut seen : Array Bool := Array.replicate size false
+  let (roots, s0) := shuffle ((Array.range size).filter fun v => (up.getD v #[]).isEmpty)
+    (seed.toUInt64 * 2654435761 + 97)
+  let mut s := s0
+  for root in roots do
+    if !seen.getD root true then
+      let mut stack : Array Nat := #[root]
+      for _ in [0:size + (down.foldl (fun s d => s + d.size) 0) + 1] do
+        match stack.back? with
+        | none => break
+        | some v =>
+          stack := stack.pop
+          if !seen.getD v true then
+            seen := seen.setIfInBounds v true
+            layers := layers.modify (layerAll.getD v 0) (·.push v)
+            let (ws, s') := shuffle (down.getD v #[]) s
+            s := s'
+            for w in ws do
+              if !seen.getD w true then stack := stack.push w
+  for v in [0:size] do
+    if !seen.getD v true then
+      layers := layers.modify (layerAll.getD v 0) (·.push v)
+  return layers
+
 /-- The position of every node in its layer. -/
 def positionsOf (size : Nat) (order : Array (Array Nat)) : Array Nat := Id.run do
   let mut pos : Array Nat := Array.replicate size 0
@@ -273,6 +326,137 @@ def transposePass (order : Array (Array Nat)) (pos : Array Nat) (up down : Array
     order := order.setIfInBounds i layer
   return (order, pos, changed)
 
+/-- For sorted positions `a` of the neighbours of a node `u` and `b` of a node `v` of the same
+layer: the crossings between their edges when `u` stands left of `v`, and when `v` stands left
+of `u` (one merge, `O(|a| + |b|)`). -/
+def crossBothWays (a b : Array Nat) : Nat × Nat := Id.run do
+  -- for each x in a: the y in b below x cross when u is left, the y above x when v is left
+  let mut below := 0
+  let mut notAbove := 0
+  let mut uLeft := 0
+  let mut vLeft := 0
+  for x in a do
+    for _ in [0:b.size] do
+      if below < b.size && b.getD below 0 < x then below := below + 1 else break
+    for _ in [0:b.size] do
+      if notAbove < b.size && b.getD notAbove 0 ≤ x then notAbove := notAbove + 1 else break
+    uLeft := uLeft + below
+    vLeft := vLeft + (b.size - notAbove)
+  return (uLeft, vLeft)
+
+/-- One layer sifted (Matuszewski, Schönfeld and Molitor): each node that `movable` allows, the
+nodes of most edges first, is taken out and put where the crossings of its edges with the edges
+of the other nodes of the layer are fewest, over all places from `lo v` to `hi v` (positions
+among the other nodes; the whole layer by default); on a tie it stays as near as it can to where
+it stood. `upPos` and `downPos` give every node's sorted neighbour positions in the layers above
+and below, which do not change. Work: `O(k² d)` for `k` nodes of mean degree `d`. Returns the
+layer and whether any node moved to a place with fewer crossings. -/
+def siftLayer (layer : Array Nat) (upPos downPos : Nat → Array Nat)
+    (movable : Nat → Bool := fun _ => true)
+    (range : Array Nat → Nat → Nat × Nat := fun rest _ => (0, rest.size)) :
+    Array Nat × Bool := Id.run do
+  let degree := fun (v : Nat) => (upPos v).size + (downPos v).size
+  let byDegree := (layer.filter fun v => movable v && degree v > 0).sortStable fun u v =>
+    degree u > degree v || (degree u == degree v && u < v)
+  let mut order := layer
+  let mut improved := false
+  for v in byDegree do
+    let at_ := (order.idxOf? v).getD 0
+    let rest := order.eraseIdxIfInBounds at_
+    let (lo, hi) := range rest at_
+    let lo := min lo at_
+    let hi := max (min hi rest.size) at_
+    let uv := upPos v
+    let dv := downPos v
+    -- the cost of standing at `lo`, then the change of every step to the right
+    let mut cost : Int := 0
+    let mut steps : Array Int := Array.mkEmpty (hi - lo)
+    for j in [lo:hi] do
+      let u := rest.getD j 0
+      let (ul, vl) := crossBothWays (upPos u) uv
+      let (ul', vl') := crossBothWays (downPos u) dv
+      -- `u` left of `v`: `ul + ul'`; `v` left of `u`: `vl + vl'`
+      cost := cost + Int.ofNat (vl + vl')
+      steps := steps.push (Int.ofNat (ul + ul') - Int.ofNat (vl + vl'))
+    let mut cur := cost
+    let mut here := cost
+    let mut best := cost
+    let mut bestAt := lo
+    let mut bestDist := at_ - lo
+    for j in [lo:hi] do
+      if j == at_ then here := cur
+      cur := cur + steps.getD (j - lo) 0
+      let d := if j + 1 ≥ at_ then j + 1 - at_ else at_ - (j + 1)
+      if cur < best || (cur == best && d < bestDist) then
+        best := cur
+        bestAt := j + 1
+        bestDist := d
+    if at_ == hi then here := cur
+    if best < here then
+      improved := true
+      order := rest.insertIdxIfInBounds bestAt v
+  return (order, improved)
+
+/-- One round of sifting over every layer, from the top down or from the bottom up: each layer
+is sifted against the current orders of its neighbours (`siftLayer`). Returns the order, the
+positions and whether anything got better. -/
+def siftRound (order : Array (Array Nat)) (pos : Array Nat) (up down : Array (Array Nat))
+    (downward : Bool) : Array (Array Nat) × Array Nat × Bool := Id.run do
+  let mut order := order
+  let mut pos := pos
+  let mut improved := false
+  let count := order.size
+  for k in [0:count] do
+    let i := if downward then k else count - 1 - k
+    let layer := order.getD i #[]
+    if layer.size < 2 then continue
+    let p := pos
+    let sorted := fun (nbr : Array (Array Nat)) =>
+      (layer.foldl (init := (∅ : Std.HashMap Nat (Array Nat))) fun m v =>
+        m.insert v (((nbr.getD v #[]).map fun u => p.getD u 0).sortStable (· < ·)))
+    let ups := sorted up
+    let downs := sorted down
+    let (r, better) := siftLayer layer (ups.getD · #[]) (downs.getD · #[])
+    if better then
+      improved := true
+      order := order.setIfInBounds i r
+      for j in [0:r.size] do pos := pos.setIfInBounds (r.getD j 0) j
+  return (order, pos, improved)
+
+/-- The most pairs of nodes of one layer, summed over the layers, that a round of sifting may
+compare: above it the order is left as the sweeps found it. -/
+def siftPairLimit : Nat := 6000000
+
+/-- The order improved by sifting: rounds over all layers, alternately downwards and upwards,
+each followed by transposition, while the crossings fall (at most `rounds` rounds). Graphs whose
+layers hold more than `siftPairLimit` pairs of nodes in all are returned as they are. -/
+def siftFrom (size : Nat) (order : Array (Array Nat)) (crossings : Nat)
+    (up down : Array (Array Nat)) (rounds : Nat := 12) : Array (Array Nat) × Nat := Id.run do
+  let pairs := order.foldl (fun s l => s + l.size * l.size) 0
+  if crossings == 0 || pairs > siftPairLimit then return (order, crossings)
+  let mut best := order
+  let mut bestC := crossings
+  let mut cur := order
+  let mut pos := positionsOf size order
+  let mut stall := 0
+  for r in [0:rounds] do
+    if bestC == 0 || stall ≥ 2 then break
+    let (o, p, _) := siftRound cur pos up down (r % 2 == 0)
+    cur := o
+    pos := p
+    for _ in [0:8] do
+      let (o, p, changed) := transposePass cur pos up down
+      cur := o
+      pos := p
+      if !changed then break
+    let c := totalCrossings cur down pos
+    if c < bestC then
+      best := cur
+      bestC := c
+      stall := 0
+    else stall := stall + 1
+  return (best, bestC)
+
 /-- The order of the nodes inside the layers and its crossings, from the initial `layers`: at
 most `sweeps` rounds of a weighted-median sweep (down on even rounds, up on odd ones) followed
 by transposition until no adjacent swap helps (at most `8` passes; the first pass of an up round
@@ -312,21 +496,37 @@ def reduceFrom (size : Nat) (layers : Array (Array Nat)) (up down : Array (Array
       bestC := c
       stall := 0
     else stall := stall + 1
-  return (best, bestC)
+  return siftFrom size best bestC up down
 
-/-- The order of the nodes inside the layers: `reduceFrom` the depth-first and from the
-breadth-first initial orders, the one with fewer crossings (the depth-first on a tie; only the
-depth-first for more than 6000 nodes, real and dummy). -/
-def orderLayers (layerAll : Array Nat) (up down : Array (Array Nat)) (sweeps : Nat) :
-    Array (Array Nat) :=
+/-- The work the extra starts of the crossing reduction may take in all, in pairs of nodes of
+one layer (summed over the layers, per start). -/
+def extraStartWork : Nat := 600000
+
+/-- How many extra starts (`initialLayersSeeded`) the crossing reduction makes on a layered graph
+whose layers hold `pairs` pairs of nodes in all: as many as `extraStartWork` allows, at most
+`most`. -/
+def extraStarts (pairs most : Nat) : Nat := min most (extraStartWork / max 1 pairs)
+
+/-- The order of the nodes inside the layers: `reduceFrom` the depth-first, the breadth-first
+and the bottom-up depth-first initial orders (only the first for more than 6000 nodes, real and
+dummy), and from up to `starts` more depth-first orders drawn from a fixed sequence, as many as
+`extraStarts` allows for the graph's size; the order with the fewest crossings, the earliest on a
+tie. -/
+def orderLayers (layerAll : Array Nat) (up down : Array (Array Nat)) (sweeps : Nat)
+    (starts : Nat := 24) : Array (Array Nat) := Id.run do
   let size := layerAll.size
   let a := reduceFrom size (initialLayers layerAll up down) up down sweeps
-  if a.2 == 0 || size > 6000 then a.1
-  else
-    let b := reduceFrom size (initialLayersBfs layerAll up down) up down sweeps
-    let c := reduceFrom size (initialLayers layerAll down up) up down sweeps
-    let best := if b.2 < a.2 then b else a
-    if c.2 < best.2 then c.1 else best.1
+  if a.2 == 0 || size > 6000 then return a.1
+  let mut best := a
+  for start in [initialLayersBfs layerAll up down, initialLayers layerAll down up] do
+    let r := reduceFrom size start up down sweeps
+    if r.2 < best.2 then best := r
+  let pairs := a.1.foldl (fun s l => s + l.size * l.size) 0
+  for k in [0:extraStarts pairs starts] do
+    if best.2 == 0 then break
+    let r := reduceFrom size (initialLayersSeeded layerAll up down k) up down sweeps
+    if r.2 < best.2 then best := r
+  return best.1
 
 /-- Gathers the members of each cluster: every cluster gets one place across the whole drawing,
 the mean of its members' relative positions in their layers (position plus a half, over the

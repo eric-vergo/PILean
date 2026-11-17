@@ -371,7 +371,7 @@ def gapPiece (a b : Point) : Piece :=
 /-- The route across a gap from `a` down to `b` that goes far sideways: down from `a`, a
 horizontal run at `y`, down into `b`, with rounded corners. -/
 def stairPieces (a b : Point) (y : Float) : Array Piece :=
-  let r := min 10 (min (min (y - a.y) (b.y - y)) ((b.x - a.x).abs / 2)) |> max 0
+  let r := min 24 (min (min (y - a.y) (b.y - y)) ((b.x - a.x).abs / 2)) |> max 0
   let s : Float := if b.x ≥ a.x then 1 else -1
   -- a quarter circle as a cubic: the control points 0.5523 of the radius from the ends
   let k := 0.5523 * r

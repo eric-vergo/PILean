@@ -160,8 +160,9 @@ def Node.shapeOf (n : Graph.Node) : NodeShape := n.style.shape.getD .round
 
 /-- The width and height of the box of a node with a label, from the style's text engine: the
 label's width plus padding, whole even numbers of pixels; an ellipse is larger to hold the
-text. -/
+text. A node with a `size` of its own has that size, made whole and even. -/
 def nodeSize (st : Style) (o : LayeredOptions) (n : Graph.Node) : Float × Float :=
+  if let some (w, h) := n.size then (evenUp (max 2 w), evenUp (max 2 h)) else
   let w := st.text.measure n.label st.nodeLabelSize
   let k : Float := if n.shapeOf == .ellipse then 1.3 else 1
   (evenUp (max (o.minNodeWidth * k) ((w + 2 * o.nodePadding) * k)), evenUp (o.nodeHeight * k))

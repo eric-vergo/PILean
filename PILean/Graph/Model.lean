@@ -61,6 +61,10 @@ structure Node where
   label : String
   /-- Overrides of the look. -/
   style : NodeStyle := {}
+  /-- The width and height of the node's box, for a caller that measures its labels itself (a
+  page that draws them in its own font, labels of several lines); `none` takes the size from the
+  label and the style. -/
+  size : Option (Float × Float) := none
   deriving Inhabited
 
 /-- An edge between two nodes (by number). -/
