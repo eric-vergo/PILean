@@ -8,6 +8,8 @@ import PILean.Graph.Ordering
 import PILean.Graph.Coordinates
 import PILean.Graph.Simplex
 import PILean.Graph.Compound
+import PILean.Graph.Route
+import PILean.Graph.Nested
 import PILean.Sort
 
 /-!
@@ -18,10 +20,12 @@ five phases, each with its work bounded by its input:
 
 1. **Cycle removal** (`elsPositions`, `PILean.Graph.Layering`): edges that point backwards in a
    greedy order are reversed for the layout; self-loops are set aside.
-2. **Layers** (`assignLayers`): the layers of least total edge span by network simplex
-   (`PILean.Graph.Simplex`), balanced, and relaxed by `fixLayers` so that every edge points to a
-   deeper layer. When an edge has a label, the layers
-   are doubled so that the label has a layer of its own half-way along its edge.
+2. **Layers** (`assignWide`): the layers of least total edge span by network simplex
+   (`PILean.Graph.Simplex`), balanced, the layers wider than `maxLayerWidth` split into rows, and
+   relaxed by `fixLayers` so that every edge points to a deeper layer. A graph with clusters is
+   layered from the inside out, every cluster keeping a block of layers to itself
+   (`assignNested`, `PILean.Graph.Nested`). When an edge has a label, the layers are doubled so
+   that the label has a layer of its own half-way along its edge.
 3. **Crossing reduction** (`orderLayers`, `PILean.Graph.Ordering`): long edges are cut into
    chains of dummy nodes; weighted-median sweeps and transposition from a depth-first, a
    breadth-first and a bottom-up start and from more depth-first starts drawn from a fixed
@@ -32,14 +36,15 @@ five phases, each with its work bounded by its input:
    chains of long edges straight, refined, then improved by network simplex on the weighted
    horizontal length of the edges within a bound on the work; node widths come from the labels
    measured with the style's text engine.
-5. **Edges**: straight through the band of each layer they cross, as cubic curves across the
-   gaps that leave and enter perpendicular to the layers, each at a height of its own where a
-   step goes far sideways (`stationPieces`), so that no edge passes near a
-   node it does not end at (`clearanceProblems`); or as horizontal and vertical segments with
-   rounded corners (`Routing.orthogonal`); reversed edges are drawn in their own direction;
-   edges meet a node's side at points spread by `portStep`; directed edges end in an arrowhead
-   at the target's outline; labels sit on plates at the middle of their edges; self-loops are
-   small loops beside the node.
+5. **Edges** (`PILean.Graph.Route`): the shortest route through the free space beside the
+   nodes of each layer the edge crosses (`tautRoute`), drawn as one curve that rounds the bends
+   of that route and stays clear of the boxes and cluster sides beside it (`fitPieces`), so that
+   no edge passes near a node it does not end at (`clearanceProblems`) or turns back across the
+   layers; or as horizontal and vertical segments with rounded corners (`Routing.orthogonal`);
+   reversed edges are drawn in their own direction; edges meet a node's side at points spread
+   by `portStep`; directed edges end in an arrowhead at the target's outline, along the end of
+   the curve; labels sit on plates at the middle of their edges; self-loops are small loops
+   beside the node.
 
 Everything is computed in a frame whose first coordinate runs across the layers and the second
 along them, and mapped to the picture at the end (swapped for `Direction.leftToRight`).
@@ -48,8 +53,11 @@ Positions are whole pixels.
 **Clusters** (`PILean.Graph.Compound`) keep their nodes together in every layer between border
 nodes whose coordinates are one per side, so that a cluster's box holds exactly its nodes and
 the boxes of two clusters nest or are apart (`PILean.Graph.Check.clusterProblems` states the
-condition; the tests check it). Their layers are pulled together first (`compactGroups`), and
-gaps grow where cluster sides and titles need room.
+condition; the tests check it). An edge between two clusters leaves the one through its lower
+side and enters the other through its upper side; where an edge would pass through a cluster
+that holds neither of its ends (`strays`), the first three phases (`skeleton`) are run again
+with that cluster and the node or cluster the edge leads to kept one above the other, up to
+`clusterRounds` times. Gaps grow where cluster sides and titles need room.
 
 The number of dummy nodes is the sum of the spans of the edges, at most `E × (L - 1)` for `L`
 layers; when the real and dummy nodes together would be more than
@@ -75,10 +83,13 @@ the two work budgets.
   Lecture Notes in Computer Science 2265.
 * Sander, *Layout of compound directed graphs*, Technical Report A/03/96, Universität des
   Saarlandes (1996).
+* Lee, Preparata, *Euclidean shortest paths in the presence of rectilinear barriers*, Networks
+  14 (1984).
 
 ## Main definitions
 
-* `Graph.layout`, `Plan`, `layoutPlan`, `stationPieces`, `routeOne`, `routeAll`.
+* `Graph.layout`, `Skeleton`, `skeleton`, `strays`, `Plan`, `layoutPlan`, `routeOne`,
+  `routeAll`.
 -/
 
 namespace PILean.Graph
@@ -119,6 +130,24 @@ structure Plan where
   /-- The box of every cluster that has nodes, in the frame, with the cluster's number; `none`
   when the graph has no cluster with nodes (the boxes are then not computed here). -/
   clusterFrames : Option (Array (Nat × Box)) := none
+  /-- The stretch across its layer that a route through each real or dummy node may use: up to
+  the middle of the free space towards a neighbouring dummy node, and up to a few pixels from
+  a neighbouring box or cluster side. -/
+  lanes : Array (Float × Float) := #[]
+  /-- The stretch across its layer that a curve through each real or dummy node must stay in:
+  up to a few pixels from the nearest box or cluster side on either hand. -/
+  walls : Array (Float × Float) := #[]
+  /-- The sides of the clusters that reach from the layer of each real or dummy node into the
+  next one, nearest to the node on either hand (with a few pixels of room): a curve stays
+  between them on its way to the next layer. -/
+  sides : Array (Float × Float) := #[]
+  /-- The heights at which a route enters and leaves the layer of each real or dummy node: a
+  little above and below the layer's boxes and the cluster sides that begin or end there. -/
+  gates : Array (Float × Float) := #[]
+  /-- The length of an arrowhead. -/
+  arrowLength : Float := Graph.arrowLength
+  /-- The half-width of an arrowhead. -/
+  arrowHalfWidth : Float := Graph.arrowHalfWidth
 
 /-- The vertical offset of a node's boundary at the horizontal offset `off` from its centre
 (the half-height, less where an ellipse curves in). -/
@@ -128,6 +157,157 @@ def boundaryOffset (box : Box) (shape : NodeShape) (off : Float) : Float :=
     let r := min 0.95 (off.abs / max 1 (box.width / 2))
     box.height / 2 * (1 - r * r).sqrt
   | _ => box.height / 2
+
+/-- The first three phases of the layout: the order of the nodes that decides which edges are
+reversed, the layers, the chains of the edges and the order inside the layers. -/
+structure Skeleton where
+  /-- Whether a node is in a cluster. -/
+  clustered : Bool
+  /-- The order of the nodes (`before`): an edge is drawn downwards from the node that comes
+  first. -/
+  pos : Array Nat
+  /-- For every edge of `pairs`, its chain of nodes (real and dummy) from the upper end to the
+  lower. -/
+  chains : Array (Array Nat)
+  /-- The layer of every real and dummy node. -/
+  layerAll : Array Nat
+  /-- The order of the nodes of every layer, with the clusters' border nodes. -/
+  order : Array (Array Nat)
+  /-- The layered graph with the clusters' border nodes. -/
+  bs : Borders
+  deriving Inhabited
+
+/-- The first three phases for the edges `pairs` between the nodes of `g` (see `layoutPlan`):
+`nb` is the breadth of every node across its layer, `pad` the room inside a cluster's side,
+`double` whether the layers are doubled to make room for edge labels, and `apart` pairs of
+items of one level that the layers keep one above the other (`nestedLayers`). -/
+def skeleton (g : Graph) (o : LayeredOptions) (tree : ClusterTree) (pairs : Array (Nat × Nat))
+    (nb : Array Float) (pad : Float) (double : Bool) (apart : Array (Nat × Nat)) : Skeleton :=
+  Id.run do
+  let n := g.nodes.size
+  let clustered := tree.nodeCluster.any (·.isSome)
+  let rooms := nb.map (· + o.nodeGap)
+  -- a graph with clusters is layered from the inside out; the order of the nodes that decides
+  -- which edges are reversed is then the order of the layers
+  let nested := clustered && o.nestedClusters
+  let (pos, lay0) :=
+    if nested then assignNested n tree pairs.toList rooms pad o.maxLayerWidth o.layerWork apart
+    else
+      let pos := elsPositions n pairs
+      (pos, if clustered then assignLayers pos n pairs.toList o.layerWork tree.nodeCluster
+        else assignWide pos n pairs.toList rooms o.maxLayerWidth o.layerWork)
+  let lay := if double then lay0.map (· * 2) else lay0
+  let oriented : Array (Option (Nat × Nat)) := pairs.map fun (a, b) =>
+    if before pos a b then some (a, b) else some (b, a)
+  let (chains, layerAll) := buildChains lay oriented o.maxLayoutNodes
+  let size := layerAll.size
+  let (up, down) := chainNeighbours size chains
+  -- the block of every real and dummy node: a dummy node stands in the innermost cluster that
+  -- holds both ends of its edge or, when the clusters have layers of their own, in the
+  -- innermost cluster around one of the ends whose layers reach the dummy node's layer (the
+  -- edge then leaves a cluster through its lower side and enters one through its upper side)
+  let block : Array (Option Nat) := Id.run do
+    let mut b : Array (Option Nat) := (Array.range size).map fun v => tree.nodeCluster.getD v none
+    if clustered then
+      let mut span : Array (Option (Nat × Nat)) := Array.replicate g.clusters.size none
+      for v in [0:n] do
+        let l := layerAll.getD v 0
+        for c in tree.path (tree.nodeCluster.getD v none) do
+          span := span.modify c fun
+            | none => some (l, l)
+            | some (lo, hi) => some (min lo l, max hi l)
+      for c in chains do
+        if c.size ≥ 3 then
+          let ca := tree.nodeCluster.getD (c.getD 0 0) none
+          let cb := tree.nodeCluster.getD (c.getD (c.size - 1) 0) none
+          let both := tree.lca ca cb
+          let depth := (tree.path both).size
+          for j in [1:c.size - 1] do
+            let d := c.getD j 0
+            let l := layerAll.getD d 0
+            let mut inner := both
+            if nested then
+              for p in [tree.path ca, tree.path cb] do
+                for i in [depth:p.size] do
+                  let x := p.getD i 0
+                  match span.getD x none with
+                  | some (lo, hi) => if lo ≤ l && l ≤ hi then inner := some x else break
+                  | none => break
+            b := b.setIfInBounds d inner
+    return b
+  -- with clusters the order is found under the cluster rules; the free order is only a start
+  let order0 := orderLayers layerAll up down o.sweeps (if clustered then 0 else o.starts)
+  let bs : Borders := if clustered then addBorders tree layerAll up down block
+    else { layerAll, up, down, block, part := Array.replicate size .node,
+           span := #[], firstBorders := #[] }
+  let order := if clustered then reduceClustered tree bs order0 up down o.sweeps o.starts
+    else order0
+  return { clustered, pos, chains, layerAll, order, bs }
+
+/-- The clusters that an edge passes through without ending in them, each with the items to
+keep apart from it: for every step of a chain between two layers in which a cluster has nodes,
+when the step begins on one side of the cluster and ends on the other, or begins inside it
+though the cluster holds neither end of the edge, the cluster with the item of the cluster's
+level that holds the edge's lower end and the one that holds its upper end (a node of that
+level, or a cluster directly inside it; `none` for an end outside the level), as `nestedLayers`
+reads them: a node by its number, a cluster by its number plus the number of nodes. Laid out
+again with the cluster above the lower item, or the upper item above the cluster, the edge can
+pass the cluster's lower or upper side instead. -/
+def strays (tree : ClusterTree) (sk : Skeleton) : Array (Nat × Option Nat × Option Nat) :=
+  Id.run do
+  if !sk.clustered then return #[]
+  let n := tree.nodeCluster.size
+  let k := tree.parent.size
+  let size := sk.layerAll.size
+  let total := sk.bs.layerAll.size
+  let pos := positionsOf total sk.order
+  -- the clusters by layer
+  let mut inLayer : Array (Array Nat) := Array.replicate sk.order.size #[]
+  for c in [0:k] do
+    if let some (a, b) := sk.bs.span.getD c none then
+      for l in [a:b + 1] do inLayer := inLayer.modify l (·.push c)
+  let borders := fun (c l : Nat) =>
+    match sk.bs.span.getD c none, sk.bs.firstBorders.getD c none with
+    | some (a, _), some (lv, rv) => (pos.getD (lv + 2 * (l - a)) 0, pos.getD (rv + 2 * (l - a)) 0)
+    | _, _ => (0, 0)
+  -- 0 before the cluster, 1 inside, 2 after
+  let side := fun (c l v : Nat) =>
+    let p := pos.getD v 0
+    if p < (borders c l).1 then 0 else if p > (borders c l).2 then 2 else 1
+  let mut out : Array (Nat × Option Nat × Option Nat) := #[]
+  for chain in sk.chains do
+    if chain.size < 2 then continue
+    let upper := chain.getD 0 0
+    let lower := chain.getD (chain.size - 1) 0
+    let ca := tree.nodeCluster.getD upper none
+    let cb := tree.nodeCluster.getD lower none
+    for j in [0:chain.size - 1] do
+      let u := chain.getD j 0
+      let w := chain.getD (j + 1) 0
+      if u ≥ size || w ≥ size then continue
+      let l := sk.layerAll.getD u 0
+      if sk.layerAll.getD w 0 != l + 1 then continue
+      for c in inLayer.getD l #[] do
+        let spans := match sk.bs.span.getD c none with
+          | some (_, b) => l + 1 ≤ b
+          | none => false
+        if !spans || tree.holdsOpt c ca || tree.holdsOpt c cb then continue
+        if side c l u != side c (l + 1) w || side c l u == 1 then
+          -- the item of the cluster's level that holds an end
+          let level := tree.parent.getD c none
+          let depth := (tree.path level).size
+          let item := fun (v : Nat) =>
+            let path := tree.path (tree.nodeCluster.getD v none)
+            let inLevel := match level with
+              | none => true
+              | some p => path.contains p
+            if !inLevel then none
+            else match path[depth]? with
+              | some y => some (n + y)
+              | none => some v
+          let entry := (n + c, item lower, item upper)
+          if !out.contains entry then out := out.push entry
+  return out
 
 /-- The phases one to four: the plan for routing the edges. -/
 def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
@@ -147,41 +327,58 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
     if e.src == e.dst then
       let extra := 18 + (if e.label.isEmpty then 0 else (plateFrame e.label).1 + 4)
       loopExtra := loopExtra.modify e.src (max · extra)
-  -- phases 1 and 2
+  -- phases 1 to 3; while an edge would pass through a cluster that holds neither of its ends,
+  -- the layers are found again with that cluster and the item the edge leads to kept apart
   let pairs : Array (Nat × Nat) := ve.filterMap fun (_, e) =>
     if e.src != e.dst then some (e.src, e.dst) else none
-  let pos := elsPositions n pairs
-  let lay0 := assignLayers pos n pairs.toList o.layerWork (ClusterTree.of g).nodeCluster
   let hasLabels := ve.any fun (_, e) => e.src != e.dst && !e.label.isEmpty
-  let lay := if hasLabels then lay0.map (· * 2) else lay0
-  let oriented : Array (Option (Nat × Nat)) := ve.map fun (_, e) =>
-    if e.src == e.dst then none
-    else if before pos e.src e.dst then some (e.src, e.dst) else some (e.dst, e.src)
-  let reversed : Array Bool := ve.map fun (_, e) => e.src != e.dst && !before pos e.src e.dst
-  let (chains, layerAll) := buildChains lay oriented o.maxLayoutNodes
-  let size := layerAll.size
-  -- phase 3
-  let (up, down) := chainNeighbours size chains
+  let pad : Float := 12
   let tree := ClusterTree.of g
-  let clustered := tree.nodeCluster.any (·.isSome)
-  -- the block of every real and dummy node: a dummy node stands in the innermost cluster that
-  -- holds both ends of its edge
-  let block : Array (Option Nat) := Id.run do
-    let mut b : Array (Option Nat) := (Array.range size).map fun v => tree.nodeCluster.getD v none
-    if clustered then
-      for c in chains do
-        if c.size ≥ 3 then
-          let l := tree.lca (tree.nodeCluster.getD (c.getD 0 0) none)
-            (tree.nodeCluster.getD (c.getD (c.size - 1) 0) none)
-          for j in [1:c.size - 1] do b := b.setIfInBounds (c.getD j 0) l
-    return b
-  -- with clusters the order is found under the cluster rules; the free order is only a start
-  let order0 := orderLayers layerAll up down o.sweeps (if clustered then 0 else o.starts)
-  let bs : Borders := if clustered then addBorders tree layerAll up down block
-    else { layerAll, up, down, block, part := Array.replicate size .node,
-           span := #[], firstBorders := #[] }
-  let order := if clustered then reduceClustered tree bs order0 up down o.sweeps o.starts
-    else order0
+  let sk := Id.run do
+    let mut apart : Array (Nat × Nat) := #[]
+    let mut sk := skeleton g o tree pairs nb pad hasLabels apart
+    let mut found := strays tree sk
+    let mut best := sk
+    let mut least := found.size
+    for _ in [0:if o.nestedClusters then o.clusterRounds else 0] do
+      -- the cluster above the item the edge leads to; where that is in force already, the
+      -- item the edge comes from above the cluster
+      let mut more : Array (Nat × Nat) := #[]
+      for (c, lower, upper) in found do
+        let below := lower.map fun b => (c, b)
+        let above := upper.map fun a => (a, c)
+        let fresh := fun (p : Option (Nat × Nat)) => p.filter fun q =>
+          !apart.contains q && !more.contains q
+        match fresh below, fresh above with
+        | some p, _ => more := more.push p
+        | none, some p => more := more.push p
+        | none, none => pure ()
+      if more.isEmpty then break
+      apart := apart ++ more
+      sk := skeleton g o tree pairs nb pad hasLabels apart
+      found := strays tree sk
+      -- the layout with the fewest such edges is kept
+      if found.size < least then
+        best := sk
+        least := found.size
+    return best
+  let clustered := sk.clustered
+  let pos := sk.pos
+  -- a chain for every valid edge: none for a self-loop
+  let chains : Array (Array Nat) := Id.run do
+    let mut out : Array (Array Nat) := Array.mkEmpty m
+    let mut next := 0
+    for (_, e) in ve do
+      if e.src == e.dst then out := out.push #[]
+      else
+        out := out.push (sk.chains.getD next #[])
+        next := next + 1
+    return out
+  let layerAll := sk.layerAll
+  let size := layerAll.size
+  let order := sk.order
+  let bs := sk.bs
+  let reversed : Array Bool := ve.map fun (_, e) => e.src != e.dst && !before pos e.src e.dst
   let total := bs.layerAll.size
   -- sizes: nodes, label plates (border nodes have no width)
   let mut bw : Array Float := (Array.range total).map fun v =>
@@ -202,7 +399,6 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         thick := thick.modify (layerAll.getD mid 0) (max · pt)
   -- phase 4
   let labelRoom := 12 + st.noteSize * 1.2
-  let pad : Float := 12
   let base := separation n bw o.nodeGap o.edgeGap 0 #[]
   let sep := borderSeparation bs base bw pad (pad + if lr then labelRoom else 0) 12 16
   let x0 := assignBreadth total n order bs.up bs.down sep bw
@@ -213,9 +409,16 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
       let need := if lr then 2 * pad
         else st.text.measure (g.clusters.getD c default).name st.noteSize + 2 * pad
       (lv, rv, toHalf need, 1)
-  let x := if clustered then
-      simplexBreadth total n chains order sep bw x1 8 o.coordinateWork (borderVariable bs) extra
-    else simplexBreadth total n chains order sep bw x1 8 o.coordinateWork
+  -- the width of every layer counts in the total that the coordinates minimise
+  let vars := if clustered then borderVariable bs else #[]
+  let spans : Array (Nat × Nat × Int × Int) :=
+    if o.compact == 0 then #[]
+    else order.filterMap fun layer =>
+      let a := layer.getD 0 0
+      let b := layer.getD (layer.size - 1) 0
+      let (a, b) := if vars.isEmpty then (a, b) else (vars.getD a a, vars.getD b b)
+      if a != b then some (a, b, 0, Int.ofNat o.compact) else none
+  let x := simplexBreadth total n chains order sep bw x1 8 o.coordinateWork vars (extra ++ spans)
   let gap := if hasLabels then o.layerGap / 2 else o.layerGap
   -- room above and below the nodes for the clusters' sides and titles (nested clusters that
   -- start or end in the same layer stack)
@@ -242,20 +445,21 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
       if tree.parent.getD c none |>.all (fun p => (bs.span.getD p none).all (·.2 != b)) then
         bottomNeed := bottomNeed.modify b (max · (bottomExtra.getD c 0))
   -- the horizontal runs of each gap get tracks (greedy interval colouring): every step of an
-  -- orthogonal route that moves sideways, and every step of a curve that moves sideways more
-  -- than eight times the gap (drawn as a run half-way down the gap, so that it keeps
-  -- away from the boxes above and below); a value below zero marks a step without a run
+  -- orthogonal route that moves sideways; a value below zero marks a step without a run
   let mut runs : Array (Array Float) := chains.map fun c => Array.replicate (c.size - 1) (-1)
   let mut tracks : Array Nat := Array.replicate order.size 0
   let mut gaps : Array (Array (Float × Float × Nat × Nat)) := Array.replicate order.size #[]
+  -- how far the steps of the curves go sideways in each gap, at most
+  let mut reach : Array Float := Array.replicate order.size 0
   for k in [0:m] do
     let c := chains.getD k #[]
     for j in [0:c.size - 1] do
       let a := (x.getD (c.getD j 0) 0).round
       let b := (x.getD (c.getD (j + 1) 0) 0).round
-      let run := if o.routing == .orthogonal then (a - b).abs > 0.5
-        else (a - b).abs > 8 * gap
-      if run then
+      let upper := layerAll.getD (c.getD j 0) 0
+      if o.routing == .spline && upper + 1 == layerAll.getD (c.getD (j + 1) 0) 0 then
+        reach := reach.modify upper (max · (a - b).abs)
+      if o.routing == .orthogonal && (a - b).abs > 0.5 then
         gaps := gaps.modify (layerAll.getD (c.getD j 0) 0) (·.push (min a b, max a b, k, j))
   for li in [0:gaps.size] do
     let segs := gaps.getD li #[]
@@ -297,16 +501,73 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let mut prev : Float := 0
   for l in [0:order.size] do
     let th := thick.getD l 0
-    -- a gap with many runs grows (up to `sidewaysGap` times) to keep them three pixels apart
+    -- a gap grows (up to `sidewaysGap` times): with many runs of orthogonal routes, to keep
+    -- them three pixels apart; with a curve that goes far sideways, so that it is not too flat
     let g := if l == 0 then gap
-      else min (o.sidewaysGap * gap) (max gap ((tracks.getD (l - 1) 0 + 1).toFloat * 3 + 16))
+      else min (o.sidewaysGap * gap) (max gap (max (reach.getD (l - 1) 0 / o.flattest)
+        ((tracks.getD (l - 1) 0 + 1).toFloat * 3 + 16)))
     let g := if l == 0 then g
-      else max g (bottomNeed.getD (l - 1) 0 + topNeed.getD l 0 + 12)
+      else max g (bottomNeed.getD (l - 1) 0 + topNeed.getD l 0 + 20)
     t := if l == 0 then th / 2 + topNeed.getD 0 0 else t + prev / 2 + g + th / 2
     prev := th
     levels := levels.setIfInBounds l t.round
   let across := (Array.range size).map fun v =>
     if v < n then (x.getD v 0 - loopExtra.getD v 0 / 2).round else (x.getD v 0).round
+  -- the room of every real and dummy node in its layer: `lanes` for the shortest routes (two
+  -- neighbouring dummy nodes share the space between them half and half, so the routes of a
+  -- bundle stay apart), `walls` for the curves (only boxes and cluster sides bound them)
+  let clear : Float := 9
+  let far : Float := 1e7
+  let solid := fun (v : Nat) => v < n || v ≥ size
+  let mut lanes : Array (Float × Float) := Array.replicate size (-far, far)
+  let mut walls : Array (Float × Float) := Array.replicate size (-far, far)
+  let mut sides : Array (Float × Float) := Array.replicate size (-far, far)
+  -- whether the node is the side of a cluster that has nodes in the next layer too
+  let reaches := fun (v l : Nat) => match bs.part.getD v .node with
+    | .node => false
+    | .left c | .right c => match bs.span.getD c none with
+      | some (_, b) => l + 1 ≤ b
+      | none => false
+  for layer in order, l in [0:order.size] do
+    let mut wall := -far
+    let mut side := -far
+    for j in [0:layer.size] do
+      let v := layer.getD j 0
+      let xv := (x.getD v 0).round
+      let hv := bw.getD v 0 / 2
+      if reaches v l then side := xv + 3
+      if v < size then
+        sides := sides.modify v fun (_, r) => (side, r)
+        let soft := if j == 0 then -far else
+          let u := layer.getD (j - 1) 0
+          let edge := (x.getD u 0).round + bw.getD u 0 / 2
+          let free := max 0 (xv - hv - edge)
+          if solid u then edge + min clear (free / 2) else edge + free / 2
+        lanes := lanes.modify v fun (_, r) => (soft, r)
+        walls := walls.modify v fun (_, r) => (min wall (xv - hv), r)
+      if solid v then wall := xv + hv + 3
+    wall := far
+    side := far
+    for i in [0:layer.size] do
+      let j := layer.size - 1 - i
+      let v := layer.getD j 0
+      let xv := (x.getD v 0).round
+      let hv := bw.getD v 0 / 2
+      if reaches v l then side := xv - 3
+      if v < size then
+        sides := sides.modify v fun (l, _) => (l, side)
+        let soft := if j + 1 == layer.size then far else
+          let u := layer.getD (j + 1) 0
+          let edge := (x.getD u 0).round - bw.getD u 0 / 2
+          let free := max 0 (edge - xv - hv)
+          if solid u then edge - min clear (free / 2) else edge - free / 2
+        lanes := lanes.modify v fun (l, _) => (l, soft)
+        walls := walls.modify v fun (l, _) => (l, max wall (xv + hv))
+      if solid v then wall := xv - hv - 3
+  let rim := max 0.5 (min 6 (gap / 4))
+  let gates := layerAll.map fun l =>
+    (levels.getD l 0 - thick.getD l 0 / 2 - topNeed.getD l 0 - rim,
+      levels.getD l 0 + thick.getD l 0 / 2 + bottomNeed.getD l 0 + rim)
   let along := layerAll.map fun l => levels.getD l 0
   let frameBoxes := (Array.range n).map fun v =>
     let cb := across.getD v 0
@@ -332,7 +593,13 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         -- spread over the node's side, keeping clear of its rounded corners
         let step := min o.portStep ((nb.getD v 0 - 16) / max 1 (cnt.toFloat - 1))
         for j in [0:cnt] do
-          off := off.setIfInBounds (ps.getD j (0, 0)).2 ((j.toFloat - (cnt.toFloat - 1) / 2) * step)
+          -- each end in its own stretch of the side, as near as it can be there to the point
+          -- straight above or below the other end
+          let (other, k) := ps.getD j (0, 0)
+          let slot := (j.toFloat - (cnt.toFloat - 1) / 2) * step
+          let room := max 0 (step / 2 - 1)
+          let toward := other - across.getD v 0 - slot
+          off := off.setIfInBounds k (slot + max (-room) (min room toward))
       return off
   let band := layerAll.map fun l => thick.getD l 0 / 2
   let clusterFrames : Option (Array (Nat × Box)) :=
@@ -346,7 +613,9 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   return { dir := o.direction, routing := o.routing, directedGraph := g.directed, frameBoxes,
            shapes := g.nodes.map (·.shapeOf), chains, reversed, across, along,
            startOffset := spread outs, endOffset := spread ins, plates, runs, band,
-           clusterFrames }
+           clusterFrames, lanes, walls, sides, gates,
+           arrowLength := o.arrowLength.getD Graph.arrowLength,
+           arrowHalfWidth := o.arrowHalfWidth.getD Graph.arrowHalfWidth }
 
 /-- The vertices of the orthogonal route through the points: at each step across the layers a
 horizontal run at the given fraction of the way between the two levels. -/
@@ -361,48 +630,6 @@ def orthVertices (pts : Array Point) (runs : Array Float) : Array Point := Id.ru
         let mid := q.y + (if r < 0 then 0.5 else r) * (p.y - q.y)
         out := (out.push ⟨q.x, mid⟩).push ⟨p.x, mid⟩
     out := out.push p
-  return out
-
-/-- The straight piece from `p` to `q`. -/
-def linePiece (p q : Point) : Piece :=
-  (p, ⟨p.x + (q.x - p.x) / 3, p.y + (q.y - p.y) / 3⟩,
-    ⟨p.x + 2 * (q.x - p.x) / 3, p.y + 2 * (q.y - p.y) / 3⟩, q)
-
-/-- The curve across a gap from `a` down to `b`, leaving and entering perpendicular to the
-layers. -/
-def gapPiece (a b : Point) : Piece :=
-  let h := (b.y - a.y) / 3
-  (a, ⟨a.x, a.y + h⟩, ⟨b.x, b.y - h⟩, b)
-
-/-- The route across a gap from `a` down to `b` that goes far sideways: a short straight piece
-down from `a`, one cubic that continues perpendicular to the layers and runs its long sideways
-stretch at about the height `y` (its middle point is at `y` when the gap leaves the room), and a
-short straight piece into `b`; so the curves of one gap, each with a height of its own, stay
-apart, and a curve keeps a few pixels from the boxes above and below however far it goes. -/
-def stairPieces (a b : Point) (y : Float) : Array Piece :=
-  let stub := max 0 (min 5 ((b.y - a.y) / 6))
-  let p : Point := ⟨a.x, a.y + stub⟩
-  let q : Point := ⟨b.x, b.y - stub⟩
-  -- with both control points at height `c` the middle of the cubic is at `(p.y + 6 c + q.y) / 8`
-  let c := max (p.y + stub) (min (q.y - stub) ((8 * y - p.y - q.y) / 6))
-  #[linePiece a p, (p, ⟨p.x, c⟩, ⟨q.x, c⟩, q), linePiece q b]
-
-/-- The pieces of a curve through stations (the points where it enters and leaves each node
-of its chain, top to bottom): straight through a station, `gapPiece` across a gap, or
-`stairPieces` at the fraction `runs[j]` of gap `j` when that is not negative. -/
-def stationPieces (stations : Array (Point × Point)) (runs : Array Float) : Array Piece :=
-  Id.run do
-  let mut out : Array Piece := #[]
-  for j in [0:stations.size] do
-    let (p, q) := stations.getD j (⟨0, 0⟩, ⟨0, 0⟩)
-    if j > 0 then
-      let a := (stations.getD (j - 1) (⟨0, 0⟩, ⟨0, 0⟩)).2
-      let r := runs.getD (j - 1) (-1)
-      -- the runs keep a few pixels from both sides of the gap
-      let m := min 8 ((p.y - a.y) / 4)
-      out := out ++ (if r ≥ 0 then stairPieces a p (a.y + m + r * (p.y - a.y - 2 * m))
-        else #[gapPiece a p])
-    if q.y > p.y then out := out.push (linePiece p q)
   return out
 
 /-- The box of a plate of size `(w, h)` centred at `c`. -/
@@ -441,43 +668,57 @@ def routeOne (pl : Plan) (k i : Nat) (e : Graph.Edge) : RoutedEdge :=
     let ex := (fz.x0 + fz.x1) / 2 + eo
     let sy := (fa.y0 + fa.y1) / 2 + boundaryOffset fa (pl.shapes.getD a .round) so
     let ey := (fz.y0 + fz.y1) / 2 - boundaryOffset fz (pl.shapes.getD b .round) eo
-    -- each node of the chain is a station the edge enters and leaves: a dummy node is crossed
-    -- straight along the layers through its layer's band (curves), so the edge keeps its distance
-    -- from the boxes of that layer and leaves the band perpendicular to it
-    let cut := arrowLength - 1
+    let cut := pl.arrowLength - 1
+    let inner := c.extract 1 (c.size - 1)
+    -- the points of an orthogonal route: its two ends (short of an arrowhead) and the centres of
+    -- its dummy nodes
     let first : Point := if arrow && rev then ⟨sx, sy + cut⟩ else ⟨sx, sy⟩
     let last : Point := if arrow && !rev then ⟨ex, ey - cut⟩ else ⟨ex, ey⟩
-    -- the edge leaves its upper node straight down to the edge of that node's layer and enters
-    -- its lower node straight from the edge of that one's, so that it turns sideways only in
-    -- the gap, clear of taller boxes of the two layers
-    let spline := pl.routing == .spline
-    let leave : Point :=
-      if spline then ⟨first.x, max first.y (pl.along.getD a 0 + pl.band.getD a 0)⟩ else first
-    let enter : Point :=
-      if spline then ⟨last.x, min last.y (pl.along.getD b 0 - pl.band.getD b 0)⟩ else last
-    let stations : Array (Point × Point) :=
-      #[(first, leave)] ++ (c.extract 1 (c.size - 1)).map (fun d =>
-        let cx := pl.across.getD d 0
-        let cy := pl.along.getD d 0
-        let h := pl.band.getD d 0
-        if pl.routing == .spline && h > 0.5 then (⟨cx, cy - h⟩, ⟨cx, cy + h⟩)
-        else (⟨cx, cy⟩, ⟨cx, cy⟩)) ++ #[(enter, last)]
-    -- the points of the route: its two ends on the outlines and the centres of its dummy nodes
-    let pts : Array Point := #[⟨sx, sy⟩] ++ (c.extract 1 (c.size - 1)).map (fun d =>
-      (⟨pl.across.getD d 0, pl.along.getD d 0⟩ : Point)) ++ #[⟨ex, ey⟩]
-    let shortened : Array Point := stations.map (·.1)
-    let runs := pl.runs.getD k #[]
+    let centres : Array Point := inner.map fun d => ⟨pl.across.getD d 0, pl.along.getD d 0⟩
+    -- the gates of a curve: out of the upper node's layer, into and out of the layer of every
+    -- dummy node (through the middle of a label's plate), into the lower node's layer
+    let far : Float := 1e7
+    let lane := fun (v : Nat) => pl.lanes.getD v (-far, far)
+    let gate := fun (v : Nat) => pl.gates.getD v (pl.along.getD v 0, pl.along.getD v 0)
+    let plated := if e.label.isEmpty || c.size < 3 then c.size else (c.size - 1) / 2
+    let gates : Array Gate :=
+      #[⟨(lane a).1, (lane a).2, max (sy + 0.5) (gate a).2⟩] ++
+      (Array.range inner.size).flatMap (fun j =>
+        let d := inner.getD j 0
+        let (lo, hi) := if j + 1 == plated then (pl.across.getD d 0, pl.across.getD d 0) else lane d
+        #[⟨lo, hi, (gate d).1⟩, ⟨lo, hi, (gate d).2⟩]) ++
+      #[⟨(lane b).1, (lane b).2, min (ey - 0.5) (gate b).1⟩]
+    -- the room of the curve: in the layer of every node of the chain between the boxes and
+    -- cluster sides beside it, and on the way to the next layer between the sides of the
+    -- clusters that reach there
+    let zones : Array Zone := (Array.range c.size).flatMap fun j =>
+      let v := c.getD j 0
+      let (lo, hi) := pl.walls.getD v (-far, far)
+      let (slo, shi) := pl.sides.getD v (-far, far)
+      #[⟨lo, hi, (gate v).1, (gate v).2⟩] ++
+        (if j + 1 < c.size then #[⟨slo, shi, (gate v).2, (gate (c.getD (j + 1) 0)).1⟩] else #[])
+    let taut := tautRoute ⟨sx, sy⟩ gates ⟨ex, ey⟩
+    -- the points of the route: the bends of the shortest route for a curve, the ends and the
+    -- centres of the dummy nodes for an orthogonal route
+    let pts : Array Point := match pl.routing with
+      | .spline => taut
+      | .orthogonal => #[⟨sx, sy⟩] ++ centres ++ #[⟨ex, ey⟩]
+    let curve := fitPieces taut zones
+    let (pieces, dir) : Array Piece × Point :=
+      if !arrow then (curve, ⟨0, 1⟩)
+      else if rev then shortenStart curve cut else shortenEnd curve cut
     let path : Path := match pl.routing with
-      | .spline =>
-        let ps := stationPieces stations runs
-        piecesPath (if rev then reversePieces ps else ps)
+      | .spline => piecesPath (if rev then reversePieces pieces else pieces)
       | .orthogonal =>
-        let vs := orthVertices shortened (pl.runs.getD k #[])
+        let vs := orthVertices (#[first] ++ centres ++ #[last]) (pl.runs.getD k #[])
         roundedPolyline (if rev then vs.reverse else vs) 8
     let head : Option Path :=
       if !arrow then none
-      else if rev then some (arrowPath ⟨sx, sy⟩ ⟨0, -1⟩)
-      else some (arrowPath ⟨ex, ey⟩ ⟨0, 1⟩)
+      else
+        let tip : Point := if rev then ⟨sx, sy⟩ else ⟨ex, ey⟩
+        let along : Point := if rev then ⟨0, -1⟩ else ⟨0, 1⟩
+        some (arrowPath tip (if pl.routing == .spline then dir else along) pl.arrowLength
+          pl.arrowHalfWidth)
     let label : Option EdgeLabel :=
       if e.label.isEmpty then none
       else

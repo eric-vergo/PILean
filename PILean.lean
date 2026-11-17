@@ -29,6 +29,8 @@ import PILean.Graph.Layering
 import PILean.Graph.Ordering
 import PILean.Graph.Compound
 import PILean.Graph.Coordinates
+import PILean.Graph.Route
+import PILean.Graph.Nested
 import PILean.Graph.Layered
 import PILean.Graph.Pack
 import PILean.Graph.Web

@@ -321,7 +321,8 @@ def optimising : Array (String × Bool) :=
         (bigG.layout {} {}).edges.map (·.points) == bigLayout.edges.map (·.points)),
     ("simplex: a long edge in a layered chain stays straight",
       match (chain.layout {} {}).edges[0]? with
-      | some e => e.points.size == 4 && (e.points.getD 1 ⟨0, 0⟩).x == (e.points.getD 2 ⟨1, 0⟩).x
+      | some e => e.points.size ≥ 2 && (e.points.extract 1 (e.points.size - 1)).all fun p =>
+          p.x == (e.points.getD 1 ⟨0, 0⟩).x
       | none => false),
     ("simplex: a spent work budget still gives a layout with boxes apart",
       disjoint (bigG.layout { coordinateWork := 1000 } {}) &&

@@ -12,6 +12,8 @@ import PILean.Graph.Layered
 * `assignLayers_lt`: for the function the layout calls, every edge of `acyclicEdges` (every
   non-loop edge turned to point from the node that comes first) has `layer src < layer dst`.
   `assignLayers_lt_input` states it for the input edges.
+* `assignNested_lt`, `assignWide_lt`: the same for the layers of a graph with clusters, layered
+  from the inside out, and for the layers with their wide ones split into rows.
 * `layout_edge_indices`, `layout_edges_nodup`, `layout_edges_complete`: the edges of the
   layered layout are exactly the valid input edges, each once, by index.
 -/
@@ -228,6 +230,50 @@ theorem assignLayers_lt_input (pos : Array Nat) (n : Nat) (edges : List (Nat × 
   · rename_i h; simp only [h]; exact key
   · rename_i h; simp only [h]; exact key
 
+/-- After `assignNested`, every edge between two different nodes, turned to point from the node
+that comes first in the order `assignNested` returns, has its target on a deeper layer than its
+source: the layers of a graph with clusters, like those of one without, run with the edges. -/
+theorem assignNested_lt (n : Nat) (t : ClusterTree) (edges : List (Nat × Nat))
+    (width : Array Float) (pad limit : Float) (work : Nat) (apart : Array (Nat × Nat))
+    (hb : ∀ e ∈ edges, e.1 < n ∧ e.2 < n) :
+    ∀ e ∈ acyclicEdges (assignNested n t edges width pad limit work apart).1 edges,
+      (assignNested n t edges width pad limit work apart).2.getD e.1 0 <
+        (assignNested n t edges width pad limit work apart).2.getD e.2 0 := by
+  unfold assignNested
+  simp only
+  generalize nestedLayers n t edges.toArray width pad limit work apart = raw
+  have hsize : (if raw.size = n then raw else Array.replicate n 0).size = n := by
+    split <;> simp_all
+  generalize (if raw.size = n then raw else Array.replicate n 0) = pos at hsize
+  obtain ⟨h1, h2, h3⟩ := acyclicEdges_ok pos n edges hb
+  refine fixLayers_lt _ _ ?_ h2 h3
+  intro e he
+  rw [hsize]
+  exact h1 e he
+
+/-- After `assignWide`, every acyclic edge points to a deeper layer, whatever the splitting of
+the wide layers did. -/
+theorem assignWide_lt (pos : Array Nat) (n : Nat) (edges : List (Nat × Nat))
+    (width : Array Float) (limit : Float) (work : Nat) (hb : ∀ e ∈ edges, e.1 < n ∧ e.2 < n) :
+    ∀ e ∈ acyclicEdges pos edges,
+      (assignWide pos n edges width limit work).getD e.1 0 <
+        (assignWide pos n edges width limit work).getD e.2 0 := by
+  obtain ⟨h1, h2, h3⟩ := acyclicEdges_ok pos n edges hb
+  have hlay : (assignLayers pos n edges work).size = n := by
+    unfold assignLayers layersBeforeRepair
+    simp only
+    rw [fixLayers_size, assignLayers_start_size n (acyclicEdges pos edges) work #[]]
+  unfold assignWide
+  simp only
+  refine fixLayers_lt _ _ ?_ h2 h3
+  intro e he
+  have hsize : ∀ wide : Array Nat,
+      (if wide.size = n then wide else assignLayers pos n edges work).size = n := by
+    intro wide
+    split <;> simp_all
+  rw [hsize]
+  exact h1 e he
+
 /-- The index of a route is the index it was made for. -/
 theorem routeOne_index (pl : Plan) (k i : Nat) (e : Graph.Edge) :
     (routeOne pl k i e).index = i := by
@@ -304,6 +350,10 @@ example : (∀ e ∈ [(0, 1), (1, 2)], e.1 < (#[0, 0, 0] : Array Nat).size ∧
 /-- The hypothesis of `assignLayers_lt` can be met: the edges of a triangle with a back edge are
 in range. -/
 example : ∀ e ∈ ([(0, 1), (1, 2), (2, 0)] : List (Nat × Nat)), e.1 < 3 ∧ e.2 < 3 := by decide
+
+/-- The hypothesis of `assignNested_lt` and `assignWide_lt` can be met: the edges of a path of
+three nodes are in range. -/
+example : ∀ e ∈ ([(0, 1), (1, 2)] : List (Nat × Nat)), e.1 < 3 ∧ e.2 < 3 := by decide
 
 /-- The statement about edges has a graph to apply to: both edges of a 2-cycle are valid. -/
 example : (Graph.ofPairs [(0, 1), (1, 0)]).validIndices = [0, 1] := by decide +kernel

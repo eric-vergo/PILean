@@ -53,9 +53,13 @@ structure LayeredOptions where
   edgeGap : Float := 14
   /-- How edges are drawn. -/
   routing : Routing := .spline
-  /-- How many times taller than `layerGap` a gap may grow to keep the horizontal runs of the
-  edges that cross it far sideways three pixels apart. -/
-  sidewaysGap : Float := 3
+  /-- How many times taller than `layerGap` a gap may grow: for a curve that crosses it far
+  sideways (see `flattest`), or to keep the horizontal runs of orthogonal routes three pixels
+  apart. -/
+  sidewaysGap : Float := 2.5
+  /-- The most a curve should go sideways in a gap, in gap heights: a gap grows, within
+  `sidewaysGap`, until its widest step is no flatter. -/
+  flattest : Float := 12
   /-- The most rounds of weighted-median sweeps (each followed by transposition) of the
   crossing reduction. -/
   sweeps : Nat := 24
@@ -83,6 +87,28 @@ structure LayeredOptions where
   /-- The work allowed to the network simplex layering (in the units of `simplexComponent`):
   when it is used up, the best layering so far is kept. -/
   layerWork : Nat := 100000000
+  /-- The weight of the width of every layer in the total that the coordinates minimise (the
+  horizontal length of an edge between two real nodes weighs `1`): `0` places the nodes as
+  Gansner et al. do, a larger weight gives a narrower drawing with more slanted edges. -/
+  compact : Nat := 0
+  /-- The width from which the nodes that start in one layer are split over several rows (inside
+  a cluster: the nodes and clusters of one of its layers); `0` for no limit. Edges that cross the
+  layer add to its width, so a drawing can be wider than this. -/
+  maxLayerWidth : Float := 0
+  /-- Whether a graph with clusters is layered from the inside out, every cluster keeping a
+  block of layers to itself (`PILean.Graph.Nested`); otherwise all nodes are layered together
+  and the nodes of a cluster pulled towards each other. -/
+  nestedClusters : Bool := true
+  /-- How many times at most the layers of a graph with clusters are found again to keep an edge
+  from passing through a cluster that holds neither of its ends: each time, such a cluster and
+  the node or cluster the edge leads to are put one above the other; the attempt with the fewest
+  such edges is kept. A large graph with many clusters may need twenty rounds and more, each as
+  long as the first three phases of the layout. -/
+  clusterRounds : Nat := 12
+  /-- The length of an arrowhead (`none`: `arrowLength`). -/
+  arrowLength : Option Float := none
+  /-- The half-width of an arrowhead (`none`: `arrowHalfWidth`). -/
+  arrowHalfWidth : Option Float := none
   deriving Inhabited
 
 /-- A node's box and look, resolved from the style and the node's overrides. -/
@@ -176,18 +202,21 @@ def nodeBoxOf (st : Style) (i : Nat) (n : Graph.Node) (box : Box) : NodeBox :=
   { index := i, box, label := n.label, shape := n.shapeOf,
     fill := n.style.fill.getD st.nodeFill, stroke := n.style.stroke.getD st.nodeStroke }
 
-/-- The length of an arrowhead. -/
-def arrowLength : Float := 8.5
+/-- The length of an arrowhead: to the default node height as Graphviz's arrowhead is to its
+default node height. -/
+def arrowLength : Float := 8
 
 /-- The half-width of an arrowhead. -/
-def arrowHalfWidth : Float := 3.6
+def arrowHalfWidth : Float := 2.8
 
-/-- The arrowhead (a triangle) with its tip at `tip`, pointing along the unit vector `dir`. -/
-def arrowPath (tip dir : Point) : Path :=
-  let base : Point := ⟨tip.x - arrowLength * dir.x, tip.y - arrowLength * dir.y⟩
+/-- The arrowhead (a triangle) with its tip at `tip`, pointing along the unit vector `dir`,
+`length` long and twice `half` wide. -/
+def arrowPath (tip dir : Point) (length : Float := arrowLength)
+    (half : Float := arrowHalfWidth) : Path :=
+  let base : Point := ⟨tip.x - length * dir.x, tip.y - length * dir.y⟩
   let n : Point := ⟨-dir.y, dir.x⟩
-  let l : Point := ⟨base.x + arrowHalfWidth * n.x, base.y + arrowHalfWidth * n.y⟩
-  let r : Point := ⟨base.x - arrowHalfWidth * n.x, base.y - arrowHalfWidth * n.y⟩
+  let l : Point := ⟨base.x + half * n.x, base.y + half * n.y⟩
+  let r : Point := ⟨base.x - half * n.x, base.y - half * n.y⟩
   (((Path.empty.moveTo tip).lineTo l).lineTo r).close
 
 /-- The unit vector along `v` (the zero vector for a zero or non-finite one). -/
@@ -198,12 +227,27 @@ def unit (v : Point) : Point :=
 /-- A cubic Bézier piece, as its four points. -/
 abbrev Piece := Point × Point × Point × Point
 
-/-- The path of the pieces in order (they are joined end to start). -/
+/-- The path of the pieces in order (they are joined end to start). A piece whose control points
+lie on the segment between its ends is written as a line, and one that is a parabola (a quadratic
+curve written as a cubic) as a quadratic curve: the same curve in fewer numbers. -/
 def piecesPath (ps : Array Piece) : Path :=
   match ps[0]? with
   | none => {}
   | some (p0, _, _, _) =>
-    ps.foldl (fun path (_, c1, c2, q) => path.cubicTo c1 c2 q) (Path.empty.moveTo p0)
+    ps.foldl (init := Path.empty.moveTo p0) fun path (a, c1, c2, d) =>
+      let v := d - a
+      let l2 := v.x * v.x + v.y * v.y
+      -- on the segment: no distance from its line, and between its ends
+      let on := fun (c : Point) =>
+        let w := c - a
+        (v.x * w.y - v.y * w.x).abs ≤ 1e-6 * (1 + l2.sqrt) &&
+          -1e-9 ≤ v.x * w.x + v.y * w.y && v.x * w.x + v.y * w.y ≤ l2 + 1e-9
+      if on c1 && on c2 then path.lineTo d
+      else
+        -- the control point of the parabola, from either end
+        let q1 := a + (1.5 : Float) * (c1 - a)
+        let q2 := d + (1.5 : Float) * (c2 - d)
+        if q1.dist q2 ≤ 1e-6 * (1 + l2.sqrt) then path.quadTo q1 d else path.cubicTo c1 c2 d
 
 /-- The pieces reversed: traversed backwards, each with its control points swapped. -/
 def reversePieces (ps : Array Piece) : Array Piece :=

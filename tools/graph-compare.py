@@ -3,7 +3,10 @@
 #
 # Compares PILean's layered graph layout with Graphviz's `dot` by measures that do not depend on
 # the eye: the number of edge pairs that cross, the total length of the edges, and the area of
-# the drawing. `lake exe pilean-test --graph-quality DIR` (or `--graph-compare-out DIR`)
+# the drawing; and by measures of what the eye objects to: how much an edge turns on average (the
+# sum of the angles by which it changes direction), how often it changes from bending one way to
+# bending the other, the length of the edges outside the box around the nodes, and the least
+# distance between an edge and a node it does not end at. `lake exe pilean-test --graph-quality DIR` (or `--graph-compare-out DIR`)
 # writes, for each of a few graphs,
 # DIR/<name>.dot (the graph with PILean's node sizes and gaps, and its clusters as `cluster`
 # subgraphs) and DIR/<name>.layout (PILean's
@@ -19,10 +22,12 @@
 #   python3 -I tools/graph-compare.py /tmp/pilean-graphs [DOT] [--tsv FILE] [--suffix S]
 #
 # With `--tsv FILE`, also writes dot's measures, one tab-separated row per graph (graph, nodes,
-# edges, crossings, length, area) after a header row, to FILE; `--suffix S` appends S to every
-# graph name there (`+packed` for a measurement made with components packed).
+# edges, crossings, length, area, turning, inflections, outside, nearest) after a header row, to
+# FILE; `--suffix S` appends S to every graph name there (`+packed` for a measurement made with
+# components packed).
 
 import glob
+import math
 import os
 import shutil
 import subprocess
@@ -31,6 +36,10 @@ import time
 
 CELL = 64.0
 SAMPLES = 12
+# a bend of an edge counts from this many degrees
+BEND = 5.0
+# how far from an edge a node is looked for
+REACH = 64.0
 
 
 def bezier(p0, p1, p2, p3, n=SAMPLES):
@@ -141,6 +150,117 @@ def crossing_pairs(edges):
     return len(pairs)
 
 
+def turns(pts):
+    """The signed turning angles (degrees) at the inner points of a polyline."""
+    out = []
+    prev = None
+    for a, b in zip(pts, pts[1:]):
+        d = (b[0] - a[0], b[1] - a[1])
+        if d[0] * d[0] + d[1] * d[1] < 1e-12:
+            continue
+        if prev is not None:
+            out.append(math.degrees(math.atan2(prev[0] * d[1] - prev[1] * d[0],
+                                               prev[0] * d[0] + prev[1] * d[1])))
+        prev = d
+    return out
+
+
+def inflections(angles, least=BEND):
+    """How often a polyline changes from bending one way to bending the other; a bend counts
+    when it turns by `least` degrees or more in all."""
+    bends = 0
+    sign = 0
+    total = 0.0
+    for a in angles:
+        s = (a > 0) - (a < 0)
+        if s == 0:
+            continue
+        if s != sign:
+            if total >= least:
+                bends += 1
+            sign = s
+            total = 0.0
+        total += abs(a)
+    if total >= least:
+        bends += 1
+    return max(0, bends - 1)
+
+
+def inside_length(a, b, box):
+    """The length of the part of the segment ab inside the box (Liang and Barsky)."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    t0, t1 = 0.0, 1.0
+    for p, q in ((-dx, a[0] - box[0]), (dx, box[2] - a[0]), (-dy, a[1] - box[1]),
+                 (dy, box[3] - a[1])):
+        if p == 0:
+            if q < 0:
+                return 0.0
+        else:
+            r = q / p
+            if p < 0:
+                t0 = max(t0, r)
+            else:
+                t1 = min(t1, r)
+    return max(0.0, t1 - t0) * math.hypot(dx, dy)
+
+
+def segment_box_distance(a, b, box):
+    """The distance between the segment ab and the box (0 when they meet)."""
+    if inside_length(a, b, box) > 0 or (box[0] <= a[0] <= box[2] and box[1] <= a[1] <= box[3]):
+        return 0.0
+
+    def point_segment(p, c, d):
+        vx, vy = d[0] - c[0], d[1] - c[1]
+        l2 = vx * vx + vy * vy
+        t = 0.0 if l2 == 0 else max(0.0, min(1.0, ((p[0] - c[0]) * vx + (p[1] - c[1]) * vy) / l2))
+        return math.hypot(p[0] - c[0] - t * vx, p[1] - c[1] - t * vy)
+
+    def point_box(p):
+        return math.hypot(max(box[0] - p[0], 0.0, p[0] - box[2]),
+                          max(box[1] - p[1], 0.0, p[1] - box[3]))
+
+    corners = ((box[0], box[1]), (box[2], box[1]), (box[2], box[3]), (box[0], box[3]))
+    return min(min(point_segment(c, a, b) for c in corners), point_box(a), point_box(b))
+
+
+def eye(layout):
+    """What the eye objects to in a drawing: the mean turning of an edge (degrees) and its mean
+    number of inflections, the length of the edges outside the box around the nodes, and the
+    least distance between an edge and a node it does not end at (looked for up to REACH)."""
+    _, _, nodes, edges = layout
+    if not nodes or not edges:
+        return 0.0, 0.0, 0.0, REACH
+    hull = (min(b[0] for b in nodes.values()), min(b[1] for b in nodes.values()),
+            max(b[2] for b in nodes.values()), max(b[3] for b in nodes.values()))
+    cells = {}
+    for i, b in nodes.items():
+        for cx in range(int((b[0] - REACH) // CELL), int((b[2] + REACH) // CELL) + 1):
+            for cy in range(int((b[1] - REACH) // CELL), int((b[3] + REACH) // CELL) + 1):
+                cells.setdefault((cx, cy), []).append(i)
+    turning = 0.0
+    bends = 0
+    outside = 0.0
+    nearest = REACH
+    for s, d, pts in edges:
+        angles = turns(pts)
+        turning += sum(abs(a) for a in angles)
+        bends += inflections(angles)
+        for a, b in zip(pts, pts[1:]):
+            outside += math.hypot(b[0] - a[0], b[1] - a[1]) - inside_length(a, b, hull)
+            if s == d:
+                continue
+            x0, x1 = sorted((a[0], b[0]))
+            y0, y1 = sorted((a[1], b[1]))
+            seen = set()
+            for cx in range(int(x0 // CELL), int(x1 // CELL) + 1):
+                for cy in range(int(y0 // CELL), int(y1 // CELL) + 1):
+                    for i in cells.get((cx, cy), ()):
+                        if i != s and i != d and i not in seen:
+                            seen.add(i)
+                            nearest = min(nearest, segment_box_distance(a, b, nodes[i]))
+    return turning / len(edges), bends / len(edges), outside, nearest
+
+
 def metrics(layout):
     w, h, nodes, edges = layout
     length = sum(((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5
@@ -177,6 +297,7 @@ def main():
           f"{'edge length':>12} {'area (px^2)':>13} {'layout ms':>9}")
     ratios = []
     recorded = []
+    eyes = []
     for path in sorted(glob.glob(os.path.join(directory, "*.dot"))):
         name = os.path.basename(path)[:-4]
         ours = metrics(read_pilean(os.path.join(directory, name + ".layout")))
@@ -192,17 +313,27 @@ def main():
             print(f"{name:16} {m[3]:5} {m[4]:5} | {label:7} {m[0]:9} {m[1]:12.0f} {m[2]:13.0f} "
                   f"{ms:>9}")
         ratios.append((name, ours, theirs, load))
-        recorded.append((name + options.get("--suffix", ""), theirs))
+        recorded.append((name + options.get("--suffix", ""), theirs, eye(layout)))
+        eyes.append((name, eye(read_pilean(os.path.join(directory, name + ".layout"))),
+                     recorded[-1][2]))
     print()
     print(f"{'graph':16} {'crossings':>10} {'length':>8} {'area':>8}   (PILean / dot)")
     for name, o, t, load in ratios:
         r = lambda a, b: f"{a / b:8.2f}" if b else "     n/a"
         print(f"{name:16} {r(o[0], t[0]):>10} {r(o[1], t[1])} {r(o[2], t[2])}   load {load}")
+    print()
+    print(f"{'graph':16} | {'':7} {'turning':>8} {'inflections':>11} {'outside':>10} {'nearest':>8}"
+          "   (degrees and count per edge, pixels, pixels)")
+    for name, o, t in eyes:
+        for label, e in (("PILean", o), ("dot", t)):
+            print(f"{name:16} | {label:7} {e[0]:8.1f} {e[1]:11.2f} {e[2]:10.0f} {e[3]:8.1f}")
     if "--tsv" in options:
         with open(options["--tsv"], "w") as f:
-            f.write("graph\tnodes\tedges\tcrossings\tlength\tarea\n")
-            for name, m in recorded:
-                f.write(f"{name}\t{m[3]}\t{m[4]}\t{m[0]}\t{m[1]:.0f}\t{m[2]:.0f}\n")
+            f.write("graph\tnodes\tedges\tcrossings\tlength\tarea\tturning\tinflections\toutside"
+                    "\tnearest\n")
+            for name, m, e in recorded:
+                f.write(f"{name}\t{m[3]}\t{m[4]}\t{m[0]}\t{m[1]:.0f}\t{m[2]:.0f}\t{e[0]:.1f}"
+                        f"\t{e[1]:.2f}\t{e[2]:.0f}\t{e[3]:.1f}\n")
     return 0
 
 

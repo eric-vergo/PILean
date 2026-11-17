@@ -526,14 +526,17 @@ def orderLayers (layerAll : Array Nat) (up down : Array (Array Nat)) (sweeps : N
   let size := layerAll.size
   let a := reduceFrom size (initialLayers layerAll up down) up down sweeps
   if a.2 == 0 || size > 6000 then return a.1
-  let mut best := a
-  for start in [initialLayersBfs layerAll up down, initialLayers layerAll down up] do
-    let r := reduceFrom size start up down sweeps
-    if r.2 < best.2 then best := r
+  -- the other starts are searched at the same time, and the first of the best results is kept,
+  -- as if they had been searched one after the other
   let pairs := a.1.foldl (fun s l => s + l.size * l.size) 0
-  for k in [0:extraStarts pairs starts] do
-    if best.2 == 0 then break
-    let r := reduceFrom size (initialLayersSeeded layerAll up down k) up down sweeps
+  let others : Array (Task (Array (Array Nat) × Nat)) :=
+    #[Task.spawn fun _ => reduceFrom size (initialLayersBfs layerAll up down) up down sweeps,
+      Task.spawn fun _ => reduceFrom size (initialLayers layerAll down up) up down sweeps] ++
+    (Array.range (extraStarts pairs starts)).map fun k => Task.spawn fun _ =>
+      reduceFrom size (initialLayersSeeded layerAll up down k) up down sweeps
+  let mut best := a
+  for task in others do
+    let r := task.get
     if r.2 < best.2 then best := r
   return best.1
 

@@ -28,7 +28,10 @@ One item per line, fields separated by spaces; other lines are ignored.
 
 `dot-recorded.tsv` holds Graphviz's measures of the same graphs: the first line says which
 version, then a header, then one row per graph with the number of nodes and edges, the number of
-pairs of edges that cross, the total edge length in pixels and the area in square pixels. They
+pairs of edges that cross, the total edge length in pixels, the area in square pixels, the mean
+turning of an edge in degrees and its mean number of inflections (changes from bending one way
+to bending the other, a bend counting from five degrees), the length of the edges outside the
+box around the nodes, and the least distance between an edge and a node it does not end at. They
 were made with `lake exe pilean-test --graph-quality DIR` (the built-in graphs) and
 `lake exe pilean-test --graph-quality-files PILeanTest/graphs DIR` (these files), each followed by
 `python3 -I tools/graph-compare.py DIR --tsv FILE`, which runs `dot -Tplain` on the Graphviz input

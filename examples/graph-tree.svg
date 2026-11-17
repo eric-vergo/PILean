@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="344" height="276" viewBox="0 0 344 276">
   <path d="M0 0 L344 0 L344 276 L0 276 Z" fill="#ffffff"/>
-  <path d="M172 44 C172 56.17 104 68.33 104 80.5" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M104 88 L100.4 79.5 L107.6 79.5 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M172 44 C172 56.17 274 68.33 274 80.5" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M274 88 L270.4 79.5 L277.6 79.5 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M104 116 C104 128.17 70 140.33 70 152.5" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M70 160 L66.4 151.5 L73.6 151.5 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M104 116 C104 128.17 172 140.33 172 152.5" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M172 160 L168.4 151.5 L175.6 151.5 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M274 116 C274 128.17 240 140.33 240 152.5" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M240 160 L236.4 151.5 L243.6 151.5 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M274 116 C274 128.17 308 140.33 308 152.5" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M308 160 L304.4 151.5 L311.6 151.5 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M70 188 C70 200.17 36 212.33 36 224.5" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M36 232 L32.4 223.5 L39.6 223.5 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M70 188 C70 200.17 104 212.33 104 224.5" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M104 232 L100.4 223.5 L107.6 223.5 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M308 188 C308 200.17 308 212.33 308 224.5" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M308 232 L304.4 223.5 L311.6 223.5 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M172 44 L109.88 84.2" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M104 88 L109.2 81.3 L112.24 86 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M172 44 L267.57 85.23" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M274 88 L265.55 87.4 L267.76 82.26 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M104 116 L74.28 154.46" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M70 160 L72.68 151.96 L77.11 155.38 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M104 116 L166.12 156.2" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M172 160 L163.76 158 L166.8 153.3 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M274 116 L244.28 154.46" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M240 160 L242.68 151.96 L247.11 155.38 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M274 116 L303.72 154.46" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M308 160 L300.89 155.38 L305.32 151.96 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M70 188 L40.28 226.46" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 232 L38.68 223.96 L43.11 227.38 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M70 188 L99.72 226.46" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M104 232 L96.89 227.38 L101.32 223.96 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M308 188 L308 225" fill="none" stroke="#82828c" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M308 232 L305.2 224 L310.8 224 Z" fill="#82828c" stroke="#82828c" stroke-width="0.5" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M157.5 16.5 L186.5 16.5 C189.26 16.5 191.5 18.74 191.5 21.5 L191.5 38.5 C191.5 41.26 189.26 43.5 186.5 43.5 L157.5 43.5 C154.74 43.5 152.5 41.26 152.5 38.5 L152.5 21.5 C152.5 18.74 154.74 16.5 157.5 16.5 Z" fill="#f8f8fa" stroke="#787882" stroke-width="1"/>
   <text x="172" y="33.96" font-size="11" fill="#18181b" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">0</text>
   <path d="M89.5 88.5 L118.5 88.5 C121.26 88.5 123.5 90.74 123.5 93.5 L123.5 110.5 C123.5 113.26 121.26 115.5 118.5 115.5 L89.5 115.5 C86.74 115.5 84.5 113.26 84.5 110.5 L84.5 93.5 C84.5 90.74 86.74 88.5 89.5 88.5 Z" fill="#f8f8fa" stroke="#787882" stroke-width="1"/>

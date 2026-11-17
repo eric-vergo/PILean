@@ -11,7 +11,11 @@ import PILeanTest.Graphs
 Measures of a drawing that do not depend on the eye, computed from the finished `Layout`: the
 pairs of edges that cross (edges sharing a node not counted; the edges flattened to polylines),
 the total length of the edges, the area of the drawing, the violations of the cluster rules
-(`clusterProblems`) and of the edges' clearance (`clearanceProblems`), and the time taken.
+(`clusterProblems`) and of the edges' clearance (`clearanceProblems`), and the time taken; and
+measures of what the eye objects to (`eye`): how much an edge turns and how often it changes
+from bending one way to bending the other, how much of the edges runs outside the box around
+the nodes, how near an edge comes to a node it does not end at, and whether an edge turns back
+across the layers.
 
 * `graphs`: the measured graphs: the two import graphs, two blueprint dependency graphs without
   clusters, by chapter and (the first) by chapter and section, module graphs of 800 and 3000
@@ -162,6 +166,137 @@ def area (l : Layout) : Float := Id.run do
       hi := ⟨max hi.x p.x, max hi.y p.y⟩
   return if hi.x < lo.x then 0 else (hi.x - lo.x) * (hi.y - lo.y)
 
+/-- The signed turning angles (degrees) at the inner points of a polyline. -/
+def turns (pts : Array Point) : Array Float := Id.run do
+  let mut out : Array Float := #[]
+  let mut prev : Option Point := none
+  for j in [1:pts.size] do
+    let d := pts.getD j ⟨0, 0⟩ - pts.getD (j - 1) ⟨0, 0⟩
+    if d.x * d.x + d.y * d.y < 1e-12 then continue
+    if let some p := prev then
+      out := out.push
+        (Float.atan2 (p.x * d.y - p.y * d.x) (p.x * d.x + p.y * d.y) * 180 / 3.141592653589793)
+    prev := some d
+  return out
+
+/-- How often a polyline changes from bending one way to bending the other, given its turning
+angles; a bend counts when it turns by `least` degrees or more in all. -/
+def inflections (angles : Array Float) (least : Float := 5) : Nat := Id.run do
+  let mut bends := 0
+  let mut sign : Int := 0
+  let mut total : Float := 0
+  for a in angles do
+    let s : Int := if a > 0 then 1 else if a < 0 then -1 else 0
+    if s == 0 then continue
+    if s != sign then
+      if total ≥ least then bends := bends + 1
+      sign := s
+      total := 0
+    total := total + a.abs
+  if total ≥ least then bends := bends + 1
+  return bends - 1
+
+/-- The length of the part of the segment `ab` inside the box (Liang and Barsky). -/
+def insideLength (a b : Point) (box : Box) : Float := Id.run do
+  let dx := b.x - a.x
+  let dy := b.y - a.y
+  let mut t0 : Float := 0
+  let mut t1 : Float := 1
+  for (p, q) in
+      [(-dx, a.x - box.x0), (dx, box.x1 - a.x), (-dy, a.y - box.y0), (dy, box.y1 - a.y)] do
+    if p == 0 then
+      if q < 0 then return 0
+    else
+      let r := q / p
+      if p < 0 then t0 := max t0 r else t1 := min t1 r
+  return max 0 (t1 - t0) * (dx * dx + dy * dy).sqrt
+
+/-- The distance between the segment `ab` and the box (`0` when they meet). -/
+def segmentBoxDistance (a b : Point) (box : Box) : Float :=
+  if segmentHitsBox a b box then 0
+  else
+    let pointSegment := fun (p c d : Point) =>
+      let v := d - c
+      let l2 := v.x * v.x + v.y * v.y
+      let t := if l2 == 0 then 0 else max 0 (min 1 (((p.x - c.x) * v.x + (p.y - c.y) * v.y) / l2))
+      (p - (c + t * v)).norm
+    let pointBox := fun (p : Point) =>
+      (⟨max (max (box.x0 - p.x) 0) (p.x - box.x1), max (max (box.y0 - p.y) 0) (p.y - box.y1)⟩ :
+        Point).norm
+    let corners : List Point :=
+      [⟨box.x0, box.y0⟩, ⟨box.x1, box.y0⟩, ⟨box.x1, box.y1⟩, ⟨box.x0, box.y1⟩]
+    corners.foldl (fun m c => min m (pointSegment c a b)) (min (pointBox a) (pointBox b))
+
+/-- What the eye objects to in a drawing. -/
+structure Eye where
+  /-- The mean turning of an edge, in degrees: the sum of the angles by which it changes
+  direction. -/
+  turning : Float
+  /-- The mean number of times an edge changes from bending one way to bending the other. -/
+  inflections : Float
+  /-- The length of the edges outside the box around the nodes (pixels). -/
+  outside : Float
+  /-- The least distance between an edge and a node it does not end at (pixels), looked for up
+  to `reach`. -/
+  nearest : Float
+  /-- The edges that at some point run against the direction they began in, along the first
+  (`true`) or the second coordinate: an edge of a layered drawing never turns back across the
+  layers. -/
+  turnedBack : Bool → Nat
+
+/-- How far from an edge a node is looked for by `eye`. -/
+def reach : Float := 64
+
+/-- The measures of what the eye objects to, as `tools/graph-compare.py` computes them for
+Graphviz's drawings (nodes bucketed on a grid of 64 pixels). -/
+def eye (l : Layout) : Eye := Id.run do
+  let none_ : Eye := { turning := 0, inflections := 0, outside := 0, nearest := reach,
+                       turnedBack := fun _ => 0 }
+  if l.nodes.isEmpty || l.edges.isEmpty then return none_
+  let hull := l.nodes.foldl (fun b n => b.union n.box) (l.nodes.getD 0 default).box
+  let cell : Float := 64
+  let idx := fun (f : Float) => (f / cell).floor.toInt64.toInt
+  let mut grid : Std.HashMap (Int × Int) (Array Nat) := {}
+  for n in l.nodes do
+    for cx in [0:(idx (n.box.x1 + reach) - idx (n.box.x0 - reach) + 1).toNat] do
+      for cy in [0:(idx (n.box.y1 + reach) - idx (n.box.y0 - reach) + 1).toNat] do
+        let key := (idx (n.box.x0 - reach) + cx, idx (n.box.y0 - reach) + cy)
+        grid := grid.insert key ((grid.getD key #[]).push n.index)
+  let mut turning : Float := 0
+  let mut bends := 0
+  let mut outside : Float := 0
+  let mut nearest := reach
+  let mut backX := 0
+  let mut backY := 0
+  for e in l.edges do
+    let pts := edgePoints e
+    let angles := turns pts
+    turning := angles.foldl (fun s a => s + a.abs) turning
+    bends := bends + inflections angles
+    let first := pts.getD 0 ⟨0, 0⟩
+    let last := pts.getD (pts.size - 1) ⟨0, 0⟩
+    let mut bx := false
+    let mut by_ := false
+    for j in [1:pts.size] do
+      let a := pts.getD (j - 1) ⟨0, 0⟩
+      let b := pts.getD j ⟨0, 0⟩
+      outside := outside + a.dist b - insideLength a b hull
+      if (b.x - a.x) * (last.x - first.x) < -1e-6 then bx := true
+      if (b.y - a.y) * (last.y - first.y) < -1e-6 then by_ := true
+      if e.src == e.dst then continue
+      let mut seen : Array Nat := #[]
+      for cx in [0:(idx (max a.x b.x) - idx (min a.x b.x) + 1).toNat] do
+        for cy in [0:(idx (max a.y b.y) - idx (min a.y b.y) + 1).toNat] do
+          for i in grid.getD (idx (min a.x b.x) + cx, idx (min a.y b.y) + cy) #[] do
+            if i != e.src && i != e.dst && !seen.contains i then
+              seen := seen.push i
+              nearest := min nearest (segmentBoxDistance a b (l.nodes.getD i default).box)
+    if bx && e.src != e.dst then backX := backX + 1
+    if by_ && e.src != e.dst then backY := backY + 1
+  let count := l.edges.size.toFloat
+  return { turning := turning / count, inflections := bends.toFloat / count, outside, nearest,
+           turnedBack := fun x => if x then backX else backY }
+
 /-- The measures of one layout. -/
 structure Measures where
   /-- Crossing pairs of edges. -/
@@ -241,23 +376,26 @@ def fileGraphs (dir : System.FilePath) : IO (Array (String × Graph)) := do
 /-- Prints the measures of the graphs; with a directory, also writes the files of
 `tools/graph-compare.py` there. -/
 def reportGraphs (graphs : Array (String × Graph)) (dir? : Option String)
-    (packed : Bool := false) : IO Unit := do
+    (packed : Bool := false) (o : LayeredOptions := {}) : IO Unit := do
   if let some dir := dir? then IO.FS.createDirAll dir
   IO.println s!"load {← Graphs.loadAverage}"
   IO.println ("graph                  nodes edges   ms  crossings   length(px)   area(Mpx2) " ++
-    "clu clr ent")
+    "clu clr ent  turn infl  outside near back")
   for (name, g) in graphs do
     let t0 ← IO.monoNanosNow
-    let l ← IO.lazyPure fun _ => if packed then g.layoutPacked else g.layout
+    let l ← IO.lazyPure fun _ => if packed then g.layoutPacked o else g.layout o
     let ms ← Graphs.msSince t0
     let m := measure g l
+    let v := eye l
     let pad := fun (s : String) (w : Nat) => String.ofList (List.replicate (w - s.length) ' ') ++ s
     IO.println s!"{name}{pad "" (22 - name.length)} {pad (toString g.nodes.size) 5} \
       {pad (toString g.edges.size) 5} {pad (toString ms) 4} {pad (toString m.crossings) 10} \
       {pad (toString m.length.round.toUInt64) 12} \
       {pad (toString (m.area / 1e6).round.toUInt64) 12} \
       {pad (toString m.clusterViolations) 3} {pad (toString m.clearanceViolations) 3} \
-      {pad (toString m.clusterEntries) 3}"
+      {pad (toString m.clusterEntries) 3} {pad (fmtNum v.turning 1) 5} \
+      {pad (fmtNum v.inflections 2) 4} {pad (toString v.outside.round.toUInt64) 8} \
+      {pad (fmtNum v.nearest 1) 4} {pad (toString (v.turnedBack (o.direction == .leftToRight))) 4}"
     if let some dir := dir? then
       let dot := dotText g {} {}
       IO.FS.writeFile s!"{dir}/{name}.dot"
@@ -273,12 +411,17 @@ def report (dir? : Option String) : IO Unit := reportGraphs graphs dir?
 /-- The bounds the checks hold the measures to, by graph: crossings, edge length (pixels) and
 area (square pixels), each about a tenth above the values measured when they were set. -/
 def bounds : Array (String × Nat × Float × Float) :=
-  #[("own-imports", 230, 110900, 4.6e6), ("project-imports", 116, 47700, 3.0e6),
-    ("blueprint-a", 285, 67700, 2.6e6), ("blueprint-a-chapters", 455, 98300, 3.6e6),
-    ("blueprint-a-nested", 450, 183000, 5.3e6), ("blueprint-b", 97, 37000, 2.4e6),
-    ("blueprint-b-chapters", 216, 88000, 4.9e6), ("module-800", 8542, 1074700, 2.96e7),
-    ("dense-dag", 827, 89800, 2.7e6), ("sparse-dag", 274, 62600, 4.9e6),
-    ("tree", 0, 13700, 2.4e6), ("chain", 0, 7900, 5.3e5)]
+  #[("own-imports", 244, 107300, 4.8e6), ("project-imports", 116, 45000, 3.6e6),
+    ("blueprint-a", 280, 66900, 3.6e6), ("blueprint-a-chapters", 291, 85400, 4.9e6),
+    ("blueprint-a-nested", 354, 99100, 6.0e6), ("blueprint-b", 94, 39900, 3.6e6),
+    ("blueprint-b-chapters", 117, 50800, 4.9e6), ("module-800", 8356, 1071500, 4.6e7),
+    ("dense-dag", 827, 84300, 2.6e6), ("sparse-dag", 274, 62700, 6.0e6),
+    ("tree", 0, 13400, 3.6e6), ("chain", 0, 7800, 6.0e5)]
+
+/-- The graphs with clusters in which no edge may pass through a cluster that holds neither of
+its ends. -/
+def cleanClusters : Array String :=
+  #["blueprint-a-chapters", "blueprint-a-nested", "blueprint-b-chapters"]
 
 /-- A small graph whose clusters invite overlap: two clusters whose members sit in the same
 layers, a node outside both between them in a middle layer, a nested cluster, a cluster with a
@@ -331,6 +474,14 @@ def checks : Array (String × Bool) := Id.run do
       m.clusterViolations == 0)
     out := out.push (s!"graph quality {name}: no edge passes a node it does not end at",
       m.clearanceViolations == 0)
+    let v := eye l
+    out := out.push (s!"graph quality {name}: every edge keeps three pixels from the nodes it \
+      does not end at ({v.nearest})", v.nearest ≥ 3)
+    out := out.push (s!"graph quality {name}: no edge turns back across the layers",
+      v.turnedBack false == 0)
+    if cleanClusters.contains name then
+      out := out.push (s!"graph quality {name}: no edge passes through a cluster that holds \
+        neither of its ends", m.clusterEntries == 0)
     if let some (_, c, len, a) := bounds.find? (·.1 == name) then
       out := out.push (s!"graph quality {name}: crossings {m.crossings} at most {c}",
         m.crossings ≤ c)
@@ -339,7 +490,7 @@ def checks : Array (String × Bool) := Id.run do
   return out
 
 /-- What the recorded Graphviz measures of a graph were (`PILeanTest/graphs/dot-recorded.tsv`):
-nodes, edges, crossings, edge length and area. -/
+nodes, edges, crossings, edge length and area, and what the eye objects to (`Eye`). -/
 structure Recorded where
   /-- The number of nodes. -/
   nodes : Nat
@@ -351,35 +502,58 @@ structure Recorded where
   length : Float
   /-- Area (square pixels). -/
   area : Float
+  /-- The mean turning of an edge (degrees). -/
+  turning : Float
+  /-- The mean number of inflections of an edge. -/
+  inflections : Float
+  /-- The length of the edges outside the box around the nodes (pixels). -/
+  outside : Float
+  /-- The least distance between an edge and a node it does not end at (pixels). -/
+  nearest : Float
+
+/-- A decimal number such as `12.5` (digits, at most one point). -/
+def decimal? (s : String) : Option Float :=
+  match s.splitOn "." with
+  | [a] => a.toNat?.map (·.toFloat)
+  | [a, b] => match a.toNat?, b.toNat? with
+    | some x, some y => some (x.toFloat + y.toFloat / (10 : Float) ^ b.length.toFloat)
+    | _, _ => none
+  | _ => none
 
 /-- The rows of `dot-recorded.tsv` (the text of the file) by graph name; lines that do not have
-six fields of numbers after the name, such as comments and the header, are ignored. -/
+nine fields of numbers after the name, such as comments and the header, are ignored. -/
 def parseRecorded (text : String) : Array (String × Recorded) := Id.run do
   let mut out := #[]
   for line in text.splitOn "\n" do
     match line.splitOn "\t" with
-    | [name, n, e, c, len, a] =>
-      if let (some n, some e, some c, some len, some a) :=
-          (n.toNat?, e.toNat?, c.toNat?, len.toNat?, a.toNat?) then
+    | [name, n, e, c, len, a, turn, infl, outside, near] =>
+      if let (some n, some e, some c, some len, some a, some turn, some infl, some outside,
+          some near) := (n.toNat?, e.toNat?, c.toNat?, len.toNat?, a.toNat?, decimal? turn,
+            decimal? infl, decimal? outside, decimal? near) then
         out := out.push (name, { nodes := n, edges := e, crossings := c, length := len.toFloat,
-                                 area := a.toFloat })
+                                 area := a.toFloat, turning := turn, inflections := infl,
+                                 outside, nearest := near })
     | _ => pure ()
   return out
 
-/-- The most the crossings and the edge length of a drawing may be, as a multiple of Graphviz's
-recorded values, by graph (each about `0.1` above the ratio measured when it was set; for a graph
-Graphviz draws without crossings, no crossing is allowed). -/
-def ratios : Array (String × Float × Float) :=
-  #[("blueprint-a", 1.13, 0.96), ("blueprint-a-chapters", 1.43, 1.16),
-    ("blueprint-a-nested", 1.36, 1.78), ("blueprint-b", 1.20, 1.19),
-    ("blueprint-b-chapters", 1.22, 1.66), ("chain", 0, 1.25), ("dense-dag", 1.16, 0.85),
-    ("module-800", 1.36, 1.09), ("own-imports", 1.09, 1.04), ("project-imports", 0.85, 1.04),
-    ("sparse-dag", 1.03, 1.22), ("tree", 0, 1.41),
-    ("code-site-c-largest-module", 0.12, 1.09), ("code-site-c-modules", 1.23, 1.13),
-    ("code-site-c", 1.39, 3.47), ("neighbourhood-150", 0.89, 0.82),
-    ("neighbourhood-290", 0.97, 0.95), ("neighbourhood-34", 1.02, 1.08),
-    ("neighbourhood-46", 1.20, 0.99), ("neighbourhood-46b", 1.13, 1.30),
-    ("neighbourhood-50", 1.09, 1.00), ("neighbourhood-star-401", 0, 1.12)]
+/-- The most the crossings, the edge length, the mean turning of an edge and its mean number of
+inflections may be, as multiples of Graphviz's recorded values, by graph (each about `0.1` above
+the ratio measured when it was set; `0` where Graphviz's value is nothing to compare with: a
+graph it draws without crossings may have none, and the turning and inflections are then held
+to a degree and to a twentieth of an inflection for each edge). -/
+def ratios : Array (String × Float × Float × Float × Float) :=
+  #[("blueprint-a", 1.11, 0.95, 1.23, 1.05), ("blueprint-a-chapters", 0.96, 1.02, 1.57, 1.29),
+    ("blueprint-a-nested", 1.09, 1.01, 1.63, 1.29), ("blueprint-b", 1.17, 1.27, 0.97, 2.8),
+    ("blueprint-b-chapters", 0.71, 1.0, 1.2, 1.1), ("chain", 0, 1.24, 0, 0),
+    ("dense-dag", 1.16, 0.81, 1.24, 1.82), ("module-800", 1.33, 1.09, 0.97, 0.92),
+    ("own-imports", 1.14, 1.01, 1.15, 1.05), ("project-imports", 0.85, 0.99, 1.09, 0.7),
+    ("sparse-dag", 1.03, 1.22, 0.76, 0.55), ("tree", 0, 1.38, 0, 0),
+    ("code-site-c-largest-module", 0.12, 1.09, 0.27, 0.15),
+    ("code-site-c-modules", 1.24, 1.13, 1.24, 1.28),
+    ("code-site-c", 0.59, 1.14, 1.13, 0.93), ("neighbourhood-150", 0.87, 0.81, 1.15, 0.91),
+    ("neighbourhood-290", 0.96, 0.89, 1.22, 1.09), ("neighbourhood-34", 1.02, 1.05, 1.33, 1.23),
+    ("neighbourhood-46", 1.19, 1.0, 1.12, 0.77), ("neighbourhood-46b", 1.05, 1.25, 1.19, 0.95),
+    ("neighbourhood-50", 1.06, 0.97, 1.19, 0.83), ("neighbourhood-star-401", 0, 1.11, 0.17, 0.15)]
 
 /-- The graphs the checks against Graphviz leave out for the time they take: the largest of the
 measured graphs. -/
@@ -408,13 +582,23 @@ def ioChecks : IO (Array (String × Bool)) := do
     out := out.push (s!"graph files {name}: no edge passes a node it does not end at",
       m.clearanceViolations == 0)
     match recorded.find? (·.1 == name), ratios.find? (·.1 == name) with
-    | some (_, r), some (_, rc, rl) =>
+    | some (_, r), some (_, rc, rl, rt, ri) =>
+      let v := eye l
       out := out.push (s!"graph files {name}: {g.nodes.size} nodes and {g.edges.size} edges as \
         recorded", r.nodes == g.nodes.size && r.edges == g.edges.size)
       out := out.push (s!"graph files {name}: crossings {m.crossings} at most {rc} times \
         Graphviz's {r.crossings}", m.crossings.toFloat ≤ rc * r.crossings.toFloat)
       out := out.push (s!"graph files {name}: edge length {m.length} at most {rl} times \
         Graphviz's {r.length}", m.length ≤ rl * r.length)
+      out := out.push (s!"graph files {name}: an edge turns by {v.turning} degrees, at most \
+        {rt} times Graphviz's {r.turning} and one more", v.turning ≤ rt * r.turning + 1)
+      out := out.push (s!"graph files {name}: an edge has {v.inflections} inflections, at most \
+        {ri} times Graphviz's {r.inflections} and a twentieth more",
+        v.inflections ≤ ri * r.inflections + 0.05)
+      out := out.push (s!"graph files {name}: every edge keeps three pixels from the nodes it \
+        does not end at ({v.nearest}; Graphviz's come within {r.nearest})", v.nearest ≥ 3)
+      out := out.push (s!"graph files {name}: no edge turns back across the layers",
+        v.turnedBack false == 0)
     | _, _ => out := out.push (s!"graph files {name}: recorded measures and ratios present", false)
   if let some (_, g) := files.find? (·.1 == "code-site-c-largest-module") then
     -- the one cluster of the file holds every node, so its components cannot be told apart

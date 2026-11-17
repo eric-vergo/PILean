@@ -17,6 +17,7 @@ import PILeanTest.GraphOrder
 import PILeanTest.GraphQuality
 import PILeanTest.GraphDot
 import PILeanTest.Exact
+import PILeanTest.GraphRoutes
 import PILeanTest.Trust
 import PILeanTest.TrustBuild
 import PILeanTest.Inert
@@ -29,8 +30,8 @@ import PILeanTest.Axioms
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
 `PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`, `PILeanTest.Plots`,
-`PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.Trust`, `PILeanTest.TrustBuild`, `PILeanTest.Inert`,
-`PILeanTest.Exact`) and compares
+`PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.GraphRoutes`, `PILeanTest.Trust`,
+`PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`) and compares
 every gallery figure's SVG and PNG, every gallery graph's SVG and PNG, and every gallery
 animation's SVG, APNG, GIF and poster, with
 its files in `examples/` (the goldens), byte for byte; it also renders each figure twice to check
@@ -38,7 +39,9 @@ that the output is deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
 `tools/compare-render.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the graph
 layout and its output on module graphs of 100, 800 and 3000 nodes;
-`--graph-compare-out DIR` writes the files of `tools/graph-compare.py`; `--specimen-out DIR` writes
+`--graph-compare-out DIR` writes the files of `tools/graph-compare.py`;
+`--graph-quality DIR width N` and `--graph-quality-files SRC DIR width N` measure the layouts with
+the layers no wider than `N` pixels (`LayeredOptions.maxLayerWidth`); `--specimen-out DIR` writes
 the lettering specimen sheet (`lettering-specimen.svg` and `.png`); `--anim-bench` times a
 120-frame animation in each format.
 `PILeanTest.Bounds` runs the readers on hostile inputs in child processes (`pilean-probe`)
@@ -75,6 +78,14 @@ def main (args : List String) : IO UInt32 := do
   | ["--graph-quality-files", src, dir, "packed"] =>
     GraphQuality.reportGraphs (← GraphQuality.fileGraphs src) (some dir) (packed := true)
     return 0
+  | ["--graph-quality-files", src, dir, "width", w] =>
+    GraphQuality.reportGraphs (← GraphQuality.fileGraphs src) (some dir)
+      (o := { maxLayerWidth := w.toNat!.toFloat })
+    return 0
+  | ["--graph-quality", dir, "width", w] =>
+    GraphQuality.reportGraphs GraphQuality.graphs (some dir)
+      (o := { maxLayerWidth := w.toNat!.toFloat })
+    return 0
   | ["--graph-problems", name] => GraphQuality.problems name; return 0
   | ["--layout-dot", file] =>
     match PILean.Graph.layoutDot (← IO.FS.readFile file) with
@@ -91,8 +102,8 @@ def main (args : List String) : IO UInt32 := do
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++ Blur.checks ++
     Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
-    Graphs.checks ++ GraphOrder.checks ++ GraphQuality.checks ++ (← GraphQuality.ioChecks) ++
-    GraphDot.checks ++
+    Graphs.checks ++ GraphOrder.checks ++ GraphRoutes.checks ++ GraphQuality.checks ++
+    (← GraphQuality.ioChecks) ++ GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
     (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks)
