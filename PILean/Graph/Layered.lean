@@ -23,8 +23,10 @@ five phases, each with its work bounded by its input:
    deeper layer. When an edge has a label, the layers
    are doubled so that the label has a layer of its own half-way along its edge.
 3. **Crossing reduction** (`orderLayers`, `PILean.Graph.Ordering`): long edges are cut into
-   chains of dummy nodes; weighted-median sweeps and transposition from a depth-first and a
-   breadth-first start, counting crossings in `O(E log V)` per round.
+   chains of dummy nodes; weighted-median sweeps and transposition from a depth-first, a
+   breadth-first and a bottom-up start and from more depth-first starts drawn from a fixed
+   sequence, each search ending with sifting (Matuszewski, Schönfeld and Molitor), counting
+   crossings in `O(E log V)` per round.
 4. **Coordinates** (`assignBreadth`, `refineBreadth`, `simplexBreadth`,
    `PILean.Graph.Coordinates`): Brandes and Köpf's four alignments, balanced, which keep the
    chains of long edges straight, refined, then improved by network simplex on the weighted
@@ -67,6 +69,8 @@ the two work budgets.
   Information Processing Letters 47 (1993).
 * Barth, Jünger, Mutzel, *Simple and efficient bilayer cross counting*, Journal of Graph
   Algorithms and Applications 8 (2004).
+* Matuszewski, Schönfeld, Molitor, *Using sifting for k-layer straightline crossing
+  minimization*, Graph Drawing 1999, LNCS 1731.
 * Brandes, Köpf, *Fast and simple horizontal coordinate assignment*, Graph Drawing 2001,
   Lecture Notes in Computer Science 2265.
 * Sander, *Layout of compound directed graphs*, Technical Report A/03/96, Universität des

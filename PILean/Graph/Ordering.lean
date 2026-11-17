@@ -25,10 +25,17 @@ improved to reduce the crossings between adjacent layers (`orderLayers`):
 * **Crossing count** (`crossings`): between two adjacent layers, the crossings are the
   inversions of the sequence of target positions taken in order of source position, counted with
   a Fenwick tree (the accumulator tree of Barth, Jünger and Mutzel, in an array): `O(E log V)`.
+* **Sifting** (`siftLayer`, `siftRound`, `siftFrom`): after the sweeps, each node of a layer, the
+  nodes of most edges first, is taken out and put where its edges cross the fewest edges of the
+  other nodes of the layer, rounds over all layers alternately down and up, each followed by
+  transposition, while the crossings fall (Matuszewski, Schönfeld and Molitor).
 * **Best order** (`reduceFrom`): after every round the order is kept when it has strictly fewer
   crossings than the best so far; the rounds stop after a run without improvement or at the
-  bound. `orderLayers` runs it from both initial orders (from the depth-first one only on large
-  graphs) and keeps the better result.
+  bound, and the best order is sifted. `orderLayers` runs it from the depth-first, the
+  breadth-first and the bottom-up depth-first initial orders (from the depth-first one only on
+  large graphs) and from more depth-first orders drawn from a fixed pseudo-random sequence
+  (`initialLayersSeeded`, as many as `extraStarts` allows for the size of the graph), and keeps
+  the best result.
 * **Clusters** (`groupClusters`): the members of a cluster are gathered, and the clusters stand
   in the same order in every layer.
 
@@ -43,6 +50,8 @@ pair of degrees compared in a transposition.
   Algorithms and Applications 8 (2004).
 * Gansner, Koutsofios, North, Vo, *A technique for drawing directed graphs*, IEEE Transactions
   on Software Engineering 19 (1993).
+* Matuszewski, Schönfeld, Molitor, *Using sifting for k-layer straightline crossing
+  minimization*, Graph Drawing 1999, LNCS 1731.
 -/
 
 namespace PILean.Graph

@@ -125,6 +125,10 @@ not rational-valued.
   about that pass. Nothing is proved about the layers network simplex and balancing produce
   before it (`layersBeforeRepair`); a test checks, on random graphs, the fixtures and the import
   graphs, that the repair changes nothing there, so the layers you see are the simplex's own.
+* Not proved: the crossing reduction's sifting and seeded starts, the packing of components
+  (`Graph.layoutPacked`), `Layout.mirror` and the SVG for web pages (`Layout.toWebSvg`). They are
+  tested (`PILeanTest/GraphOrder.lean`), not proved; that every edge of the input has one route
+  is proved for `Graph.layout` only.
 
 **Animations** (`PILean/Anim/Proofs.lean`)
 
@@ -180,7 +184,8 @@ package checks that no file is left out.
   decoders, the SVG writer: tested against published values, other software and the golden files
   in `examples/`.
 * The quality of a graph layout (layers, crossings, coordinates, curves): tested, including
-  against Graphviz. Only the *set* of drawn edges and the downward direction of the layers (by
+  against Graphviz's recorded measures (`PILeanTest/graphs/dot-recorded.tsv`); so are the
+  sifting, the packing of components, mirrored layouts and the SVG for web pages. Only the *set* of drawn edges and the downward direction of the layers (by
   the repair pass) are proved, not where the edges run, and not that network simplex finds a
   feasible or optimal layering on its own (`layersBeforeRepair` is tested, see above).
 * The floating-point conversion and the page mapping. `Exact.toFloat` divides the numerator by
