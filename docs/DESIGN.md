@@ -224,11 +224,11 @@ spans of the edges, at most `E (L - 1)`; `C` clusters):
    (a 3000-node graph finishes about 1800 exchanges).
 6. *Edges*: an edge passes a dummy node straight along the layers through the band of that
    layer's boxes, and crosses a gap as a cubic leaving and entering perpendicular to the layers;
-   a step that goes sideways more than eight times the gap is drawn instead as a horizontal run
-   inside the gap with rounded corners (of radius up to 24 pixels), on a track of its own (runs going right lie below the
-   overlapping runs going right that start further right, so their descents do not cross; runs
-   going left likewise), and a gap with many runs grows, up to three times, to keep them three
-   pixels apart; or horizontal and vertical segments with rounded corners on the same tracks
+   a step that goes sideways more than eight times the gap is one cubic too, whose long sideways
+   stretch runs at the height of a track of its own (the tracks of steps going right lie below
+   those of the overlapping steps going right that start further right, so that their descents
+   do not cross; steps going left likewise), and a gap with many such steps grows, up to three
+   times, to keep them three pixels apart; or horizontal and vertical segments with rounded corners on the same tracks
    (`Routing.orthogonal`). Ends are spread along the node's side in the order of the other ends;
    arrowheads aligned with the end of the curve; labels on plates of the page colour at the middle
    of the edge.
@@ -327,29 +327,29 @@ file (including its start).
 
 | Graph | Nodes, edges | Time PILean / dot (ms) | Crossings | Edge length | Area | Cluster violations | Edges passing a node | Edges entering a foreign cluster |
 |---|---|---|---|---|---|---|---|---|
-| own imports | 92, 205 | 399 / 40 | 0.98 | 0.93 | 0.75 | – | 0 | – |
-| project imports | 88, 173 | 178 / 35 | 0.75 | 0.93 | 0.77 | – | 0 | – |
-| blueprint A | 58, 146 | 226 / 27 | 1.03 | 0.85 | 0.70 | – | 0 | – |
-| blueprint A by chapter | 58, 146 | 88 / 63 | 1.33 | 1.05 | 0.85 | 0 | 0 | 8 |
-| blueprint A by chapter and section | 58, 146 | 93 / 59 | 1.25 | 1.67 | 1.09 | 0 | 0 | 64 |
-| blueprint B | 69, 111 | 72 / 20 | 1.10 | 1.08 | 0.77 | – | 0 | – |
-| blueprint B by chapter | 69, 111 | 44 / 55 | 1.11 | 1.56 | 1.20 | 0 | 0 | 25 |
-| module graph | 800, 1077 | 1858 / 513 | 1.25 | 0.99 | 0.64 | – | 0 | – |
-| module graph | 3000, 4019 | 7433 / 3545 | 0.87 | 0.84 | 1.29 | – | 0 | – |
-| dense random | 120, 387 | 428 / 48 | 1.05 | 0.75 | 0.34 | – | 0 | – |
-| sparse random | 300, 325 | 273 / 34 | 0.92 | 1.12 | 0.50 | – | 0 | – |
-| tree | 127, 126 | 7 / 22 | – (0 / 0) | 1.31 | 1.00 | – | 0 | – |
+| own imports | 92, 205 | 273 / 40 | 1.04 | 0.90 | 0.75 | – | 0 | – |
+| project imports | 88, 173 | 132 / 35 | 0.75 | 0.93 | 0.77 | – | 0 | – |
+| blueprint A | 58, 146 | 159 / 27 | 1.01 | 0.85 | 0.70 | – | 0 | – |
+| blueprint A by chapter | 58, 146 | 88 / 63 | 1.29 | 1.04 | 0.85 | 0 | 0 | 8 |
+| blueprint A by chapter and section | 58, 146 | 90 / 59 | 1.19 | 1.64 | 1.09 | 0 | 0 | 69 |
+| blueprint B | 69, 111 | 52 / 20 | 1.07 | 1.16 | 0.77 | – | 0 | – |
+| blueprint B by chapter | 69, 111 | 43 / 55 | 1.10 | 1.54 | 1.20 | 0 | 0 | 26 |
+| module graph | 800, 1077 | 1432 / 513 | 1.23 | 0.96 | 0.64 | – | 0 | – |
+| module graph | 3000, 4019 | 6070 / 3545 | 0.86 | 0.82 | 1.29 | – | 0 | – |
+| dense random | 120, 387 | 304 / 48 | 1.05 | 0.75 | 0.34 | – | 0 | – |
+| sparse random | 300, 325 | 193 / 34 | 0.92 | 1.11 | 0.50 | – | 0 | – |
+| tree | 127, 126 | 6 / 22 | – (0 / 0) | 1.30 | 1.00 | – | 0 | – |
 | chain | 80, 99 | 7 / 18 | – (0 / 0) | 1.15 | 1.14 | – | 0 | – |
-| code site C | 2866, 5516 | 844 / 1654 | 1.29 | 3.36 | 1.63 | 0 | 0 | 5455 |
-| code site C, its modules | 85, 159 | 263 / 34 | 1.13 | 1.03 | 0.75 | – | 0 | – |
-| code site C, its largest module | 561, 422 | 240 / 81 | 0.02 | 0.99 | 2.24 | 0 | 0 | 0 |
+| code site C | 2866, 5516 | 775 / 1654 | 1.26 | 3.35 | 1.63 | 0 | 0 | 5682 |
+| code site C, its modules | 85, 159 | 175 / 34 | 1.13 | 1.02 | 0.75 | – | 0 | – |
+| code site C, its largest module | 561, 422 | 148 / 81 | 0.02 | 0.98 | 2.24 | 0 | 0 | 0 |
 | neighbourhood, a node with 400 neighbours | 401, 400 | 13 / 33 | – (0 / 0) | 1.01 | 1.73 | – | 0 | – |
-| neighbourhood of 290 nodes | 290, 793 | 1723 / 165 | 0.87 | 0.85 | 1.20 | – | 0 | – |
-| neighbourhood of 150 nodes | 150, 468 | 941 / 156 | 0.78 | 0.71 | 0.71 | – | 0 | – |
-| neighbourhood of 50 nodes | 50, 152 | 260 / 30 | 0.98 | 0.90 | 0.76 | – | 0 | – |
-| neighbourhood of 46 nodes (1) | 46, 119 | 269 / 26 | 1.10 | 0.89 | 0.76 | – | 0 | – |
-| neighbourhood of 46 nodes (2) | 46, 72 | 46 / 21 | 1.03 | 1.19 | 0.94 | – | 0 | – |
-| neighbourhood of 34 nodes | 34, 93 | 124 / 23 | 0.92 | 0.97 | 0.68 | – | 0 | – |
+| neighbourhood of 290 nodes | 290, 793 | 1564 / 165 | 0.86 | 0.82 | 1.20 | – | 0 | – |
+| neighbourhood of 150 nodes | 150, 468 | 931 / 156 | 0.77 | 0.69 | 0.71 | – | 0 | – |
+| neighbourhood of 50 nodes | 50, 152 | 154 / 30 | 0.96 | 0.89 | 0.76 | – | 0 | – |
+| neighbourhood of 46 nodes (1) | 46, 119 | 120 / 26 | 1.09 | 0.88 | 0.76 | – | 0 | – |
+| neighbourhood of 46 nodes (2) | 46, 72 | 23 / 21 | 0.95 | 1.19 | 0.94 | – | 0 | – |
+| neighbourhood of 34 nodes | 34, 93 | 74 / 23 | 0.92 | 0.96 | 0.68 | – | 0 | – |
 
 Packed (`layoutPacked` against `dot` with `pack=true`; measured for code site C and its largest
 module): code site C has 1.15 times `dot`'s crossings, 1.66 times its edge length and 0.41 times

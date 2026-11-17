@@ -33,8 +33,8 @@ five phases, each with its work bounded by its input:
    horizontal length of the edges within a bound on the work; node widths come from the labels
    measured with the style's text engine.
 5. **Edges**: straight through the band of each layer they cross, as cubic curves across the
-   gaps that leave and enter perpendicular to the layers, or as horizontal runs on tracks of
-   their own where a step goes far sideways (`stationPieces`), so that no edge passes near a
+   gaps that leave and enter perpendicular to the layers, each at a height of its own where a
+   step goes far sideways (`stationPieces`), so that no edge passes near a
    node it does not end at (`clearanceProblems`); or as horizontal and vertical segments with
    rounded corners (`Routing.orthogonal`); reversed edges are drawn in their own direction;
    edges meet a node's side at points spread by `portStep`; directed edges end in an arrowhead
@@ -374,19 +374,18 @@ def gapPiece (a b : Point) : Piece :=
   let h := (b.y - a.y) / 3
   (a, ⟨a.x, a.y + h⟩, ⟨b.x, b.y - h⟩, b)
 
-/-- The route across a gap from `a` down to `b` that goes far sideways: down from `a`, a
-horizontal run at `y`, down into `b`, with rounded corners. -/
+/-- The route across a gap from `a` down to `b` that goes far sideways: a short straight piece
+down from `a`, one cubic that continues perpendicular to the layers and runs its long sideways
+stretch at about the height `y` (its middle point is at `y` when the gap leaves the room), and a
+short straight piece into `b`; so the curves of one gap, each with a height of its own, stay
+apart, and a curve keeps a few pixels from the boxes above and below however far it goes. -/
 def stairPieces (a b : Point) (y : Float) : Array Piece :=
-  let r := min 24 (min (min (y - a.y) (b.y - y)) ((b.x - a.x).abs / 2)) |> max 0
-  let s : Float := if b.x ≥ a.x then 1 else -1
-  -- a quarter circle as a cubic: the control points 0.5523 of the radius from the ends
-  let k := 0.5523 * r
-  let c1 : Point := ⟨a.x, y - r⟩
-  let c2 : Point := ⟨a.x + s * r, y⟩
-  let c3 : Point := ⟨b.x - s * r, y⟩
-  let c4 : Point := ⟨b.x, y + r⟩
-  #[linePiece a c1, (c1, ⟨a.x, y - r + k⟩, ⟨a.x + s * (r - k), y⟩, c2), linePiece c2 c3,
-    (c3, ⟨b.x - s * (r - k), y⟩, ⟨b.x, y + r - k⟩, c4), linePiece c4 b]
+  let stub := max 0 (min 5 ((b.y - a.y) / 6))
+  let p : Point := ⟨a.x, a.y + stub⟩
+  let q : Point := ⟨b.x, b.y - stub⟩
+  -- with both control points at height `c` the middle of the cubic is at `(p.y + 6 c + q.y) / 8`
+  let c := max (p.y + stub) (min (q.y - stub) ((8 * y - p.y - q.y) / 6))
+  #[linePiece a p, (p, ⟨p.x, c⟩, ⟨q.x, c⟩, q), linePiece q b]
 
 /-- The pieces of a curve through stations (the points where it enters and leaves each node
 of its chain, top to bottom): straight through a station, `gapPiece` across a gap, or
@@ -448,13 +447,21 @@ def routeOne (pl : Plan) (k i : Nat) (e : Graph.Edge) : RoutedEdge :=
     let cut := arrowLength - 1
     let first : Point := if arrow && rev then ⟨sx, sy + cut⟩ else ⟨sx, sy⟩
     let last : Point := if arrow && !rev then ⟨ex, ey - cut⟩ else ⟨ex, ey⟩
+    -- the edge leaves its upper node straight down to the edge of that node's layer and enters
+    -- its lower node straight from the edge of that one's, so that it turns sideways only in
+    -- the gap, clear of taller boxes of the two layers
+    let spline := pl.routing == .spline
+    let leave : Point :=
+      if spline then ⟨first.x, max first.y (pl.along.getD a 0 + pl.band.getD a 0)⟩ else first
+    let enter : Point :=
+      if spline then ⟨last.x, min last.y (pl.along.getD b 0 - pl.band.getD b 0)⟩ else last
     let stations : Array (Point × Point) :=
-      #[(first, first)] ++ (c.extract 1 (c.size - 1)).map (fun d =>
+      #[(first, leave)] ++ (c.extract 1 (c.size - 1)).map (fun d =>
         let cx := pl.across.getD d 0
         let cy := pl.along.getD d 0
         let h := pl.band.getD d 0
         if pl.routing == .spline && h > 0.5 then (⟨cx, cy - h⟩, ⟨cx, cy + h⟩)
-        else (⟨cx, cy⟩, ⟨cx, cy⟩)) ++ #[(last, last)]
+        else (⟨cx, cy⟩, ⟨cx, cy⟩)) ++ #[(enter, last)]
     -- the points of the route: its two ends on the outlines and the centres of its dummy nodes
     let pts : Array Point := #[⟨sx, sy⟩] ++ (c.extract 1 (c.size - 1)).map (fun d =>
       (⟨pl.across.getD d 0, pl.along.getD d 0⟩ : Point)) ++ #[⟨ex, ey⟩]
