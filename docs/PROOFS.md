@@ -37,9 +37,9 @@ sine.)
 
 The rational numbers are `Rat`, the type of Lean's core library: a fraction in lowest terms, so
 equality of rationals is `=`. All the theorems about values are statements about exact numbers.
-The theorem of a gallery picture names the picture: `provedFunction_spec` begins by saying that
-the series of the figure `provedFunction` are `cubicSeries` and `parabolaSeries` and no other,
-and then says what the points of those series are. So changing the figure changes what is
+The theorem of a gallery picture that has one names the picture: `provedFunction_spec` begins by
+saying that the series of the figure `provedFunction` are `cubicSeries` and `parabolaSeries` and
+no other, and then says what the points of those series are. So changing the figure changes what is
 proved, and a figure that no longer satisfies its theorem does not build.
 
 Many of these theorems are short: the series constructors are defined to hold the converted
@@ -78,8 +78,8 @@ anywhere in the library. The build of the tests checks this for every declaratio
 and of the test modules the test driver imports, theorems and definitions alike, without a list
 of names, and reports any `axiom` they declare, used or not (`PILeanTest/Axioms.lean`); every
 `lake test` checks that no file of the library is left out of that check. Each main theorem sits
-beside an `example` that shows its hypotheses can be met. The gallery pictures
-(`examples/README.md`) each carry theirs next to the code in `PILeanTest/ProvedExamples.lean`.
+beside an `example` that shows its hypotheses can be met. The gallery pictures that have a theorem
+(`examples/README.md`) carry it next to the code in `PILeanTest/ProvedExamples.lean`.
 
 **Function plots** (`PILean/Exact.lean`, `PILean/Plot/Exact.lean`)
 
@@ -221,10 +221,10 @@ package checks that no file is left out.
   Lean's responsibility), the standard library, and the three standard axioms.
 * **The build**: that the bytes in a file are the ones the build produced from the declaration
   they name. `docs/TRUST.md` describes how this is made checkable (the source record, the
-  fingerprint, the manifest, `pilean-build --check` and `pilean-verify`). The theorem of each
-  gallery picture is in the picture's module, so building that module checks it (the Mathlib
-  package keeps its theorem in a module that imports the picture's, and building that module
-  checks it); a file edited afterwards is only detected by those tools.
+  fingerprint, the manifest, `pilean-build --check` and `pilean-verify`). The theorem of a
+  gallery picture that has one is in the picture's module, so building that module checks it
+  (the Mathlib package keeps its theorem in a module that imports the picture's, and building
+  that module checks it); a file edited afterwards is only detected by those tools.
 * **The viewer** that displays the file: a browser, an image program or a printer draws the SVG or
   PNG its own way.
 * The reader of the theorem: that the statement says what you mean. The statements are short and
