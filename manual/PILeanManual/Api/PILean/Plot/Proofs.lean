@@ -1,0 +1,20 @@
+/-
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
+-/
+import VersoManual
+import PILeanManual.ApiMeta
+import PILean.Plot.Proofs
+
+-- Written by `lake exe pilean-manual-pages`; `lake test` fails when it is stale.
+
+open Verso.Genre Manual
+open PILeanManual
+
+#doc (Manual) "PILean.Plot.Proofs" =>
+%%%
+tag := "api-PILean.Plot.Proofs"
+shortTitle := "PILean.Plot.Proofs"
+%%%
+
+{apiModule PILean.Plot.Proofs}
