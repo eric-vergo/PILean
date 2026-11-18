@@ -42,7 +42,8 @@ UTF-8 and has only characters XML 1.0 can carry ({name}`PILean.Trust.Source.vali
 * *GIF*: one comment extension directly after the global colour table, its text the line
   `PILean source 1` and then `key=value` lines.
 
-The writers of images are unchanged: an image without a record is byte for byte what it was.
+The writers of images are unchanged: an image without a record is byte for byte what it was (the
+gallery's files are compared with a fresh render on every test run).
 The record is added to a finished file ({name}`PILean.Trust.withSource`, which finds the format by
 the file's signature) and read back by {name}`PILean.Trust.Source.read?`:
 
@@ -111,4 +112,5 @@ tag := "trust-record-means"
 
 A source record is written by whoever wrote the file; nothing is signed, so the record alone
 establishes nothing. It says where to look. What ties a file to the Lean source is a build that
-renders the declarations again and compares ({ref "trust-check"}[]).
+renders the declarations again and compares, and that only to the extent that the build was made
+from that source by a toolchain you trust ({ref "trust-check"}[]).

@@ -85,8 +85,9 @@ def main (args : List String) : IO UInt32 :=
 ```
 
 When the manual is generated, every figure it uses is rendered by PILean, every SVG must pass
-{name}`PILean.Svg.isInert`, and the figures folder the generator wrote must hold exactly the files
-of this render. Light and dark pictures are switched by the stylesheet alone, following the
+{name}`PILean.Svg.isInert`, and a file of the figures folder the generator wrote that is missing or
+differs from this render fails the build (a leftover file is reported; `--strict-figures` makes it
+fail too). Light and dark pictures are switched by the stylesheet alone, following the
 page's theme, with no script. Every figure of this manual is made this way: its caption ends with
 the declaration that made it, its file and line, the start of its fingerprint, and its theorem
 when it has one.

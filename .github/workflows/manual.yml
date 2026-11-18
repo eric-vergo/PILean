@@ -1,0 +1,38 @@
+# Builds the manual (the Lake package in manual/), runs its checks, and uploads the site as a
+# GitHub Pages artifact (named github-pages). It runs only when started by hand (Actions > Manual >
+# Run workflow). It does not deploy: publishing the artifact needs GitHub Pages enabled for the
+# repository and a deploy step (actions/deploy-pages) added after this job.
+name: Manual
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Build the manual
+        working-directory: manual
+        run: |
+          lake build pilean-manual
+          lake exe pilean-manual --output _out
+
+      - name: Check the manual
+        working-directory: manual
+        run: lake test
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: manual/_out/html-multi
+

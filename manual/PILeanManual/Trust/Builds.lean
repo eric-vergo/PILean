@@ -57,8 +57,9 @@ itself; for the PNG of a figure or a graph the SVG with text drawn as shapes, wh
 the PNG is rasterised from; for an animation's APNG and GIF the animated SVG, which holds every
 frame. The specification covers what is drawn: the sampled values of a function (the points the
 figure takes), data, colours, sizes, text and layout. It does not cover the function's code, nor
-anything that does not change the drawing. The rasteriser is not part of the specification; it is
-covered by the renderer's identity in the fingerprint.
+anything that does not change the drawing. The rasteriser is not part of the specification; a change to
+its source text changes the fingerprint through the renderer's identity (below), and nothing here
+checks that it rasterises correctly.
 
 # `@[figure]` and `figures%`
 %%%
@@ -255,5 +256,6 @@ lake exe my-figures --out figures --check   # fails on any stale, missing or ext
 ```
 
 This manual is built the first way: its generator renders the figures its pages use, writes them
-with their records and a manifest, and fails if the folder it wrote does not hold exactly the
-files of that render.
+with their records and a manifest, and fails if a file of that render is missing from the folder
+it wrote or differs from it (a file left from an earlier build is reported, and fails the build
+only with `--strict-figures`).

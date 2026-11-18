@@ -88,6 +88,25 @@ def picture : Image :=
   | .error e => IO.println e.toString
 ```
 
+## Manual
+
+The manual is a Lean program: a Verso site in the package [`manual/`](manual/), which depends on
+the core and on `pilean-verso-manual` by path. Its examples are elaborated and their printed
+results produced when it is built, its figures are drawn by PILean (light and dark), and its API
+reference has one page per module, read from the library's docstrings. To build it:
+
+```
+cd manual
+lake exe pilean-manual --output _out
+```
+
+and open `_out/html-multi/index.html` through a local web server (the pages use paths from the
+site's root), for instance `python3 -m http.server --directory _out/html-multi`. `lake test` in
+`manual/` checks that every module has its page (`lake exe pilean-manual-pages` writes the page
+files), that every public declaration of the core is documented or on the manual's allow-list,
+and a generated site. The workflow `.github/workflows/manual.yml` builds the manual and uploads
+the site as a GitHub Pages artifact when it is started by hand.
+
 ## Tests
 
 ```
