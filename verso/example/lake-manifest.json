@@ -28,10 +28,10 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "ea2e2ab37a41e50bbff0787ba896c55ea3d39df1",
+   "rev": "9aa40617081ed144742d6fa31d5a24b77fde4679",
    "name": "verso",
    "manifestFile": "lake-manifest.json",
-   "inputRev": "ea2e2ab37a41e50bbff0787ba896c55ea3d39df1",
+   "inputRev": "9aa40617081ed144742d6fa31d5a24b77fde4679",
    "inherited": true,
    "configFile": "lakefile.lean"
   },

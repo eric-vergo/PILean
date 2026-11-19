@@ -22,7 +22,7 @@ open Lake DSL
 require subverso from git "https://github.com/eric-vergo/subverso" @
   "7202fb62e46825ab9a176a786f1e15b1ab40a6ae"
 require verso from git "https://github.com/eric-vergo/verso" @
-  "ea2e2ab37a41e50bbff0787ba896c55ea3d39df1"
+  "9aa40617081ed144742d6fa31d5a24b77fde4679"
 require pilean from "../.."
 
 package «pilean-verso-manual» where
