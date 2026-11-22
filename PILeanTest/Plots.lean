@@ -56,6 +56,14 @@ def maxStep (pls : Array (Array Point)) : Float :=
 /-- The number of points of polylines. -/
 def points (pls : Array (Array Point)) : Nat := pls.foldl (· + ·.size) 0
 
+/-- The polylines of `sampleFunction` for `f` on `[x0, x1]`, at `scale` pixels a unit both ways
+in a plot 300 pixels high showing `[-1, 1]`, with the budget `maxPoints`, and the number of times
+it evaluated `f` (counted by `sampleFunctionM` in a state monad). -/
+def countedSamples (f : Float → Float) (x0 x1 scale : Float) (maxPoints : Nat) :
+    Array (Array Point) × Nat :=
+  (sampleFunctionM (M := StateM Nat) (fun x => do modify (· + 1); pure (f x)) x0 x1 scale scale
+    300 (-1) 1 maxPoints).run 0 |>.run
+
 /-- The checks of the function sampler. -/
 def sampler : Array (String × Bool) :=
   let tan := sampleFunction Float.tan (-2 * pi) (2 * pi) 50 50 400 (-4) 4
@@ -73,8 +81,20 @@ def sampler : Array (String × Bool) :=
     ("sampler: a smooth curve is one polyline with few points",
       sine.size == 1 && points sine < 1200),
     ("sampler: a function defined nowhere gives nothing", nan.isEmpty),
-    ("sampler: the budget bounds the work",
-      points (sampleFunction (fun x => (1 / x).sin) 0.0001 1 1000 1000 300 (-1) 1 2000) ≤ 2100),
+    ("sampler: the budget bounds the evaluations, the first pieces' ends included",
+      [2, 3, 10, 64, 65, 66, 100, 2000].all fun n =>
+        (countedSamples (fun x => (1 / x).sin) 0.0001 1 1000 n).2 ≤ n &&
+          (countedSamples id 0 1 100 n).2 ≤ n),
+    ("sampler: a budget that is used up is used exactly",
+      [10, 100, 2000].all fun n =>
+        (countedSamples (fun x => (1 / x).sin) 0.0001 1 1000 n).2 == n),
+    ("sampler: a budget below two points evaluates nothing and draws nothing",
+      [0, 1].all fun n => countedSamples id 0 1 100 n == (#[], 0)),
+    ("sampler: a budget of two points draws a straight line from its ends",
+      countedSamples id 0 1 100 2 == (#[#[⟨0, 0⟩, ⟨1, 1⟩]], 2)),
+    ("sampler: the monadic sampler gives the same samples",
+      sampleFunction Float.sin 0 (2 * pi) 1000 1000 300 (-1) 1 ==
+        (countedSamples Float.sin 0 (2 * pi) 1000 6000).1),
     ("sampler: an empty or non-finite interval gives nothing",
       (sampleFunction Float.sin 1 0 1 1 1 0 1).isEmpty &&
       (sampleFunction Float.sin 0 (1 / 0) 1 1 1 0 1).isEmpty)]

@@ -10,7 +10,7 @@ import PILean.Geometry
 A function's graph is drawn from samples chosen for the picture: dense where the curve bends,
 sparse where it is straight, and broken where it is not continuous.
 
-* The interval starts as 64 equal pieces. A piece is halved while its midpoint is more than a
+* The interval starts as 64 equal pieces (`maxPoints - 1` if that is fewer). A piece is halved while its midpoint is more than a
   tolerance (a quarter of a pixel) off the chord, or the piece is wider than 8 pixels, down to a
   depth of 14 halvings, within a budget of points. Values more than the plot's height beyond the
   range it shows are treated as at that distance, so that nothing is refined out of sight.
@@ -21,11 +21,13 @@ sparse where it is straight, and broken where it is not continuous.
   `tan x` is not drawn, nor the risers of `⌊x⌋`). When the budget stops the halving first, only
   ends more than the plot's height apart count as a jump.
 
-Work is bounded: at most `maxPoints` evaluations of the function.
+Work is bounded: at most `maxPoints` evaluations of the function, the 65 ends of the first
+pieces included; a budget below 2 points evaluates nothing and draws nothing (one point makes no
+line).
 
 ## Main definitions
 
-* `sampleFunction`.
+* `sampleFunction`, and `sampleFunctionM`, the same with the function's values in a monad.
 -/
 
 namespace PILean.Plot
@@ -41,24 +43,24 @@ private structure Piece where
 /-- Whether a value is finite. -/
 def finite (v : Float) : Bool := !(v.isNaN || v.isInf)
 
-/-- The graph of `f` on `[x0, x1]` as polylines in data coordinates, for a plot where a unit of
-`x` is `sx` pixels, a unit of `y` is `sy` pixels, the plot is `height` pixels high and shows the
-values from `ylo` to `yhi` (see the module docstring). -/
-def sampleFunction (f : Float → Float) (x0 x1 : Float) (sx sy height : Float)
-    (ylo yhi : Float) (maxPoints : Nat := 6000) (tol : Float := 0.25) : Array (Array Point) :=
-  Id.run do
-  if !(finite x0 && finite x1) || x1 ≤ x0 then return #[]
+/-- `sampleFunction` with the function's values computed in a monad: the same samples in the
+same order, so that a caller can observe the evaluations (count them, for instance). -/
+def sampleFunctionM {M : Type → Type} [Monad M] (f : Float → M Float) (x0 x1 : Float)
+    (sx sy height : Float) (ylo yhi : Float) (maxPoints : Nat := 6000) (tol : Float := 0.25) :
+    M (Array (Array Point)) := do
+  if !(finite x0 && finite x1) || x1 ≤ x0 || maxPoints < 2 then return #[]
   -- values beyond the visible range by more than its height count as at that distance, so that
   -- the curve is not refined where it cannot be seen
   let span := (yhi - ylo).abs
   let cy := fun (v : Float) => max (min ylo yhi - span) (min (max ylo yhi + span) v)
-  let n := 64
+  -- 64 pieces, fewer if the budget has fewer points than their 65 ends
+  let n := min 64 (maxPoints - 1)
   let maxDepth := 14
   let xs := (List.range (n + 1)).toArray.map fun i => x0 + (x1 - x0) * i.toFloat / n.toFloat
   let mut out : Array (Array Point) := #[]
   let mut cur : Array Point := #[]
   let mut evals := n + 1
-  let fx := xs.map f
+  let fx ← xs.mapM f
   let push := fun (cur : Array Point) (p : Point) =>
     if finite p.y then cur.push p else cur
   if let some v := fx[0]? then cur := push cur ⟨x0, v⟩
@@ -85,7 +87,7 @@ def sampleFunction (f : Float → Float) (x0 x1 : Float) (sx sy height : Float)
           cur := #[]
         cur := push cur ⟨pc.b, pc.fb⟩
         continue
-      let fm := f m
+      let fm ← f m
       evals := evals + 1
       let bothFinite := finite pc.fa && finite pc.fb
       let needSplit :=
@@ -105,5 +107,13 @@ def sampleFunction (f : Float → Float) (x0 x1 : Float) (sx sy height : Float)
         else cur := push cur ⟨pc.b, pc.fb⟩
   if cur.size > 1 then out := out.push cur
   return out
+
+/-- The graph of `f` on `[x0, x1]` as polylines in data coordinates, for a plot where a unit of
+`x` is `sx` pixels, a unit of `y` is `sy` pixels, the plot is `height` pixels high and shows the
+values from `ylo` to `yhi` (see the module docstring). It evaluates `f` at most `maxPoints`
+times; with `maxPoints` below 2 it evaluates nothing and returns no polyline. -/
+def sampleFunction (f : Float → Float) (x0 x1 : Float) (sx sy height : Float)
+    (ylo yhi : Float) (maxPoints : Nat := 6000) (tol : Float := 0.25) : Array (Array Point) :=
+  Id.run (sampleFunctionM (fun x => pure (f x)) x0 x1 sx sy height ylo yhi maxPoints tol)
 
 end PILean.Plot
