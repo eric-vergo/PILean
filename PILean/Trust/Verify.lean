@@ -17,8 +17,9 @@ character makes the whole manifest invalid before any file is touched. Each list
 a regular file inside the directory, every directory on its way a real directory, with the size
 and the SHA-256 of the manifest, and the source record inside the file (`Source.read?`) must
 agree with the manifest's fields and fingerprint. A file below the directory that the manifest
-does not list is reported as extra. Every string from the directory is printed through
-`escapeControl`.
+does not list is reported as extra. The directory must be listed completely (`listFiles` has a
+bound on depth and on entries): if it cannot be, the answer is an error, never `ok`. Every
+string from the directory is printed through `escapeControl`.
 
 An answer of `ok` for every file says that the directory and its manifest agree with each other.
 It does not say where they came from: someone who can write both the files and the manifest can
@@ -35,7 +36,7 @@ namespace PILean.Trust
 inductive Verdict where
   /-- The file and its source record agree with the manifest. -/
   | ok
-  /-- The file does not exist. -/
+  /-- No file has the path the manifest gives (spelled exactly as there). -/
   | missing
   /-- The file's size or hash differs. -/
   | changed
@@ -83,11 +84,14 @@ def verifyFile (root : System.FilePath) (m : ManifestEntry) : IO Verdict := do
       | .error _ => return .noSource
       | .ok s => return if m.matches s then .ok else .sourceDiffers
 
-/-- Verifies the directory: the verdict on every file of its manifest, in the manifest's order,
-then `extra` for every other file below the directory (other than the manifest itself; a
-symbolic link counts as a file and is not followed), sorted;
-fails with a message if the directory cannot be resolved or the manifest cannot be read (it
-must be a regular file, not a link, of at most `maxJsonInput` bytes) or is invalid. -/
+/-- Verifies the directory: the verdict on every file of its manifest, in the manifest's order
+(`missing` also for a file found only under another spelling of its name, as a file system that
+ignores case finds it), then `extra` for every other file below the directory (other than the
+manifest itself; a symbolic link counts as a file and is not followed), sorted.
+Fails with a message if the directory cannot be resolved, if the manifest cannot be read (it
+must be a regular file, not a link, of at most `maxJsonInput` bytes) or is invalid, or if the
+directory cannot be listed completely (`listFiles`): a folder whose every file was not seen is
+never reported as agreeing with its manifest. -/
 def verifyDir (dir : System.FilePath) : IO (Except String (Array (String × Verdict))) := do
   let root ← try pure (some (← IO.FS.realPath dir)) catch _ => pure none
   let some root := root | return .error s!"cannot read the directory {dir}"
@@ -101,15 +105,22 @@ def verifyDir (dir : System.FilePath) : IO (Except String (Array (String × Verd
     let mut out := #[]
     for m in entries do
       out := out.push (m.path, ← verifyFile root m)
+    match ← listFiles root with
+    | .error e => return .error s!"cannot verify {dir}: {e}"
+    | .ok present =>
+    -- a file is checked under the name the manifest gives it: on a file system that ignores
+    -- case, `locateInside` also finds it under another spelling, which the listing shows
+    let onDisk : Std.HashSet String := present.foldl (·.insert ·) {}
+    out := out.map fun (p, v) => if v == .ok && !onDisk.contains p then (p, .missing) else (p, v)
     let listed : Std.HashSet String :=
       entries.foldl (fun s m => s.insert m.path) (({} : Std.HashSet String).insert manifestName)
-    for r in ← listFiles root do
+    for r in present do
       if !listed.contains r then out := out.push (r, .extra)
     return .ok out
 
 /-- The `main` of `pilean-verify DIR`: one line `verdict: path` for each file; 0 if every file is
-`ok`, 1 if not or if the manifest is invalid (a message goes to standard error), 2 on a wrong
-command line. -/
+`ok`, 1 if not, or if the manifest is invalid or the directory cannot be listed completely (a
+message goes to standard error and no verdict is printed), 2 on a wrong command line. -/
 def verifyMain (args : List String) : IO UInt32 := do
   let [dir] := args | do
     IO.eprintln "usage: pilean-verify DIR"

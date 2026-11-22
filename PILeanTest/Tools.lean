@@ -97,6 +97,15 @@ def ioChecks : IO (Array (String × Bool)) := do
     let _ ← build TrustBuild.mine good {}
     let ok ← tool "pilean-verify" #[good.toString] scratch
     r := r.push ("verify: a fresh build is ok", ok.status == some 0)
+    -- an extra file 34 directories down, below the depth the listing descends
+    let deep := (List.range 34).foldl (fun p i => p / s!"d{i + 1}") (good / "deep")
+    IO.FS.createDirAll deep
+    IO.FS.writeFile (deep / "planted.svg") "<svg/>"
+    let vDeep ← tool "pilean-verify" #[good.toString] scratch
+    IO.FS.removeDirAll (good / "deep")
+    r := r.push ("verify: a folder too deep to list completely is not verified",
+      vDeep.status == some 1 && vDeep.out.isEmpty &&
+        (vDeep.err.splitOn "cannot be listed completely").length > 1)
     let linkDir := scratch / "link-to-good"
     let _ ← symlink good linkDir
     let viaLink ← tool "pilean-verify" #[linkDir.toString] scratch

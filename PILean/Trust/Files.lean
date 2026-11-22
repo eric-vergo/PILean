@@ -17,7 +17,8 @@ build into a folder that may already hold files. These are the only ways they to
 * `locateInside`: a path below a folder whose every component exists and is a real directory
   or, the last, a regular file (no symbolic link is followed).
 * `writeInside`: writes a file below a folder under the same rule, creating directories.
-* `listFiles`: the files below a folder, without following a symbolic link.
+* `listFiles`: the files below a folder, without following a symbolic link; a folder too deep or
+  too large for its bounds is an error, never a partial listing.
 
 ## Implementation notes
 
@@ -110,19 +111,39 @@ def writeInside (root : System.FilePath) (rel : String) (bytes : ByteArray) :
   IO.FS.writeBinFile cur bytes
   return .ok ()
 
-/-- Every path below `dir` that is not a directory, relative to `dir` with `/`; a symbolic link
-counts as a file and is not followed. At most 100000 files and 32 levels are visited. -/
-def listFiles (dir : System.FilePath) : IO (Array String) := do
+/-- The most levels of directories below a folder that `listFiles` descends into. -/
+def maxListDepth : Nat := 32
+
+/-- The most directory entries (files and directories together) that `listFiles` reads. -/
+def maxListEntries : Nat := 100000
+
+/-- Every path below `dir` that is not a directory, relative to `dir` with `/`, sorted; a
+symbolic link counts as a file and is not followed. The listing is complete or it is an error:
+it fails with a message, and lists nothing, if a directory lies more than `maxDepth` levels
+below `dir` or the folder has more than `maxEntries` entries in all (files and directories,
+every level counted), so a caller never takes a partial listing for the whole folder. -/
+def listFiles (dir : System.FilePath) (maxDepth : Nat := maxListDepth)
+    (maxEntries : Nat := maxListEntries) : IO (Except String (Array String)) := do
   let mut out : Array String := #[]
   let mut todo : Array (System.FilePath × String × Nat) := #[(dir, "", 0)]
-  for _ in [0:100000] do
+  let mut seen := 0
+  -- every directory but `dir` was counted as an entry before it was queued
+  for _ in [0:maxEntries + 2] do
     let some (d, rel, depth) := todo.back? | break
     todo := todo.pop
-    if depth > 32 then continue
     for ent in (← d.readDir) do
+      seen := seen + 1
+      if seen > maxEntries then
+        return .error s!"the folder has more than {maxEntries} entries, so it cannot be \
+          listed completely"
       let r := if rel.isEmpty then ent.fileName else rel ++ "/" ++ ent.fileName
-      if (← ent.path.symlinkMetadata).type == .dir then todo := todo.push (ent.path, r, depth + 1)
+      if (← ent.path.symlinkMetadata).type == .dir then
+        if depth + 1 > maxDepth then
+          return .error s!"the folder has directories more than {maxDepth} levels deep, so \
+            it cannot be listed completely"
+        todo := todo.push (ent.path, r, depth + 1)
       else out := out.push r
-  return out.sortStable (· < ·)
+  if !todo.isEmpty then return .error "the folder cannot be listed completely"
+  return .ok (out.sortStable (· < ·))
 
 end PILean.Trust

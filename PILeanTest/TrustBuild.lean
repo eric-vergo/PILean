@@ -247,6 +247,31 @@ def ioChecks : IO (Array (String × Bool)) := do
   let verdictExtra ← verdicts a
   IO.FS.removeFile (a / "PILeanTest" / "TrustBuild" / "stray.svg")
   IO.FS.removeDirAll (a / "other")
+  -- a file below more directories than the listing descends: the folder cannot be checked
+  let deep := (List.range (maxListDepth + 2)).foldl (fun p i => p / s!"d{i + 1}") (a / "deep")
+  IO.FS.createDirAll deep
+  IO.FS.writeFile (deep / "planted.svg") "<svg/>"
+  let reportDeep ← checkReport mine a
+  let verdictDeep ← verdicts a
+  IO.FS.removeDirAll (a / "deep")
+  -- the same at the bounds of a small listing, and a listing exactly at them
+  let small := root / "small"
+  IO.FS.createDirAll (small / "x" / "y")
+  for n in ["1", "2", "3"] do IO.FS.writeFile (small / "x" / "y" / n) n
+  let atBounds ← listFiles small (maxDepth := 2) (maxEntries := 5)
+  let tooDeep ← listFiles small (maxDepth := 1) (maxEntries := 5)
+  let tooMany ← listFiles small (maxDepth := 2) (maxEntries := 4)
+  -- a name listed in another spelling: a file system that ignores case (as macOS's does by
+  -- default) finds the file under it, and the verdicts must not depend on that
+  let doubled := root / "doubled"
+  IO.FS.createDirAll (doubled / "PILeanTest" / "TrustBuild")
+  let gm := (entries.find? (·.path.endsWith "sampleGraph.svg")).get!
+  IO.FS.writeBinFile (doubled / gm.path) (← IO.FS.readBinFile (a / gm.path))
+  let upper := { gm with path := gm.path.replace "sampleGraph" "SampleGraph" }
+  IO.FS.writeFile (doubled / manifestName) (Manifest.render #[upper, gm])
+  let verdictDoubled ← verdicts doubled
+  IO.FS.writeFile (doubled / manifestName) (Manifest.render #[upper])
+  let verdictRenamed ← verdicts doubled
   -- the same size and hash but another source: the manifest says another line
   let manifestText := String.fromUTF8! manifestA
   let aSrc := root / "d"
@@ -331,6 +356,17 @@ def ioChecks : IO (Array (String × Bool)) := do
       verdictExtra.contains "extra PILeanTest/TrustBuild/stray.svg" &&
         verdictExtra.contains "extra other/x.txt" &&
         (verdictExtra.filter (·.startsWith "ok ")).length == entries.size),
+    ("check: a file below more directories than the listing descends makes the folder \
+      uncheckable", reportDeep.any (·.startsWith "cannot check: ") &&
+        !reportDeep.any (·.startsWith "extra: ")),
+    ("verify: a file below more directories than the listing descends is an error, not ok",
+      verdictDeep == ["error"]),
+    ("list: a folder at the bounds is listed; one over the depth or the entry bound is an error",
+      atBounds.toOption == some #["x/y/1", "x/y/2", "x/y/3"] && (tooDeep matches .error _) &&
+        (tooMany matches .error _)),
+    ("verify: a file is ok only under the exact name the manifest gives",
+      verdictDoubled == [s!"missing {upper.path}", s!"ok {gm.path}"] &&
+        verdictRenamed == [s!"missing {upper.path}", s!"extra {gm.path}"]),
     ("verify: a source that differs from the manifest is reported",
       verdictDiffers.contains "source differs PILeanTest/TrustBuild/sampleGraph.svg"),
     ("verify: a file without source information is reported",

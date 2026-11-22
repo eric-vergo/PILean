@@ -111,7 +111,9 @@ the build that is not there, `stale: PATH` for one whose bytes differ (the manif
 that is not a regular file reached without links, `extra: PATH` for a file below the directory
 that the build does not make (other than `manifest.json`; a symbolic link counts as a file). The
 files of the build come in the order of their paths, the manifest last, then the extra files
-sorted; the result is empty if the directory holds exactly what the build makes. -/
+sorted, or, if the directory cannot be listed completely (`listFiles`), one line
+`cannot check: REASON` in their place; the result is empty only if the directory holds exactly
+what the build makes. -/
 def checkLines (files : Array BuiltFile) (manifest : ByteArray) (outDir : System.FilePath) :
     IO (Array String) := do
   let mut lines : Array String := #[]
@@ -122,9 +124,12 @@ def checkLines (files : Array BuiltFile) (manifest : ByteArray) (outDir : System
     | .ok none => lines := lines.push s!"missing: {path}"
     | _ => if !(← sameFile outDir path bytes) then lines := lines.push s!"stale: {path}"
   if ← outDir.pathExists then
-    let known : Std.HashSet String := expected.foldl (fun s (p, _) => s.insert p) {}
-    for r in ← listFiles outDir do
-      if !known.contains r then lines := lines.push s!"extra: {r}"
+    match ← listFiles outDir with
+    | .error e => lines := lines.push s!"cannot check: {e}"
+    | .ok present =>
+      let known : Std.HashSet String := expected.foldl (fun s (p, _) => s.insert p) {}
+      for r in present do
+        if !known.contains r then lines := lines.push s!"extra: {r}"
   return lines
 
 /-- Builds into `outDir` (`opts.check = false`): creates it if needed, resolves it, and writes
