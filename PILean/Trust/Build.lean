@@ -53,7 +53,9 @@ deriving Inhabited
 /-- Renders one output of an entry: the bytes with the source record of the entry (and the
 fingerprint of the output's specification) inserted, and the manifest entry. Fails for an SVG
 output with text the built-in lettering cannot draw (`Lettering.missing`), since the figure's
-PNG, APNG or GIF would show a box for each such character. -/
+PNG, APNG or GIF would show a box for each such character; if the finished file is larger than
+`maxOutputBytes`; and if its bytes are not of the output's format (`detectedFormat?`), so that
+every file of a build is one `pilean-verify` accepts. -/
 def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     Except String BuiltFile := do
   let path ← outputPath e.toSourceData o
@@ -68,6 +70,10 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
   if raw.size > maxOutputBytes then throw s!"{path}: the file is larger than {maxOutputBytes} bytes"
   let src := e.source o opts.repo opts.commit
   let bytes ← (withSource raw src).mapError (s!"{path}: " ++ ·)
+  if bytes.size > maxOutputBytes then
+    throw s!"{path}: the file with its source record is larger than {maxOutputBytes} bytes"
+  if detectedFormat? bytes != some o.format.name then
+    throw s!"{path}: the bytes are not a file of the format {o.format.name}"
   let m : ManifestEntry := {
     path, format := o.format.name, bytes := bytes.size, sha256 := Sha256.hex (Sha256.hash bytes),
     fingerprint := (src.fingerprint.getD ""), module := e.module, decl := e.decl, file := e.file,
@@ -76,12 +82,15 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
   return { entry := m, bytes }
 
 /-- Every file of a build, sorted by path. Fails with all the messages (one per line) if there
-are more than `maxEntries` entries, a figure cannot be rendered, a file is too large, or two
-files have the same path. -/
+are more than `maxEntries` entries or more than `maxManifestFiles` outputs in all (checked
+before anything is rendered), a figure cannot be rendered, a file is too large or not of its
+format, or two files have the same path. -/
 def renderAll (entries : Array FigureEntry) (opts : BuildOptions := {}) :
     IO (Except String (Array BuiltFile)) := do
   if entries.size > maxEntries then
     return .error s!"more than {maxEntries} figures"
+  if entries.foldl (fun n e => n + (e.outputs ()).size) 0 > maxManifestFiles then
+    return .error s!"more than {maxManifestFiles} files, more than a manifest may list"
   let mut files : Array BuiltFile := #[]
   let mut errors : Array String := #[]
   for e in entries do

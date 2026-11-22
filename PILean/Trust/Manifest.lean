@@ -33,8 +33,31 @@ def maxEntries : Nat := 4096
 /-- The most files a manifest lists (a figure can have several outputs). -/
 def maxManifestFiles : Nat := 65536
 
-/-- The largest output file, in bytes (256 MiB). -/
-def maxOutputBytes : Nat := 256 * 1024 * 1024
+/-- The largest output file, in bytes (64 MiB): the largest file whose source record
+`Source.read?` reads (`maxInput`), so that every file a build writes can be verified. The
+builder holds the finished file, source record included, to it. -/
+def maxOutputBytes : Nat := maxInput
+
+/-- Whether the PNG file `d` is animated: an `acTL` chunk comes before its first `IDAT` chunk.
+Only the chunk lengths and types are read; none if the walk does not reach an `IDAT` chunk. -/
+def pngAnimated? (d : ByteArray) : Option Bool := Id.run do
+  let mut pos := 8
+  for _ in [0:d.size / 12 + 1] do
+    if pos + 12 > d.size then return none
+    let len := Png.getBe32 d pos
+    let ty := d.extract (pos + 4) (pos + 8)
+    if ty == "acTL".toUTF8 then return some true
+    if ty == "IDAT".toUTF8 then return some false
+    pos := pos + 12 + len
+  return none
+
+/-- The manifest's name for the format of the bytes `d`, read from them: `svg`, `gif`, `png`, or
+`apng` for a PNG file with an `acTL` chunk before its image data (`Source.format?` tells the
+signatures apart; `pngAnimated?` the two kinds of PNG). None if it is none of these. -/
+def detectedFormat? (d : ByteArray) : Option String :=
+  match Source.format? d with
+  | some "png" => (pngAnimated? d).map fun a => if a then "apng" else "png"
+  | f => f
 
 /-- A file of a build, as the manifest lists it. -/
 structure ManifestEntry where

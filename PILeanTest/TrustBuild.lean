@@ -193,6 +193,43 @@ def checkReport (entries : Array FigureEntry) (dir : System.FilePath) :
     return (← checkLines files (Manifest.render (files.map (·.entry))).toUTF8 dir).toList
   | .error e => return [e]
 
+/-- The message of a failed `renderAll`, or empty if it succeeded. -/
+def renderError (entries : Array FigureEntry) : IO String := do
+  match ← renderAll entries {} with
+  | .ok _ => return ""
+  | .error e => return e
+
+/-- The builder's bounds: a file whose bytes are not of its output's format, a file that is
+within the cap before its source record is inserted and over it after, and an entry with more
+outputs than a manifest may list (refused before any is rendered). -/
+def builderBounds : IO (Array (String × Bool)) := do
+  let some base := mine[0]? | return #[("build bounds: a figure to start from", false)]
+  let one (format : Format) (b : ByteArray) : FigureEntry :=
+    let o : Output :=
+      { name := "", format := format, bytes := fun _ => .ok b, spec := "s".toUTF8 }
+    { base with outputs := fun _ => #[o] }
+  let plain := (Png.encode { width := 1, height := 1, mode := .l, data := ⟨#[0]⟩ }).toOption.getD
+    .empty
+  let wrongFormat ← renderError #[one .apng plain]
+  let rightFormat ← renderError #[one .png plain]
+  let head := "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\">"
+  let tail := "</svg>"
+  let big := (head.pushn ' ' (maxOutputBytes - head.length - tail.length) ++ tail).toUTF8
+  let overCap ← renderError #[one .svg big]
+  let many : FigureEntry := { base with outputs := fun _ =>
+    (Array.range (maxManifestFiles + 1)).map fun i =>
+      { name := s!"-{i}", format := .svg, bytes := fun _ => .error "rendered", spec := .empty } }
+  let tooMany ← renderError #[many]
+  return #[
+    ("build: a file whose bytes are not of its output's format is refused",
+      (wrongFormat.splitOn "not a file of the format apng").length > 1 && rightFormat == ""),
+    ("build: a file over the cap once its source record is in is refused",
+      big.size == maxOutputBytes &&
+        (overCap.splitOn "with its source record is larger").length > 1),
+    ("build: more outputs than a manifest lists are refused before any is rendered",
+      (tooMany.splitOn s!"more than {maxManifestFiles} files").length > 1 &&
+        (tooMany.splitOn "rendered").length == 1)]
+
 /-- The checks that build into a directory and damage it. -/
 def ioChecks : IO (Array (String × Bool)) := do
   let root : System.FilePath := ".lake" / "pilean-test-build"
@@ -292,6 +329,15 @@ def ioChecks : IO (Array (String × Bool)) := do
   IO.FS.writeBinFile (aSrc / "PILeanTest" / "TrustBuild" / "sampleGraph.svg") plain
   IO.FS.writeFile (aSrc / manifestName) (Manifest.render noSrc)
   let verdictNoSrc ← verdicts aSrc
+  -- a format in the manifest that the bytes do not have: a PNG called animated, an animated
+  -- PNG called plain, an SVG called a GIF
+  let refmt := entries.map fun m =>
+    if m.path.endsWith "sampleGraph.png" then { m with format := "apng" }
+    else if m.path.endsWith "sampleAnimation.png" then { m with format := "png" }
+    else if m.path.endsWith "sampleFigure.svg" then { m with format := "gif" } else m
+  for m in entries do IO.FS.writeBinFile (aSrc / m.path) (← IO.FS.readBinFile (a / m.path))
+  IO.FS.writeFile (aSrc / manifestName) (Manifest.render refmt)
+  let verdictFormat ← verdicts aSrc
   -- hostile manifests
   let hostile := root / "h"
   IO.FS.createDirAll hostile
@@ -371,10 +417,15 @@ def ioChecks : IO (Array (String × Bool)) := do
       verdictDiffers.contains "source differs PILeanTest/TrustBuild/sampleGraph.svg"),
     ("verify: a file without source information is reported",
       verdictNoSrc.contains "no source PILeanTest/TrustBuild/sampleGraph.svg"),
+    ("verify: a format the bytes do not have is reported",
+      ["sampleGraph.png", "sampleAnimation.png", "sampleFigure.svg"].all (fun f =>
+        verdictFormat.contains s!"format differs PILeanTest/TrustBuild/{f}") &&
+        (verdictFormat.filter (·.startsWith "ok ")).length == entries.size - 3),
     ("verify: hostile and garbage manifests are rejected cleanly", hostileOk),
     ("verify: no manifest is an error", noManifest == ["error"]),
     ("main: a wrong command line exits 2", usageCode == 2 && verifyUsage == 2),
     ("main: verify, check and build exit codes",
-      verifyCode == 0 && mainCheck == 0 && mainBuild == 0 && mainVerifyBad == 1)]
+      verifyCode == 0 && mainCheck == 0 && mainBuild == 0 && mainVerifyBad == 1)] ++
+    (← builderBounds)
 
 end PILeanTest.TrustBuild

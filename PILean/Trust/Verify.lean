@@ -15,13 +15,16 @@ must be a regular file there, read with a size cap (`readRegular`) and the bound
 `PILean.Trust.Json`, and a path with `..`, an absolute path, a backslash or any other unsafe
 character makes the whole manifest invalid before any file is touched. Each listed file must be
 a regular file inside the directory, every directory on its way a real directory, with the size
-and the SHA-256 of the manifest, and the source record inside the file (`Source.read?`) must
-agree with the manifest's fields and fingerprint. A file below the directory that the manifest
-does not list is reported as extra. The directory must be listed completely (`listFiles` has a
-bound on depth and on entries): if it cannot be, the answer is an error, never `ok`. Every
-string from the directory is printed through `escapeControl`.
+and the SHA-256 of the manifest, its bytes of the manifest's format (`detectedFormat?`), and the
+source record inside the file (`Source.read?`) must agree with the manifest's fields and
+fingerprint. A file below the directory that the manifest does not list is reported as extra.
+The directory must be listed completely (`listFiles` has a bound on depth and on entries): if it
+cannot be, the answer is an error, never `ok`. Every string from the directory is printed
+through `escapeControl`.
 
-An answer of `ok` for every file says that the directory and its manifest agree with each other.
+An answer of `ok` for every file says that the files below the directory are exactly those the
+manifest lists (directories that hold no file are not compared) and that each agrees with its
+entry in the fields above.
 It does not say where they came from: someone who can write both the files and the manifest can
 make a directory that passes. The source record in a file is a statement by whoever wrote the
 file, and nothing here is signed.
@@ -42,6 +45,8 @@ inductive Verdict where
   | changed
   /-- The file, or a directory on its way, is a symbolic link or not a regular file. -/
   | notRegular
+  /-- The file's bytes are not of the format the manifest gives (`detectedFormat?`). -/
+  | formatDiffers
   /-- The file has a source record but it differs from the manifest. -/
   | sourceDiffers
   /-- The file has no readable source record. -/
@@ -56,6 +61,7 @@ def Verdict.text : Verdict → String
   | .missing => "missing"
   | .changed => "changed"
   | .notRegular => "not a regular file"
+  | .formatDiffers => "format differs"
   | .sourceDiffers => "source differs"
   | .noSource => "no source"
   | .extra => "extra"
@@ -80,6 +86,7 @@ def verifyFile (root : System.FilePath) (m : ManifestEntry) : IO Verdict := do
     | .ok bytes =>
       if bytes.size != m.bytes || Sha256.hex (Sha256.hash bytes) != m.sha256 then
         return .changed
+      if detectedFormat? bytes != some m.format then return .formatDiffers
       match Source.read? bytes with
       | .error _ => return .noSource
       | .ok s => return if m.matches s then .ok else .sourceDiffers
