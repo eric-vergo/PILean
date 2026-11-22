@@ -135,6 +135,11 @@ def rejectionChecks : Array (String × Bool) :=
     ("reject: apng larger than the pixel cap", isTooLarge (readApng apng { maxPixels := 100 })),
     ("reject: apng with more frames than the cap", isTooLarge (readApng apng { maxFrames := 3 })),
     ("reject: apng larger than the byte cap", isTooLarge (readApng apng { maxBytes := 5000 })),
+    ("reject: a plain png read as an apng with no frame allowed",
+      let still := (Png.encode { width := 2, height := 2, mode := .l, data := ⟨#[0, 1, 2, 3]⟩ }
+        ).toOption.getD .empty
+      isTooLarge (readApng still { maxFrames := 0 }) && isOk (readApng still { maxFrames := 1 }) &&
+        isTooLarge (readApng still { maxBytes := 15 })),
     ("reject: gif with a wrong signature", !isOk (readGif (gif.extract 1 gif.size))),
     ("reject: gif truncated at every length from 0 to 150 bytes",
       (List.range 151).all fun n => !isOk (readGif (gif.extract 0 n))),

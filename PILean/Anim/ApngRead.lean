@@ -81,9 +81,14 @@ def decodeFrame (st : ReadState) (ctl : FrameCtl) (data : ByteArray) (lim : Limi
       return p
     | none => throw (.malformed "frame samples")
 
-/-- Composes the pending frame, if any. -/
+/-- Composes the pending frame, if any. Fails, before decoding it, if one more frame would be
+more than `Limits.maxFrames` or the composed frames more than `Limits.maxBytes` bytes; so the
+default image of a plain PNG, which no `fcTL` announces, is held to the same caps. -/
 def flush (st : ReadState) (lim : Limits) : Except AnimError ReadState := do
   let some ctl := st.pending | return st
+  if st.comp.frames.size + 1 > lim.maxFrames then throw (.tooLarge "number of frames")
+  if (st.comp.frames.size + 1) * (st.comp.w * st.comp.h * 4) > lim.maxBytes then
+    throw (.tooLarge "composed frames")
   let pix ← decodeFrame st ctl st.pdata lim
   return { st with pending := none, pdata := ByteArray.empty, comp := st.comp.add ctl pix }
 
