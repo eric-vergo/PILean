@@ -108,7 +108,7 @@ tag := "api"
 
 One page for every module of the core, made from the library's docstrings when the
 manual is built: each page opens with the module's documentation and lists its public
-declarations in source order (what counts as public: {ref "api-coverage"}[]).
+declarations in source order (what counts as public: {ref "api-coverage"}[What the Reference Covers]).
 
 The modules, by the folder they are in:
 

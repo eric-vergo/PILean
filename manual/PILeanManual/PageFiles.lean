@@ -90,7 +90,7 @@ def indexText (mods : Array (List String)) : String := Id.run do
     "#doc (Manual) \"API Reference\" =>\n%%%\ntag := \"api\"\n%%%\n\n" ++
     "One page for every module of the core, made from the library's docstrings when the\n" ++
     "manual is built: each page opens with the module's documentation and lists its public\n" ++
-    "declarations in source order (what counts as public: {ref \"api-coverage\"}[]).\n"
+    "declarations in source order (what counts as public: {ref \"api-coverage\"}[What the Reference Covers]).\n"
   s := s ++ "\nThe modules, by the folder they are in:\n\n"
   for g in groups do
     let refs := (mods.filter (group mods · == g)).toList.map fun m =>

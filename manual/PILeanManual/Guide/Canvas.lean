@@ -123,7 +123,7 @@ def shapes : PILeanManual.Drawing where
 
 Text in a drawing is a placeholder that the output resolves ({name}`PILean.Canvas.TextMode`): SVG
 text in a font family, or shapes from a text engine, which is how text reaches images
-({ref "text"}[]).
+({ref "text"}[Text Engines]).
 
 # SVG
 %%%

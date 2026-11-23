@@ -17,6 +17,12 @@ import VersoManual
   renamed or removed module fails the build.
 * `{sourceFile}` followed by a path in backticks: a file of the repository, by its path from the
   repository's root. The file must exist when the manual is built.
+* ```` ```fileText "path" ``` ```` (an empty code block): the text of a file of the repository,
+  by its path from the repository's root, from its first `import` line on (the licence header
+  is left out), shown as a code block. The file must exist when the manual is built, so the page
+  shows what the file holds; `lake test` elaborates the files shown this way.
+* `{toolchain}[]`: the toolchain named in the repository's `lean-toolchain`, read when the
+  manual is built, as code.
 * `{inSource "path"}` followed by a declaration name in backticks: a declaration of one of the
   repository's optional packages, which this manual does not build (it would need their
   dependencies). The file must exist and declare the name's last component (`theorem`, `lemma`
@@ -85,6 +91,48 @@ def sourceFile : RoleExpanderOf Unit
     unless ← (System.FilePath.mk ".." / path).pathExists do
       throwErrorAt stx "{path} does not exist in the repository"
     ``(Verso.Doc.Inline.code $(quote path))
+
+/-- A path from the repository's root, read when the manual is built: it must be relative, not
+climb with `..`, and name a file that exists. -/
+def repoFile (stx : Syntax) (path : String) : DocElabM System.FilePath := do
+  if path.startsWith "/" || (path.splitOn "..").length > 1 then
+    throwErrorAt stx "{path}: give a path inside the repository"
+  let file := System.FilePath.mk ".." / path
+  unless ← file.pathExists do throwErrorAt stx "{path} does not exist in the repository"
+  return file
+
+/-- The argument of `fileText`: a file of the repository. -/
+structure FileTextArgs where
+  /-- The path from the repository's root. -/
+  path : String
+
+instance : FromArgs FileTextArgs DocElabM where
+  fromArgs := FileTextArgs.mk <$> .positional `path .string
+
+/-- The text of a file from its first `import` line on. -/
+def fromFirstImport (text : String) : String :=
+  let lines := text.splitOn "\n"
+  "\n".intercalate (lines.dropWhile (!·.startsWith "import "))
+
+/-- Shows a file of the repository from its first `import` line on (see the module docstring);
+the block's own text must be empty. -/
+@[code_block]
+def fileText : CodeBlockExpanderOf FileTextArgs
+  | ⟨path⟩, str => do
+    unless str.getString.trimAscii.isEmpty do
+      throwErrorAt str "fileText shows a file of the repository: leave the block empty"
+    let text := fromFirstImport (← IO.FS.readFile (← repoFile str path))
+    if text.trimAscii.isEmpty then throwErrorAt str "{path} has no import line"
+    ``(Verso.Doc.Block.code $(quote text))
+
+/-- The toolchain named in the repository's `lean-toolchain` (see the module docstring); the
+role takes no text. -/
+@[role]
+def toolchain : RoleExpanderOf Unit
+  | (), args => do
+    unless args.isEmpty do throwError "toolchain reads lean-toolchain: give it no text"
+    let name := (← IO.FS.readFile (← repoFile .missing "lean-toolchain")).trimAscii.toString
+    ``(Verso.Doc.Inline.code $(quote name))
 
 /-- The argument of `inSource`: a file of the repository. -/
 structure InSourceArgs where

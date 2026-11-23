@@ -328,7 +328,7 @@ def poles : Figure where
 
 The sampler is tested (refinement, poles, jumps, undefined regions), not proved; such a plot has
 no theorem. Where the statement "these are exactly the values of this function on this grid"
-matters, use an exact series ({ref "plot-exact"}[]).
+matters, use an exact series ({ref "plot-exact"}[Exact Functions]).
 
 ## Error Bars
 %%%
@@ -385,7 +385,8 @@ def exactCubic : Figure where
 
 The library proves what such a series holds: {name}`PILean.Plot.Series.ofExact_points` says its
 points are the exact samples converted one by one, and the grid and sample theorems of
-{api}`PILean.Exact` say what the samples are. {ref "proofs"}[] has the statements and the
+{api}`PILean.Exact` say what the samples are. {ref "proofs"}[What a Picture Proves] has the
+statements and the
 pictures of the gallery that carry them.
 
 ```lean (name := exactEx)

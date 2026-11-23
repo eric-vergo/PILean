@@ -131,4 +131,4 @@ time. Nothing is proved about the drawing function itself or about the number of
 {name}`PILean.Animation.frameCount` rounds the duration times the frame rate as floating-point
 numbers, which is tested. The encoders are tested, not proved: the gallery's animations are read
 back by PILean's readers and opened by macOS's ImageIO, and their animated SVGs are checked in a
-headless browser ({ref "raster-anim-read"}[]).
+headless browser ({ref "raster-anim-read"}[Animated PNG and GIF]).

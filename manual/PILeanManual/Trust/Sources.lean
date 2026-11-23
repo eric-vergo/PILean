@@ -32,7 +32,8 @@ tag := "trust-record"
 A {name}`PILean.Trust.Source` holds the module, the declaration, the file (relative to the
 repository), the line and column where the declaration starts, the version of PILean, and
 optionally the repository's URL, the commit and a fingerprint (64 lowercase hexadecimal digits,
-{ref "trust-fingerprint"}[]). A record can be written only if every value is at most 4096 bytes of
+{ref "trust-fingerprint"}[The Fingerprint]). A record can be written only if every value is at most
+4096 bytes of
 UTF-8 and has only characters XML 1.0 can carry ({name}`PILean.Trust.Source.validate`).
 
 * *SVG*: three elements, the first children of the root: a `title`, a `desc` and a `metadata`
@@ -113,4 +114,4 @@ tag := "trust-record-means"
 A source record is written by whoever wrote the file; nothing is signed, so the record alone
 establishes nothing. It says where to look. What ties a file to the Lean source is a build that
 renders the declarations again and compares, and that only to the extent that the build was made
-from that source by a toolchain you trust ({ref "trust-check"}[]).
+from that source by a toolchain you trust ({ref "trust-check"}[What the Answers Establish]).

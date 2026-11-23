@@ -29,16 +29,20 @@ canvas, plots, graphs of nodes and edges, animations, an anti-aliased rasteriser
 SVG, PNG, animated PNG and GIF. It is written in Lean alone. `import PILean` reaches Lean's `Init`
 and `Std` and nothing else, so any Lean program can use it.
 
-Every example on this page and in the guide is Lean that the manual's build elaborates; the
-results printed under an example are what the build printed, and every picture is drawn by PILean
-from the declaration shown, when the manual is generated.
+Every Lean example on this page and in the guide is elaborated by the manual's build; the results
+printed under an example are what the build printed, and every picture is drawn by PILean from the
+declaration shown, when the manual is generated. The examples of a page are elaborated one after
+the other in a namespace the page does not show, so an example can use what an earlier one
+defined; the whole program at the end of this page is a file of its own that needs nothing
+hidden.
 
 # Adding PILean to a Project
 %%%
 tag := "install"
 %%%
 
-In the project's `lakefile.lean`, require the repository at a commit:
+In the project's `lakefile.lean`, require the repository at a commit (`<commit>` is a full commit
+hash; `git ls-remote https://github.com/eric-vergo/PILean refs/heads/main` prints the newest):
 
 ```
 require pilean from git "https://github.com/eric-vergo/PILean" @ "<commit>"
@@ -53,13 +57,16 @@ git = "https://github.com/eric-vergo/PILean"
 rev = "<commit>"
 ```
 
-The project's `lean-toolchain` should name the toolchain of the repository's own
-`lean-toolchain`. Then `import PILean` in a file of the project. The attribute `@[figure]` and
-the commands of the trust layer ({ref "trust"}[]) are in `PILean.Trust.Attr`, which imports
+The project's `lean-toolchain` must name the toolchain of the repository's own `lean-toolchain`
+at that commit; when this manual was built that was {toolchain}[]. Then `import PILean` in a file
+of the project. The attribute `@[figure]` and
+the commands of the trust layer ({ref "trust"}[Trust and Proofs]) are in `PILean.Trust.Attr`, which
+imports
 `Lean`; it is imported separately, only by the code that uses them.
 
 The optional packages of the repository each sit in a folder of their own and are required with
-the folder after the commit (`/ "verso/manual"`, `/ "leantex"`, …): see {ref "packages"}[].
+the folder after the commit (`/ "verso/manual"`, `/ "leantex"`, …): see {ref "packages"}[Optional
+Packages].
 
 # A First Plot
 %%%
@@ -93,7 +100,8 @@ again gives the same bytes. The manual draws the figure from the declaration:
 :::figure PILeanManual.Start.trig (alt := "Two curves on one plot, the sine and the cosine of x from -3.14 to 3.14, between -1 and 1, with a legend naming them.") (label := "first-plot")
 :::
 
-The `@[figure]` line is only needed for pictures that a build collects ({ref "trust"}[]); the
+The `@[figure]` line is only needed for pictures that a build collects ({ref "trust"}[Trust and
+Proofs]); the
 definition alone is an ordinary Lean value. A program writes the files itself:
 
 ```lean
@@ -108,7 +116,8 @@ def writeTrig : IO Unit := do
 
 This plot has no theorem: {name}`PILean.Plot.Series.function` samples a floating-point function
 adaptively, which is tested, not proved. The plots that come with a theorem are those of exact
-functions on the rationals and of exact data ({ref "plot-exact"}[], {ref "proofs"}[]).
+functions on the rationals and of exact data ({ref "plot-exact"}[Exact Functions],
+{ref "proofs"}[What a Picture Proves]).
 
 # A First PNG
 %%%
@@ -139,8 +148,9 @@ def banner : Image :=
 ```leanResult firstPngEx
 ```
 
-The first eight bytes are PNG's signature. To show the image, the manual wraps it in a small
-type of its own that PILean can render ({name}`PILeanManual.Picture`):
+The first eight bytes are PNG's signature. To show the image on this page, the manual wraps it
+in a small type of its own that PILean can render ({name}`PILeanManual.Picture`); a program of
+your own does not need this:
 
 ```lean
 /-- The image of the first PNG example. -/
@@ -160,14 +170,38 @@ def writeBanner : IO Unit := do
   | .error e => IO.eprintln e.toString
 ```
 
+# A Whole Program
+%%%
+tag := "first-program"
+%%%
+
+The examples above are pieces of one program. As a file of its own, `Main.lean`, with nothing
+left out:
+
+```fileText "manual/FirstProgram/Main.lean"
+```
+
+In the project's `lakefile.lean`, beside the `require` line:
+
+```
+lean_exe «first-plot» where
+  root := `Main
+```
+
+Then `lake exe first-plot` builds it and writes `trig.svg`, `trig-dark.svg`, `trig.png` and
+`banner.png` into the folder it is run from. The manual's `lake test` runs this file (with the
+toolchain above and the library at the manual's own commit) and checks that it writes those four
+files.
+
 # Where to Go Next
 %%%
 tag := "next"
 %%%
 
-* The guide ({ref "guide"}[]) takes the library part by part: colours and styles, the canvas and
+* The {ref "guide"}[guide] takes the library part by part: colours and styles, the canvas and
   paths, every kind of plot, graphs, animations, raster images and the readers, text.
-* {ref "trust"}[] says what a picture's source record, fingerprint and manifest establish, what
+* {ref "trust"}[Trust and Proofs] says what a picture's source record, fingerprint and manifest
+  establish, what
   the theorems about pictures say, and where floating point begins.
-* The API reference ({ref "api"}[]) lists every public declaration of the library with its
+* The {ref "api"}[API reference] lists every public declaration of the library with its
   docstring.

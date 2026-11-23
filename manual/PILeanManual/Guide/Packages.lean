@@ -46,14 +46,14 @@ require «pilean-verso-manual» from git "https://github.com/eric-vergo/PILean" 
   * `pilean-leantex`
   * {sourceFile}`leantex`
   * LeAnTeX
-  * A text engine that typesets every label as LaTeX ({ref "text-engines"}[]).
+  * A text engine that typesets every label as LaTeX ({ref "text-engines"}[Other Engines]).
 *
   * `pilean-mathlib`
   * {sourceFile}`mathlib`
   * Mathlib
   * A specification over the real numbers of what it means for a plotted polyline to be near the
     graph of a function, a general theorem about exact plots, and one figure with its theorem
-    ({ref "proofs-real"}[]). It is an experiment.
+    ({ref "proofs-real"}[Plots Against the Real Numbers]). It is an experiment.
 :::
 
 Each folder's `README.md` says how to use the package and what its tests check.
@@ -75,7 +75,8 @@ The layers of the code and the imports between them.
 The options are `alt` (required: what a reader who cannot see the picture needs to know), `label`
 (for `{figref "…"}[]`), `title`, `format` (`svg` by default, `png`, `apng` or `gif`), `width` (a
 CSS length), `backdrop` (a picture of the site the figure is drawn over) and `proves` (a theorem
-about the figure, accepted only under the rule of `figure_proves`, {ref "proofs-link"}[]). An
+about the figure, accepted only under the rule of `figure_proves`, {ref "proofs-link"}[Linking a
+Theorem to a Picture]). An
 empty body takes the declaration's docstring as the caption. The generator wraps `manualMain`:
 
 ```

@@ -147,12 +147,17 @@ defaults to `figures`), then `DIR/manifest.json`. The same entries, options and 
 same bytes. Nothing is written if any figure fails to render; file names have only
 `[A-Za-z0-9._-]`, and a path component that is empty, `.` or `..` is refused, so nothing is
 written outside `DIR`. `--repo` must be an `http` or `https` link, `--commit` 4 to 64 lowercase
-hexadecimal digits. At most 4096 figures and 256 MiB for each output file.
+hexadecimal digits. At most 4096 figures and 65,536 files (the most a manifest may list), each
+file at most 64 MiB with its source record in (the most `pilean-verify` reads a source record
+from), checked on the finished file; a file whose bytes are not of its output's format is
+refused, so every file a build writes is one `pilean-verify` can check.
 
 With `--check`, the output is rendered in memory and compared byte for byte with `DIR`: it prints
 `stale: PATH`, `missing: PATH` and `extra: PATH` for each difference, and `ok: N files match` if
-there is none. Exit status 0 on success, 1 if a file is stale, missing or extra or a figure
-cannot be rendered, 2 on a wrong command line.
+there is none. The folder is listed to at most 32 levels of directories and 100,000 entries; a
+folder beyond either bound gets the line `cannot check: REASON` instead of a partial listing.
+Exit status 0 on success, 1 if a file is stale, missing or extra, the folder cannot be listed
+completely or a figure cannot be rendered, 2 on a wrong command line.
 
 ## The Manifest
 %%%
@@ -177,8 +182,10 @@ reads `DIR/manifest.json` as untrusted input: a regular file (not a link, FIFO o
 16 MiB, read by a small bounded JSON reader. The manifest is rejected as a whole, before any file
 is touched, if a path is malformed (empty, absolute, with `..`, `.`, an empty component, a
 backslash, a colon, or a character outside `[A-Za-z0-9._/-]`), listed twice, of an unknown format
-or with a malformed hash. Then each listed file gets one line, and after them each file that is
-not listed:
+or with a malformed hash. The folder is then listed, to at most 32 levels of directories and
+100,000 entries; a folder beyond either bound is an error (exit status 1 and a message, no line
+about any file), never a partial listing. Then each listed file gets one line, and after them
+each file that is not listed:
 
 :::table +header
 *
@@ -186,13 +193,19 @@ not listed:
   * Meaning
 *
   * `ok: PATH`
-  * a regular file of the listed size and SHA-256, whose source record agrees with the manifest
+  * a regular file of the listed size, SHA-256 and format, whose source record agrees with the
+    manifest
 *
   * `missing: PATH`
-  * the file does not exist
+  * no file has that path, spelled exactly so (on a file system that ignores case, a file found
+    only under another spelling is `missing`, and `extra` under its own)
 *
   * `changed: PATH`
   * another size or hash
+*
+  * `format differs: PATH`
+  * the bytes are not of the listed format (`svg`, `png`, `apng` with an `acTL` chunk before the
+    image data, `gif`)
 *
   * `not a regular file: PATH`
   * the file, or a directory on its way below `DIR`, is a symbolic link, a directory, a FIFO or a
@@ -221,18 +234,21 @@ In the words of `docs/TRUST.md`:
 
 * `pilean-info` prints what a file says about itself. A source record is written by whoever
   wrote the file; nothing is signed, so the record alone establishes nothing.
-* `pilean-verify` exiting 0 establishes that the directory and its manifest agree: every listed
-  file is there with the listed size and SHA-256 and carries the listed source record, and there
-  is no other file. It does not establish where either came from. Someone who can write both the
-  files and the manifest can make a directory that passes, with any source record; the
-  fingerprint is compared with the manifest's, not recomputed.
+* `pilean-verify` exiting 0 establishes that the directory and its manifest agree: every listed file
+  is there under exactly its listed name, with the listed size, SHA-256 and format, and carries the
+  listed source record, and there is no other file (a folder too deep or too large to list
+  completely is an error, not a pass; directories that hold no file are not compared). It does not
+  establish where either came from. Someone who can write both the files and the manifest can make a
+  directory that passes, with any source record; the fingerprint is compared with the manifest's,
+  not recomputed.
 * `pilean-build --check` exiting 0 establishes that the directory holds, byte for byte, what the
   driver that was run renders now from the declarations compiled into it, and nothing else. That
   ties the files to the Lean source to the extent that the driver was built from that source by a
   toolchain you trust, on the checkout you mean. It is the only one of the three that looks at
   the Lean declarations.
 * None of them says that a picture is correct: the fingerprint identifies a drawing and its
-  declaration, and the theorems ({ref "proofs"}[]) are about the Lean object, not the pixels.
+  declaration, and the theorems ({ref "proofs"}[What a Picture Proves]) are about the Lean object,
+  not the pixels.
 * The file checks are made with `lstat` before each open; a folder that another process changes
   during the check is outside what they defend against.
 

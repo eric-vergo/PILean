@@ -64,15 +64,16 @@ does: lines, rectangles and rounded rectangles, ellipses and arcs, polygons, any
 {name}`PILean.Path` with the non-zero or even-odd rule, clipping to rectangles and paths, groups at
 an opacity, and solid, linear and radial paints.
 
-How it computes: every path is flattened, its coordinates rounded to 1/256 pixel, and from there
-on everything is integer arithmetic. Each pixel's coverage is the exact area of the shape inside
-it, for edges on that grid (except where two edges cross inside one pixel, the usual
-approximation of both fill rules); the canvas holds premultiplied linear light at 16 bits a
-channel, composites source over destination there, and converts to 8-bit sRGB with straight alpha
-at the end. So the same outlines give the same pixels on every machine; the outlines themselves
-are computed in floating point, where the platform's trigonometric functions (round caps and
-joins, arcs) may differ in a last bit. The rasteriser is tested, not proved: against shapes of
-known area, and against macOS's SVG renderer.
+How it computes: every path is flattened, its coordinates rounded to 1/256 pixel, and from there on
+everything is integer arithmetic. Each pixel's coverage is the exact area of the shape inside it,
+for edges on that grid (except where two edges cross inside one pixel, the usual approximation of
+both fill rules); the canvas holds premultiplied linear light at 16 bits a channel, composites
+source over destination there, and converts to 8-bit sRGB with straight alpha at the end. So the
+same outlines give the same coverage on every machine; the colour of a pixel also depends on its
+paint (a gradient's parameter at a pixel is computed in floating point), the clips and the
+compositing, and the outlines themselves are computed in floating point, where the platform's
+trigonometric functions (round caps and joins, arcs) may differ in a last bit. The rasteriser is
+tested, not proved: against shapes of known area, and against macOS's SVG renderer.
 
 Strokes ({name}`PILean.Raster.Stroke`) have caps, joins, a miter limit and dashes. A Gaussian blur
 of a coverage mask ({name}`PILean.Raster.Mask.blur`) and a drop shadow
@@ -156,7 +157,8 @@ a crash. The caps are fields of the readers' `Limits`, with these defaults:
   * 2^29 bytes (512 MiB)
 *
   * PNG
-  * decompressed text, all chunks together ({name}`PILean.Png.Limits.maxTextBytes`)
+  * text entries, all chunks together: their strings and 128 bytes for each
+    ({name}`PILean.Png.Limits.maxTextBytes`)
   * 2^22 bytes
 *
   * APNG, GIF ({name}`PILean.Anim.readApng`, {name}`PILean.Anim.readGif`)
@@ -191,13 +193,20 @@ The defaults are the code's own, printed here when the manual was built:
 ```leanResult limitsEx
 ```
 
-With the default limits, reading a PNG of `n` bytes holds at most the input, the image data (at
-most `n` bytes) and two buffers whose sizes together are at most `Limits.maxBytes`, allocated only
-after the header has been checked against the caps, and its work is linear in those sizes; a zlib
-stream is measured before its output is allocated, so a stream that would expand past the cap is
-refused without its output being made. GIF and APNG hold the composed frames (at most
-`Limits.maxBytes`) and a constant number of frame-sized buffers. `lake test` runs the readers on
-hostile inputs in child processes and checks their memory and CPU time.
+With the default limits, reading a PNG of `n` bytes holds at most: the input; its image data (at
+most `n` bytes); the data of one other chunk at a time (`PLTE` and `tRNS` are kept); the text
+entries, whose strings with 128 bytes for each entry come to at most `Limits.maxTextBytes` (an
+entry over the budget is dropped and counted in `Decoded.textDropped`); and two buffers whose
+sizes together are at most `Limits.maxBytes`, allocated only after the header has been checked
+against the caps. Its work is linear in those sizes. The buffer of the decompressed image data
+is sized from the header, after a check that the compressed data is long enough for that size at
+DEFLATE's greatest ratio, and inflating stops with an error at its end; a zlib stream decoded
+without an expected size (`zlibDecompress` without `expected`) is measured first, so a stream
+that would expand past the cap is refused without its output being made. GIF and APNG hold the
+composed frames (at most `Limits.maxBytes`, checked before each frame is decoded) and a constant
+number of frame-sized buffers. These bound the buffers the readers allocate, not the memory of
+the whole process. `lake test` runs the readers on hostile inputs in child processes and checks
+their memory and CPU time.
 
 ```lean (name := hostileEx)
 #eval match Image.readPng (ByteArray.mk #[137, 80, 78, 71, 13, 10, 26, 10, 0, 0]) with

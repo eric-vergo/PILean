@@ -76,7 +76,8 @@ refined by Gansner, Koutsofios, North and Vo, in phases whose work is bounded by
 
 1. *Cycle removal.* The edges that point backwards in a greedy order (Eades, Lin and Smyth) are
    reversed for the layout and drawn in their own direction; self-loops are set aside.
-2. *Layers.* The layers of least total edge span, by network simplex, balanced; layers wider than
+2. *Layers.* Network simplex towards the layers of least total edge span (reached when it
+   finishes within its work budget), balanced; layers wider than
    `maxLayerWidth` are split into rows; then a repair pass ({name}`PILean.Graph.fixLayers`) moves
    a node down until every edge points to a deeper layer. A graph with clusters is layered from
    the inside out, so that every cluster keeps a block of layers to itself. When an edge has a
@@ -163,8 +164,9 @@ does not end at; an edge between nodes outside a cluster does not enter its box)
 tag := "graph-proved"
 %%%
 
-Proved, from Lean's three standard axioms only: after cycle removal every edge points to a deeper
-layer ({name}`PILean.Graph.assignLayers_lt`, and for the layerings of graphs with clusters and with
+Proved, from Lean's three standard axioms only: after cycle removal every edge between two
+different nodes (a self-loop is drawn apart) points to a deeper layer
+({name}`PILean.Graph.assignLayers_lt`, and for the layerings of graphs with clusters and with
 wide layers split {name}`PILean.Graph.assignNested_lt` and {name}`PILean.Graph.assignWide_lt`):
 this holds by construction, because the layering ends with the repair pass, and the theorems are
 about that pass. The routed edges of {name}`PILean.Graph.layout` are exactly the valid input
@@ -174,8 +176,9 @@ ends ({name}`PILean.Graph.layout_edge_endpoints`).
 Tested, not proved: where the nodes stand and how the routes run; that a route stays in its room
 and is the shortest, that its curve stays in its zones and that no edge turns back across the
 layers (checked on random cases and every measured graph, each check with a planted fault it must
-report); that network simplex finds the layers on its own, without the repair pass (a test checks
-on random graphs, the fixtures and the import graphs that the repair changes nothing there); the
+report); that the repair pass leaves the layers of network simplex and balancing unchanged (a test
+checks it on random graphs, the fixtures and the import graphs; nothing checks that network
+simplex reached its least total span); the
 sifting and seeded starts, the packing of components, mirrored layouts and the SVG for web pages.
 The coordinates are floating point.
 
@@ -184,12 +187,16 @@ The coordinates are floating point.
 tag := "graph-limits"
 %%%
 
-The layout's work is bounded by the numbers of nodes and edges and by two work budgets,
-`layerWork` (the layering) and `coordinateWork` (the coordinates: when it is used up, the best
-assignment so far is kept), with a cap on the nodes of the layered graph, dummy nodes included
-(`maxLayoutNodes`). The extra starts of the crossing reduction have a budget too, so a large graph
-gets none, and sifting is skipped above a number of node pairs. Packing components
-({name}`PILean.Graph.layoutPacked`) cannot make a drawing narrower than its widest component.
+The layout's work is bounded by the numbers of nodes and edges and by two work budgets, `layerWork`
+(the layering) and `coordinateWork` (the coordinates: when it is used up, the best assignment so far
+is kept), and by a cap on dummy nodes: long edges are broken into dummy nodes only while the real
+and dummy nodes together stay within `maxLayoutNodes`; otherwise no edge gets any and each long edge
+is drawn directly from its source to its target. The real nodes are not capped. Placing the
+horizontal runs of orthogonal routes compares each run with the runs placed before it in the same
+gap, so `k` runs in one gap cost `k²/2` comparisons, outside both budgets. The extra starts of the
+crossing reduction have a budget too, so a large graph gets none, and sifting is skipped above a
+number of node pairs. Packing components ({name}`PILean.Graph.layoutPacked`) cannot make a drawing
+narrower than its widest component.
 
 ## Compared with Graphviz
 %%%

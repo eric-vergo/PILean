@@ -29,7 +29,7 @@ drawn from, not about the picture's pixels. This chapter says what is proved, wh
 tested, and what you still have to trust; it follows `docs/PROOFS.md`. Every theorem of the core
 and of the gallery that it shows is printed from the library when the manual is built, so a
 changed statement changes the page and a renamed one breaks the build; the theorems of the
-optional Mathlib package are paraphrased ({ref "proofs-real"}[]).
+optional Mathlib package are paraphrased ({ref "proofs-real"}[Plots Against the Real Numbers]).
 
 # The Idea
 %%%
@@ -80,7 +80,7 @@ graph of `f`. Between two consecutive samples the picture is a straight segment,
 the core library is proved about the distance from that segment to `f`. The optional package
 `pilean-mathlib` proves such a bound over the real numbers for the exact samples, under stated
 hypotheses on the function; it is an experiment with one worked example, the sine
-({ref "proofs-real"}[]).
+({ref "proofs-real"}[Plots Against the Real Numbers]).
 
 *Which functions.* The theorem is about functions with exact rational values. A plot of `sin`,
 `exp` or a square root made with {name}`PILean.Plot.Series.function` is sampled in floating point
@@ -100,7 +100,8 @@ tag := "proofs-gallery"
 The repository's gallery has four pictures with a theorem, one of each kind, in the module
 {sourceFile}`PILeanTest/ProvedExamples.lean`. The manual draws each from that declaration, and
 the `figure` directive's `proves` option accepts the theorem only under the rule of
-`figure_proves` ({ref "proofs-link"}[]); below each picture is the theorem as the library states
+`figure_proves` ({ref "proofs-link"}[Linking a Theorem to a Picture]); below each picture is the
+theorem as the library states
 it.
 
 ## A Function Plot
@@ -234,15 +235,16 @@ tag := "proofs-proved"
 %%%
 
 Every theorem of the library depends on no axiom beyond Lean's three standard ones (`propext`,
-`Classical.choice`, `Quot.sound`); what that leaves trusted (Lean's kernel, compiler and runtime)
-is listed under {ref "proofs-trusted"}[]. The repository's test build checks this for every declaration
-of the library and of the test modules the test driver imports, theorems and definitions alike,
+`Classical.choice`, `Quot.sound`); what that leaves trusted (Lean's kernel, compiler and runtime) is
+listed under {ref "proofs-trusted"}[What Is Trusted]. The repository's test build checks this for
+every declaration of the library and of the test modules the test driver imports, of every kind
+(theorems, definitions, opaque constants, inductive types with their constructors and recursors),
 without a list of names, and reports any `axiom` they declare, used or not
-({sourceFile}`PILeanTest/Axioms.lean`); it also checks that no file of the library is left out of
-that check. The manual's build runs the same command over the modules of the library it imports
-(`PILean`, which imports every other module of the core, and `PILean.Trust.Attr`). The command
-prints nothing when it passes and fails the build otherwise; the line after it is only a label,
-printed once the command has passed:
+({sourceFile}`PILeanTest/Axioms.lean`); it also checks that no file of the library and no test
+module the test driver imports is left out of that check. The manual's build runs the same command
+over the modules of the library it imports (`PILean`, which imports every other module of the core,
+and `PILean.Trust.Attr`). The command prints nothing when it passes and fails the build otherwise;
+the line after it is only a label, printed once the command has passed:
 
 ```lean (name := axiomsCheck)
 #assert_standard_axioms PILean
@@ -392,7 +394,8 @@ tag := "proofs-trusted"
   code (a theorem is about the Lean definition; that the compiled program computes it is Lean's
   responsibility), the standard library, and the three standard axioms.
 * *The build*: that the bytes in a file are the ones the build produced from the declaration they
-  name. {ref "trust-build"}[] says how this is made checkable. The theorem of a gallery picture
+  name. {ref "trust-build"}[Builds, Fingerprints and Checks] says how this is made checkable. The
+  theorem of a gallery picture
   that has one is in the picture's module, so building that module checks it; a file edited
   afterwards is detected by `pilean-build --check`, and by `pilean-verify` unless the manifest
   was edited as well.
@@ -410,7 +413,7 @@ tag := "proofs-read"
 1. Find its source record (`lake exe pilean-info FILE`, or the caption of a figure in a manual
    built with `pilean-verso-manual`, which shows the declaration, its file and line). The record
    is a claim by whoever wrote the file; `pilean-build --check` is the check that the file is what
-   the declaration renders now ({ref "trust-check"}[]).
+   the declaration renders now ({ref "trust-check"}[What the Answers Establish]).
 2. Read the theorem beside the declaration. It names the exact function, list, relation or time.
    `figure_proves picture theorem` links the two, and fails the build unless the theorem is proved
    from the standard axioms and its statement names the picture itself. That check is about names

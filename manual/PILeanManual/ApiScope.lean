@@ -17,9 +17,11 @@ A declaration of a module is public when it was written in that module's source 
 declaration range), is not private, has no internal name component (one that starts with `_`, or
 a number), and is not one of the parts that its type's block already shows: a structure's
 projections and an inductive type's constructors (their docstrings are shown, and required,
-inside the type's block), nor a definition that a `deriving` clause generated inside an instance
-(a name below an instance's name), nor a helper defined inside another definition (`let rec`,
-`where`: a name below a function's or a value's name). Instances count as declarations like any other.
+inside the type's block), nor a declaration whose name is below an instance's name (where a
+`deriving` clause puts what it defines), nor one whose name is below a function's, a value's or
+a theorem's name (where `let rec` and `where` put their helpers). These are tests of the name's
+shape: a declaration given such a name by hand is left out too. Instances count as declarations
+like any other.
 
 A public declaration is *covered* when it has a docstring or is on the allow-list
 (`PILeanManual.ApiAllow`); the API pages fail the manual's build on any declaration that is

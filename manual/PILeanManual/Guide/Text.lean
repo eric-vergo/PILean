@@ -97,4 +97,4 @@ characters, is drawn by the built-in lettering instead; every string is typeset 
 tokens, expansions, nesting and line-breaking work. Its identity names the LeAnTeX commit and the
 SHA-256 of every font file it reads. It is a separate package because LeAnTeX is large and reads
 about 20 MB of fonts at run time: as a dependency of the core it would weigh on every user. See
-{ref "packages"}[] for how to require it; this manual does not depend on it.
+{ref "packages"}[Optional Packages] for how to require it; this manual does not depend on it.
