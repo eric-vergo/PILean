@@ -3,12 +3,14 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanMathlib.Examples.SineFigure
+import PILeanMathlib.Examples.CombinatoricsFigures
 
 /-!
 # The files of the gallery
 
-The pictures of `sineFigure`, light and dark, as SVG and PNG. This module and the programs built
-from it import nothing from Mathlib.
+The pictures of `sineFigure` and of the combinatorial figures
+(`PILeanMathlib.Examples.CombinatoricsFigures`), light and dark, as SVG and PNG. This module and
+the programs built from it import nothing from Mathlib.
 -/
 
 namespace PILeanMathlibTest
@@ -27,6 +29,12 @@ def files : Array (String × Except String ByteArray) := Id.run do
     out := out.push (n ++ ".png", match f.toPng with
       | some b => .ok b
       | none => .error "no pixels")
+  for (n, d) in PILeanMathlib.Examples.figures do
+    for (suffix, fig) in [("", d.toPlane), ("-dark", d.dark.toPlane)] do
+      out := out.push (n ++ suffix ++ ".svg", .ok fig.toSvg.toUTF8)
+      out := out.push (n ++ suffix ++ ".png", match fig.toPng with
+        | some b => .ok b
+        | none => .error "no pixels")
   return out
 
 /-- The number of pixels of the first panel of `sineFigure` that one unit of the ordinate

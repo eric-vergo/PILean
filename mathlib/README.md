@@ -3,7 +3,8 @@
 `pilean-mathlib` is an optional package beside PILean. It holds what PILean's core cannot say,
 because the core has no real numbers: a specification, over ℝ, of what it means for a plotted
 curve to be near the graph of a function, and theorems that connect PILean's exact computations
-to that specification. It is an experiment: one specification, one general theorem, one figure.
+to that specification. It began with one specification, one general theorem and one figure, and now also ties
+PILean's combinatorial diagrams to Mathlib's objects ("Combinatorial objects" below).
 
 PILean itself has no dependencies, and nobody who uses PILean needs this package. It lives in
 its own folder, requires [Mathlib](https://github.com/leanprover-community/mathlib4) (pinned in
@@ -145,3 +146,33 @@ Not in this package:
   statement can be made about pixels;
 * grids that are not uniform, and bounds from a Lipschitz derivative instead of a second
   derivative.
+
+## Combinatorial objects
+
+`PILeanMathlib/Combinatorics.lean` gives, for each kind of `PILean.Diagram` whose object Mathlib
+has, a function from the Mathlib object to the kind's data and a theorem, stated with Mathlib's
+definitions, that what the diagram draws is that object: a `SimpleGraph (Fin n)`'s drawn pairs are
+its edges, a `Digraph`'s its arcs, an enumerated `PartialOrder`'s drawn edges its covers
+(`CovBy`), a `YoungDiagram`'s drawn cells its cells, a `SemistandardYoungTableau`'s written entries
+its entries, an `Equiv.Perm (Fin n)`'s cycle arrows `a → σ a` and wiring crossings its inversions,
+a `DyckWord`'s rising steps its `U`s, and a `Finset`'s members are written inside its circle of a
+Venn diagram ([`docs/PROOFS.md`](../docs/PROOFS.md), "Combinatorics against Mathlib").
+
+The figures (`PILeanMathlib/Examples/CombinatoricsFigures.lean`, which imports nothing from
+Mathlib) and their theorems (`PILeanMathlib/Examples/Combinatorics.lean`, linked by
+`figure_proves`):
+
+| Figure | Theorem | Light | Dark |
+|---|---|---|---|
+| The divisors of 60 | the elements are `Nat.divisors 60`; an edge joins `a` to `b` iff `a ∣ b` and `b / a` is prime | ![](examples/divisors-60.svg) | ![](examples/divisors-60-dark.svg) |
+| The subsets of `{0, 1, 2}` | an edge joins `a` to `b` iff `subset a ⋖ subset b` in `Finset (Fin 3)` | ![](examples/subsets.svg) | ![](examples/subsets-dark.svg) |
+| The Petersen graph | the edges are those of a `SimpleGraph (Fin 10)`, disjointness of the 2-subsets of `Fin 5` | ![](examples/petersen.svg) | ![](examples/petersen-dark.svg) |
+| The Young diagram of (5, 3, 3, 1) | the cells are those of `YoungDiagram.ofRowLens [5, 3, 3, 1]` | ![](examples/young.svg) | ![](examples/young-dark.svg) |
+| The highest-weight tableau of (4, 3, 1) | the entries are those of `SemistandardYoungTableau.highestWeight` | ![](examples/highest-weight.svg) | ![](examples/highest-weight-dark.svg) |
+| The cycles of `(0 3)(2 4)` | an arrow `a → b` iff `σ a = b` | ![](examples/cycles.svg) | ![](examples/cycles-dark.svg) |
+| Its wiring diagram | the crossings are its six inversions, and its sign is `(-1)` to their number | ![](examples/wiring.svg) | ![](examples/wiring-dark.svg) |
+| The Dyck word `UUDUUDDDUD` | the steps are the path of the `DyckWord`, rising exactly at its `U`s | ![](examples/dyck.svg) | ![](examples/dyck-dark.svg) |
+| Multiples of 2, 3, 5 up to 12 | each number is inside the circle of each `Finset` iff it belongs to it | ![](examples/venn.svg) | ![](examples/venn-dark.svg) |
+
+What these theorems do not cover is what no theorem of PILean covers: how the exact marks are
+drawn (floating point, the frame, text, colours, the rasteriser).

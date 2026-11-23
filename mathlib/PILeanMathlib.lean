@@ -3,6 +3,9 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanMathlib.Axioms
+import PILeanMathlib.Combinatorics
+import PILeanMathlib.Examples.Combinatorics
+import PILeanMathlib.Examples.CombinatoricsFigures
 import PILeanMathlib.ExactPlot
 import PILeanMathlib.Examples.Sine
 import PILeanMathlib.Examples.SineFigure
@@ -19,5 +22,10 @@ import PILeanMathlib.Polyline
   it approximates.
 * `PILeanMathlib.Examples.SineFigure`, `PILeanMathlib.Examples.Sine`: a figure of the sine and the
   theorem about it.
+* `PILeanMathlib.Combinatorics`: Mathlib's simple graphs, digraphs, partial orders, Young
+  diagrams, semistandard tableaux, permutations, Dyck words and finsets bound to PILean's
+  combinatorial diagrams, with theorems that the drawn parts are those objects.
+* `PILeanMathlib.Examples.CombinatoricsFigures`, `PILeanMathlib.Examples.Combinatorics`: a figure
+  for each and the theorem about it.
 * `PILeanMathlib.Axioms`: the axioms every theorem depends on, checked by the build.
 -/

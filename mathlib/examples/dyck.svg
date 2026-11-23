@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="150" viewBox="0 0 420 150">
+  <g>
+    <title>The Dyck word UUDUUDDDUD</title>
+    <path d="M0 0 L420 0 L420 150 L0 150 Z" fill="#ffffff"/>
+    <path d="M16.5 133.05 L16.5 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M55.2 133.05 L55.2 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M93.9 133.05 L93.9 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M132.6 133.05 L132.6 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M171.3 133.05 L171.3 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M210 133.05 L210 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M248.7 133.05 L248.7 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M287.4 133.05 L287.4 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M326.1 133.05 L326.1 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M364.8 133.05 L364.8 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M403.5 133.05 L403.5 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 133.05 L403.5 133.05" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 94.35 L403.5 94.35" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 55.65 L403.5 55.65" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 16.95 L403.5 16.95" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <title>step 0</title>
+      <path d="M16.5 133.05 L55.2 94.35" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>step 1</title>
+      <path d="M55.2 94.35 L93.9 55.65" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>step 2</title>
+      <path d="M93.9 55.65 L132.6 94.35" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>step 3</title>
+      <path d="M132.6 94.35 L171.3 55.65" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>step 4</title>
+      <path d="M171.3 55.65 L210 16.95" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>step 5</title>
+      <path d="M210 16.95 L248.7 55.65" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>step 6</title>
+      <path d="M248.7 55.65 L287.4 94.35" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>step 7</title>
+      <path d="M287.4 94.35 L326.1 133.05" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>step 8</title>
+      <path d="M326.1 133.05 L364.8 94.35" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>step 9</title>
+      <path d="M364.8 94.35 L403.5 133.05" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
