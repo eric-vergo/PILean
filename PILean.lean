@@ -36,6 +36,10 @@ import PILean.Exact.Algebraic
 import PILean.Exact.Spec
 import PILean.Explorer
 import PILean.Plane.Graph
+import PILean.Diagram.Basic
+import PILean.Diagram.Graph
+import PILean.Diagram.Hasse
+import PILean.Diagram.Young
 import PILean.Graph.Fixed
 import PILean.Graph.Model
 import PILean.Graph.Layout
