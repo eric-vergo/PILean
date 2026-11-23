@@ -128,11 +128,12 @@ def toFinGraph (P : FinPoset) : FinGraph where
   names := P.names
 
 /-- The edges of the graph of the covering relation are the covering pairs. -/
-theorem toFinGraph_edgePairs (P : FinPoset) : P.toFinGraph.edgePairs = P.coverPairs := by sorry
+theorem toFinGraph_edgePairs (P : FinPoset) : P.toFinGraph.edgePairs = P.coverPairs := rfl
 
 /-- A pair is drawn exactly when its two elements exist and the second covers the first. -/
 theorem mem_coverPairs (P : FinPoset) (i j : Nat) :
-    (i, j) ∈ P.coverPairs ↔ ∃ (hi : i < P.n) (hj : j < P.n), P.covers ⟨i, hi⟩ ⟨j, hj⟩ = true := by sorry
+    (i, j) ∈ P.coverPairs ↔ ∃ (hi : i < P.n) (hj : j < P.n), P.covers ⟨i, hi⟩ ⟨j, hj⟩ = true :=
+  P.toFinGraph.mem_edgePairs i j
 
 /-- The diagram at the layout `L`. -/
 def draw (P : FinPoset) (L : Layout) : Diagram := P.toFinGraph.draw L
@@ -146,7 +147,8 @@ instance (P : FinPoset) (L : Layout) (d : Diagram) : Decidable (P.Faithful L d) 
   inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The Hasse diagram is faithful at every layout. -/
-theorem draw_faithful (P : FinPoset) (L : Layout) : P.Faithful L (P.draw L) := by sorry
+theorem draw_faithful (P : FinPoset) (L : Layout) : P.Faithful L (P.draw L) :=
+  P.toFinGraph.draw_faithful L
 
 /-- The Hasse diagram of the order, or a note for more than `maxElements` elements. -/
 def figure (P : FinPoset) : Diagram :=
@@ -157,7 +159,11 @@ def figure (P : FinPoset) : Diagram :=
 
 /-- An order on at most `maxElements` elements is drawn faithfully by `figure`. -/
 theorem builder_faithful (P : FinPoset) (h : P.n ≤ maxElements) :
-    P.Faithful P.layout P.figure := by sorry
+    P.Faithful P.layout P.figure := by
+  unfold figure
+  split
+  · exact P.draw_faithful _
+  · contradiction
 
 /-! ### The covering relation determines the order -/
 
@@ -165,30 +171,84 @@ theorem builder_faithful (P : FinPoset) (h : P.n ≤ maxElements) :
 satisfies the weaker one only. -/
 theorem countP_lt_of_imp {α : Type} {p q : α → Bool} :
     ∀ {l : List α}, (∀ x ∈ l, p x = true → q x = true) → (∃ x ∈ l, q x = true ∧ p x = false) →
-      l.countP p < l.countP q := by sorry
+      l.countP p < l.countP q
+  | [], _, ⟨_, hx, _⟩ => by simp at hx
+  | a :: l, himp, ⟨x, hx, hq, hp⟩ => by
+    have himp' : ∀ y ∈ l, p y = true → q y = true := fun y hy => himp y (by simp [hy])
+    rw [List.countP_cons, List.countP_cons]
+    rcases List.mem_cons.1 hx with rfl | hx
+    · have := List.countP_mono_left himp'
+      simp [hq, hp]
+      omega
+    · have := countP_lt_of_imp himp' ⟨x, hx, hq, hp⟩
+      by_cases hpa : p a = true
+      · simp [hpa, himp a (by simp) hpa]
+        omega
+      · by_cases hqa : q a = true <;> simp_all <;> omega
 
 variable {P : FinPoset}
 
 /-- In a partial order the strict relation is transitive. -/
 theorem IsPartialOrder.lt_trans (hP : P.IsPartialOrder) {i j k : Fin P.n} (hij : P.lt i j = true)
-    (hjk : P.lt j k = true) : P.lt i k = true := by sorry
+    (hjk : P.lt j k = true) : P.lt i k = true := by
+  simp only [lt, Bool.and_eq_true, bne_iff_ne, ne_eq] at hij hjk ⊢
+  refine ⟨hP.trans i j k hij.1 hjk.1, fun h => ?_⟩
+  subst h
+  exact hij.2 (hP.antisymm i j hij.1 hjk.1)
 
 /-- In a partial order nothing is strictly below itself. -/
-theorem lt_irrefl (i : Fin P.n) : P.lt i i = false := by sorry
+theorem lt_irrefl (i : Fin P.n) : P.lt i i = false := by simp [lt]
 
 /-- A cover is a strict relation. -/
-theorem lt_of_covers {i j : Fin P.n} (h : P.covers i j = true) : P.lt i j = true := by sorry
+theorem lt_of_covers {i j : Fin P.n} (h : P.covers i j = true) : P.lt i j = true := by
+  simp only [covers, Bool.and_eq_true] at h
+  exact h.1
 
 /-- For a partial order, `i < j` exactly when a chain of covers leads from `i` to `j`: the
 transitive closure of the drawn edges is the strict order. -/
 theorem transGen_covers_iff (hP : P.IsPartialOrder) (i j : Fin P.n) :
-    Relation.TransGen (fun a b => P.covers a b = true) i j ↔ P.lt i j = true := by sorry
+    Relation.TransGen (fun a b => P.covers a b = true) i j ↔ P.lt i j = true := by
+  constructor
+  · intro h
+    induction h with
+    | single h => exact lt_of_covers h
+    | tail _ h ih => exact hP.lt_trans ih (lt_of_covers h)
+  · intro h
+    -- induction on the number of elements strictly between `i` and `j`
+    generalize hm : (List.finRange P.n).countP (fun k => P.lt i k && P.lt k j) = m
+    induction m using Nat.strongRecOn generalizing i j with
+    | _ m ih =>
+      by_cases hc : P.covers i j = true
+      · exact .single hc
+      · have hk : ((List.finRange P.n).any fun k => P.lt i k && P.lt k j) = true := by
+          simp only [covers, h, Bool.true_and, Bool.not_eq_true'] at hc
+          simpa using hc
+        obtain ⟨k, -, hk⟩ := List.any_eq_true.1 hk
+        simp only [Bool.and_eq_true] at hk
+        have lt1 : (List.finRange P.n).countP (fun k' => P.lt i k' && P.lt k' k) < m := by
+          rw [← hm]
+          refine countP_lt_of_imp (fun x _ hx => ?_) ⟨k, List.mem_finRange k, by simp [hk], ?_⟩
+          · simp only [Bool.and_eq_true] at hx ⊢
+            exact ⟨hx.1, hP.lt_trans hx.2 hk.2⟩
+          · simp [lt_irrefl]
+        have lt2 : (List.finRange P.n).countP (fun k' => P.lt k k' && P.lt k' j) < m := by
+          rw [← hm]
+          refine countP_lt_of_imp (fun x _ hx => ?_) ⟨k, List.mem_finRange k, by simp [hk], ?_⟩
+          · simp only [Bool.and_eq_true] at hx ⊢
+            exact ⟨hP.lt_trans hk.1 hx.1, hx.2⟩
+          · simp [lt_irrefl]
+        exact .trans (ih _ lt1 i k hk.1 rfl) (ih _ lt2 k j hk.2 rfl)
 
 end FinPoset
 
 /-- The hypotheses can be met: the chain `0 ≤ 1 ≤ 2` is a partial order whose covers are
 `(0, 1)` and `(1, 2)`. -/
 example : FinPoset.IsPartialOrder ⟨3, fun i j => decide (i ≤ j), #[]⟩ ∧
-    (FinPoset.mk 3 (fun i j => decide (i ≤ j)) #[]).coverPairs = [(0, 1), (1, 2)] := by sorry
+    (FinPoset.mk 3 (fun i j => decide (i ≤ j)) #[]).coverPairs = [(0, 1), (1, 2)] := by
+  refine ⟨⟨fun i => by simp, fun i j h h' => ?_, fun i j k h h' => ?_⟩, by decide⟩
+  · simp only [decide_eq_true_eq] at h h'
+    exact Fin.le_antisymm h h'
+  · simp only [decide_eq_true_eq] at h h' ⊢
+    exact Fin.le_trans h h'
 
 end PILean.Diagram

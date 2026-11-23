@@ -60,10 +60,29 @@ def cellList (rows : List Nat) : List (Nat × Nat) :=
 
 /-- `(i, j)` is a cell of `λ` exactly when row `i` exists and `j < λᵢ`. -/
 theorem mem_cellList (rows : List Nat) (i j : Nat) :
-    (i, j) ∈ cellList rows ↔ ∃ h : i < rows.length, j < rows[i] := by sorry
+    (i, j) ∈ cellList rows ↔ ∃ h : i < rows.length, j < rows[i] := by
+  simp only [cellList, List.mem_flatMap, List.mem_range, List.mem_map, Prod.mk.injEq]
+  constructor
+  · rintro ⟨i', hi, j', hj, rfl, rfl⟩
+    exact ⟨hi, by simpa [List.getD_eq_getElem?_getD, hi] using hj⟩
+  · rintro ⟨hi, hj⟩
+    exact ⟨i, hi, j, by simpa [List.getD_eq_getElem?_getD, hi] using hj, rfl, rfl⟩
 
 /-- Each cell is listed once. -/
-theorem cellList_nodup (rows : List Nat) : (cellList rows).Nodup := by sorry
+theorem cellList_nodup (rows : List Nat) : (cellList rows).Nodup := by
+  unfold cellList
+  rw [List.nodup_iff_pairwise_ne, List.pairwise_flatMap]
+  refine ⟨fun i _ => ?_, ?_⟩
+  · rw [List.pairwise_map]
+    exact List.pairwise_lt_range.imp fun h h' => by simp only [Prod.mk.injEq] at h'; omega
+  · refine List.pairwise_lt_range.imp fun {i i'} hlt => ?_
+    intro p hp p' hp'
+    simp only [List.mem_map] at hp hp'
+    obtain ⟨j, _, rfl⟩ := hp
+    obtain ⟨j', _, rfl⟩ := hp'
+    intro h
+    simp only [Prod.mk.injEq] at h
+    omega
 
 /-- The most cells `figure` draws. -/
 def maxCells : Nat := 4096
@@ -105,7 +124,10 @@ instance (Y : YoungShape) (d : Diagram) : Decidable (Y.Faithful d) :=
   inferInstanceAs (Decidable (_ ∧ _))
 
 /-- The diagram of a shape is faithful. -/
-theorem draw_faithful (Y : YoungShape) : Y.Faithful Y.draw := by sorry
+theorem draw_faithful (Y : YoungShape) : Y.Faithful Y.draw := by
+  refine ⟨?_, ?_⟩
+  · simp [Diagram.cells, draw, cellMark, List.filterMap_map, Function.comp_def]
+  · simp [draw, placedCell, cellMark]
 
 /-- The figure: the diagram, or a note when the shape has more than `maxCells` cells (counted
 up to the cap). -/
@@ -116,7 +138,11 @@ def figure (Y : YoungShape) : Diagram :=
 /-- A shape the figure draws is drawn faithfully. -/
 theorem builder_faithful (Y : YoungShape)
     (h : Y.rows.foldl (fun s r => min (s + r) (maxCells + 1)) 0 ≤ maxCells) :
-    Y.Faithful Y.figure := by sorry
+    Y.Faithful Y.figure := by
+  unfold figure
+  split
+  · exact Y.draw_faithful
+  · contradiction
 
 end YoungShape
 
@@ -177,7 +203,13 @@ instance (T : Tableau) (d : Diagram) : Decidable (T.Faithful d) :=
   inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The diagram of a tableau is faithful. -/
-theorem draw_faithful (T : Tableau) : T.Faithful T.draw := by sorry
+theorem draw_faithful (T : Tableau) : T.Faithful T.draw := by
+  refine ⟨?_, ?_, ?_⟩
+  · simp [Diagram.cells, draw, cellMark, List.filterMap_append, List.filterMap_map,
+      Function.comp_def]
+  · simp [Diagram.entries, draw, cellMark, List.filterMap_append, List.filterMap_map,
+      Function.comp_def]
+  · simp [draw, placedCell, cellMark]
 
 /-- The figure: the diagram, or a note for more than `maxCells` cells. -/
 def figure (T : Tableau) : Diagram :=
@@ -187,13 +219,17 @@ def figure (T : Tableau) : Diagram :=
 /-- A tableau the figure draws is drawn faithfully. -/
 theorem builder_faithful (T : Tableau)
     (h : T.entries.foldl (fun s r => min (s + r.length) (maxCells + 1)) 0 ≤ maxCells) :
-    T.Faithful T.figure := by sorry
+    T.Faithful T.figure := by
+  unfold figure
+  split
+  · exact T.draw_faithful
+  · contradiction
 
 end Tableau
 
 /-- The hypotheses can be met: the shape `(2, 1)` has the cells `(0, 0)`, `(0, 1)`, `(1, 0)`, and
 the tableau `[[1, 2], [3]]` is standard. -/
 example : cellList [2, 1] = [(0, 0), (0, 1), (1, 0)] ∧
-    (Tableau.mk [[1, 2], [3]] .english).IsStandard := by sorry
+    (Tableau.mk [[1, 2], [3]] .english).IsStandard := by decide
 
 end PILean.Diagram

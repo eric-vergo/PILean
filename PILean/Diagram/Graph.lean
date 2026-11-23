@@ -124,10 +124,21 @@ def edgePairs (g : FinGraph) : List (Nat × Nat) :=
 
 /-- A pair is in `edgePairs` exactly when both its vertices exist and the pair is drawn. -/
 theorem mem_edgePairs (g : FinGraph) (i j : Nat) :
-    (i, j) ∈ g.edgePairs ↔ ∃ (hi : i < g.n) (hj : j < g.n), g.drawn ⟨i, hi⟩ ⟨j, hj⟩ = true := by sorry
+    (i, j) ∈ g.edgePairs ↔ ∃ (hi : i < g.n) (hj : j < g.n), g.drawn ⟨i, hi⟩ ⟨j, hj⟩ = true := by
+  rw [edgePairs, Graph.mem_relationPairs]
+  constructor
+  · rintro ⟨a, b, ha, hb, h⟩
+    rw [List.getElem?_eq_some_iff] at ha hb
+    obtain ⟨hi, rfl⟩ := ha
+    obtain ⟨hj, rfl⟩ := hb
+    simp only [List.length_finRange] at hi hj
+    exact ⟨hi, hj, by simpa using h⟩
+  · rintro ⟨hi, hj, h⟩
+    exact ⟨⟨i, hi⟩, ⟨j, hj⟩, by simp [hi], by simp [hj], h⟩
 
 /-- Each pair is drawn once. -/
-theorem edgePairs_nodup (g : FinGraph) : g.edgePairs.Nodup := by sorry
+theorem edgePairs_nodup (g : FinGraph) : g.edgePairs.Nodup :=
+  Graph.relationPairs_nodup _ _
 
 /-- The mark of an edge: a circle through the vertex for a loop, an arrow for a directed edge
 drawn with arrowheads, a segment otherwise. -/
@@ -164,7 +175,15 @@ instance (g : FinGraph) (L : Layout) (d : Diagram) : Decidable (g.Faithful L d) 
   inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The diagram of a graph is faithful at every layout. -/
-theorem draw_faithful (g : FinGraph) (L : Layout) : g.Faithful L (g.draw L) := by sorry
+theorem draw_faithful (g : FinGraph) (L : Layout) : g.Faithful L (g.draw L) := by
+  refine ⟨?_, ?_, ?_⟩
+  · simp [Diagram.edges, draw, edgeMark, List.filterMap_append, List.filterMap_map,
+      Function.comp_def]
+  · simp [Diagram.vertices, draw, edgeMark, List.filterMap_append, List.filterMap_map,
+      Function.comp_def]
+  · simp only [draw, List.all_append, List.all_map, Bool.and_eq_true, List.all_eq_true,
+      Function.comp_apply]
+    refine ⟨⟨fun e _ => ?_, fun i _ => ?_⟩, fun i _ => ?_⟩ <;> simp [placed, edgeMark]
 
 /-- The layout of `figure`: the vertices on the unit circle. -/
 def layout (g : FinGraph) : Layout := Layout.circular g.n
@@ -179,7 +198,11 @@ def figure (g : FinGraph) : Diagram :=
 
 /-- A graph with at most `maxVertices` vertices is drawn faithfully by `figure`. -/
 theorem builder_faithful (g : FinGraph) (h : g.n ≤ maxVertices) :
-    g.Faithful g.layout g.figure := by sorry
+    g.Faithful g.layout g.figure := by
+  unfold figure
+  split
+  · exact g.draw_faithful _
+  · contradiction
 
 /-- The graph for the layered layout of `PILean.Graph`: node `i` named `label i`, an edge for
 every pair of `edgePairs`. -/
@@ -190,12 +213,13 @@ def toGraph (g : FinGraph) : Graph :=
 that pair's ends. -/
 theorem toGraph_layout_edges (g : FinGraph) (o : Graph.LayeredOptions) (st : Style) :
     (g.toGraph.layout o st).edges.toList.map (fun e => (e.index, e.src, e.dst)) =
-      (List.range g.edgePairs.length).zip g.edgePairs := by sorry
+      (List.range g.edgePairs.length).zip g.edgePairs :=
+  Graph.ofRelation_layout_edges _ _ _ _ o st
 
 end FinGraph
 
 /-- The hypotheses can be met: the directed 2-cycle on two vertices draws the edges `(0, 1)` and
 `(1, 0)`. -/
-example : (FinGraph.mk 2 (fun i j => i != j) true true #[]).edgePairs = [(0, 1), (1, 0)] := by sorry
+example : (FinGraph.mk 2 (fun i j => i != j) true true #[]).edgePairs = [(0, 1), (1, 0)] := by decide
 
 end PILean.Diagram

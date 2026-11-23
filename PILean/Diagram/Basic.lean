@@ -165,7 +165,8 @@ def maxMarks : Nat := 20000
 
 /-- Mapping every element to nothing leaves nothing (a lemma for the read-backs). -/
 @[simp] theorem filterMap_none {α β : Type} (l : List α) :
-    l.filterMap (fun _ => (none : Option β)) = [] := by sorry
+    l.filterMap (fun _ => (none : Option β)) = [] := by
+  induction l <;> simp_all
 
 namespace Diagram
 
@@ -266,7 +267,7 @@ def toPlane (d : Diagram) : Plane.Figure where
 
 /-- The plane figure's items are the marks' items, in order. -/
 theorem toPlane_items (d : Diagram) :
-    d.toPlane.items = (d.marks.map (Mark.toItem d.arrowGap)).toArray := by sorry
+    d.toPlane.items = (d.marks.map (Mark.toItem d.arrowGap)).toArray := rfl
 
 /-- The diagram in the dark style. -/
 def dark (d : Diagram) : Diagram := { d with style := Style.dark }
