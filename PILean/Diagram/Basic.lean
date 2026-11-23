@@ -75,6 +75,10 @@ inductive Part where
   | twoCell (k : Nat)
   /-- The heading of row `i` (`axis = 0`) or of column `i` (`axis = 1`) of a table. -/
   | header (axis i : Nat)
+  /-- Point `n` of the plotted sequence `k`: the value at `n`. -/
+  | datum (k n : Nat)
+  /-- The plotted curve `j` (a comparison curve). -/
+  | curve (j : Nat)
   /-- An annotation (a title, an axis name): text that depicts no part of the object. -/
   | note (k : Nat)
   /-- A guide (grid lines, a frame): a drawing that depicts no part of the object. -/
@@ -274,6 +278,42 @@ def texts (d : Diagram) : List (Part × String × QPoint) :=
 
 end Diagram
 
+/-- Whether a part is an object (`vertex`). -/
+def Part.isVertex : Part → Bool
+  | .vertex _ => true
+  | _ => false
+
+/-- Whether a part is an arrow. -/
+def Part.isArrow : Part → Bool
+  | .arrow .. => true
+  | _ => false
+
+/-- Whether a part is a 2-cell. -/
+def Part.isTwoCell : Part → Bool
+  | .twoCell _ => true
+  | _ => false
+
+/-- Whether a part is a cell. -/
+def Part.isCell : Part → Bool
+  | .cell .. => true
+  | _ => false
+
+/-- Whether a part is an entry. -/
+def Part.isEntry : Part → Bool
+  | .entry .. => true
+  | _ => false
+
+/-- Whether a part is a heading. -/
+def Part.isHeader : Part → Bool
+  | .header .. => true
+  | _ => false
+
+/-- Whether a part is a decoration (a guide or a note). -/
+def Part.isDecoration : Part → Bool
+  | .guide => true
+  | .note _ => true
+  | _ => false
+
 /-- The title a mark's item carries (its accessible name in SVG): the part in words. -/
 def Part.title : Part → String
   | .vertex i => s!"vertex {i}"
@@ -287,6 +327,8 @@ def Part.title : Part → String
   | .arrow k i j => s!"arrow {k}: {i} → {j}"
   | .twoCell k => s!"2-cell {k}"
   | .header a i => if a = 0 then s!"row {i}" else s!"column {i}"
+  | .datum k n => s!"sequence {k} at {n}"
+  | .curve j => s!"curve {j}"
   | .note _ => ""
   | .guide => ""
 

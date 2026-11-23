@@ -50,27 +50,6 @@ structure FinMagma where
   /-- The elements' names. -/
   names : Array String := #[]
 
-/-- Whether a part is a cell. -/
-def Part.isCell : Part → Bool
-  | .cell .. => true
-  | _ => false
-
-/-- Whether a part is an entry. -/
-def Part.isEntry : Part → Bool
-  | .entry .. => true
-  | _ => false
-
-/-- Whether a part is a heading. -/
-def Part.isHeader : Part → Bool
-  | .header .. => true
-  | _ => false
-
-/-- Whether a part is a decoration (a guide or a note). -/
-def Part.isDecoration : Part → Bool
-  | .guide => true
-  | .note _ => true
-  | _ => false
-
 namespace FinMagma
 
 /-- The most elements a table or a Cayley graph draws: the table has `n²` cells. -/

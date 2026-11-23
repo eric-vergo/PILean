@@ -435,21 +435,6 @@ def arrowTexts (D : CommDiagram) (L : CDLayout) : List (Nat × String) :=
 
 end CommDiagram
 
-/-- Whether a part is an object (`vertex`). -/
-def Part.isVertex : Part → Bool
-  | .vertex _ => true
-  | _ => false
-
-/-- Whether a part is an arrow. -/
-def Part.isArrow : Part → Bool
-  | .arrow .. => true
-  | _ => false
-
-/-- Whether a part is a 2-cell. -/
-def Part.isTwoCell : Part → Bool
-  | .twoCell _ => true
-  | _ => false
-
 /-- The texts the diagram writes for arrows: `(k, s)` for each text `s` of a mark of the part
 `arrow k i j`, in order. -/
 def Diagram.arrowTexts (d : Diagram) : List (Nat × String) :=
