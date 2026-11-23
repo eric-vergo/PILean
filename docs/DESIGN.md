@@ -38,8 +38,10 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`, `pHYs` (written); the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Anim` | a `FrameSeq` (equally sized RGBA frames, a rational delay each, a loop count) and its codecs. APNG: writer (frame differencing to the changed rectangle, equal frames merged, delays as reduced fractions) and reader (composes `dispose_op` and `blend_op`, any PNG colour type, caps on size, frames and bytes). GIF89a: writer (LZW, one global palette by median cut or the exact colours, optional Floyd–Steinberg dithering, differencing with a transparent index, delays in centiseconds with exact cumulative time, loop extension) and reader (global and local tables, interlacing, disposal 0–3, transparency, caps) | done |
 | `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips, metadata through `Shape.tagged` and `ShapeInfo`; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark`, with the plane colours and sizes `PlaneStyle` | done |
-| `PILean.Plane` (`Basic`, `Frame`, `Draw`) | plane figures: elements in world coordinates (`Geom`), looks by role (`Look`, `Tone`), items with metadata (`Item`), builders and modifiers; the frame (`Frame`, one scale, `y` up) fitted to the items' reaches (`Frame.fit`), clipping (`clipLine`); the figure (`Figure`) drawn on the canvas | done |
-| `PILean.Exact.Plane` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn | done |
+| `PILean.Plane` (`Basic`, `Frame`, `Draw`, `Check`, `Render`, `Graph`) | plane figures: elements in world coordinates (`Geom`: points, lines, arcs, regions of disks, ticks, labels, …), looks by role (`Look`, `Tone`, named roles), items with metadata (`Item`), builders and modifiers; the frame (`Frame`, one scale, `y` up) fitted to the items' reaches (`Frame.fit`), clipping (`clipLine`); the figure (`Figure`) drawn on the canvas; layout checks and automatic label placement; outputs (sRGB images, outlined text, narrow renditions); graphs inside plane figures, step animations | done |
+| `PILean.Explorer` | families of frames (a parameter axis, a step sequence, or both) for web pages, their poster files and animations | done |
+| `PILean.Exact.Plane`, `PILean.Exact.Algebraic` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn; exact incidence with a disk; ℚ(√d), ℤ[ζ₅], exact square roots, constructions with certified enclosures | done |
+| `PILean.Graph.Fixed` | graphs at given positions (page, world or exact), edges straight or bent around nodes | done |
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline or orthogonal edges, arrowheads, edge labels and clusters, circular and tree layouts, components laid out apart and packed, mirrored layouts, drawing on the canvas as SVG and PNG, and as SVG for a web page | done; layering proved, see below |
@@ -525,6 +527,40 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   ring with its tables) gives the instance on a type that carries it. The tests have worked
   instances for Gaussian rationals, ℚ(√5) and ℤ[ζ₅] (integer coefficient arrays), whose balls
   are checked exactly by squaring rationals.
+* **Regions, fills, markers, ticks.** The intersection, union and difference of two disks are
+  regions bounded by exact circular arcs of their circles (`regionArcs`, `Path.arcTo`); a shape's
+  tint (colour, opacity) and outline are styled apart; markers are dots, rings, squares, diamonds
+  or crosses on a halo; a tick crosses a line with a length in pixels, resolved at fitting.
+* **One colour space for tints.** The image of a plane figure is composited in sRGB, as browsers
+  composite an SVG's `fill-opacity`, so a tint (and a tint over a tint) has the same colour in
+  the PNG and in the SVG shown by a browser. Plots and graphs keep the rasteriser's linear light
+  (their goldens are unchanged). The rule is tested by sampling the PNG inside a tint against
+  the expected sRGB composite in both themes. Pre-blended opaque fills were the alternative; they
+  would need the overlap regions of every pair of translucent shapes computed, and give the same
+  colours.
+* **Checks** (`PILean.Plane.Check`): overlapping labels, labels over lines or markers they do not
+  name, things beyond the page, markers that read as one, points too near a curve to be seen on
+  it or off it unless their incidence is recorded (exactly, for exact points), colours of too
+  little contrast against what they are drawn on (the page and the tints beneath), in both
+  themes. A figure's `checks` level makes builds warn or fail. Automatic placement (`auto`, and
+  `across` a segment for a piece's label) takes the least offset and the first side that clears,
+  chosen twice (the second time in the frame the first placement gives).
+* **Text and small screens.** SVG text is drawn as shapes by default (`textAsShapes`), so every
+  viewer shows the lettering the layout measured; `narrowWidth` renders the figure a second time
+  at a narrower page with labels and markers at their full pixel size, for small screens. For
+  mathematical labels the LeAnTeX engine is the one to use (`loadSans` sets formulas in New
+  Computer Modern's sans-serif math font, Greek included); the built-in lettering is meant for
+  plain words and numbers.
+* **Explorers and inline pictures on web pages** (`pilean-verso`, `pilean-verso-manual`). An
+  `Explorer`'s frames are put inline in the page (`:::figure_explorer`), as a single figure can be
+  (`:::figure … (inline := true)`): elements with a title show it on hover, elements that name a
+  declaration link to it, and one picture serves both themes through attribute selectors keyed
+  on its light colours (`Style.darkColourPairs`). A small script of the site, with no network and
+  no `eval`, shows one frame at a time and pans and zooms; without it every frame is listed. The
+  inline SVG of one figure is limited (`--figure-inline-limit`, 2,000,000 bytes by default). The
+  example manual's explorers page (two explorers of 5 and 4 frames and one inline figure with its
+  narrow rendition, 11 pictures) is 134,281 bytes of HTML; a plane frame of a few dozen elements is
+  about 4 to 9 KB of inline SVG. Frames share no definitions (plane figures have none to share).
 * **Arcs** (`Path.arc`): at most a quarter turn per cubic, control points on the tangents at
   `(4/3) tan(δ/4) r`, radial error at most `r (2/27) sin⁶(δ/4) / cos²(δ/4)` (Goldapp 1991), at most
   `2.73 × 10⁻⁴ r`; the tests sample the curves against this bound.

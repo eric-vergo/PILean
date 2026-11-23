@@ -167,13 +167,22 @@ not rational-valued.
   `Plane.drawItem_shape`: a point is drawn as filled circles centred at the frame's image of it, a
   segment as the polyline between the images of its ends.
 * `Plane.Exact.point_draw`, `point_draw_default`, `segment_draw`, `points_draw`,
-  `figure_points_draw`: the same for exact points through `PlanePoint.toPoint`; a figure whose
-  items are exact points draws, after its background, one marker at the image of each, in order.
+  `figure_points_draw`, `pointNearDisk_eq`, `Plane.drawItem_point`: the same for exact points
+  through `PlanePoint.toPoint`; a figure whose items are exact points draws, after its background,
+  one marker at the image of each, in order. `Plane.Exact.DrawsExactPoints` and
+  `drawsExactPoints` state this for a figure, ready for `figure_proves`.
+* `Plane.Figure.autoPlaced_of_noAuto`: a figure without automatically placed labels is drawn as
+  it is (the outputs draw `autoPlaced`).
+* The house-style reference figure (`PILeanTest/PlaneExact.lean`, `reference_spec`) and the
+  LeAnTeX example (`leantex/PILeanLeAnTeX/Examples.lean`, `planeDisks_spec`) state the incidences
+  their points record, decided exactly in ℚ(√5): `E` on the left circle and `-E` on the right one,
+  the lens's corners on both.
 * The gallery's `zetaSteps` (`PILeanTest/PlaneExact.lean`) has `zetaSteps_spec`: its items, each
   point of ℤ[ζ₅] drawn at the frame's image of its conversion, and which steps `ζʲ` lie in the
   window, decided exactly in ℚ(√5).
-* Not proved: the fitting of the frame, label placement, arcs and the rasteriser (tested); that
-  the balls of ℚ(√5) and ℤ[ζ₅] hold their values (checked exactly by squaring in the tests).
+* Not proved: the fitting of the frame, label placement, the layout checks, arcs and regions,
+  and the rasteriser (tested); that the balls of ℚ(√d), ℤ[ζ₅], square roots and the constructions
+  of `PILean.Exact.Algebraic` hold their values (checked exactly by squaring in the tests).
 
 ## Plots against the real numbers
 
