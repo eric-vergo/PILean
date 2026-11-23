@@ -34,6 +34,7 @@ import PILeanTest.AlgebraDiagrams
 import PILeanTest.NumberDiagrams
 import PILeanTest.Standing
 import PILeanTest.Pdf
+import PILeanTest.Explorers
 
 /-!
 # The test driver
@@ -43,7 +44,7 @@ import PILeanTest.Pdf
 `PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.GraphRoutes`, `PILeanTest.Trust`,
 `PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`,
 `PILeanTest.Diagrams`, `PILeanTest.AlgebraDiagrams`, `PILeanTest.NumberDiagrams`,
-`PILeanTest.Standing`, `PILeanTest.Pdf`), the
+`PILeanTest.Standing`, `PILeanTest.Pdf`, `PILeanTest.Explorers`), the
 changes to the figures that their specifications must catch (`PILeanTest.SpecMutations`), and
 compares every gallery figure's SVG and PNG, every gallery plane figure's (the diagrams' among
 them) and graph's SVG and
@@ -141,7 +142,7 @@ def main (args : List String) : IO UInt32 := do
     PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
     (← SpecMutations.ioChecks) ++ Axioms.coverageChecks driverModules ++ Diagrams.checks ++ AlgebraDiagrams.checks ++
     NumberDiagrams.checks ++
-    Standing.checks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++
+    Standing.checks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++ Explorers.checks ++
     (← PdfChecks.goldenChecks (args == ["--update"]))
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1

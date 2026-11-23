@@ -152,8 +152,10 @@ structure FrameSet where
   axisName : String := ""
   /-- The labels of the axis's values. -/
   axisValues : Array String := #[]
-  /-- The captions of the steps. -/
+  /-- The captions of the steps (or the labels of the values of the parameter `stepName`). -/
   stepCaptions : Array String := #[]
+  /-- The name of the parameter whose values the steps are; empty for steps with captions. -/
+  stepName : String := ""
   /-- The frames. -/
   frames : Array InlineSvg
   /-- The poster's position in `frames`. -/
@@ -274,27 +276,35 @@ def _root_.PILean.ExplorerFrame.inline (f : ExplorerFrame) : InlineSvg :=
 inline, and the frames' problems as warnings, `Explorer.problems`), PNG and PDF, then each frame `k`
 as an SVG of its own named `-frame-k` (`k` from 0, in the order of `Explorer.frames`), so that
 every picture a page shows inline is a file with its fingerprint and its manifest entry. An
-explorer that is not well formed (`Explorer.valid`) cannot be rendered, nor one with a frame whose
-checks level is `fail` and that has problems (`Explorer.problemsFail`). -/
+explorer that is not well formed (`Explorer.valid`: a frame for every point, at most
+`Explorer.maxFrames`) cannot be rendered, nor one whose frames' SVG together is over
+`Explorer.maxBytes` bytes (checked on the poster's SVG, which carries them all), nor one with a
+frame whose checks level is `fail` and that has problems (`Explorer.problemsFail`). -/
 instance : ToOutputs Explorer where
   outputs x :=
     let p := x.posterFrame
     let ok := fun (b : Unit → Except String ByteArray) =>
       if !x.valid then .error s!"the explorer has {x.frames.size} frames for \
-        {x.values} values and {x.steps} steps, or its poster {x.poster} is not among them"
+        {x.values} values and {x.steps} steps (at most {Explorer.maxFrames}), or its poster \
+        {x.poster} is not among them"
       else checkedBytes x.problemsFail (fun _ => x.problems) b
+    let okAll := fun (b : Unit → Except String ByteArray) => ok fun _ =>
+      let n := x.svgBytes
+      if n > Explorer.maxBytes then
+        .error s!"the frames' SVG takes {n} bytes, more than {Explorer.maxBytes}"
+      else b ()
     let frameOutputs := x.frames.zipIdx.map fun (f, k) =>
       ({ name := s!"-frame-{k}", format := .svg, bytes := fun _ => ok fun _ => .ok f.toSvg.toUTF8,
          spec := f.toSvg.toUTF8, textEngine := f.style.text.id,
          inline := fun _ => some f.inline, theme := fun _ => InlineSvg.themeOf f.style } :
         Output)
-    #[{ name := "", format := .svg, bytes := fun _ => ok fun _ => .ok p.toSvg.toUTF8,
+    #[{ name := "", format := .svg, bytes := fun _ => okAll fun _ => .ok p.toSvg.toUTF8,
         spec := p.toSvg.toUTF8, textEngine := p.style.text.id,
         inline := fun _ => some p.inline, theme := fun _ => InlineSvg.themeOf p.style,
         frames := fun _ => some
           { axisName := x.axisName, axisValues := x.axisValues,
-            stepCaptions := x.stepCaptions, frames := x.frames.map (·.inline),
-            poster := x.poster },
+            stepCaptions := x.stepCaptions, stepName := x.stepName,
+            frames := x.frames.map (·.inline), poster := x.poster },
         problems := fun _ => if x.problemsFail then #[] else x.problems },
       { name := "", format := .png,
         bytes := fun _ => ok fun _ => match p.toPng with

@@ -803,6 +803,7 @@ def fileLabel (f : FileInfo) : String :=
     | "png" => "PNG"
     | "apng" => "APNG"
     | "gif" => "GIF"
+    | "pdf" => "PDF"
     | other => other
   match f.name with
   | "" => fmt

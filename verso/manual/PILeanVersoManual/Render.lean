@@ -354,6 +354,7 @@ def imageSize? (format : Format) (b : ByteArray) : Option (Nat × Nat) := do
       else pure (((u8 b 16 * 256 + u8 b 17) * 256 + u8 b 18) * 256 + u8 b 19,
         ((u8 b 20 * 256 + u8 b 21) * 256 + u8 b 22) * 256 + u8 b 23)
     | .gif => if b.size < 10 then none else pure (u8 b 6 + 256 * u8 b 7, u8 b 8 + 256 * u8 b 9)
+    | .pdf => none
   if w == 0 || h == 0 || w > 100000 || h > 100000 then none else some (w, h)
 
 end PILeanVerso

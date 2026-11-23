@@ -18,7 +18,7 @@ bounds are fixed numbers with room to spare: they catch a large regression on th
 are not a proof of a reader's complexity.
 
 The large inputs are generated here, not stored: a zlib stream of zeros made of 258-byte matches,
-and PNG files that wrap it; the hostile graphs are made by the probe (`hostileGraph`), which
+PNG and PDF files that wrap it, and PDF files of many pages, operators or nested arrays; the hostile graphs are made by the probe (`hostileGraph`), which
 lays each out and writes its SVG, so the bounds cover the drawing as well as the layout (the
 100,000 routes of the self-loop case make an SVG of about 36 MB).
 
@@ -125,6 +125,34 @@ def rawSize (w h bytesPerPixel : Nat) : Nat := h * (1 + w * bytesPerPixel)
 
 /-- The output cap `pilean-probe zlib` uses. -/
 def zlibCap : Nat := 1 <<< 28
+
+/-- A PDF file whose page's content is `content` (a stream with the dictionary entries `dict`),
+from the writer's `Pdf.document`. -/
+def pdfWith (content : ByteArray) (dict : String := "") (resources : String := "<< >>") :
+    ByteArray :=
+  let page := "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources 4 0 R \
+    /Contents 5 0 R >>"
+  Pdf.document #["<< /Type /Catalog /Pages 2 0 R >>".toUTF8,
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".toUTF8, page.toUTF8, resources.toUTF8,
+    s!"<< {dict} /Length {content.size} >>\nstream\n".toUTF8 ++ content ++ "\nendstream".toUTF8] 1
+
+/-- `n` copies of the text. -/
+def repeatText (s : String) (n : Nat) : ByteArray := Id.run do
+  let b := s.toUTF8
+  let mut out := ByteArray.emptyWithCapacity (n * b.size)
+  for _ in [0:n] do out := out ++ b
+  return out
+
+/-- A PDF file of `n` pages, each its own page object with a one-operator content stream. -/
+def pdfPages (n : Nat) : ByteArray := Id.run do
+  let kids := " ".intercalate ((List.range n).map fun k => s!"{3 + 2 * k} 0 R")
+  let mut objs := #["<< /Type /Catalog /Pages 2 0 R >>".toUTF8,
+    s!"<< /Type /Pages /Kids [{kids}] /Count {n} >>".toUTF8]
+  for k in [0:n] do
+    objs := objs.push
+      s!"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1 1] /Contents {4 + 2 * k} 0 R >>".toUTF8
+    objs := objs.push "<< /Length 3 >>\nstream\nq Q\nendstream".toUTF8
+  return Pdf.document objs 1
 
 /-! ### Running under limits -/
 
@@ -254,6 +282,27 @@ def cases : Array Case :=
       kind := "apng", bytes := pure (apngZeros 1024 1024 65),
       expect := "error PILean.Anim.AnimError.tooLarge \"composed frames\"",
       maxRss := baseRss + (1 <<< 28) + 8 * (1024 * 1024 * 4) },
+    { name := "pdf: a content stream that inflates past the cap is refused without its output",
+      kind := "pdf",
+      bytes := pure (pdfWith (zerosZlib (Pdf.maxDecoded + 1)) "/Filter /FlateDecode"),
+      expect := "error object 5: its Flate data is damaged", maxRss := baseRss + (16 <<< 20) },
+    { name := "pdf: 200000 nested arrays stop at the nesting cap",
+      kind := "pdf", bytes := pure (pdfWith .empty (resources := "<< /A " ++
+        String.ofList (List.replicate 200000 '[') ++ " >>")),
+      expect := "error", maxRss := baseRss + (16 <<< 20), maxUserMs := 5000 },
+    { name := "pdf: a string of 8 MiB is refused at the string cap",
+      kind := "pdf", bytes := pure (pdfWith .empty (resources := "<< /A (" ++
+        String.ofList (List.replicate (8 <<< 20) 'x') ++ ") >>")),
+      expect := "error a string is too long", maxRss := baseRss + (64 <<< 20), maxUserMs := 5000 },
+    { name := "pdf: 20000 pages are walked in linear time",
+      kind := "pdf", bytes := pure (pdfPages 20000), expect := "ok pages 20000",
+      maxRss := 512 <<< 20, maxUserMs := 30000 },
+    { name := "pdf: a content stream of a million operators",
+      kind := "pdf", bytes := pure (pdfWith (repeatText "0 0 m 1 1 l S\n" 333334)),
+      expect := "ok pages 1", maxRss := 512 <<< 20, maxUserMs := 30000 },
+    { name := "pdf: 60 MiB with no cross-reference table is refused at once",
+      kind := "source", bytes := pure ("%PDF-1.7\n".toUTF8 ++ repeatText "          " (6 <<< 20)),
+      expect := "error no startxref", maxRss := baseRss + (192 <<< 20), maxUserMs := 5000 },
     { name := "graph: edges spanning thousands of layers get no dummy nodes beyond the cap",
       kind := "graph", bytes := pure .empty, argv := some #["graph", "fan", "3000"],
       expect := "ok 3000 nodes", maxRss := 128 <<< 20, maxUserMs := 10000 },

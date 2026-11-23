@@ -121,11 +121,12 @@ def readObject (lim : Limits) (d : ByteArray) (x : Xref) (n g off : Nat) :
     | w => pure w
   let some len := lenV.nat? | throw s!"object {n}: /Length is not a length"
   if q + len > d.size then throw s!"object {n}: the stream runs past the end of the file"
+  -- an end of line after the data, not counted in `/Length`, then `endstream`
   let r := q + len
   let r := if Png.byteAt d r == 13 && Png.byteAt d (r + 1) == 10 then r + 2
-    else if Png.byteAt d r == 10 || Png.byteAt d r == 13 then r + 1 else r
-  if !hasText d r "endstream" then
-    throw s!"object {n}: /Length {len} does not end at endstream"
+    else if Png.byteAt d r == 10 || Png.byteAt d r == 13 then r + 1 else 0
+  if r == 0 || !hasText d r "endstream" then
+    throw s!"object {n}: /Length {len} does not end at an end of line before endstream"
   if !hasText d (skipWhite d (r + 9)) "endobj" then throw s!"object {n}: no endobj after endstream"
   return (v, some (d.extract q (q + len)))
 

@@ -31,8 +31,8 @@ tag := "trust-outputs"
 %%%
 
 A type with an instance of {name}`PILean.Trust.ToOutputs` can be rendered to files: each
-{name}`PILean.Trust.Output` has a file-name suffix, a {name}`PILean.Trust.Format` (SVG, PNG, APNG
-or GIF), its bytes (computed only when asked for) and its *specification*, the bytes the
+{name}`PILean.Trust.Output` has a file-name suffix, a {name}`PILean.Trust.Format` (SVG, PNG, APNG,
+GIF or PDF), its bytes (computed only when asked for) and its *specification*, the bytes the
 fingerprint covers.
 
 :::table +header
@@ -41,20 +41,20 @@ fingerprint covers.
   * Outputs
 *
   * {name}`PILean.Plot.Figure`
-  * SVG; PNG
+  * SVG; PNG; PDF
 *
   * {name}`PILean.Graph` (default layered layout, light style, scale 1), or
     {name}`PILean.Trust.GraphFigure` (graph, layout options, style, PNG scale)
-  * SVG; PNG
+  * SVG; PNG; PDF
 *
   * {name}`PILean.Animation`
-  * animated SVG; APNG; GIF; poster frame (PNG, suffix `-poster`)
+  * animated SVG; APNG; GIF; poster frame (PNG and PDF, suffix `-poster`)
 :::
 
 The specification of an output is the SVG document that PILean's deterministic writer makes from
 the figure's drawing, before any source information is added: for an SVG output the document
-itself; for the PNG of a figure or a graph the SVG with text drawn as shapes, which is the drawing
-the PNG is rasterised from; for an animation's APNG and GIF the animated SVG, which holds every
+itself; for the PNG and the PDF of a figure or a graph the SVG with text drawn as shapes, which is
+the drawing the PNG is rasterised from and the PDF is written from; for an animation's APNG and GIF the animated SVG, which holds every
 frame. The specification covers what is drawn: the sampled values of a function (the points the
 figure takes), data, colours, sizes, text and layout. It does not cover the function's code, nor
 anything that does not change the drawing. The rasteriser is not part of the specification; a change to
@@ -109,7 +109,8 @@ source text, and the specification.
 
 The renderer is {name}`PILean.Trust.rendererId`: the SHA-256 of the Lean toolchain's version and of
 the source text of every library module that turns a figure into bytes (plots, graphs, animations,
-the SVG writer, the rasteriser, the lettering, the PNG, APNG and GIF writers, the source records),
+the SVG writer, the rasteriser, the lettering, the PNG, APNG, GIF and PDF writers, the source
+records),
 taken when the library was compiled. Any change to that code changes every fingerprint, even a
 change to a comment. An output drawn with another text engine records that engine's identity, and
 its renderer field is {name}`PILean.Trust.rendererWith` of it.

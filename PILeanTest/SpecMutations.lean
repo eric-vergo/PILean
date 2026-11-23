@@ -17,7 +17,7 @@ the core's figures are `mutations`; the LeAnTeX package checks its own with the 
 ## Main definitions
 
 * `SpecMutation`, `SpecMutation.apply`, `errorLines`, `specLines`, `check`, `checkAll`,
-  `diagramMutations`, `algebraMutations`, `numberMutations`, `mutations`,
+  `diagramMutations`, `algebraMutations`, `numberMutations`, `explorerMutations`, `mutations`,
   `ioChecks`.
 -/
 
@@ -235,8 +235,29 @@ def numberMutations : Array SpecMutation :=
       edits := [("hi := (3, 3) }", "hi := (3, 3), marked := fun m n => m == 0 && n == 0 }")],
       spec := "skew_spec" }]
 
+/-- The changes to the proved explorers (`PILeanTest/Explorers.lean`) that their theorems must
+catch: a value of a grid, the generator, the title, the window, the reference pairs. -/
+def explorerMutations : Array SpecMutation :=
+  let f : System.FilePath := "PILeanTest" / "Explorers.lean"
+  #[{ file := f, what := "the moduli reach 13", anchor := "def moduli : ExplorerParam Nat :=",
+      edits := [("11, 12]", "11, 12, 13]")], spec := "cayleyExplorer_spec" },
+    { file := f, what := "the generator is a + 1", anchor := "def generator (n a : Nat)",
+      edits := [("⟨a % n,", "⟨(a + 1) % n,")], spec := "cayleyExplorer_spec" },
+    { file := f, what := "the title speaks of generators", anchor := "def cayleyDiagram (n a : Nat)",
+      edits := [("for the generator {a}", "for the generators {a}")],
+      spec := "cayleyExplorer_spec" },
+    { file := f, what := "an involution's pairs drawn twice", anchor := "def cayleyPairs (n a : Nat)",
+      edits := [("== 0 && !(g < t)", "== 1 && !(g < t)")], spec := "cayleyExplorer_spec" },
+    { file := f, what := "the window loses a row", anchor := "def lattice (x y : Rat)",
+      edits := [("lo := (-3, -2)", "lo := (-3, -1)")], spec := "latticeExplorer_spec" },
+    { file := f, what := "the second period's x reaches 1", anchor := "def periodX :",
+      edits := [("1 / 2, 3 / 4]", "1 / 2, 3 / 4, 1]")], spec := "latticeExplorer_spec" },
+    { file := f, what := "the second period's y starts at 0 (dependent periods)",
+      anchor := "def periodY :", edits := [("#[1 / 2,", "#[0, 1 / 2,")],
+      spec := "latticeExplorer_spec" }]
+
 /-- The changes to the core's figures with specifications (`PILeanTest.Examples` and
-`PILeanTest.PlaneExact`), with those of the diagrams' galleries. -/
+`PILeanTest.PlaneExact`), with those of the diagrams' galleries and the proved explorers. -/
 def mutations : Array SpecMutation :=
   let disks : System.FilePath := "PILeanTest" / "Examples.lean"
   let plane : System.FilePath := "PILeanTest" / "PlaneExact.lean"
@@ -280,7 +301,7 @@ def mutations : Array SpecMutation :=
       anchor := "def stepPoint (j : Nat) : Item :=",
       edits := [("Plane.Exact.pointNearDisk (Zeta5.pow j) windowCentre windowRadius \"the window\"",
         "Plane.Exact.point (Zeta5.pow j)")], spec := "zetaSteps_spec" }] ++ diagramMutations ++
-    algebraMutations ++ numberMutations
+    algebraMutations ++ numberMutations ++ explorerMutations
 
 /-- The checks of `mutations`. -/
 def ioChecks : IO (Array (String × Bool)) := checkAll mutations

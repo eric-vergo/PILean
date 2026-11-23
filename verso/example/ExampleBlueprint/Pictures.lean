@@ -73,6 +73,10 @@ The window as its radius grows.
 The word $`aba` acting on a point.
 :::
 
+:::figure_explorer Example.familyExplorer (label := "family") (alt := "A window disk over the five unit steps, its radius from 0.6 to 1.0 and its centre from 0 to 1/2.")
+The window as a function of its radius and its centre.
+:::
+
 :::figure Example.windowInline (label := "inline") (inline := true) (alt := "A window disk of radius 0.8 about 1/2 over the five unit steps.")
 The window of radius 0.8, inline; each step's point links to its declaration.
 :::

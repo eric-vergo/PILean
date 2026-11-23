@@ -121,9 +121,10 @@ def checks : Array (String × Bool) :=
     ("outputs: the formats and suffixes of a figure, a graph and an animation",
       (mine.map fun e =>
         (e.decl, (e.outputs ()).toList.map fun o => o.format.name ++ o.name)).toList
-        == [("PILeanTest.TrustBuild.sampleAnimation", ["svg", "apng", "gif", "png-poster"]),
-          ("PILeanTest.TrustBuild.sampleFigure", ["svg", "png"]),
-          ("PILeanTest.TrustBuild.sampleGraph", ["svg", "png"])]),
+        == [("PILeanTest.TrustBuild.sampleAnimation",
+            ["svg", "apng", "gif", "png-poster", "pdf-poster"]),
+          ("PILeanTest.TrustBuild.sampleFigure", ["svg", "png", "pdf"]),
+          ("PILeanTest.TrustBuild.sampleGraph", ["svg", "png", "pdf"])]),
     ("path: module as directories, declaration and suffix as the stem",
       (outputPath { sampleData with module := "A.B", decl := "A.B.c.d" }
         { name := "-dark", format := .svg, bytes := fun _ => .ok .empty, spec := .empty }).toOption
@@ -374,10 +375,12 @@ def ioChecks : IO (Array (String × Bool)) := do
     ("build: the manifest is the same on every run", manifestA == manifestB),
     ("build: every file is the same on every run", sameBytes),
     ("build: files and manifest as expected",
-      paths == ["PILeanTest/TrustBuild/sampleAnimation-poster.png",
+      paths == ["PILeanTest/TrustBuild/sampleAnimation-poster.pdf",
+        "PILeanTest/TrustBuild/sampleAnimation-poster.png",
         "PILeanTest/TrustBuild/sampleAnimation.gif", "PILeanTest/TrustBuild/sampleAnimation.png",
-        "PILeanTest/TrustBuild/sampleAnimation.svg", "PILeanTest/TrustBuild/sampleFigure.png",
-        "PILeanTest/TrustBuild/sampleFigure.svg", "PILeanTest/TrustBuild/sampleGraph.png",
+        "PILeanTest/TrustBuild/sampleAnimation.svg", "PILeanTest/TrustBuild/sampleFigure.pdf",
+        "PILeanTest/TrustBuild/sampleFigure.png", "PILeanTest/TrustBuild/sampleFigure.svg",
+        "PILeanTest/TrustBuild/sampleGraph.pdf", "PILeanTest/TrustBuild/sampleGraph.png",
         "PILeanTest/TrustBuild/sampleGraph.svg"]),
     ("build: each file's source record matches the manifest, size and hash", sourcesOk),
     ("build: the repository and commit are recorded",

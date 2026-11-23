@@ -266,8 +266,8 @@ def figures : Array (String × Bool) :=
         | [.move a, .line b] => near a.x 0 && near b.x f.frame.width
         | _ => false
       | _ => false),
-    ("figure: ToOutputs gives an SVG and a PNG",
-      (PILean.Trust.ToOutputs.outputs disks).map (·.format.name) == #["svg", "png"])]
+    ("figure: ToOutputs gives an SVG, a PNG and a PDF",
+      (PILean.Trust.ToOutputs.outputs disks).map (·.format.name) == #["svg", "png", "pdf"])]
 
 /-- The checks of exact points. -/
 def exact : Array (String × Bool) :=
@@ -411,9 +411,9 @@ def explorerChecks : Array (String × Bool) :=
     ("two", { items := #[point ⟨0, 0⟩, point ⟨2, 1⟩] })]
   #[("explorer: a slider of seven frames, well formed", x.valid && x.frames.size == 7 &&
       x.values == 7 && x.steps == 1),
-    ("explorer: the poster's SVG carrying every frame and its PNG, then an SVG per frame",
-      outs.map (·.format.name) == #["svg", "png"] ++ Array.replicate 7 "svg" &&
-      outs.map (·.name) == #["", ""] ++ (List.range 7).toArray.map (s!"-frame-{·}") &&
+    ("explorer: the poster's SVG carrying every frame, its PNG and PDF, then an SVG per frame",
+      outs.map (·.format.name) == #["svg", "png", "pdf"] ++ Array.replicate 7 "svg" &&
+      outs.map (·.name) == #["", "", ""] ++ (List.range 7).toArray.map (s!"-frame-{·}") &&
       fs.frames.size == 7 &&
       fs.axisValues == x.axisValues && fs.axisName == "r"),
     ("explorer: every frame is inert", fs.frames.all fun f => Svg.isInert f.document),
@@ -603,7 +603,7 @@ def styleChecks : Array (String × Bool) :=
       ((foot ((3 : Rat), (4 : Rat)) ((0 : Rat), (0 : Rat)) ((1 : Rat), (0 : Rat))).map
         fun f => nearPt (PlanePoint.toPoint f) ⟨3, 0⟩ 1e-12).getD false),
     ("G: the narrow rendition, labels at full size, as outputs -narrow",
-      narrowOuts.map (·.name) == #["", "", "-narrow", "-narrow"] &&
+      narrowOuts.map (·.name) == #["", "", "", "-narrow", "-narrow"] &&
       (ref.narrow.map fun n => n.frame.width == 360 && n.style.plane.labelSize == 15).getD false &&
       (ref.narrow.map (·.problems.isEmpty)).getD false),
     ("I: SVG text is drawn as shapes by default",

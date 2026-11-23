@@ -1,7 +1,7 @@
 # Source information in images
 
-An image can say which Lean declaration made it. PILean writes this into SVG, PNG, APNG and GIF
-files and reads it back; `lake exe pilean-info FILE` prints it. The code is in
+An image can say which Lean declaration made it. PILean writes this into SVG, PNG, APNG, GIF and
+PDF files and reads it back; `lake exe pilean-info FILE` prints it. The code is in
 `PILean/Trust/Provenance.lean`; the SHA-256 used for fingerprints is `PILean/Trust/Sha256.lean`.
 The sections from "Renderable figures" on say how a build produces the files with their source
 record, a fingerprint and a manifest, and how to check them. What a picture's theorems say about
@@ -37,8 +37,8 @@ The writers of images are unchanged: an image without a source is byte for byte 
 (the gallery in `examples/` is compared with its files on every test run). The source is added to
 a finished file:
 
-* `withSourceSvg (svg : String) (s : Source)`, `withSourcePng`, `withSourceGif`, or
-  `withSource`, which finds the format by the file's signature. Each returns
+* `withSourceSvg (svg : String) (s : Source)`, `withSourcePng`, `withSourceGif`,
+  `withSourcePdf`, or `withSource`, which finds the format by the file's signature. Each returns
   `Except String ByteArray` (the SVG one a `String`), and fails if the file already has a
   source.
 * For an SVG built from nodes, `Source.svgNodes` gives the three elements to put first among the
@@ -77,10 +77,23 @@ image and before any application extension. Its text is UTF-8 lines: `PILean sou
 feed, in sub-blocks of at most 255 bytes. A GIF comment is line based, so a value with a line
 feed or a carriage return is refused (SVG and PNG carry them). The file must be a GIF89a file.
 
+### PDF
+
+The document information dictionary, added to the finished file by an incremental update
+(ISO 32000-1, 7.5.6): after the file's `%%EOF` come one new object (numbered by the trailer's
+`/Size`), a cross-reference section with that object alone, and a trailer with `/Size`, `/Root`,
+`/Info` (the new object), `/Prev` (the earlier section) and `/ID` (the first string kept, the
+second the first 16 bytes of the SHA-256 of the file and the new object), so the bytes of the
+file before it are unchanged. The dictionary has one key per field, `/PILean:` followed by the key
+(`/PILean:module`, `/PILean:decl`, …), each value a text string written as a hexadecimal string
+of UTF-16BE with its byte order mark, and `/Title` (the declaration) and `/Producer`
+(`PILean` and the version) beside them. The file must have a classic cross-reference table
+(PILean's writer writes one), not a cross-reference stream.
+
 ## Reading
 
 `Source.read? : ByteArray → Except String Source` finds the format by signature (PNG; `GIF8`;
-otherwise UTF-8 text with an `<svg` tag) and treats everything as untrusted:
+`%PDF-`; otherwise UTF-8 text with an `<svg` tag) and treats everything as untrusted:
 
 * The input must be at most 64 MiB (`maxInput`); each value at most 4096 bytes (`maxField`).
 * Each key at most once (a repeat is an error); a value with a character XML 1.0 cannot carry is
@@ -97,6 +110,13 @@ otherwise UTF-8 text with an `<svg` tag) and treats everything as untrusted:
 * GIF: the extensions before the first image are walked; the comment that starts with
   `PILean source 1` is read; a larger one than 64 KiB, a second such comment or a carriage
   return in it is an error.
+* PDF: the bounded reader of `PILean/Pdf/Read.lean` finds the last `startxref` in the last
+  1024 bytes (followed by `%%EOF`), reads the cross-reference sections back through `/Prev` (at
+  most 32, none twice, at most a million entries, sorted in `O(n log n)`), takes the newest
+  trailer's `/Info` and parses that one object: nesting at most 32, strings at most 64 KiB,
+  dictionaries at most 4096 keys, no key twice. Its keys `/PILean:…` must hold text strings
+  (UTF-16BE with the byte order mark, no lone surrogate, or ASCII); other keys are ignored. No
+  stream is decoded.
 * What the readers accept is what the writers write: a value with a character XML cannot carry
   (NUL, say) is refused in every format, as the writers refuse it. One difference is kept on
   purpose: the APNG reader treats a frame delay with denominator 0 as a denominator of 100, as
@@ -170,7 +190,7 @@ line. The function behind it is `PILean.Trust.infoLines`.
 
 `PILean/Trust/Figure.lean`. A type with an instance of `ToOutputs` can be rendered to files:
 `ToOutputs.outputs : α → Array Output`, each `Output` with a file-name suffix (`name`: `""`,
-`"-dark"`, `"-poster"`), a `Format` (`svg`, `png`, `apng`, `gif`), the bytes (a function of
+`"-dark"`, `"-poster"`), a `Format` (`svg`, `png`, `apng`, `gif`, `pdf`), the bytes (a function of
 `Unit`, so nothing is computed before it is called; it can fail with a message) and `spec`, the
 canonical encoding of what is drawn. An SVG output can also give the same picture as nodes for a
 page that puts it inline (`inline`), and the problems the figure's checks report (`problems`;
@@ -178,11 +198,11 @@ see "Checks" below).
 
 | Type | Outputs |
 |---|---|
-| `Plot.Figure` | SVG; PNG |
-| `Plane.Figure` | SVG; PNG; and, with a narrow width, SVG and PNG with the suffix `-narrow` |
-| `Explorer` | the poster's SVG (with every frame for a page that shows them inline) and PNG; then each frame `k` (from 0, in the order of `Explorer.frames`) as an SVG with the suffix `-frame-k` |
-| `Graph` (default layered layout, light style, scale 1), or `GraphFigure` (graph, layout options, style, PNG scale) | SVG; PNG |
-| `Animation` | animated SVG; APNG (file extension `png`); GIF; poster frame (PNG, suffix `-poster`) |
+| `Plot.Figure` | SVG; PNG; PDF |
+| `Plane.Figure` | SVG; PNG; PDF; and, with a narrow width, SVG and PNG with the suffix `-narrow` |
+| `Explorer` | the poster's SVG (with every frame for a page that shows them inline), PNG and PDF; then each frame `k` (from 0, in the order of `Explorer.frames`) as an SVG with the suffix `-frame-k`; at most `Explorer.maxFrames` frames and `Explorer.maxBytes` bytes of frames' SVG, or no output renders |
+| `Graph` (default layered layout, light style, scale 1), or `GraphFigure` (graph, layout options, style, PNG scale) | SVG; PNG; PDF |
+| `Animation` | animated SVG; APNG (file extension `png`); GIF; poster frame (PNG and PDF, suffix `-poster`) |
 | `Diagram.Diagram` | those of its plane figure (`Diagram.toPlane`) |
 
 ### Checks
@@ -219,13 +239,14 @@ The specification of an output is the SVG document that PILean's deterministic w
 * SVG outputs: the SVG document of the output itself, with text as `<text>` (as shapes when the
   text engine's strings are not plain text, such as LeAnTeX's, and, by default, for plane figures,
   `Plane.Figure.textAsShapes`).
-* PNG outputs of a figure or a graph: the SVG document with text drawn as shapes, which is the
-  drawing the PNG is rasterised from (the rasteriser itself is not part of the specification; it
-  is covered by the renderer's identity, see "The fingerprint").
-* An animation's APNG and GIF: the animated SVG document, which holds every frame; the poster:
-  the SVG document of the poster frame.
-* An explorer: the poster's SVG and PNG as for a figure; each frame's SVG, the SVG document of
-  that frame.
+* PNG and PDF outputs of a figure or a graph: the SVG document with text drawn as shapes, which
+  is the drawing the PNG is rasterised from and the PDF is written from (the rasteriser and the
+  PDF writer are not part of the specification; they are covered by the renderer's identity, see
+  "The fingerprint"), so a figure's PNG and PDF share a fingerprint.
+* An animation's APNG and GIF: the animated SVG document, which holds every frame; the poster
+  (PNG and PDF): the SVG document of the poster frame.
+* An explorer: the poster's SVG, PNG and PDF as for a figure; each frame's SVG, the SVG document
+  of that frame.
 
 The specification covers what is drawn: the sampled values of a function (the points the figure
 takes), data, colours, sizes, text and layout. It does not cover the function's code, nor
@@ -356,7 +377,7 @@ this byte string:
 The renderer, `PILean.Trust.rendererId` (`PILean/Trust/Renderer.lean`), is the SHA-256 of the
 Lean toolchain's version and of the source files of every library module that turns a figure into
 bytes (the plots, plane figures, graphs and animations, the SVG writer, the rasteriser, the lettering, the PNG,
-APNG and GIF writers, the source records: the modules `Renderer.lean` imports, listed in
+APNG, GIF and PDF writers, the source records: the modules `Renderer.lean` imports, listed in
 `rendererSources`). It is computed from the files' text as it was when the library was compiled
 (`include_str`), so nobody has to remember to change it: any change to that code changes every fingerprint, even a
 change to a comment, and a change to the rasteriser that leaves the SVG specification alone
@@ -413,8 +434,9 @@ pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standi
 * Bounds: at most 4096 figures and 65,536 files (the most a manifest may list), each file at
   most 64 MiB with its source record in (the most the source reader of `pilean-verify` reads),
   checked on the finished file; a file whose bytes are not of its output's format (an `apng`
-  output must have an `acTL` chunk before its image data, a `png` output none) is refused. So
-  every file a build writes is one `pilean-verify` can check.
+  output must have an `acTL` chunk before its image data, a `png` output none, a `pdf` output
+  starts with `%PDF-`) is refused, and so is a PDF that fails the structural check (`Pdf.check`,
+  `PILean/Pdf/Check.lean`). So every file a build writes is one `pilean-verify` can check.
 
 ### The manifest
 
@@ -424,7 +446,7 @@ line for each output, sorted by `path`, every object with the keys in this order
 | Key | Meaning |
 |---|---|
 | `path` | the file below `DIR`, `/` as separator |
-| `format` | `svg`, `png`, `apng` or `gif` |
+| `format` | `svg`, `png`, `apng`, `gif` or `pdf` |
 | `bytes` | the size of the file |
 | `sha256` | the SHA-256 of the file's bytes |
 | `fingerprint` | the fingerprint recorded in the file |
@@ -459,7 +481,7 @@ is not listed:
 | `ok: PATH` | a regular file of the listed size and SHA-256 and of the listed format, whose source record agrees with the manifest (module, declaration, file, line, column, version, repository, commit, fingerprint, standing and theorems); the line ends with the recorded standing, if any |
 | `missing: PATH` | no file has that path, spelled exactly so (on a file system that ignores case, a file found only under another spelling is `missing`, and listed as `extra` under its own) |
 | `changed: PATH` | another size or hash |
-| `format differs: PATH` | the bytes are not of the listed format (`svg`, `png`, `apng` with an `acTL` chunk before the image data, `gif`) |
+| `format differs: PATH` | the bytes are not of the listed format (`svg`, `png`, `apng` with an `acTL` chunk before the image data, `gif`, `pdf`) |
 | `not a regular file: PATH` | the file, or a directory on its way below `DIR`, is a symbolic link, a directory, a FIFO or a device (nothing is followed or opened) |
 | `source differs: PATH` | the source record in the file differs from the manifest |
 | `no source: PATH` | the file has no readable source record |

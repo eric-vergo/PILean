@@ -400,7 +400,7 @@ def inlineChecks : Array (String × Bool) :=
       let os := ToOutputs.outputs x
       inlineIsFile os && (os.filter (·.name.startsWith "-frame-")).size == x.frames.size &&
       match (os[0]!.frames ()) with
-      | some fs => fs.frames.zipIdx.all fun (i, k) => match os[k + 2]? with
+      | some fs => fs.frames.zipIdx.all fun (i, k) => match os[k + 3]? with
         | some o => match o.bytes () with
           | .ok b => b == i.document.toUTF8
           | .error _ => false

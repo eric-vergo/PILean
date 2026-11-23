@@ -237,6 +237,21 @@ def wordExplorer : Explorer :=
   Plane.stepper #[("start", wordAt 0), ("a: a fifth turn about −1", wordAt 1),
     ("b: a fifth turn about 1", wordAt 2), ("a again", wordAt 3)]
 
+open PILean.Plane in
+/-- The window of radius `r` about `c` over the five unit steps. -/
+def windowAbout (r c : Float) : Plane.Figure :=
+  { width := 360,
+    items := #[disk ⟨c, 0⟩ r |>.accent 0 |>.named "the window"] ++
+      ((List.range 5).toArray.map fun j => point (rootOfUnity 5 j) |>.named s!"ζ^{j}") }
+
+/-- The window as a function of two parameters: its radius `r` on the slider and its centre `c`
+played (`Explorer.family₂`), nine frames. -/
+@[figure]
+def familyExplorer : Explorer :=
+  Explorer.family₂ { name := "r", values := #[6, 8, 10], label := fun k => s!"{k}/10" }
+    { name := "c", values := #[0, 1, 2], label := fun k => s!"{k}/4" }
+    (fun r c => ExplorerFrame.ofPlane (windowAbout (r.toFloat / 10) (c.toFloat / 4))) (poster := 4)
+
 /-- The window of radius 0.8, inline, with a narrow rendition. -/
 @[figure]
 def windowInline : Plane.Figure := { windowAt 0.8 with narrowWidth := some 280 }

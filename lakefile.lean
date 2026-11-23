@@ -30,7 +30,7 @@ lean_exe «pilean-gallery» where
   root := `PILeanTest.Gallery
 
 /-- Prints the source information (module, declaration, file, line, ...) recorded in an SVG, PNG,
-APNG or GIF file written with `PILean.Trust.withSource`. -/
+APNG, GIF or PDF file written with `PILean.Trust.withSource`. -/
 lean_exe «pilean-info» where
   root := `PILeanTest.Info
 

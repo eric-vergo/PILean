@@ -10,19 +10,31 @@ import PILean.Anim.Animation
 # Families of frames
 
 An `Explorer` is a finite family of pictures computed in Lean, for a reader to move through on a web
-page: a *parameter axis* (an ordered list of values, each with its picture, shown with a slider), a
-*step sequence* (ordered pictures with a short caption each, shown with previous, next and play
-controls), or both (a picture for every value and step). Every picture (`ExplorerFrame`) is a
-drawing on the vector canvas with its size and style: a plane figure (`ExplorerFrame.ofPlane`), a
-plot (`ExplorerFrame.ofPlot`), or any drawing.
+page. It has up to two dimensions: a *parameter axis* (an ordered list of values, each with its
+picture, shown with a slider) and *steps* (shown with previous, next and play controls). The steps
+are either a sequence with a short caption each, or the values of a second parameter
+(`Explorer.stepName` names it), which the page shows with a slider beside the controls. Every
+picture (`ExplorerFrame`) is a drawing on the vector canvas with its size and style: a plane figure
+(`ExplorerFrame.ofPlane`), a plot (`ExplorerFrame.ofPlot`), or any drawing.
+
+A figure as a function of one or two parameters over a finite grid of values is
+`Explorer.family` (one parameter, played or shown with a slider) or `Explorer.family₂` (two: the
+first on the slider, the second played), from `ExplorerParam`s; every frame is the function's value
+at its point of the grid (`family₂_frames`), computed when the explorer is built, so the page only
+shows frames it was given.
 
 The frames are kept in axis-major order: the frame of value `i` and step `j` is
 `frames[i * steps + j]`, with one value when there is no axis and one step when there are no
-steps. The *poster* is the frame shown first and the one written as the explorer's files (its SVG
-and PNG); a page that cannot run the explorer's script shows it with the other frames listed below.
+steps. The *poster* is the frame shown first and the one written as the explorer's files (its SVG,
+PNG and PDF); a page that cannot run the explorer's script shows it first, with the other frames
+below.
 
-`Explorer.toAnimation` plays a step sequence (at one value of the axis) as an `Animation`, every
-step as long as the others.
+**Caps.** An explorer has at most `Explorer.maxFrames` frames (`Explorer.valid`), and the SVG of
+its frames together, which a page puts inline, at most `Explorer.maxBytes` bytes; one beyond
+either is not rendered (`PILean.Trust`'s outputs fail with a message).
+
+`Explorer.toAnimation` plays the steps (at one value of the axis) as an `Animation`, every step as
+long as the others.
 
 Every frame keeps the problems the checks of its figure report (`ExplorerFrame.problems`, with
 the figure's checks level): a build reports them as warnings, frame by frame
@@ -33,6 +45,9 @@ some (`Explorer.problemsFail`).
 
 * `ExplorerFrame`, `ExplorerFrame.ofPlane`, `ExplorerFrame.ofPlot`.
 * `Explorer`, `Explorer.slider`, `Explorer.stepper`, `Explorer.grid`, `Explorer.valid`.
+* `ExplorerParam`, `Explorer.family`, `Explorer.family₂`, `Explorer.family_frames`,
+  `Explorer.family₂_frames`, `Explorer.mem_family_frames`, `Explorer.mem_family₂_frames`.
+* `Explorer.maxFrames`, `Explorer.maxBytes`, `Explorer.svgBytes`.
 * `Explorer.frameAt`, `Explorer.posterFrame`, `Explorer.toAnimation`, `Explorer.stepTiming`.
 * `Explorer.problems`, `Explorer.problemsFail`, `Explorer.frameName`.
 -/
@@ -102,8 +117,12 @@ structure Explorer where
   axisName : String := ""
   /-- The labels of the axis's values, in order (none without an axis). -/
   axisValues : Array String := #[]
-  /-- The captions of the steps, in order (none without steps). -/
+  /-- The captions of the steps, in order (none without steps): a caption each, or the labels of
+  the values of the parameter `stepName`. -/
   stepCaptions : Array String := #[]
+  /-- The name of the parameter whose values the steps are (`n`, "the number of steps"); empty
+  when the steps are a sequence with captions. -/
+  stepName : String := ""
   /-- The frames, axis-major: value `i`, step `j` at `i * steps + j`. -/
   frames : Array ExplorerFrame
   /-- The position in `frames` of the poster. -/
@@ -118,10 +137,22 @@ def values (x : Explorer) : Nat := max 1 x.axisValues.size
 /-- The number of steps (1 without steps). -/
 def steps (x : Explorer) : Nat := max 1 x.stepCaptions.size
 
-/-- Whether the explorer is well formed: a frame for every value and step, at least one, and the
-poster among them. -/
+/-- The most frames an explorer may have. -/
+def maxFrames : Nat := 400
+
+/-- The most bytes the SVG of an explorer's frames may take together (8 MiB): what a page puts
+inline for it. -/
+def maxBytes : Nat := 8 * 1024 * 1024
+
+/-- Whether the explorer is well formed: a frame for every value and step, at least one and at
+most `maxFrames`, and the poster among them. -/
 def valid (x : Explorer) : Bool :=
-  x.frames.size == x.values * x.steps && x.frames.size > 0 && x.poster < x.frames.size
+  x.frames.size == x.values * x.steps && x.frames.size > 0 && x.frames.size ≤ maxFrames &&
+    x.poster < x.frames.size
+
+/-- The size in bytes of the SVG of every frame together (`ExplorerFrame.toSvg`). -/
+def svgBytes (x : Explorer) : Nat :=
+  x.frames.foldl (fun n f => n + f.toSvg.utf8ByteSize) 0
 
 /-- The frame of value `i` and step `j`, if there is one. -/
 def frameAt (x : Explorer) (i j : Nat) : Option ExplorerFrame := x.frames[i * x.steps + j]?
@@ -148,7 +179,8 @@ def grid (name : String) (values stepCaptions : Array String)
       (List.range (max 1 stepCaptions.size)).toArray.map fun j => frame i j,
     poster }
 
-/-- How frame `k` is named in a message: its position, its value and its step. -/
+/-- How frame `k` is named in a message: its position, its value and its step (or the value of
+the second parameter). -/
 def frameName (x : Explorer) (k : Nat) : String :=
   let i := k / x.steps
   let j := k % x.steps
@@ -156,9 +188,66 @@ def frameName (x : Explorer) (k : Nat) : String :=
     | some v => s!", {x.axisName} = {v}"
     | none => ""
   let step := match x.stepCaptions[j]? with
-    | some c => s!", step {j + 1} “{c}”"
+    | some c => if x.stepName.isEmpty then s!", step {j + 1} “{c}”" else s!", {x.stepName} = {c}"
     | none => ""
   s!"frame {k}{value}{step}"
+
+/-! ### Families over a grid of parameters -/
+
+/-- A parameter of an explorer: its name, its values in order and how a value is written. -/
+structure _root_.PILean.ExplorerParam (α : Type) where
+  /-- The parameter's name, as the page writes it (`n`, `ω₂`). -/
+  name : String
+  /-- The values, in order. -/
+  values : Array α
+  /-- How a value is written on the page and in messages. -/
+  label : α → String
+
+/-- A figure as a function of one parameter: one frame `f v` for each value `v` of `p`, in
+order. With `play` (the default) the values are steps, shown with a slider and previous, play and
+next controls; without, they are a parameter axis with a slider alone. The poster is the value at
+position `poster`. -/
+def family {α : Type} (p : ExplorerParam α) (f : α → ExplorerFrame) (play : Bool := true)
+    (poster : Nat := 0) : Explorer :=
+  if play then
+    { stepName := p.name, stepCaptions := p.values.map p.label, frames := p.values.map f, poster }
+  else
+    { axisName := p.name, axisValues := p.values.map p.label, frames := p.values.map f, poster }
+
+/-- A figure as a function of two parameters: one frame `f a b` for every value `a` of `p` (the
+slider) and `b` of `q` (played, and shown with a slider too), axis-major. The poster is the frame
+at position `poster`. -/
+def family₂ {α β : Type} (p : ExplorerParam α) (q : ExplorerParam β) (f : α → β → ExplorerFrame)
+    (poster : Nat := 0) : Explorer :=
+  { axisName := p.name, axisValues := p.values.map p.label, stepName := q.name,
+    stepCaptions := q.values.map q.label,
+    frames := p.values.flatMap fun a => q.values.map (f a), poster }
+
+/-- The frames of a family of one parameter are its function at the values, in order. -/
+theorem family_frames {α : Type} (p : ExplorerParam α) (f : α → ExplorerFrame) (play : Bool)
+    (poster : Nat) : (family p f play poster).frames = p.values.map f := by
+  unfold family; split <;> rfl
+
+/-- The frames of a family of two parameters are its function at the points of the grid,
+axis-major. -/
+theorem family₂_frames {α β : Type} (p : ExplorerParam α) (q : ExplorerParam β)
+    (f : α → β → ExplorerFrame) (poster : Nat) :
+    (family₂ p q f poster).frames = p.values.flatMap fun a => q.values.map (f a) := rfl
+
+/-- Every frame of a family of one parameter is its function at one of the values, and every
+value has its frame. -/
+theorem mem_family_frames {α : Type} (p : ExplorerParam α) (f : α → ExplorerFrame) (play : Bool)
+    (poster : Nat) (fr : ExplorerFrame) :
+    fr ∈ (family p f play poster).frames ↔ ∃ a ∈ p.values, f a = fr := by
+  rw [family_frames, Array.mem_map]
+
+/-- Every frame of a family of two parameters is its function at a point of the grid, and every
+point of the grid has its frame. -/
+theorem mem_family₂_frames {α β : Type} (p : ExplorerParam α) (q : ExplorerParam β)
+    (f : α → β → ExplorerFrame) (poster : Nat) (fr : ExplorerFrame) :
+    fr ∈ (family₂ p q f poster).frames ↔ ∃ a ∈ p.values, ∃ b ∈ q.values, f a b = fr := by
+  rw [family₂_frames, Array.mem_flatMap]
+  simp only [Array.mem_map]
 
 /-- The problems of the frames (`ExplorerFrame.problems`) whose level is not `ignore`, each with
 the frame's name, in frame order. -/

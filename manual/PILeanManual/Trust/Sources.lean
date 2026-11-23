@@ -21,7 +21,7 @@ open PILean PILean.Trust
 ```
 
 An image can say which Lean declaration made it. PILean writes this *source record* into SVG,
-PNG, APNG and GIF files and reads it back; `lake exe pilean-info FILE` prints it. The code is
+PNG, APNG, GIF and PDF files and reads it back; `lake exe pilean-info FILE` prints it. The code is
 {api}`PILean.Trust.Provenance`; the full specification of the encodings is `docs/TRUST.md`.
 
 # The Record
@@ -42,6 +42,9 @@ UTF-8 and has only characters XML 1.0 can carry ({name}`PILean.Trust.Source.vali
   directly after `IHDR`; the pixels and frames are not touched.
 * *GIF*: one comment extension directly after the global colour table, its text the line
   `PILean source 1` and then `key=value` lines.
+* *PDF*: the document information dictionary, with one key per field (`/PILean:` and the key) as
+  a UTF-16 text string, added after the end of the file by an incremental update (a new object, a
+  cross-reference section and a trailer that names it), so the file's earlier bytes are kept.
 
 The writers of images are unchanged: an image without a record is byte for byte what it was (the
 gallery's files are compared with a fresh render on every test run).

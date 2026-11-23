@@ -35,8 +35,10 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   that have links). The script `pilean-explorer.js` (`explorerJs`, a
   file of the site; no network, no `eval`, no `innerHTML`; it runs under a content policy that
   allows the site's own scripts only) marks the root `pilean-explorer-live`, shows the controls (a
-  slider for the parameter axis, previous, play and next for the steps, zoom in, zoom out and
-  reset), shows one frame at a time and makes the view a focusable group. A frame of a different
+  slider for the parameter axis, previous, play and next for the steps, with a slider of their
+  own when the steps are the values of a second parameter (`FrameSet.stepName`), zoom in, zoom
+  out and reset), shows one frame at a time and makes the view a focusable group. Without script
+  the poster comes first, across the whole width, and the other frames follow it. A frame of a different
   size keeps its own view box; pan and zoom are shared as fractions of each frame's box.
 * **Gestures.** The page keeps its own scrolling, as embedded maps do with cooperative gestures:
   the wheel and a one-finger swipe scroll the page; Ctrl or ⌘ with the wheel (what a trackpad
@@ -45,7 +47,7 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   drag pans; on the focused view `+`, `-` and `0` zoom and reset and the arrows pan (with Ctrl, ⌘
   or Alt held, keys are left to the browser).
 * **Announcements.** One polite status region per explorer says the step after previous or next
-  (`Step 2 of 4: …`); the slider says its value itself (`aria-valuetext`); nothing is announced
+  (`Step 2 of 4: …`, or `a = 3` for a parameter); the slider says its value itself (`aria-valuetext`); nothing is announced
   when the page loads or while the steps play. A reader who asks for reduced motion gets no play
   button and no transitions.
 
@@ -140,16 +142,23 @@ def frameValue (fs : FrameSet) (k : Nat) : String :=
 def frameStep (fs : FrameSet) (k : Nat) : String :=
   (fs.stepCaptions[k % max 1 fs.stepCaptions.size]?).getD ""
 
-/-- The counter of frame `k` of an explorer (`Step 2 of 4`); empty without steps. -/
+/-- The counter of frame `k` of an explorer (`Step 2 of 4`); empty without steps and when the
+steps are the values of a parameter (`FrameSet.stepName`). -/
 def frameCounter (fs : FrameSet) (k : Nat) : String :=
-  if fs.stepCaptions.isEmpty then ""
+  if fs.stepCaptions.isEmpty || !fs.stepName.isEmpty then ""
   else s!"Step {k % fs.stepCaptions.size + 1} of {fs.stepCaptions.size}"
 
-/-- The label of frame `k` of an explorer: its value (`r = 13/10`) and its step caption. -/
+/-- What frame `k` says about its step: `Step 2 of 4: caption`, or `a = 3` when the steps are the
+values of the parameter `a`; empty without steps. -/
+def frameStepText (fs : FrameSet) (k : Nat) : String :=
+  if fs.stepCaptions.isEmpty then ""
+  else if fs.stepName.isEmpty then s!"{frameCounter fs k}: {frameStep fs k}"
+  else s!"{fs.stepName} = {frameStep fs k}"
+
+/-- The label of frame `k` of an explorer: its value (`r = 13/10`) and its step (`frameStepText`). -/
 def frameLabel (fs : FrameSet) (k : Nat) : String :=
   let value := if fs.axisValues.isEmpty then "" else s!"{fs.axisName} = {frameValue fs k}"
-  let step := if fs.stepCaptions.isEmpty then "" else s!"{frameCounter fs k}: {frameStep fs k}"
-  " · ".intercalate ([value, step].filter (!·.isEmpty))
+  " · ".intercalate ([value, frameStepText fs k].filter (!·.isEmpty))
 
 /-- A small icon for a control button (hidden from assistive technology; the button's label
 names it): a path in a 16 × 16 box, drawn in the text colour. -/
@@ -173,29 +182,43 @@ def explorerHtml (id : String) (fs : FrameSet) (href : String → Option String)
     let poster := if k == fs.poster then " data-poster=\"\"" else ""
     s!"<li class=\"pilean-explorer-frame{current}\" data-index=\"{k}\" data-value=\"{k / steps}\" \
       data-step=\"{k % steps}\"{poster} data-value-text=\"{esc (frameValue fs k)}\" \
-      data-step-text=\"{esc (frameStep fs k)}\" data-counter=\"{esc (frameCounter fs k)}\">" ++
+      data-step-text=\"{esc (frameStep fs k)}\" data-counter=\"{esc (frameCounter fs k)}\" \
+      data-step-say=\"{esc (frameStepText fs k)}\">" ++
       inlineSvgText s!"{id}-f{k}" f href s!"{alt} ({frameLabel fs k})" (file := file k) ++
       s!"<p class=\"pilean-explorer-frame-label\">{escapeText (frameLabel fs k)}</p></li>")
   let axis := if fs.axisValues.isEmpty then "" else
     let v := fs.axisValues[pi]?.getD ""
     s!"<label class=\"pilean-explorer-axis\"><span class=\"pilean-explorer-axis-name\">\
       {escapeText fs.axisName}</span>\
-      <input type=\"range\" min=\"0\" max=\"{values - 1}\" step=\"1\" value=\"{pi}\" \
-      aria-label=\"{esc s!"Value of {fs.axisName} in {name}"}\" aria-valuetext=\"{esc v}\"/>\
+      <input type=\"range\" data-axis=\"value\" min=\"0\" max=\"{values - 1}\" step=\"1\" \
+      value=\"{pi}\" aria-label=\"{esc s!"Value of {fs.axisName} in {name}"}\" aria-valuetext=\"{esc v}\"/>\
       <span class=\"pilean-explorer-value\" aria-hidden=\"true\">{escapeText v}</span></label>"
+  let pj := fs.poster % steps
+  -- the steps as the values of a parameter: a slider beside the buttons
+  let stepSlider := if fs.stepName.isEmpty then "" else
+    let v := fs.stepCaptions[pj]?.getD ""
+    s!"<label class=\"pilean-explorer-axis\"><span class=\"pilean-explorer-axis-name\">\
+      {escapeText fs.stepName}</span>\
+      <input type=\"range\" data-axis=\"step\" min=\"0\" max=\"{steps - 1}\" step=\"1\" \
+      value=\"{pj}\" aria-label=\"{esc s!"Value of {fs.stepName} in {name}"}\" \
+      aria-valuetext=\"{esc v}\"/>\
+      <span class=\"pilean-explorer-step-value\" aria-hidden=\"true\">{escapeText v}</span></label>"
+  let playName := if fs.stepName.isEmpty then "Play the steps" else s!"Play {fs.stepName}"
+  let prevName := if fs.stepName.isEmpty then "Previous step" else s!"Previous value of {fs.stepName}"
+  let nextName := if fs.stepName.isEmpty then "Next step" else s!"Next value of {fs.stepName}"
   let stepper := if fs.stepCaptions.isEmpty then "" else
-    s!"<span class=\"pilean-explorer-steps\">\
-      <button type=\"button\" data-action=\"prev\" aria-label=\"Previous step\">\
+    s!"{stepSlider}<span class=\"pilean-explorer-steps\">\
+      <button type=\"button\" data-action=\"prev\" aria-label=\"{esc prevName}\">\
       {iconSvg "M10.5 2.5 5 8l5.5 5.5 1.4-1.4L7.8 8l4.1-4.1z"}</button>\
-      <button type=\"button\" data-action=\"play\" aria-label=\"Play the steps\" \
+      <button type=\"button\" data-action=\"play\" aria-label=\"{esc playName}\" \
       aria-pressed=\"false\">{iconSvg "M4 2.5v11L13 8z" "pilean-icon-play"}\
       {iconSvg "M3.5 2.5h3v11h-3zm6 0h3v11h-3z" "pilean-icon-pause"}</button>\
-      <button type=\"button\" data-action=\"next\" aria-label=\"Next step\">\
+      <button type=\"button\" data-action=\"next\" aria-label=\"{esc nextName}\">\
       {iconSvg "M5.5 2.5 11 8l-5.5 5.5-1.4-1.4L8.2 8 4.1 3.9z"}</button>\
       <span class=\"pilean-explorer-counter\" aria-hidden=\"true\">\
       {escapeText (frameCounter fs fs.poster)}</span>\
       <span class=\"pilean-explorer-caption\" aria-hidden=\"true\">\
-      {escapeText (frameStep fs fs.poster)}</span></span>"
+      {escapeText (if fs.stepName.isEmpty then frameStep fs fs.poster else "")}</span></span>"
   let zoom := s!"<span class=\"pilean-explorer-zoom\">\
     <button type=\"button\" data-action=\"zoom-in\" aria-label=\"Zoom in\">\
     {iconSvg "M7 2.5h2V7h4.5v2H9v4.5H7V9H2.5V7H7z"}</button>\
@@ -235,8 +258,10 @@ def explorerJs : String := r##"// PILean explorers: one frame at a time, a slide
     var poster = Number(root.getAttribute("data-poster")) || 0;
     var view = root.querySelector(".pilean-explorer-view");
     var controls = root.querySelector(".pilean-explorer-controls");
-    var slider = root.querySelector("input[type=range]");
+    var slider = root.querySelector("input[data-axis=value]");
     var valueOut = root.querySelector(".pilean-explorer-value");
+    var stepSlider = root.querySelector("input[data-axis=step]");
+    var stepOut = root.querySelector(".pilean-explorer-step-value");
     var counter = root.querySelector(".pilean-explorer-counter");
     var caption = root.querySelector(".pilean-explorer-caption");
     var status = root.querySelector(".pilean-explorer-status");
@@ -264,13 +289,15 @@ def explorerJs : String := r##"// PILean explorers: one frame at a time, a slide
         slider.setAttribute("aria-valuetext", data(k, "data-value-text"));
         if (valueOut) valueOut.textContent = data(k, "data-value-text");
       }
+      if (stepSlider) {
+        stepSlider.value = String(sj);
+        stepSlider.setAttribute("aria-valuetext", data(k, "data-step-text"));
+        if (stepOut) stepOut.textContent = data(k, "data-step-text");
+      }
       if (counter) counter.textContent = data(k, "data-counter");
-      if (caption) caption.textContent = data(k, "data-step-text");
+      if (caption && !stepSlider) caption.textContent = data(k, "data-step-text");
     }
-    function stepText() {
-      var k = vi * steps + sj;
-      return data(k, "data-counter") + ": " + data(k, "data-step-text");
-    }
+    function stepText() { return data(vi * steps + sj, "data-step-say"); }
     function apply() {
       svgs.forEach(function (svg, i) {
         if (!svg) return;
@@ -312,6 +339,11 @@ def explorerJs : String := r##"// PILean explorers: one frame at a time, a slide
     }
     if (slider) {
       slider.addEventListener("input", function () { vi = Number(slider.value); show(); });
+    }
+    if (stepSlider) {
+      stepSlider.addEventListener("input", function () {
+        stop(); sj = Number(stepSlider.value); show();
+      });
     }
     root.addEventListener("click", function (ev) {
       var b = ev.target.closest ? ev.target.closest("[data-action]") : null;
@@ -441,6 +473,7 @@ a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
 .pilean-explorer-frame { margin: 0; min-width: 0; max-width: 100%; }
 .pilean-explorer:not(.pilean-explorer-live) .pilean-explorer-frame[data-poster] {
   outline: 2px solid var(--pilean-rule, #d9dce3); outline-offset: 4px; border-radius: 4px;
+  order: -1; grid-column: 1 / -1;
 }
 .pilean-explorer-frame-label { margin: 0.2rem 0 0; font-size: 0.85em; text-align: center; }
 .pilean-explorer-live .pilean-explorer-frames { display: block; }
@@ -463,7 +496,7 @@ a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
   width: 16rem; max-width: 100%; min-width: 5rem; flex: 1 1 auto; height: 2.75rem; margin: 0;
 }
 .pilean-explorer-axis-name { min-width: 0; overflow-wrap: anywhere; }
-.pilean-explorer-value {
+.pilean-explorer-value, .pilean-explorer-step-value {
   font-variant-numeric: tabular-nums; min-width: 3ch; overflow-wrap: anywhere;
 }
 .pilean-explorer-controls button {

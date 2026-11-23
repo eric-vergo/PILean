@@ -518,7 +518,7 @@ Mathlib's in practice.
 ## What is tested, not proved
 
 * The rasteriser (coverage, compositing, colour conversion), the PNG, APNG and GIF encoders and
-  decoders, the SVG writer: tested against published values, other software and the golden files
+  decoders, the SVG writer, the PDF writer and its structural check: tested against published values, other software and the golden files
   in `examples/`.
 * The layouts of the combinatorial diagrams (Hasse edges going up, the tidy layout of trees, the
   circle's points), and that the diagrams pass the layout checks of plane figures in both

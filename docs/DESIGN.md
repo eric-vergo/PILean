@@ -35,19 +35,20 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Plot.Ticks`, `Scale`, `Sample`, `Figure`, `Check`, `Proofs` | nice ticks (multipliers proved ascending and inside their interval), linear and logarithmic scales with minor ticks, adaptive sampling of functions, the `Figure` model (panels, axes, series, legends, annotations) drawn on the canvas | done |
 | `PILean.Raster` | anti-aliased scanline fill by area coverage in integers (non-zero and even-odd), clipping to rectangles and paths, the stroker (joins, caps, miter limit, dashes), gradients, compositing in linear light, group opacity, `Draw` (in the spirit of `ImageDraw`), Gaussian blur and drop shadows, SVG nodes drawn | done |
 | `PILean.Image` | `Image` (mode, size, pixels in a `ByteArray`), `getpixel`, `putpixel`, crop, paste with a mask, alpha compositing, convert, flips and quarter turns, resize (nearest, bilinear, box, Lanczos) | done |
+| `PILean.Pdf` (`Object`, `Write`, `Read`, `Check`, `Figures`) | one-page vector PDF 1.7 of any picture, written from the SVG nodes its PNG is drawn from (paths, fills, strokes, opacities, transparency groups, clips, shadings for gradients, text as outlines, raster images with soft masks); a bounded reader of objects, cross-reference tables and the information dictionary; a structural check of PDF files | done; see "PDF" below |
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`, `pHYs` (written); the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Anim` | a `FrameSeq` (equally sized RGBA frames, a rational delay each, a loop count) and its codecs. APNG: writer (frame differencing to the changed rectangle, equal frames merged, delays as reduced fractions) and reader (composes `dispose_op` and `blend_op`, any PNG colour type, caps on size, frames and bytes). GIF89a: writer (LZW, one global palette by median cut or the exact colours, optional Floyd–Steinberg dithering, differencing with a transparent index, delays in centiseconds with exact cumulative time, loop extension) and reader (global and local tables, interlacing, disposal 0–3, transparency, caps) | done |
 | `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips, metadata through `Shape.tagged` and `ShapeInfo`; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark`, with the plane colours and sizes `PlaneStyle` | done |
 | `PILean.Plane` (`Basic`, `Frame`, `Draw`, `Check`, `Render`, `Graph`) | plane figures: elements in world coordinates (`Geom`: points, lines, arcs, regions of disks, ticks, labels, …), looks by role (`Look`, `Tone`, named roles), items with metadata (`Item`), builders and modifiers; the frame (`Frame`, one scale, `y` up) fitted to the items' reaches (`Frame.fit`), clipping (`clipLine`); the figure (`Figure`) drawn on the canvas; layout checks and automatic label placement; outputs (sRGB images, outlined text, narrow renditions); graphs inside plane figures, step animations | done |
 | `PILean.CheckLevel` | how strictly a figure's checks apply (`ignore`, `warn`, `fail`), shared by plots and plane figures | done |
-| `PILean.Explorer` | families of frames (a parameter axis, a step sequence, or both) for web pages, their poster files and animations | done |
+| `PILean.Explorer` | families of frames for web pages (a parameter axis, steps with captions, or the values of a second parameter), figures as functions of one or two parameters over a grid (`Explorer.family`, `family₂`), caps on frames and bytes, their poster files and animations | done |
 | `PILean.Exact.Plane`, `PILean.Exact.Algebraic`, `PILean.Exact.Spec` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn; exact incidence with a disk; ℚ(√d), ℤ[ζ₅], exact square roots, constructions with certified enclosures; what an item of a figure is in exact terms (`IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`), for specifications | done |
 | `PILean.Diagram` (`Basic`, `Graph`, `Hasse`, `Young`, `Perm`, `Tree`, `SetSystem`, `Path`, `CommDiagram`, `Group`, `Quiver`) | diagrams of finite combinatorial objects and orders drawn from their data: exact marks tagged with the part they depict, read back by `Faithful` predicates with theorems for every kind, drawn as plane figures | done; faithfulness proved for every kind, see [`PROOFS.md`](PROOFS.md) |
 | `PILean.Graph.Fixed` | graphs at given positions (page, world or exact), edges straight or bent around nodes | done |
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline, orthogonal or bundled edges (one entry and one exit port per node, tracks in channels, concentric corners), arrowheads, edge labels and clusters, circular and tree layouts, components laid out apart and packed, mirrored layouts, drawing on the canvas as SVG and PNG, and as SVG for a web page | done; layering proved, see below |
-| `PILean.Trust` | done: a figure's standing (`proved` or `illustration`, recorded in its files and the manifest, `--require-standing`); SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_proves` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
+| `PILean.Trust` | done: a figure's standing (`proved` or `illustration`, recorded in its files and the manifest, `--require-standing`); SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG, GIF and PDF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_proves` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
 
 ## Public API in Pillow's spirit
 
@@ -785,7 +786,21 @@ frame maps them to the page with one scale for both axes, so circles stay round 
 * **Explorers as files.** Every frame of an `Explorer` is an output of its own (an SVG named
   `-frame-k`), so every picture a page shows inline is a file in the manifest with its
   fingerprint, the inline picture byte for byte the file before its source record; the poster's
-  SVG and PNG come first. Every frame keeps the problems of its figure's checks, which a build
+  SVG, PNG and PDF come first.
+* **Families over a grid.** `Explorer.family` and `Explorer.family₂` make an explorer of a figure
+  as a function of one or two parameters (`ExplorerParam`: a name, values, a label): the frames
+  are the function at the points of the grid, axis-major, computed when the explorer is built
+  (`family₂_frames`, `mem_family₂_frames`), and the page only shows the frames it was given. The
+  second parameter is the explorer's steps with a name (`Explorer.stepName`), which the page shows
+  with a slider beside previous, play and next, so one structure serves step sequences, one
+  parameter and two. An explorer over a family gets its standing from a theorem quantified over
+  the grid (`∀ p ∈ grid, …`) that names the explorer, as `figure_proves` requires; the gallery's
+  `cayleyExplorer` and `latticeExplorer` (`PILeanTest/Explorers.lean`) are proved so, with
+  bindings to `ZMod n` and `Submodule.span ℤ` in `pilean-mathlib`. Separate controls for each
+  parameter, each with its own play button, were the alternative; one played parameter keeps the
+  controls few and the motion legible. Caps: at most `Explorer.maxFrames` (400) frames and
+  `Explorer.maxBytes` (8 MiB) of frames' SVG together, checked before the outputs are written;
+  the Verso adapters' inline limit (`--figure-inline-limit`) applies on top. Every frame keeps the problems of its figure's checks, which a build
   reports frame by frame, or which stop the explorer when a frame's level is `fail`;
   `Explorer.toAnimation` gives every step the same number of frames (`Explorer.stepTiming`).
 * **Arcs** (`Path.arc`): at most a quarter turn per cubic, control points on the tangents at
@@ -871,6 +886,56 @@ compared with the object. The choices:
   from the links `figure_proves` recorded, re-checked there, and carried on every `Output` so that
   the positional constructors of `FigureEntry` and `SourceData` that the Verso adapters use stay
   as they are.
+
+## PDF
+
+`PILean.Pdf` writes a picture as a one-page PDF 1.7 file for papers (`Plot.Figure.toPdf`,
+`Plane.Figure.toPdf`, `Graph.toPdf`, `ExplorerFrame.toPdf`, `Animation.posterPdf`,
+`Image.toPdf`). The choices:
+
+* **From the PNG's nodes.** The page is written from the SVG nodes the PNG is rasterised from
+  (text as shapes from the style's text engine), read by the rasteriser's own readers of SVG
+  (`Raster.shapeOf`, `Style.apply`, `clipPaths`, `gradients`), so the PDF and the PNG cannot
+  disagree about what is drawn, and the specification and fingerprint of the PNG cover the PDF.
+  A writer from the canvas's `Shape` directly was the alternative; it would be a third reading of
+  the drawing beside the SVG writer and the rasteriser.
+* **Page size.** One CSS pixel (`1/96` inch) is `0.75` points (`1/72` inch): a picture of
+  `w × h` pixels is a page of `0.75 w × 0.75 h` points, and the content keeps the pixel
+  coordinates under `0.75 0 0 -0.75 0 H cm`.
+* **Text as outlines, no fonts.** Text reaches the PDF as the text engine's outlines, as it
+  reaches the PNG, so the file embeds no font and every viewer shows the letters the layout
+  measured. Text cannot be selected or searched; embedding the lettering or LeAnTeX's fonts as
+  Type 3 or TrueType fonts was the alternative and is not built.
+* **Opacity.** `fill-opacity` and `stroke-opacity` are `ExtGState` alpha constants. A group's
+  `opacity` is a transparency group (a form XObject drawn at that alpha), as SVG composites it; a
+  group that holds one shape painted once (a fill or a stroke) takes the opacity into the shape's
+  alpha instead, which composites the same and needs no form.
+* **Gradients** are axial and radial shadings painted inside the shape as a clip (`sh`), with a
+  stitching function through the stops PILean writes into the SVG (sampled from its linear-light
+  interpolation), extended at both ends as SVG pads; a gradient whose stops have different
+  opacities is drawn at their mean opacity (a soft mask is not built).
+* **Colour.** `DeviceRGB` with the file's 8-bit sRGB values; no ICC profile, so a viewer treats
+  them as its device's RGB (on most screens and printers, sRGB). PDF viewers composite in that
+  space, as browsers composite SVG; a plot's PNG composites in linear light, so its anti-aliased
+  edges differ by a level or two.
+* **Deterministic bytes.** The objects in a fixed order, numbers through `fmtNum`, content streams
+  compressed by PILean's DEFLATE, no date, and a document ID from the SHA-256 of the body.
+* **The source record** is the document information dictionary, added by an incremental update
+  (`Trust.withSourcePdf`), so the writer stays unchanged and the reader of `pilean-info` follows
+  one trailer to one dictionary. XMP metadata was the alternative: a stream of XML that the reader
+  would have to parse, for no field the information dictionary cannot hold.
+* **Checked.** `Pdf.check` reads a file through (cross-reference offsets, every object, stream
+  lengths, the page tree, every operator of every content stream and the resources it names) and
+  `pilean-build` refuses a PDF that fails it; `lake test` runs it on every gallery PDF with planted
+  faults, and runs it and the source reader on 1100 mutated files and on hostile files under
+  memory and time bounds (`PILeanTest/Bounds.lean`). `tools/pdf-compare.py` renders the gallery's
+  PDFs with Ghostscript and Quick Look and compares them with the PNGs.
+
+A gallery plot of 640 × 400 pixels is a PDF of about 10 to 20 KB, a third to a half of its SVG:
+the content streams are compressed. The reader and the check are bounded (`Pdf.Limits`: 64 MiB of
+input, nesting 32, strings of 64 KiB, dictionaries of 4096 keys, a million cross-reference
+entries, 32 sections; content streams decode to at most 256 MiB, measured before they are
+allocated).
 
 ## Text in images
 
