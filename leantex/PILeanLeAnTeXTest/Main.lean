@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanLeAnTeX
 import PILeanTest.Bounds
+import PILeanTest.SpecMutations
 
 /-!
 # The test driver
@@ -21,7 +22,9 @@ import PILeanTest.Bounds
   byte changes it, and the fingerprint of an output changes with the engine;
 * **the pin**: `leantexRevision` is the revision of `lake-manifest.json` and `lakefile.lean`;
 * **bounds**: hostile labels drawn by `pilean-leantex-probe` in child processes under a CPU limit,
-  a wall-clock limit and a memory bound (`PILeanTest.Bounds.runLimited`).
+  a wall-clock limit and a memory bound (`PILeanTest.Bounds.runLimited`);
+* **the specification**: each change of `planeMutations` to the figure `planeDisks` breaks
+  `planeDisks_spec` (`PILeanTest.SpecMutations.check`).
 -/
 
 open PILean PILean.Plot PILeanLeAnTeX
@@ -172,6 +175,20 @@ def boundChecks : IO (Array (String × Bool)) := do
     IO.FS.removeDirAll scratch
   return r
 
+/-- Changes to `planeDisks` that `planeDisks_spec` must catch. -/
+def planeMutations : Array PILeanTest.SpecMutations.SpecMutation :=
+  let file : System.FilePath := "PILeanLeAnTeX" / "Examples.lean"
+  let anchor := "def planeItems : Array Plane.Item :="
+  #[{ file, anchor, what := "the point E is not drawn", spec := "planeDisks_spec",
+      edits := [("pointE, pointNegE,", "pointNegE,")] },
+    { file, anchor, what := "the label $E$ is at -E", spec := "planeDisks_spec",
+      edits := [("Plane.Exact.label \"$E$\" chordEnd", "Plane.Exact.label \"$E$\" (-chordEnd)")] },
+    { file, anchor, what := "the radius from -1 to E is not dashed", spec := "planeDisks_spec",
+      edits := [("|>.faint |>.dashed", "|>.faint")] },
+    { file, anchor := "def pointNegE : Plane.Item :=", spec := "planeDisks_spec",
+      what := "the point -E records being on the left circle",
+      edits := [("\"the right circle\"", "\"the left circle\"")] }]
+
 end PILeanLeAnTeXTest
 
 open PILeanLeAnTeXTest in
@@ -192,7 +209,8 @@ def main (args : List String) : IO UInt32 := do
       ("sans: plain Latin text keeps its measure", sans.measure "abc" 10 > 0)]
   let mut all := engineChecks e fonts ++ trustChecks e ++ sansChecks
   all := all ++ (← goldenChecks e sans update) ++ (← pinChecks)
-  if !update then all := all ++ (← boundChecks)
+  if !update then
+    all := all ++ (← boundChecks) ++ (← PILeanTest.SpecMutations.checkAll planeMutations)
   let mut failed := 0
   for (name, ok) in all do
     if ok then IO.println s!"ok {name}" else

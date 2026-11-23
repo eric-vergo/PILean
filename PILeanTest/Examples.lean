@@ -543,7 +543,9 @@ theorem disks_spec :
     (-crossing - leftCentre).normSq = critical.radicand ∧
     (-crossing - rightCentre).normSq = critical.radicand ∧
     (-chordEnd + chordEnd == Zeta5.zero) = true := by
-  sorry
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, ?_⟩
+  repeat' apply And.intro
+  all_goals decide +kernel
 
 figure_proves disks disks_spec
 

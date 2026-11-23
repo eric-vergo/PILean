@@ -138,7 +138,21 @@ theorem zetaSteps_spec :
     (List.range 5).map (fun j => diskIncidence? (Zeta5.pow j) windowCentre windowRadius) =
       [some .inside, some .inside, some .outside, some .outside, some .inside] ∧
     (List.range 5).filter inWindow = [0, 1, 4] := by
-  sorry
+  refine ⟨rfl, rfl, ?_, by decide +kernel, by decide +kernel⟩
+  have h0 : inWindow 0 = true := by decide +kernel
+  have h1 : inWindow 1 = true := by decide +kernel
+  have h2 : inWindow 2 = false := by decide +kernel
+  have h3 : inWindow 3 = false := by decide +kernel
+  have h4 : inWindow 4 = true := by decide +kernel
+  rw [show zetaSteps.items = #[window] ++ ((#[0, 1, 2, 3, 4] : Array Nat).flatMap stepItems) ++
+    ((#[0, 1, 2, 3, 4] : Array Nat).map stepPoint) ++ #[Plane.Exact.point ((0, 0) : Int × Int),
+      Plane.Exact.point windowCentre |>.incident .on "the step to 1"] from rfl,
+    show (#[0, 1, 2, 3, 4] : Array Nat).flatMap stepItems =
+      stepItems 0 ++ stepItems 1 ++ stepItems 2 ++ stepItems 3 ++ stepItems 4 by simp]
+  simp only [stepItems, h0, h1, h2, h3, h4, ite_true, Bool.false_eq_true, ite_false]
+  apply Array.toList_inj.mp
+  simp only [Array.toList_append, Array.toList_map]
+  rfl
 
 figure_proves zetaSteps zetaSteps_spec
 
@@ -305,7 +319,9 @@ theorem reference_spec :
     (-corner - left).normSq = R.radicand ∧ (-corner - right).normSq = R.radicand ∧
     (phiInv.conj == phiInv) = true ∧ QSqrt.lt ⟨0, 0⟩ phiInv.realPart = true ∧
     QSqrt.lt phiInv.realPart ⟨1, 0⟩ = true ∧ (G == phiInv * phiInv * phiInv * E) = true := by
-  sorry
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_⟩
+  repeat' apply And.intro
+  all_goals decide +kernel
 
 figure_proves reference reference_spec
 

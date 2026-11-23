@@ -27,6 +27,7 @@ import PILeanTest.Inert
 import PILeanTest.Bounds
 import PILeanTest.Tools
 import PILeanTest.Axioms
+import PILeanTest.SpecMutations
 
 /-!
 # The test driver
@@ -34,7 +35,8 @@ import PILeanTest.Axioms
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
 `PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`, `PILeanTest.Plots`,
 `PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.GraphRoutes`, `PILeanTest.Trust`,
-`PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`) and
+`PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`), the
+changes to the figures that their specifications must catch (`PILeanTest.SpecMutations`), and
 compares every gallery figure's SVG and PNG, every gallery plane figure's and graph's SVG and
 PNG, and every gallery animation's SVG, APNG, GIF and poster, with its files in `examples/` (the
 goldens), byte for byte; it also renders each figure twice to check that the output is
@@ -115,7 +117,7 @@ def main (args : List String) : IO UInt32 := do
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
     Enclosures.checks ++ FigureChecks.checks ++ (← FigureChecks.ioChecks) ++
     PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
-    Axioms.coverageChecks driverModules
+    (← SpecMutations.ioChecks) ++ Axioms.coverageChecks driverModules
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"

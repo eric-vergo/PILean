@@ -164,7 +164,7 @@ inductive Incidence where
   | inside
   /-- Outside the region. -/
   | outside
-  deriving BEq, Inhabited, Repr
+  deriving BEq, DecidableEq, Inhabited, Repr
 
 /-- The incidence in words: `on`, `inside`, `outside`. -/
 def Incidence.text : Incidence → String

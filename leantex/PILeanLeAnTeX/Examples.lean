@@ -142,7 +142,9 @@ theorem planeDisks_spec :
     Exact.QSqrt.lt (chordEnd - rightCentre).normSq radius.radicand = true ∧
     (-chordEnd - rightCentre).normSq = radius.radicand ∧
     Exact.QSqrt.lt (-chordEnd - leftCentre).normSq radius.radicand = true := by
-  sorry
+  refine ⟨rfl, rfl, rfl, rfl, rfl, ?_⟩
+  repeat' apply And.intro
+  all_goals decide +kernel
 
 figure_proves planeDisks planeDisks_spec
 
