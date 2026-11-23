@@ -42,7 +42,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.CheckLevel` | how strictly a figure's checks apply (`ignore`, `warn`, `fail`), shared by plots and plane figures | done |
 | `PILean.Explorer` | families of frames (a parameter axis, a step sequence, or both) for web pages, their poster files and animations | done |
 | `PILean.Exact.Plane`, `PILean.Exact.Algebraic`, `PILean.Exact.Spec` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn; exact incidence with a disk; ℚ(√d), ℤ[ζ₅], exact square roots, constructions with certified enclosures; what an item of a figure is in exact terms (`IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`), for specifications | done |
-| `PILean.Diagram` (`Basic`, `Graph`, `Hasse`, `Young`, `Perm`, `Tree`, `SetSystem`, `Path`) | diagrams of finite combinatorial objects and orders drawn from their data: exact marks tagged with the part they depict, read back by `Faithful` predicates with theorems for every kind, drawn as plane figures | done; faithfulness proved for every kind, see [`PROOFS.md`](PROOFS.md) |
+| `PILean.Diagram` (`Basic`, `Graph`, `Hasse`, `Young`, `Perm`, `Tree`, `SetSystem`, `Path`, `CommDiagram`, `Group`, `Quiver`) | diagrams of finite combinatorial objects and orders drawn from their data: exact marks tagged with the part they depict, read back by `Faithful` predicates with theorems for every kind, drawn as plane figures | done; faithfulness proved for every kind, see [`PROOFS.md`](PROOFS.md) |
 | `PILean.Graph.Fixed` | graphs at given positions (page, world or exact), edges straight or bent around nodes | done |
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
@@ -789,6 +789,21 @@ compared with the object. The choices:
 * **The Mathlib side.** The core holds the kinds over plain data and no Mathlib; `pilean-mathlib`
   gives each kind a function from Mathlib's object and a theorem in Mathlib's terms, and its
   figures are defined in a module without Mathlib so that the drawing program does not contain it.
+* **Every mark by class.** The kinds of algebra (commutative diagrams, Cayley tables, quivers)
+  state `Faithful` as one list per class of part (`Diagram.marksWhere`) equal to the builder's,
+  and no mark of another part; so a tip, a hook, a colour or a label the data does not call for
+  is refused without a predicate per shape. A colour role is compared where it means something
+  (an element's colour in a table, a generator's in a Cayley graph, a marked vertex), never its
+  RGB value.
+* **Arrows.** An arrow's body is a `Shape.path` of exact points cut where it meets the boxes of
+  its objects' labels (estimated from their lengths, in units of the grid); straight arrows are
+  cut exactly, bent ones and loops are Bézier curves sampled at exact rational parameters.
+  Parallel straight arrows stand `1/8` apart, the first leftmost. The tips are the plane figures'
+  arrowheads on the last piece of the body, so they follow its direction.
+* **Commutation is about the object.** A picture of a diagram makes no claim by itself; the claims
+  are data (`paths`), decided for maps between finite sets in the core and stated for morphisms of
+  a category in `pilean-mathlib`, where the realisation carries the morphisms with their types so
+  that no cast is needed beyond the identity of an object to itself.
 * **Standing.** Whether a figure is proved is computed where the table of figures is elaborated,
   from the links `figure_proves` recorded, re-checked there, and carried on every `Output` so that
   the positional constructors of `FigureEntry` and `SourceData` that the Verso adapters use stay

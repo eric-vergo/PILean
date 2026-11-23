@@ -174,5 +174,32 @@ Mathlib) and their theorems (`PILeanMathlib/Examples/Combinatorics.lean`, linked
 | The Dyck word `UUDUUDDDUD` | the steps are the path of the `DyckWord`, rising exactly at its `U`s | ![](examples/dyck.svg) | ![](examples/dyck-dark.svg) |
 | Multiples of 2, 3, 5 up to 12 | each number is inside the circle of each `Finset` iff it belongs to it | ![](examples/venn.svg) | ![](examples/venn-dark.svg) |
 
+## Algebra and categories
+
+`PILeanMathlib/Category.lean` realises a commutative diagram of PILean in a category: an object
+for each object and a morphism for each arrow, between the objects of its ends
+(`CommDiagram.Realisation`). Its `Commutes` says that the two paths of every claim compose to the
+same morphism, and its `StylesHold` that every mark of an arrow's style is true of its morphism:
+`↣` and `↪` are `Mono`, `↠` is `Epi`, `≅` is `IsIso`, `=` is an identity. For three shapes the
+condition is Mathlib's own: the square of `f`, `g`, `h`, `i` commutes exactly when
+`CommSq f g h i` (`square_commutes_iff`), the triangle exactly when `f ≫ g = h`
+(`triangle_commutes_iff`), and the drawing `0 → X₁ ↣ X₂ ↠ X₃ → 0` of a short complex has its
+marks justified and the complex exact exactly when `S.ShortExact` (`shortExact_iff`).
+
+`PILeanMathlib/Group.lean` gives the table of a group through an enumeration `e : Fin n ≃ G`
+(`FinMagma.ofMul`): cell `(a, b)` holds `e a * e b`, the table is a group by the core's decidable
+check, it is symmetric exactly when the group is commutative, its centre is `Subgroup.center G`,
+and the arrows of a Cayley graph join `g` to `g * s`. `FinPoset.mem_coverPairs_of_equiv` draws any
+finite partial order through an enumeration with its covers `⋖` as edges; a lattice of subgroups
+is drawn that way.
+
+| Figure | Theorem | Light | Dark |
+|---|---|---|---|
+| The Cayley table of `DihedralGroup 4` | cell `(a, b)` holds `a * b`; a group, not commutative; the elements whose row equals their column are `Subgroup.center`, `{1, r 2}` | ![](examples/dihedral-table.svg) | ![](examples/dihedral-table-dark.svg) |
+| Its Cayley graph for `r` and `s` | every arrow joins `g` to `g * r 1` or `g * sr 0`; twelve arrows | ![](examples/dihedral-cayley.svg) | ![](examples/dihedral-cayley-dark.svg) |
+| Its subgroups | the drawn elements are all the subgroups of `DihedralGroup 4`, each once; edges are `⋖`; a dot is in colour iff its subgroup is `Normal` | ![](examples/dihedral-subgroups.svg) | ![](examples/dihedral-subgroups-dark.svg) |
+| A square of reductions in `Type` | the square is a `CommSq` of `ZMod 12 → ZMod 6 → ZMod 2` and `ZMod 12 → ZMod 4 → ZMod 2` | ![](examples/comm-square.svg) | ![](examples/comm-square-dark.svg) |
+| `0 → A ↣ B ↠ C → 0` | for every short complex of a preadditive category with a zero object, the marks hold and it is exact iff it is `ShortExact` | ![](examples/short-exact.svg) | ![](examples/short-exact-dark.svg) |
+
 What these theorems do not cover is what no theorem of PILean covers: how the exact marks are
 drawn (floating point, the frame, text, colours, the rasteriser).

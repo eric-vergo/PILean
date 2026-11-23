@@ -235,8 +235,10 @@ has a decidable predicate `Faithful` that reads the diagram back (`Diagram.edges
 `cells`, `entries`, `strands`, `steps`, `members`, `texts`, `decorations`) and compares it with
 the data as full lists, and mark by mark with the layout, and leaves no mark unaccounted for: a
 mark of a part the data does not call for, a text the data does not write, or a decoration (a
-`guide` or `note`) beyond the kind's own is refused. The colour role of a mark (`Ink`) is not
-compared: colours and style are not part of any theorem; the theorems below say that the builders satisfy it for every
+`guide` or `note`) beyond the kind's own is refused. The colour role of a mark (`Ink`) is compared
+where it carries meaning (a marked vertex's dot, every mark of a commutative diagram, a cell of a
+Cayley table, an edge of a Cayley graph); the colour a role has (its RGB value in a style) is not
+part of any theorem; the theorems below say that the builders satisfy it for every
 input within the kind's cap (`builder_faithful` takes the cap as its hypothesis; beyond it the
 figure is a note, and nothing is drawn).
 
@@ -285,6 +287,41 @@ figure is a note, and nothing is drawn).
   equal angles; the points are exactly on the circle, which is tested), and everything after the
   exact marks (the floating-point conversion, the frame, text, colours, the rasteriser), as for
   every plane figure.
+
+**Diagrams of algebra** (`PILean/Diagram/CommDiagram.lean`, `Group.lean`, `Quiver.lean`; the
+gallery's figures with their specifications in `PILeanTest/AlgebraDiagrams.lean`)
+
+These kinds account for every mark by class: the predicate lists the marks of each class of part
+(objects, arrows, 2-cells; cells, entries, headings, decorations) and requires each list to be
+exactly the builder's, shape, position and colour role included, and no mark of any other part.
+
+* Commutative diagrams: `CommDiagram.draw_faithful`, `CommDiagram.builder_faithful` (the drawn
+  arrow bodies, `Diagram.arrows`, are exactly `(k, src k, tgt k)` for the data's arrows, in order,
+  `arrows_draw`; the texts of the arrows are exactly their labels and the `≅` of isomorphisms; the
+  objects' labels are at their positions; every body, tip, tail mark, hook, bar and 2-cell is the
+  builder's). The body of a straight arrow runs from where the segment between the objects'
+  centres leaves the first label's box to where it enters the second's, a bent arrow is a
+  quadratic Bézier curve sampled at exact rational points, a loop a cubic one; that those are
+  good pictures is tested, not proved. `FinMaps.Commutes` (the maps between finite sets fit the
+  arrows and the two paths of every claim agree at every element) and `FinMaps.StylesHold` (an
+  arrow drawn `↣` or `↪` is injective, `↠` surjective, `≅` bijective, `=` the identity) are
+  decided on the data.
+* Cayley tables and graphs: `FinMagma.table_faithful`, `FinMagma.entries_table` (the entry
+  written in cell `(a, b)` is the name of `a * b`, and every cell has its entry; the cell is
+  tinted in series colour `a * b`), `FinMagma.isGroup` decides associativity, an identity and
+  inverses on the table; `FinMagma.mem_cayleyArrows` (an arrow of the Cayley graph in colour `c`
+  joins `g` to `g * s` for `s = gens[c]`, an involution's pairs as one line without a tip).
+* Hasse diagrams with marked elements: `FinGraph.ink_of_faithful` (a vertex dot is in accent 1
+  exactly when the vertex is marked).
+* Quivers: `FinQuiver.draw_faithful`, `FinQuiver.arrows_toCommDiagram` (the drawn arrows are the
+  quiver's, several between two vertices and loops included; the vertex labels are the
+  dimensions).
+* The gallery's seven figures of algebra each have a specification checked by the kernel (the
+  arrows and labels written out; that the reductions of `ℤ/12` and the cube of reductions of
+  `ℤ/30` commute; that doubling `ℤ/2 → ℤ/4` is injective, the reduction surjective, and the image
+  of each map the kernel of the next; the table of `S₃` a group, not commutative, with trivial
+  centre); `lake test` compiles changed copies that must fail inside them and plants a fault in
+  every class of mark.
 
 ## Plots against the real numbers
 
@@ -354,6 +391,28 @@ edge joins `a` to `b` exactly when `a ∣ b` and `b / a` is prime), the subsets 
 `CovBy`, the Petersen graph as a `SimpleGraph`, a `YoungDiagram`, Mathlib's highest-weight
 tableau, the cycles and the wiring diagram of a permutation (with its sign, `(-1)` to the number of
 crossings), a `DyckWord` and three finsets in a Venn diagram.
+
+## Algebra against Mathlib
+
+`PILeanMathlib/Category.lean` realises a commutative diagram in a category
+(`CommDiagram.Realisation`: an object for each object, a morphism for each arrow between the
+objects of its ends), with `Realisation.Commutes` (the composites of the two paths of every claim
+are equal) and `Realisation.StylesHold` (`↣` and `↪` are `Mono`, `↠` `Epi`, `≅` `IsIso`, `=` an
+identity). `square_commutes_iff`: the drawn square commutes exactly when `CommSq f g h i`;
+`triangle_commutes_iff`: the triangle exactly when `f ≫ g = h`; `shortExact_iff`: the marks of
+`0 → X₁ ↣ X₂ ↠ X₃ → 0` hold of a short complex `S` and `S` is exact exactly when
+`S.ShortExact`. `PILeanMathlib/Group.lean`: `FinMagma.ofMul_mul`, `ofMul_isGroup`,
+`ofMul_isCommutative_iff`, `mem_centre_ofMul`, `ofMul_entries`, `ofMul_cayleyArrows`, and
+`FinPoset.mem_coverPairs_of_equiv` (the edges of a Hasse diagram drawn through an enumeration are
+the covers `⋖`).
+
+Its figures (`PILeanMathlib/Examples/Algebra.lean`): the Cayley table of `DihedralGroup 4`
+(`d4TableFigure_spec`: the entries are the products, a group, not commutative, centre `{1, r 2}`),
+its Cayley graph (`d4CayleyFigure_spec`), its lattice of subgroups (`d4SubgroupsFigure_spec`: the
+ten drawn subgroups are all the subgroups, each once, decided over the 256 subsets of the group;
+the edges are `⋖`; a dot is in colour exactly when its subgroup is `Normal`), a `CommSq` of
+reductions in `Type` (`commSqFigure_spec`) and the drawing of a short exact sequence
+(`shortExactFigure_spec`, for every short complex of a preadditive category with a zero object).
 
 ## What is tested, not proved
 
