@@ -34,7 +34,7 @@ namespace PILeanVerso
 open Lean Elab
 open Verso Doc Elab ArgParse
 open Verso.Genre.Manual
-open Lean.Doc.Syntax
+open Lean.Doc.Parser
 open Verso.Output (Html)
 open PILean PILean.Trust
 
@@ -203,20 +203,21 @@ def figureRecord (decl : Ident) : CoreM (Name × FigureRecord) := do
 
 /-- The runs of an inline of the body for the figures page: text, and TeX (marked `true`) for
 inline and display math. -/
-partial def inlineRuns (env : Environment) (stx : Syntax) : Array (Bool × String) :=
-  match stx with
-  | `(inline| \math code($s)) => #[(true, s.getString)]
-  | `(inline| \displaymath code($s)) => #[(true, s.getString)]
-  | `(inline| code($s)) => #[(false, s.getString)]
-  | `(inline| role{ $_ $_* }[ $body* ]) => body.flatMap (inlineRuns env ·.raw)
-  | `(inline| link[ $args* ] $_:link_target) => args.flatMap (inlineRuns env ·.raw)
-  | other => #[(false, Verso.Doc.Elab.inlineToString env other)]
+partial def inlineRuns (env : Environment) (stx : Lean.Doc.VersoInline) : Array (Bool × String) :=
+  match Lean.Doc.InlineView.of stx with
+  | some (.math v) => #[(true, v.getVersoCode)]
+  | some (.code v) => #[(false, v.getVersoCode)]
+  | some (.role v) =>
+    if v.brackets.isSome then v.content.flatMap (inlineRuns env)
+    else #[(false, Verso.Doc.Elab.inlineToString env stx)]
+  | some (.link v) => v.content.flatMap (inlineRuns env)
+  | _ => #[(false, Verso.Doc.Elab.inlineToString env stx)]
 
 /-- The runs of the paragraphs of the body, white space collapsed in the text runs, adjacent text
 runs joined. -/
-def captionRuns (env : Environment) (blocks : Array (TSyntax `block)) : Array (Bool × String) :=
-  let runs := blocks.flatMap fun b => match b with
-    | `(block|para[$inlines*]) => (inlines.flatMap (inlineRuns env ·.raw)).push (false, " ")
+def captionRuns (env : Environment) (blocks : Array Lean.Doc.VersoBlock) : Array (Bool × String) :=
+  let runs := blocks.flatMap fun b => match Lean.Doc.BlockView.of b with
+    | some (.para v) => (v.content.flatMap (inlineRuns env)).push (false, " ")
     | _ => #[]
   let joined := runs.foldl (init := #[]) fun (acc : Array (Bool × String)) (m, t) =>
     match acc.back? with
@@ -465,7 +466,7 @@ def imgTag (f : FileInfo) (cls alt title : String) (width : Option String) : Htm
   let style := match width with
     | some w => #[("style", s!"width: {w}")]
     | none => #[]
-  .tag "img" (#[("class", cls), ("src", fileUrl f.path), ("alt", alt), ("title", title)] ++
+  .element "img" (#[("class", cls), ("src", fileUrl f.path), ("alt", alt), ("title", title)] ++
     size ++ style ++ #[("decoding", "async")]) .empty
 
 /-- The pictures of a figure: the chosen format in the light theme and, when the figure has one,
@@ -483,15 +484,15 @@ def pictureHtml (p : Placed) : Option Html := do
   let one (f : FileInfo) (cls : String) : Html :=
     let img := match narrowOf f with
       | some nf =>
-        .tag "picture" #[("class", s!"pilean-figure-motion {cls}")] (.seq #[
-          .tag "source" #[("media", "(max-width: 560px)"),
+        .element "picture" #[("class", s!"pilean-figure-motion {cls}")] (.seq #[
+          .element "source" #[("media", "(max-width: 560px)"),
             ("srcset", fileUrlRelative nf.path)] .empty,
           imgTag f "pilean-figure-img" alt d.title d.width])
       | none => imgTag f s!"pilean-figure-img {cls}" alt d.title d.width
     match poster with
     | some pf =>
-      .tag "picture" #[("class", s!"pilean-figure-motion {cls}")] (.seq #[
-        .tag "source" #[("media", "(prefers-reduced-motion: reduce)"),
+      .element "picture" #[("class", s!"pilean-figure-motion {cls}")] (.seq #[
+        .element "source" #[("media", "(prefers-reduced-motion: reduce)"),
           ("srcset", fileUrlRelative pf.path)] .empty,
         imgTag f "pilean-figure-img" alt d.title d.width])
     | none => img
@@ -502,7 +503,7 @@ def pictureHtml (p : Placed) : Option Html := do
   | none => pure pics
   | some b =>
     let back (theme cls : String) : Html :=
-      .tag "img" #[("class", s!"pilean-backdrop-img {cls}"), ("src", backdropUrl b theme),
+      .element "img" #[("class", s!"pilean-backdrop-img {cls}"), ("src", backdropUrl b theme),
         ("alt", d.alt), ("decoding", "async")] .empty
     let backs := if backdropThemed b then
         Html.seq #[back "light" "pilean-figure-light", back "dark" "pilean-figure-dark"]
@@ -510,21 +511,21 @@ def pictureHtml (p : Placed) : Option Html := do
     let style := match d.width with
       | some w => #[("style", s!"width: {w}")]
       | none => #[]
-    pure (.tag "div" (#[("class", "pilean-figure-stack")] ++ style) (.seq #[backs,
-      .tag "div" #[("class", "pilean-figure-over"), ("aria-hidden", "true")] pics]))
+    pure (.element "div" (#[("class", "pilean-figure-stack")] ++ style) (.seq #[backs,
+      .element "div" #[("class", "pilean-figure-over"), ("aria-hidden", "true")] pics]))
 
 open Verso.Output.Html in
 /-- A file and line, linked to the repository when the site has one. -/
 def placeHtml (file : String) (line : Nat) (href? : Option String) : Html :=
   let text := if line > 0 then s!"{file}:{line}" else file
   match href? with
-  | some href => {{<a class="pilean-repo-link" href={{href}}>{{.text true text}}</a>}}
-  | none => {{<span class="pilean-place">{{.text true text}}</span>}}
+  | some href => html%{<a class="pilean-repo-link" href={href}>{.text text}</a>}
+  | none => html%{<span class="pilean-place">{.text text}</span>}
 
 open Verso.Output.Html in
 /-- A fingerprint: the full digits, shown shortened, the whole on hover and when copied. -/
 def fingerprintHtml (fp : String) : Html :=
-  {{<code class="pilean-fingerprint" title={{fp}}>{{.text true fp}}</code>}}
+  html%{<code class="pilean-fingerprint" title={fp}>{.text fp}</code>}
 
 /-- The fingerprint of the file a figure shows. -/
 def shownFingerprint (p : Placed) : String :=
@@ -603,9 +604,9 @@ def declLinkHtml (s : DeclStyle) (l : Links) (n : String) (here : Option String 
   | none => pure (s.decl n)
   | some h =>
     if l.mode == .ideil then
-      pure (.seq #[{{<a class="pilean-lean-link" href={{h}}>{{s.decl n}}</a>}},
-        {{<span class="pilean-lean-text">{{s.decl n}}</span>}}])
-    else pure {{<a class="pilean-site-link" href={{h}}>{{s.decl n}}</a>}}
+      pure (.seq #[html%{<a class="pilean-lean-link" href={h}>{s.decl n}</a>},
+        html%{<span class="pilean-lean-text">{s.decl n}</span>}])
+    else pure html%{<a class="pilean-site-link" href={h}>{s.decl n}</a>}
 
 open Verso.Output.Html in
 /-- The source line under a figure's caption; the figure's own declaration gets no link to the
@@ -614,18 +615,18 @@ def sourceLineWith (s : DeclStyle) (l : Links) (p : Placed) (fp : String)
     (here : Option String := none) : IO Html := do
   let d := p.data
   let thm : Html ← match d.proves with
-    | some t => pure {{<span class="pilean-source-item">
-        <span class="pilean-source-key">"Theorem"</span> {{← declLinkHtml s l t.name}}
-        {{s.place t p.theoremHref}}</span>}}
+    | some t => pure html%{<span class="pilean-source-item">
+        <span class="pilean-source-key">{"Theorem"}</span>{← declLinkHtml s l t.name}
+        {s.place t p.theoremHref}</span>}
     | none => pure .empty
   let src : DeclRef := { name := d.decl, module := d.module, file := d.file, line := d.line }
-  pure {{<span class="pilean-figure-source">
-      <span class="pilean-source-item"><span class="pilean-source-key">"Source"</span>
-        {{← declLinkHtml s l d.decl here}} {{s.place src p.sourceHref}}</span>
-      <span class="pilean-source-item"><span class="pilean-source-key">"Fingerprint"</span>
-        {{fingerprintHtml fp}}</span>
-      {{thm}}
-    </span>}}
+  pure html%{<span class="pilean-figure-source">
+      <span class="pilean-source-item"><span class="pilean-source-key">{"Source"}</span>
+        {← declLinkHtml s l d.decl here}{s.place src p.sourceHref}</span>
+      <span class="pilean-source-item"><span class="pilean-source-key">{"Fingerprint"}</span>
+        {fingerprintHtml fp}</span>
+      {thm}
+    </span>}
 
 open Verso.Genre.Manual in
 /-- The script of explorers (`explorerJs`) as a file of the site, `pilean-explorer.js`, loaded
@@ -673,7 +674,7 @@ def inlinePicture? (l : Links) (site : Option SiteRender) (p : Placed)
     let some f := file "" | return none
     let some fs := f.frames | return none
     let href ← pictureLinks l fs.frames
-    return some (.text false (explorerHtml s!"{base}-x" fs href d.alt s!"Figure {p.number}"
+    return some (.raw (explorerHtml s!"{base}-x" fs href d.alt s!"Figure {p.number}"
       (fun k => path s!"-frame-{k}")))
   let some f := file "" | return none
   let some i := f.inline | return none
@@ -683,10 +684,10 @@ def inlinePicture? (l : Links) (site : Option SiteRender) (p : Placed)
   match narrow with
   | some n =>
     let narrow := inlineSvgText s!"{base}-svg-narrow" n href d.alt (file := path "-narrow")
-    return some (.tag "div" #[("class", "pilean-has-narrow")] (.seq #[
-      .tag "div" #[("class", "pilean-inline-frame pilean-inline-wide")] (.text false wide),
-      .tag "div" #[("class", "pilean-inline-frame pilean-inline-narrow")] (.text false narrow)]))
-  | none => return some (.tag "div" #[("class", "pilean-inline-frame")] (.text false wide))
+    return some (.element "div" #[("class", "pilean-has-narrow")] (.seq #[
+      .element "div" #[("class", "pilean-inline-frame pilean-inline-wide")] (.raw wide),
+      .element "div" #[("class", "pilean-inline-frame pilean-inline-narrow")] (.raw narrow)]))
+  | none => return some (.element "div" #[("class", "pilean-inline-frame")] (.raw wide))
 
 open Verso.Output.Html in
 /-- The HTML of a figure block; `site` is the site's render, which inline pictures and explorers
@@ -702,19 +703,20 @@ def figureHtmlWith (s : DeclStyle) (st : TraverseState) (p : Placed)
   let picture := match ← inlinePicture? l site p idAttr with
     | some h => h
     | none => (pictureHtml p).getD
-      {{<p class="pilean-figure-missing">{{.text true s!"No {d.format} file for {d.decl}."}}</p>}}
+      html%{<p class="pilean-figure-missing">{.text s!"No {d.format} file for {d.decl}."}</p>}
   let captionBody : Html := match d.docCaption with
-    | some c => {{<span class="pilean-figure-text">{{.text true c}}</span>}}
-    | none => {{<span class="pilean-figure-text">{{caption}}</span>}}
+    | some c => html%{<span class="pilean-figure-text">{.text c}</span>}
+    | none => html%{<span class="pilean-figure-text">{caption}</span>}
   let capId := s!"{figureDomId p idAttr}-caption"
   let cls := if d.explorer then cls ++ " pilean-figure-explorer" else cls
   let role := if d.explorer then #[("role", "group"), ("aria-labelledby", capId)] else #[]
   let source ← sourceLineWith s l p (shownFingerprint p) (here := placedLink? st p)
-  pure <| .tag "figure" (idAttr ++ #[("class", cls), ("data-lean-decl", d.decl)] ++ role) (.seq #[
-    {{<div class="pilean-figure-frame">{{picture}}</div>}},
-    .tag "figcaption" #[("class", "pilean-figure-caption"), ("id", capId)] (.seq #[
-      {{<span class="pilean-figure-number">{{.text true s!"Figure {p.number}"}}</span>}},
-      captionBody, source])])
+  pure <| .element "figure" (idAttr ++ #[("class", cls), ("data-lean-decl", d.decl)] ++ role)
+    (.seq #[
+      html%{<div class="pilean-figure-frame">{picture}</div>},
+      .element "figcaption" #[("class", "pilean-figure-caption"), ("id", capId)] (.seq #[
+        html%{<span class="pilean-figure-number">{.text s!"Figure {p.number}"}</span>},
+        captionBody, source])])
 
 /-! ### The figures page and references -/
 
@@ -742,36 +744,36 @@ def indexEntryWith (s : DeclStyle) (l : Links) (math : String) (st : TraverseSta
     | some f =>
       let img := imgTag f "pilean-index-img" (if d.backdrop.isSome then "" else d.alt) d.title none
       let inner := match d.backdrop with
-        | some b => Html.tag "span" #[("class", "pilean-index-stack")] (.seq #[
-            .tag "img" #[("class", "pilean-index-img"), ("src", backdropUrl b "light"),
+        | some b => Html.element "span" #[("class", "pilean-index-stack")] (.seq #[
+            .element "img" #[("class", "pilean-index-img"), ("src", backdropUrl b "light"),
               ("alt", d.alt), ("decoding", "async")] .empty,
-            .tag "span" #[("class", "pilean-index-over")] img])
+            .element "span" #[("class", "pilean-index-over")] img])
         | none => img
-      {{<a class="pilean-index-thumb" href={{href}}>{{inner}}</a>}}
+      html%{<a class="pilean-index-thumb" href={href}>{inner}</a>}
     | none => .empty
   let files := p.files.map fun f =>
-    {{<a href={{fileUrl f.path}} title={{s!"{f.bytes} bytes, SHA-256 {f.sha256}"}}>
-      {{.text true (fileLabel f)}}</a>}}
+    html%{<a href={fileUrl f.path} title={s!"{f.bytes} bytes, SHA-256 {f.sha256}"}>
+      {.text (fileLabel f)}</a>}
   let thm : Html ← match d.proves with
     | some t =>
-      pure {{<dt>"Theorem"</dt><dd>{{← declLinkHtml s l t.name}} {{s.place t p.theoremHref}}</dd>}}
-    | none => pure {{<dt>"Theorem"</dt><dd>"none named"</dd>}}
+      pure html%{<dt>{"Theorem"}</dt><dd>{← declLinkHtml s l t.name}{s.place t p.theoremHref}</dd>}
+    | none => pure html%{<dt>{"Theorem"}</dt><dd>{"none named"}</dd>}
   let caption : Html := .seq <| d.caption.map fun (m, t) =>
-    if m then {{<code class={{math}}>{{.text true t}}</code>}} else .text true t
+    if m then html%{<code class={math}>{.text t}</code>} else .text t
   let src : DeclRef := { name := d.decl, module := d.module, file := d.file, line := d.line }
-  pure {{<li>
-      {{thumb}}
+  pure html%{<li>
+      {thumb}
       <div class="pilean-index-body">
-        <p class="pilean-index-title"><a href={{href}}>{{.text true s!"Figure {p.number}"}}</a>
-          {{caption}}</p>
+        <p class="pilean-index-title"><a href={href}>{.text s!"Figure {p.number}"}</a>
+          {caption}</p>
         <dl class="pilean-index-facts">
-          <dt>"Source"</dt><dd>{{← declLinkHtml s l d.decl}} {{s.place src p.sourceHref}}</dd>
-          <dt>"Fingerprint"</dt><dd>{{fingerprintHtml (shownFingerprint p)}}</dd>
-          <dt>"Files"</dt><dd class="pilean-index-files">{{files}}</dd>
-          {{thm}}
+          <dt>{"Source"}</dt><dd>{← declLinkHtml s l d.decl}{s.place src p.sourceHref}</dd>
+          <dt>{"Fingerprint"}</dt><dd>{fingerprintHtml (shownFingerprint p)}</dd>
+          <dt>{"Files"}</dt><dd class="pilean-index-files">{files}</dd>
+          {thm}
         </dl>
       </div>
-    </li>}}
+    </li>}
 
 open Verso.Output.Html in
 /-- The body of the figures page; `site` sets the link mode. -/
@@ -780,17 +782,18 @@ def figureListHtmlWith (s : DeclStyle) (math : String) (st : TraverseState)
   let reg := Registry.get st
   let placed := reg.placed.qsort (·.order < ·.order)
   let l := Links.of s st site
-  let intro := {{<p class="pilean-figure-index-intro">
-      "Every picture on this site was drawn by the site's build from the Lean declaration named
-      beside it. The fingerprint covers what the picture shows and the declaration's source; "
-      <a href={{fileUrl manifestName}}>"the manifest"</a>
-      " lists every file with its SHA-256, and " <code>"pilean-verify"</code>
-      " checks a copy of the folder against it."</p>}}
+  let intro := html%{<p class="pilean-figure-index-intro">
+      {"Every picture on this site was drawn by the site's build from the Lean declaration named
+      beside it. The fingerprint covers what the picture shows and the declaration's source; "}
+      <a href={fileUrl manifestName}>{"the manifest"}</a>
+      {" lists every file with its SHA-256, and "}<code>{"pilean-verify"}</code>
+      {" checks a copy of the folder against it."}</p>}
   if placed.isEmpty then
-    return {{<div class="pilean-figure-list">{{intro}}<p>"This document has no figures."</p></div>}}
+    return html%{<div class="pilean-figure-list">{intro}
+      <p>{"This document has no figures."}</p></div>}
   let entries ← placed.mapM (indexEntryWith s l math st)
-  return {{<div class="pilean-figure-list">{{intro}}
-    <ol class="pilean-figure-index">{{entries}}</ol></div>}}
+  return html%{<div class="pilean-figure-list">{intro}
+    <ol class="pilean-figure-index">{entries}</ol></div>}
 
 open Verso.Output.Html in
 /-- The link of `{figref "label"}[contents]`: "Figure 2" (or `contents`), linked to the figure
@@ -800,9 +803,9 @@ def figrefHtml (st : TraverseState) (label : String) (contents : Array Html) :
   let reg := Registry.get st
   let some p := reg.placed.find? (·.data.label == some label)
     | throw s!"No figure has the label {label}"
-  let text := if contents.isEmpty then .text true s!"Figure {p.number}" else .seq contents
+  let text := if contents.isEmpty then .text s!"Figure {p.number}" else .seq contents
   match st.resolveDomainObject figureDomain label with
-  | .ok link => pure {{<a class="pilean-figref" href={{link.link}}>{{text}}</a>}}
+  | .ok link => pure html%{<a class="pilean-figref" href={link.link}>{text}</a>}
   | .error e => throw e
 
 /-! ### The generator wrapper -/

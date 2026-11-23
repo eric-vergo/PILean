@@ -37,7 +37,7 @@ open Lean Elab
 open Verso Doc Elab ArgParse
 open Verso.Genre.Manual
 open Verso.Genre.Manual.InlineLean
-open Lean.Doc.Syntax
+open Lean.Doc.Parser
 
 /-- The argument of `leanResult`: the name of an elaborated example. -/
 structure LeanResultArgs where
@@ -52,7 +52,7 @@ own text must be empty. -/
 @[code_block]
 def leanResult : CodeBlockExpanderOf LeanResultArgs
   | ⟨x⟩, str => do
-    unless str.getString.trimAscii.isEmpty do
+    unless str.getVersoCodeBlock.trimAscii.isEmpty do
       throwErrorAt str "leanResult shows what the build produced: leave the block empty"
     let msgs ← getOutputs x
     if msgs.isEmpty then
@@ -64,10 +64,10 @@ def leanResult : CodeBlockExpanderOf LeanResultArgs
     ``(Verso.Doc.Block.concat #[$blocks,*])
 
 /-- The text of a role's argument, which must be one code span. -/
-def codeArg (args : TSyntaxArray `inline) : DocElabM (Syntax × String) := do
+def codeArg (args : Array Lean.Doc.VersoInline) : DocElabM (Syntax × String) := do
   let #[arg] := args | throwError "expected one code span"
-  let `(inline|code( $s:str )) := arg | throwErrorAt arg "expected a code span"
-  return (arg, s.getString)
+  let some (.code v) := Lean.Doc.InlineView.of arg | throwErrorAt arg "expected a code span"
+  return (arg, v.getVersoCode)
 
 /-- A core module's name, linked to its page in the API reference (see the module docstring). -/
 @[role]
@@ -120,7 +120,7 @@ the block's own text must be empty. -/
 @[code_block]
 def fileText : CodeBlockExpanderOf FileTextArgs
   | ⟨path⟩, str => do
-    unless str.getString.trimAscii.isEmpty do
+    unless str.getVersoCodeBlock.trimAscii.isEmpty do
       throwErrorAt str "fileText shows a file of the repository: leave the block empty"
     let text := fromFirstImport (← IO.FS.readFile (← repoFile str path))
     if text.trimAscii.isEmpty then throwErrorAt str "{path} has no import line"

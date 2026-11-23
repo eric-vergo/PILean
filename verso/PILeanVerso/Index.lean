@@ -21,7 +21,7 @@ namespace PILeanVerso
 open Lean Elab
 open Verso Doc Elab ArgParse
 open Verso.Genre.Manual
-open Lean.Doc.Syntax
+open Lean.Doc.Parser
 open Verso.Output (Html)
 open Verso.Doc.Html (HtmlT)
 open Verso.Output.Html
@@ -41,17 +41,19 @@ block_extension Block.figureList where
 open Verso Doc Elab Syntax in
 /-- The part `{figure_list}` adds: an unnumbered page "Figures". -/
 def mkFigureListPart (stx : Syntax) (endPos : String.Pos.Raw) : PartElabM FinishedPart := do
-  let titleInlines ← `(inline | "Figures")
-  let expandedTitle ← #[titleInlines].mapM (elabInline ·)
+  let expandedTitle := #[← ``(Verso.Doc.Inline.text "Figures")]
   let metadata : Option (TSyntax `term) := some (← `(term| { number := false }))
   let block ← ``(Verso.Doc.Block.other Block.figureList #[])
   pure <| FinishedPart.mk stx stx expandedTitle "Figures" metadata #[block] #[] endPos
 
 open Verso Doc Elab Syntax PartElabM in
 /-- `{figure_list}`: a page listing every figure of the document. -/
-@[part_command Lean.Doc.Syntax.command]
+@[part_command Lean.Doc.Parser.Block.command]
 def figureListCmd : PartCommand
-  | stx@`(block|command{figure_list}) => do
+  | .command v => do
+    unless v.name.getId == `figure_list do Lean.Elab.throwUnsupportedSyntax
+    unless v.args.isEmpty do Lean.Elab.throwUnsupportedSyntax
+    let stx : Syntax := v.stx
     let endPos := stx.getTailPos?.get!
     closePartsUntil 1 endPos
     addPart (← mkFigureListPart stx endPos)

@@ -90,7 +90,7 @@ open Verso.Output.Html in
 linked to the repository when the site has one, and the place of a declaration in the
 Blueprint (`blueprintTarget`). -/
 def blueprintDeclStyle : DeclStyle where
-  decl n := {{<code>{{.text true n}}</code>}}
+  decl n := html%{<code>{.text n}</code>}
   place r href := placeHtml r.file r.line href
   target := blueprintTarget
 

@@ -21,9 +21,9 @@ by PILean when the manual is generated, through the `figure` directive of `pilea
 open Lake DSL
 
 require subverso from git "https://github.com/eric-vergo/subverso" @
-  "7202fb62e46825ab9a176a786f1e15b1ab40a6ae"
+  "4e04c61d96960d5a1461c6c870572ccb8b45a495"
 require verso from git "https://github.com/eric-vergo/verso" @
-  "9aa40617081ed144742d6fa31d5a24b77fde4679"
+  "94cea086b880f61f5b3847d30151b8e5f80e1259"
 require pilean from ".."
 require «pilean-verso-manual» from "../verso/manual"
 

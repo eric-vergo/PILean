@@ -14,16 +14,16 @@ holds what the Verso Blueprint adapter (`pilean-verso`, the parent folder) build
 rendering, the light and dark outputs, the table of figures, the stylesheet and the shared parts
 of the figure blocks.
 
-It needs Verso only (no Verso Blueprint), at the commits the Blueprint adapter uses (Verso's
-v4.35.0-patch1 release).
+It needs Verso only (no Verso Blueprint), at the commits the Blueprint adapter uses (the Lean
+4.36.0 line of Verso and SubVerso).
 -/
 
 open Lake DSL
 
 require subverso from git "https://github.com/eric-vergo/subverso" @
-  "f53c070f0357f5dcf3b03b8924deb714294dac69"
-require verso from git "https://github.com/leanprover/verso" @
-  "d56e6c92d8606a5ae2baf18f0090ca6e82ca38e4"
+  "4e04c61d96960d5a1461c6c870572ccb8b45a495"
+require verso from git "https://github.com/eric-vergo/verso" @
+  "94cea086b880f61f5b3847d30151b8e5f80e1259"
 require pilean from "../.."
 
 package «pilean-verso-manual» where

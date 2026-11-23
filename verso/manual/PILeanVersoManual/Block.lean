@@ -78,7 +78,7 @@ open Verso.Output.Html in
 /-- The default way to show a declaration: its name as code, its file and line linked to the
 repository when the build has one. -/
 def defaultDeclStyle : DeclStyle where
-  decl n := {{<code class="pilean-decl">{{.text true n}}</code>}}
+  decl n := html%{<code class="pilean-decl">{.text n}</code>}
   place r href := placeHtml r.file r.line href
   target := docstringTarget
 
