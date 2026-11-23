@@ -314,8 +314,8 @@ horizontal and vertical segments in bundles of parallel lanes, as cables are lai
   other at a column.
 * *Room.* The layout reserves the room the routes need: the dummy nodes of a bundled layout stand
   `laneGap` apart (in place of `edgeGap`), so the lanes of long edges beside each other are evenly
-  spaced; a channel is `stemLength + radius` above its first track, `laneGap` per track, and
-  `stemLength + radius` and an arrowhead below its last; nothing is squeezed. Before the routes, a
+  spaced; a channel is `stemLength + radius` (at least `laneGap`) above its first track,
+  `laneGap` per track, and as much and an arrowhead below its last; nothing is squeezed. Before the routes, a
   pass moves a run of a chain's dummy nodes onto the line of its neighbour in the chain when that
   closes a jog narrower than a lane without opening another and every layer of the run has room
   (`straightenLanes`, at most three passes linear in the dummy nodes).
@@ -330,13 +330,16 @@ horizontal and vertical segments in bundles of parallel lanes, as cables are lai
 Work: the legs of the routes are the sum of the spans of the edges; a channel of `k` runs costs
 `O(k²)` (the nesting order and the tracks compare runs pairwise; at most `k` doglegs, each `O(k)`
 to find its column), up to `BundleStyle.maxRuns` (4000) runs; a channel with more gives each run
-a track of its own in `O(k log k)`, without the constraints between them. `lake test` lays out
+a track of its own in `O(k log k)`, without the constraints between them: the promises tested
+below (no shared segment, lanes apart) do not hold for such a channel. `lake test` lays out
 5000 bundled routes leaving one node, 20000 parallel edges and 10000 nodes with ten self-loops each
 under CPU and memory bounds.
 
 *Proved* (`Graph/Channel`, `Graph/Bundle`): two runs in conflict never share a track
-(`tracksInOrder_ne`, for the conflict of `placeRuns`, which is symmetric:
-`RunPart.conflicts_comm`); every route is a walk of horizontal and vertical moves that starts at
+(`tracksInOrder_ne`, for any symmetric conflict, and the conflict of `placeRuns` is symmetric:
+`RunPart.conflicts_comm`; that this conflict covers every pair that must not share a track is
+tested); every route, before its corners are rounded and its ends cut for stems and arrowheads,
+is a walk of horizontal and vertical moves that starts at
 its source's exit port and ends at its target's entry port (`routeWalk_head`, `routeWalk_last`,
 `routeWalk_axis`). *Tested* (`PILeanTest/GraphBundles.lean`, on every measured graph and graph
 file but the two largest, on hostile graphs: multi-edges, self-loops, cycles, a node with 200
@@ -348,7 +351,9 @@ share a piece of a segment except the trunk of a port both use, no route passes 
 of a node it does not end at, parallel segments of two edges are at least `laneGap` apart, one
 arrowhead per entry port and none on an edge; crossings at most a fiftieth above the spline
 routes'; no more edges through a foreign cluster than the spline routes; in random channels two
-runs cross at most once, and not when their ends agree. Two edges can still cross more than once
+runs cross at most once, and not when their ends agree. The style space is tested at its
+defaults on the corpus and, by an independent check, from lanes 3 to 12 apart, radii 0 to 20,
+stems 0 to 30 and track gaps 4 to 24 on hostile and 500 random graphs. Two edges can still cross more than once
 in all when the layers' order swaps them in one channel and back in another (the measures count
 such pairs: up to 7 of 146 edges on blueprint A by chapter).
 

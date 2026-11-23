@@ -295,12 +295,20 @@ def hostile : Array (String × Graph) :=
     ("complete bipartite 8", ofEdges 16 ((List.range 64).map fun i => (i / 8, 8 + i % 8))),
     ("complete bipartite 3 layers", ofEdges 18 ((List.range 36).map (fun i => (i / 6, 6 + i % 6)) ++
       (List.range 36).map fun i => (6 + i / 6, 12 + i % 6))),
+    ("complete bipartite 12", ofEdges 24 ((List.range 144).map fun i => (i / 12, 12 + i % 12))),
+    ("diamond with a shortcut", ofEdges 5 [(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (0, 4)]),
     ("long and short", ofEdges 12 ((List.range 11).map (fun i => (i, i + 1)) ++
       [(0, 11), (0, 10), (1, 11), (0, 6), (2, 9), (3, 11), (0, 11)])),
     ("nested clusters", { GraphQuality.awkwardClusters with
       clusters := GraphQuality.awkwardClusters.clusters.push
         { name := "Deep", members := #[1], parent := some 2 } }),
     ("undirected", { ofEdges 6 [(0, 1), (1, 2), (2, 0), (3, 4), (0, 0)] with directed := false })]
+
+/-- Styles at the ends of their ranges: no radius and no stems (the channel still keeps a lane
+from the boxes), and wide lanes with large radii and long stems. -/
+def extremeStyles : Array BundleStyle :=
+  #[{ radius := 0, stemLength := 0 }, { laneGap := 3, trackGap := 4 },
+    { laneGap := 12, radius := 20, stemLength := 30, trackGap := 24 }]
 
 /-- Every problem of the bundled layouts of `g`: from the top down, from left to right, both
 mirrored, and packed. -/
@@ -322,6 +330,11 @@ def checks : Array (String × Bool) := Id.run do
     out := out.push (s!"bundled {name}: ports, axes, no shared segment, no node passed, \
       lanes apart, one arrowhead per entry port{if ps.isEmpty then "" else s!" ({ps[0]!})"}",
       ps.isEmpty)
+    for st in extremeStyles do
+      let qs := allProblems g st
+      let first := if qs.isEmpty then "" else s!" ({qs[0]!})"
+      out := out.push (s!"bundled {name}, lanes {st.laneGap}, radius {st.radius}, stems \
+        {st.stemLength}, track gap {st.trackGap}: no problem{first}", qs.isEmpty)
     let l := g.layout (bundled {})
     out := out.push (s!"bundled {name}: the same drawing twice and finite numbers",
       l.toSvg {} == (g.layout (bundled {})).toSvg {} && Graphs.finite l)

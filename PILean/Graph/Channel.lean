@@ -33,10 +33,13 @@ nets, and the method is that of its classics:
 * **Tracks** (`tracksInOrder`, the left-edge rule): the runs are placed in an order that every
   constraint keeps (Kahn's algorithm: the next run is one whose runs that must lie above it are
   placed; among those, the earliest of its turning direction's nesting order, the two directions
-  in step), and each gets the track below the lowest of the runs placed before it that it overlaps
-  (within `trackGap`), so the number of tracks is the longest chain of overlapping runs in that
-  order. Two overlapping runs never share a track (`tracksInOrder_ne`, proved), and every
-  constraint is kept, because two constrained runs overlap and the first is placed first.
+  in step), and each gets the track below the lowest of the runs placed before it that it is in
+  conflict with (`RunPart.conflicts`: the runs overlap or come within `trackGap` and do not fork
+  from one stem, or one must lie above the other at a column), so the number of tracks is the
+  longest chain of conflicting runs in that order. That two items in conflict never share a track
+  is proved for any symmetric conflict (`tracksInOrder_ne`), and `RunPart.conflicts` is symmetric
+  (`RunPart.conflicts_comm`); that this conflict covers every pair of runs that must not share a
+  track, and that the order keeps every constraint, is tested, not proved.
 
 Work, for `k` runs in the channel: `O(k²)` comparisons (the nesting order and the tracks compare
 the runs pairwise; the constraints are linear through the hubs), and at most `k` doglegs, each

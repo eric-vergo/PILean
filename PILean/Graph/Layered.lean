@@ -587,8 +587,9 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
     | none => 0
   let arrowLen := o.arrowLength.getD Graph.arrowLength
   -- the room above the first track and below the last: a stem and a corner (and an arrowhead)
-  let marginAbove := bst.stemLength + bst.radius
-  let marginBelow := bst.stemLength + bst.radius + arrowLen
+  -- (at least a lane from the boxes, whatever the style)
+  let marginAbove := max bst.laneGap (bst.stemLength + bst.radius)
+  let marginBelow := max bst.laneGap (bst.stemLength + bst.radius) + arrowLen
   let channelHeight := fun (c : Nat) =>
     let d := depthOf c
     if d == 0 then 0 else marginAbove + (d - 1).toFloat * bst.laneGap + marginBelow
