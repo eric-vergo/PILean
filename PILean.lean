@@ -23,6 +23,11 @@ import PILean.Plot.Sample
 import PILean.Plot.Figure
 import PILean.Plot.Proofs
 import PILean.Plot.Exact
+import PILean.Plane.Basic
+import PILean.Plane.Frame
+import PILean.Plane.Draw
+import PILean.Plane
+import PILean.Exact.Plane
 import PILean.Graph.Model
 import PILean.Graph.Layout
 import PILean.Graph.Layering
@@ -63,5 +68,6 @@ import PILean.Version
 # PILean
 
 A pure-Lean image library: colours, geometry, paths, images, a rasteriser with paints and
-compositing, PNG and SVG output, and plots. See `README.md` and `docs/DESIGN.md`.
+compositing, PNG and SVG output, plots, plane figures and graphs. See `README.md` and
+`docs/DESIGN.md`.
 -/

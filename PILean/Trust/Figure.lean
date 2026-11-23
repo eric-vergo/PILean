@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Plot.Figure
+import PILean.Plane
 import PILean.Graph.Draw
 import PILean.Anim.Animation
 
@@ -22,7 +23,7 @@ It covers the values a function takes where the figure samples it, not the funct
 ## Main definitions
 
 * `Format`, `Output`, `ToOutputs`
-* instances for `Plot.Figure`, `Graph`, `GraphFigure` and `Animation`
+* instances for `Plot.Figure`, `Plane.Figure`, `Graph`, `GraphFigure` and `Animation`
 -/
 
 namespace PILean.Trust
@@ -82,6 +83,17 @@ class ToOutputs (α : Type) where
 
 /-- Figures: the SVG, and the PNG when the figure has pixels. -/
 instance : ToOutputs Plot.Figure where
+  outputs fig :=
+    #[{ name := "", format := .svg, bytes := fun _ => .ok fig.toSvg.toUTF8,
+        spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id },
+      { name := "", format := .png,
+        bytes := fun _ => match fig.toPng with
+          | some b => .ok b
+          | none => .error "the figure has no pixels",
+        spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
+
+/-- Plane figures: the SVG, and the PNG when the figure has pixels. -/
+instance : ToOutputs Plane.Figure where
   outputs fig :=
     #[{ name := "", format := .svg, bytes := fun _ => .ok fig.toSvg.toUTF8,
         spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id },
