@@ -5,8 +5,14 @@
     <path d="M0 0 L520 0 L520 365 L0 365 Z" fill="#ffffff"/>
     <path d="M0 336.67 L520 59.33" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 4"/>
     <path d="M260 182.5 L520 286.5" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M384 182.5 C384 250.98 328.48 306.5 260 306.5 C191.52 306.5 136 250.98 136 182.5 C136 114.02 191.52 58.5 260 58.5 C328.48 58.5 384 114.02 384 182.5 Z" fill="none" stroke="#74747e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 4"/>
-    <path d="M260 182.5 L376.52 140.09 C363.99 105.65 336.85 78.51 302.41 65.98 Z" fill="#007852" fill-opacity="0.122" stroke="#007852" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <title>the circle</title>
+      <path d="M384 182.5 C384 250.98 328.48 306.5 260 306.5 C191.52 306.5 136 250.98 136 182.5 C136 114.02 191.52 58.5 260 58.5 C328.48 58.5 384 114.02 384 182.5 Z" fill="none" stroke="#74747e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 4"/>
+    </g>
+    <g>
+      <title>the sector</title>
+      <path d="M260 182.5 L376.52 140.09 C363.99 105.65 336.85 78.51 302.41 65.98 Z" fill="#007852" fill-opacity="0.122" stroke="#007852" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
     <path d="M234.43 37.49 C176.34 47.73 129.97 91.65 116.59 149.09" fill="none" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M114.99 156.93 L112.65 146.22 L121.46 148.08 Z" fill="#b44400"/>
     <path d="M112.75 221.25 L68.53 253.38 L85.42 305.37 L140.08 305.37 L156.97 253.38 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -23,7 +29,7 @@
     <path d="M264.75 182.5 C264.75 185.12 262.62 187.25 260 187.25 C257.38 187.25 255.25 185.12 255.25 182.5 C255.25 179.88 257.38 177.75 260 177.75 C262.62 177.75 264.75 179.88 264.75 182.5 Z" fill="#ffffff"/>
     <path d="M263.5 182.5 C263.5 184.43 261.93 186 260 186 C258.07 186 256.5 184.43 256.5 182.5 C256.5 180.57 258.07 179 260 179 C261.93 179 263.5 180.57 263.5 182.5 Z" fill="#18181b"/>
     <g>
-      <title>on the circle</title>
+      <title>on the circle, on the sector</title>
       <path d="M352.43 94.82 C352.43 97.44 350.3 99.57 347.68 99.57 C345.06 99.57 342.93 97.44 342.93 94.82 C342.93 92.2 345.06 90.07 347.68 90.07 C350.3 90.07 352.43 92.2 352.43 94.82 Z" fill="#ffffff"/>
       <path d="M351.18 94.82 C351.18 96.75 349.61 98.32 347.68 98.32 C345.75 98.32 344.18 96.75 344.18 94.82 C344.18 92.89 345.75 91.32 347.68 91.32 C349.61 91.32 351.18 92.89 351.18 94.82 Z" fill="#007852"/>
     </g>

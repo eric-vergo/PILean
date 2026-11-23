@@ -8,15 +8,30 @@
       <desc>the closed disk of radius 39/40 about 1/2</desc>
       <path d="M407 189.06 C407 277.69 335.15 349.54 246.52 349.54 C157.89 349.54 86.04 277.69 86.04 189.06 C86.04 100.43 157.89 28.58 246.52 28.58 C335.15 28.58 407 100.43 407 189.06 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
-    <path d="M164.23 189.06 L328.82 189.06" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <title>the step to 1</title>
+      <path d="M164.23 189.06 L328.82 189.06" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
     <path d="M337.593 185.612 L340.443 183.197 L340.443 192.527" fill="none" stroke="#0068a6" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M164.23 189.06 L215.09 32.53" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <title>the step to ζ</title>
+      <path d="M164.23 189.06 L215.09 32.53" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
     <path d="M217.256 12.923 L221.156 12.923 L218.006 18.173 C217.365 19.15 217.226 20.521 217.645 21.683 C218.063 22.845 218.965 23.588 219.956 23.588 C220.597 23.588 221.18 23.858 221.451 24.281 C221.722 24.704 221.632 25.202 221.22 25.56" fill="none" stroke="#0068a6" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M164.23 189.06 L31.07 92.32" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <title>the step to ζ²</title>
+      <path d="M164.23 189.06 L31.07 92.32" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
     <path d="M13.485 76.768 L17.385 76.768 L14.235 82.018 C13.595 82.994 13.455 84.365 13.874 85.528 C14.293 86.69 15.194 87.433 16.185 87.433 C16.826 87.433 17.409 87.703 17.68 88.126 C17.951 88.549 17.861 89.047 17.449 89.404 M20.442 78.462 C20.677 77.813 21.264 77.36 21.949 77.3 C22.633 77.239 23.289 77.583 23.633 78.181 C23.976 78.779 23.944 79.522 23.55 80.088 L20.336 83.17 L23.963 83.17" fill="none" stroke="#74747e" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M164.23 189.06 L31.07 285.81" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <title>the step to ζ³</title>
+      <path d="M164.23 189.06 L31.07 285.81" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
     <path d="M13.485 288.426 L17.385 288.426 L14.235 293.676 C13.595 294.653 13.455 296.024 13.874 297.186 C14.293 298.348 15.194 299.091 16.185 299.091 C16.826 299.091 17.409 299.362 17.68 299.784 C17.951 300.207 17.861 300.705 17.449 301.063 M20.661 289.7 C21.045 289.07 21.85 288.793 22.571 289.041 C23.292 289.29 23.721 289.993 23.588 290.708 C23.454 291.424 22.798 291.946 22.031 291.946 L22.031 291.927 C22.888 291.927 23.622 292.449 23.771 293.164 C23.92 293.88 23.441 294.583 22.635 294.831 C21.829 295.08 20.929 294.802 20.5 294.173" fill="none" stroke="#74747e" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M164.23 189.06 L215.09 345.6" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <title>the step to ζ⁴</title>
+      <path d="M164.23 189.06 L215.09 345.6" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
     <path d="M214.561 353.147 L218.461 353.147 L215.311 358.397 C214.671 359.373 214.531 360.744 214.95 361.906 C215.369 363.069 216.27 363.812 217.261 363.812 C217.902 363.812 218.486 364.082 218.757 364.505 C219.028 364.927 218.937 365.426 218.525 365.783 M224.388 359.549 L224.388 353.764 L221.226 358.098 L225.225 358.098" fill="none" stroke="#0068a6" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
     <g>
       <title>inside the window</title>
