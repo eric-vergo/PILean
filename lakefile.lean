@@ -20,7 +20,10 @@ package pilean where
 @[default_target]
 lean_lib PILean
 
-lean_lib PILeanTest
+/-- The test modules, each built on its own (the executables' roots among them, so there is no
+single root module that imports them all). -/
+lean_lib PILeanTest where
+  globs := #[.submodules `PILeanTest]
 
 /-- Writes the example gallery `examples/*.svg` from the specs in `PILean.Examples`. -/
 lean_exe «pilean-gallery» where

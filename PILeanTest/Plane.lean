@@ -582,23 +582,23 @@ def styleChecks : Array (String × Bool) :=
           (QSqrt.le (⟨7 / 2, 1 / 2⟩ : QSqrt5) ⟨b.hi * b.hi, 0⟩)),
     ("F: the circles' crossings are the lens's corners ±(ζ - ζ⁴), within 2^-k",
       match cc with
-      | some (p, q) =>
+      | .two p q =>
         let c := Zeta5.pow 1 - Zeta5.pow 4
         [10, 40].all (fun k => (PlanePoint.re p k).radius * 2 ^ k ≤ 1 &&
           (PlanePoint.im p k).radius * 2 ^ k ≤ 1) &&
         nearPt (PlanePoint.toPoint p) (PlanePoint.toPoint c) 1e-12 &&
         nearPt (PlanePoint.toPoint q) (PlanePoint.toPoint (-c)) 1e-12
-      | none => false),
+      | _ => false),
     ("F: a line meets a circle; midpoints and feet",
       (match lc with
-        | some (p, q) => nearPt (PlanePoint.toPoint p) ⟨0, -2⟩ 1e-12 &&
+        | .two p q => nearPt (PlanePoint.toPoint p) ⟨0, -2⟩ 1e-12 &&
             nearPt (PlanePoint.toPoint q) ⟨0, 2⟩ 1e-12
-        | none => false) &&
+        | _ => false) &&
       footQ (3, 4) (0, 0) (1, 0) == (3, 0) &&
       nearPt (PlanePoint.toPoint (midpoint (Zeta5.pow 0) (Zeta5.pow 0 + Zeta5.pow 0))) ⟨1.5, 0⟩
         1e-12 &&
-      nearPt (PlanePoint.toPoint (foot ((3 : Rat), (4 : Rat)) ((0 : Rat), (0 : Rat))
-        ((1 : Rat), (0 : Rat)))) ⟨3, 0⟩ 1e-12),
+      ((foot ((3 : Rat), (4 : Rat)) ((0 : Rat), (0 : Rat)) ((1 : Rat), (0 : Rat))).map
+        fun f => nearPt (PlanePoint.toPoint f) ⟨3, 0⟩ 1e-12).getD false),
     ("G: the narrow rendition, labels at full size, as outputs -narrow",
       narrowOuts.map (·.name) == #["", "", "-narrow", "-narrow"] &&
       (ref.narrow.map fun n => n.frame.width == 360 && n.style.plane.labelSize == 15).getD false &&
