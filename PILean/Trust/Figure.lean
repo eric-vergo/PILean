@@ -74,7 +74,27 @@ structure InlineSvg where
   height : Float
   /-- The nodes of the document's body. -/
   nodes : Array Svg.Node
+  /-- The light colours (`#rrggbb`) of the picture paired with those of its dark twin, for a page
+  that restyles it in its dark theme (`Style.darkColourPairs`); empty without a twin. -/
+  darkColours : Array (String × String) := #[]
+  /-- The fill opacities (as written) of the picture's tints paired with the dark twin's. -/
+  darkOpacities : Array (String × String) := #[]
   deriving Inhabited
+
+/-- The fill opacity attribute a tint of opacity `a` gets (`Svg.paint` of an opaque colour at
+that alpha). -/
+def tintOpacityText (a : Float) : String :=
+  fmtNum ((max 0 (min 1 a) * 255).round / 255) 3
+
+/-- An inline picture in a style: its nodes, and its dark colours and tint opacities when the
+style has a dark twin. -/
+def InlineSvg.ofStyle (w h : Float) (nodes : Array Svg.Node) (st : Style) : InlineSvg :=
+  { width := w, height := h, nodes, darkColours := st.darkColourPairs,
+    darkOpacities := match st.darkTwin? with
+      | some d =>
+        if st.plane.fillOpacity == d.plane.fillOpacity then #[]
+        else #[(tintOpacityText st.plane.fillOpacity, tintOpacityText d.plane.fillOpacity)]
+      | none => #[] }
 
 /-- The SVG document of an inline picture. -/
 def InlineSvg.document (i : InlineSvg) : String := Svg.document i.width i.height i.nodes
@@ -129,9 +149,8 @@ instance : ToOutputs Plot.Figure where
   outputs fig :=
     #[{ name := "", format := .svg, bytes := fun _ => .ok fig.toSvg.toUTF8,
         spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
-        inline := fun _ => some
-          { width := fig.width, height := fig.height,
-            nodes := fig.draw.render (.forSvg fig.style.text fig.style.fontFamily) } },
+        inline := fun _ => some (InlineSvg.ofStyle fig.width fig.height
+          (fig.draw.render (.forSvg fig.style.text fig.style.fontFamily)) fig.style) },
       { name := "", format := .png,
         bytes := fun _ => match fig.toPng with
           | some b => .ok b
@@ -152,7 +171,7 @@ def planeOutputs (fig : Plane.Figure) (suffix : String) (warn : Bool) : Array Ou
   #[{ name := suffix, format := .svg, bytes := fun _ => planeBytes fig fun _ => .ok fig.toSvg.toUTF8,
       spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
       inline := fun _ => some
-        { width := g.frame.width.round, height := g.frame.height.round, nodes := fig.svgNodes },
+        (InlineSvg.ofStyle g.frame.width.round g.frame.height.round fig.svgNodes fig.style),
       problems := fun _ => if warn && fig.checks == .warn then fig.checkMessages else #[] },
     { name := suffix, format := .png,
       bytes := fun _ => planeBytes fig fun _ => match fig.toPng with
@@ -171,7 +190,7 @@ instance : ToOutputs Plane.Figure where
 
 /-- An explorer frame for a page. -/
 def _root_.PILean.ExplorerFrame.inline (f : ExplorerFrame) : InlineSvg :=
-  { width := f.width, height := f.height, nodes := f.svgNodes }
+  InlineSvg.ofStyle f.width f.height f.svgNodes f.style
 
 /-- Families of frames: the poster's SVG (carrying every frame for a page that shows them
 inline) and PNG. An explorer that is not well formed (`Explorer.valid`) cannot be rendered. -/

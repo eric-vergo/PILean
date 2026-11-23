@@ -39,7 +39,8 @@ these ratios. A figure's own colours are checked where they are drawn (`PILean.P
 
 ## Main definitions
 
-* `Style`, `Style.light`, `Style.dark`, `Style.seriesColor`.
+* `Style`, `Style.light`, `Style.dark`, `Style.seriesColor`, `Style.darkTwin?`,
+  `Style.darkColourPairs`.
 * `PlaneRole`, `PlaneStyle`, `PlaneStyle.light`, `PlaneStyle.dark`, `PlaneStyle.accent`,
   `PlaneStyle.role?`.
 -/
@@ -242,6 +243,50 @@ def dark : Style :=
       ⟨226, 103, 44, 255⟩, ⟨199, 111, 168, 255⟩, ⟨157, 144, 32, 255⟩],
     nodeFill := ⟨34, 37, 43, 255⟩, nodeStroke := ⟨120, 126, 138, 255⟩,
     edge := ⟨112, 118, 130, 255⟩, plane := PlaneStyle.dark }
+
+/-- Whether two styles have the same colours (background, inks, axis, grid, palette, the graph
+colours and the plane colours); sizes, fonts and the text engine are not compared. -/
+def sameColours (a b : Style) : Bool :=
+  a.background == b.background && a.inkPrimary == b.inkPrimary &&
+    a.inkSecondary == b.inkSecondary && a.inkMuted == b.inkMuted && a.axis == b.axis &&
+    a.grid == b.grid && a.gridMinor == b.gridMinor && a.palette == b.palette &&
+    a.nodeFill == b.nodeFill && a.nodeStroke == b.nodeStroke && a.edge == b.edge &&
+    a.plane.sameColours b.plane
+
+/-- The dark twin of a style in the light colours: the colours of `Style.dark` (and the dark
+colours of its plane roles), everything else kept; `none` for a style in other colours, which an
+author chose for one background. -/
+def darkTwin? (s : Style) : Option Style :=
+  if sameColours s light then
+    let d := dark
+    some { s with
+      background := d.background, inkPrimary := d.inkPrimary, inkSecondary := d.inkSecondary,
+      inkMuted := d.inkMuted, axis := d.axis, grid := d.grid, gridMinor := d.gridMinor,
+      palette := d.palette, nodeFill := d.nodeFill, nodeStroke := d.nodeStroke, edge := d.edge,
+      plane := s.plane.withColoursOf d.plane }
+  else none
+
+/-- The colours of a light style paired with those of its dark twin, as `#rrggbb` text, each
+light colour once (the first pairing kept): what a page restyles an inline picture with in the
+dark theme. Empty for a style without a dark twin. -/
+def darkColourPairs (s : Style) : Array (String × String) :=
+  match s.darkTwin? with
+  | none => #[]
+  | some d =>
+    let hex := fun (c : Rgba) =>
+      let h := fun (v : UInt8) =>
+        let ds := Nat.toDigits 16 v.toNat
+        String.ofList (List.replicate (2 - ds.length) '0' ++ ds)
+      "#" ++ h c.r ++ h c.g ++ h c.b
+    let pairs : Array (Rgba × Rgba) :=
+      #[(s.background, d.background), (s.inkPrimary, d.inkPrimary),
+        (s.inkSecondary, d.inkSecondary), (s.inkMuted, d.inkMuted), (s.axis, d.axis),
+        (s.grid, d.grid), (s.gridMinor, d.gridMinor), (s.nodeFill, d.nodeFill),
+        (s.nodeStroke, d.nodeStroke), (s.edge, d.edge), (s.plane.ink, d.plane.ink),
+        (s.plane.faint, d.plane.faint)] ++ s.palette.zip d.palette ++
+        s.plane.accents.zip d.plane.accents ++ s.plane.roles.map (fun r => (r.light, r.dark))
+    pairs.foldl (init := #[]) fun acc (a, b) =>
+      if acc.any (·.1 == hex a) then acc else acc.push (hex a, hex b)
 
 /-- The colour of series `i` (wrapping round the palette) and whether it is dashed (from the
 second round on). -/
