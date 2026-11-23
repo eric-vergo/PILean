@@ -97,9 +97,13 @@ def drawingChecks : Array (String × Bool) :=
       ⟨"b", ⟨29, 78, 216, 255⟩, ⟨94, 224, 200, 255⟩⟩] } }
   let twoRoles : Plane.Figure := { base #[segment ⟨0, 0⟩ ⟨1, 0⟩ |>.role "a",
     segment ⟨0, 1⟩ ⟨1, 1⟩ |>.role "b"] with style := shared }
-  #[("contrast: a transparent label is reported", (kinds ghost).contains .lowContrast),
+  -- the label's contrast in the figure's own (light) style, where black on white is plenty
+  let lowInLight := fun (f : Plane.Figure) => f.problems.any fun p =>
+    p.kind == .lowContrast && p.items == #[2] && has p.message "in its style"
+  #[("contrast: a transparent label is reported, in the light style too",
+      lowInLight ghost),
     ("contrast: a label at a low alpha is reported, the same label opaque is not",
-      (kinds faded).contains .lowContrast && !(kinds solid).contains .lowContrast),
+      lowInLight faded && !(kinds solid).contains .lowContrast),
     ("contrast: a stroke is checked against the tint under it, not the page",
       let strokeLow := fun (f : Plane.Figure) =>
         f.problems.any fun p => p.kind == .lowContrast && p.items == #[1]
