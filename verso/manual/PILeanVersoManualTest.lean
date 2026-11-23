@@ -77,6 +77,24 @@ def main : IO UInt32 := do
       !validBackdrop "a b.png" && !validBackdrop "") "unsafe or empty backdrops are refused"
     check (backdropUrl "s/w-{theme}.png" "dark" == "s/w-dark.png") "a backdrop's dark address"
     check (isCssLength "60%" && !isCssLength "60") "widths are CSS lengths"
+    -- a figure whose SVG is refused gets that error alone, not one about how it is used
+    let hostile : Plane.Figure :=
+      { items := #[(Plane.point ⟨0, 0⟩).declRef (.mkSimple "javascript:x"),
+        Plane.point ⟨1, 1⟩] }
+    let src : Trust.SourceData :=
+      { module := "M", decl := "M.hostile", file := "M.lean", line := 1, column := 0,
+        sourceHash := "" }
+    let entry : Trust.FigureEntry :=
+      { src with outputs := fun _ => Trust.ToOutputs.outputs hostile }
+    let refusals := fun (u : FigureUse) => match renderSite #[entry] #[u] {} with
+      | .ok _ => #[]
+      | .error e => (e.splitOn "\n").toArray
+    check (#[({ decl := "M.hostile", explorer := true } : FigureUse),
+        { decl := "M.hostile", inline := true }].all fun u =>
+        let es := refusals u
+        !es.isEmpty && es.all (has · "is not inert") && !es.any (has · "not an explorer") &&
+          !es.any (has · "no inline picture"))
+      "a refused SVG is the only error of its figure, shown as an explorer or inline"
     let tmp := System.FilePath.mk ".lake" / s!"pilean-verso-manual-test-{← IO.monoNanosNow}"
     let out1 := tmp / "a"
     let out2 := tmp / "b"
