@@ -56,8 +56,13 @@ structure BundleStyle where
   /-- The straight length of a stem between a node's port and the first corner of an edge that
   leaves it or the last corner of one that enters it (the arrowhead not counted). -/
   stemLength : Float := 10
-  /-- The least distance between the ends of two runs on one track. -/
+  /-- The least distance between the ends of two runs on one track (and between a jog and any
+  other vertical piece of its channel). -/
   trackGap : Float := 12
+  /-- The most runs of one channel that are placed with the constraints between them (work
+  quadratic in the runs); a channel with more gives each run a track of its own, in `O(k log k)`
+  (`placeRuns`). -/
+  maxRuns : Nat := 4000
   deriving Inhabited, Repr
 
 /-- The options of the layouts. Lengths are pixels. -/

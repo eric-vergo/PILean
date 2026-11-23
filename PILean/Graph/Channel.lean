@@ -303,7 +303,8 @@ other wholly on the right. Such parts may share a track: the trunk forks there. 
 def RunPart.tee (p q : RunPart) : Bool :=
   [p.spec.start, p.spec.finish].any fun e => [q.spec.start, q.spec.finish].any fun f =>
     e.owner.isSome && e.owner == f.owner && e.reach == f.reach && e.x == f.x &&
-      ((p.spec.span.2 ≤ e.x && e.x ≤ q.spec.span.1) || (q.spec.span.2 ≤ e.x && e.x ≤ p.spec.span.1))
+      ((p.spec.span.2 ≤ e.x && e.x ≤ q.spec.span.1) ||
+        (q.spec.span.2 ≤ e.x && e.x ≤ p.spec.span.1))
 
 /-- Whether an end of `p` reaching up and an end of `q` reaching down, of two owners, stand at
 one column (closer than `laneGap`): then `p` must lie above `q`. -/
@@ -349,11 +350,21 @@ dogleg, and the number of tracks. `laneGap` is the distance under which an end r
 one reaching down count as one column, and that a jog keeps from every column; `trackGap` the
 least distance between two runs on one track; `blocked` the columns of the vertical pieces that
 cross the channel without a run. A run whose ends reach opposite sides at one column (an edge
-that repeats a straight one) is split at once at a free column. -/
-def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array Float := #[]) :
-    Array Placed × Nat := Id.run do
+that repeats a straight one) is split at once at a free column. A channel of more than `maxRuns`
+runs gets one track for each run, in the order of their left ends, in `O(k log k)`: no two runs
+share a track, but the column constraints, the nesting and the splitting are not applied. -/
+def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array Float := #[])
+    (maxRuns : Nat := 4000) : Array Placed × Nat := Id.run do
   let n := runs.size
   if n == 0 then return (#[], 0)
+  if n > maxRuns then
+    -- too many runs for the pairwise work: a track each, in the order of their left ends
+    let byLeft := (Array.range n).qsort fun i j =>
+      (runs.getD i default).span.1 < (runs.getD j default).span.1 ||
+        ((runs.getD i default).span.1 == (runs.getD j default).span.1 && i < j)
+    let mut out : Array Placed := Array.replicate n (.track 0)
+    for i in byLeft, t in [0:n] do out := out.setIfInBounds i (.track t)
+    return (out, n)
   -- the nesting ranks, by direction
   let kinds := runs.map (·.kind)
   let sel := fun (right : Bool) (k : RunKind) => match k with

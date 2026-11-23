@@ -51,12 +51,14 @@ def hostileGraph (kind : String) (n : Nat) : Graph := Id.run do
 /-- Decodes the file named by the second argument as the first says (a PNG's line also gives
 the number of text entries it returned), or with `graph KIND N` lays out and draws a hostile
 graph (`hostileGraph`) and prints its size; `graph KIND N SWEEPS WORK` sets two of the layout's
-budgets, `graph KIND N orthogonal` routes the edges orthogonally. -/
+budgets, `graph KIND N orthogonal` routes the edges orthogonally and `graph KIND N bundled` in
+bundles (`Routing.bundled`). -/
 def main (args : List String) : IO UInt32 := do
   if let "graph" :: kind :: n :: rest := args then
     let g := hostileGraph kind n.toNat!
     let o : Graph.LayeredOptions := match rest with
       | ["orthogonal"] => { routing := .orthogonal }
+      | ["bundled"] => { routing := .bundled }
       | [sw, cw] => { sweeps := sw.toNat!, coordinateWork := cw.toNat! }
       | _ => {}
     let l := Graph.layout g o

@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean
 import PILeanTest.GraphQuality
+import PILeanTest.GraphOrder
 
 /-!
 # Checks of bundled routes
@@ -56,7 +57,8 @@ def portProblems (l : Layout) (lr flipped : Bool) : Array String := Id.run do
     let near := fun (p q : Point) => (p.x - q.x).abs < 0.01 && (p.y - q.y).abs < 0.01
     match e.points[0]?, e.points.back? with
     | some a, some z =>
-      if !near a (portOf s lr flipped false) then out := out.push s!"edge {e.index} leaves elsewhere"
+      if !near a (portOf s lr flipped false) then
+        out := out.push s!"edge {e.index} leaves elsewhere"
       if !near z (portOf t lr flipped true) then out := out.push s!"edge {e.index} enters elsewhere"
     | _, _ => out := out.push s!"edge {e.index} has no route"
   return out
@@ -391,9 +393,11 @@ def measureBundled (g : Graph) (l : Layout) (laneGap : Float) (pairs : Bool := t
 graph files (with the style `st`), and the problems of the bundled ones. -/
 def printMeasures (st : BundleStyle := {}) (names : List String := []) : IO Unit := do
   let files ← GraphQuality.fileGraphs ("PILeanTest" / "graphs")
-  IO.println "graph                      ms(s/b)   crossings(s/b)   length(s/b)        area(s/b, Mpx2)  bends  narrow  twice  foreign(s/b) problems"
+  IO.println ("graph  ms(s/b)  crossings(s/b)  length(s/b)  area(s/b, Mpx2)  bends  narrow  " ++
+    "twice  foreign(s/b)  problems")
   for (name, g) in GraphQuality.graphs ++ files do
-    if (!names.isEmpty && !names.contains name) || (names.isEmpty && GraphQuality.slowGraphs.contains name) then continue
+    if (!names.isEmpty && !names.contains name) ||
+        (names.isEmpty && GraphQuality.slowGraphs.contains name) then continue
     let t0 ← IO.monoNanosNow
     let ls ← IO.lazyPure fun _ => g.layout {}
     let t1 ← IO.monoNanosNow
@@ -403,11 +407,88 @@ def printMeasures (st : BundleStyle := {}) (names : List String := []) : IO Unit
     let m := measureBundled g lb st.laneGap small
     let ps := if small then problems g lb false false st.laneGap else #[]
     let foreignS := (clearanceProblems g ls).filter (Graphs.has · "enters cluster") |>.size
-    IO.println s!"{name}  {(t1 - t0) / 1000000}/{(t2 - t1) / 1000000}  {GraphQuality.crossingPairs ls}/{m.crossings}  \
+    IO.println s!"{name}  {(t1 - t0) / 1000000}/{(t2 - t1) / 1000000}  \
+      {GraphQuality.crossingPairs ls}/{m.crossings}  \
       {(GraphQuality.edgeLength ls).round}/{m.length.round}  \
-      {fmtNum (GraphQuality.area ls / 1e6) 2}/{fmtNum (m.area / 1e6) 2}  {fmtNum m.bends 2}  {m.narrowJogs}  {m.multiple}  \
+      {fmtNum (GraphQuality.area ls / 1e6) 2}/{fmtNum (m.area / 1e6) 2}  {fmtNum m.bends 2}  \
+      {m.narrowJogs}  {m.multiple}  \
       {foreignS}/{m.foreign}  {ps.size}"
     for p in ps.extract 0 4 do IO.println s!"  {p}"
+
+/-- The routes of a channel's runs as drawn (vertical pieces from the channel's sides, `0` and
+`h`, tracks `1` apart from `1`): for every run its segments. -/
+def channelSegments (runs : Array RunSpec) (placed : Array Placed) (h : Float) :
+    Array (Array (Point × Point)) :=
+  (runs.zip placed).map fun (r, p) =>
+    let side := fun (e : RunEnd) => if e.reach == .up then (0 : Float) else h
+    let y := fun (t : Nat) => 1 + t.toFloat
+    match p with
+    | .track t => #[(⟨r.start.x, side r.start⟩, ⟨r.start.x, y t⟩),
+        (⟨r.start.x, y t⟩, ⟨r.finish.x, y t⟩),
+        (⟨r.finish.x, y t⟩, ⟨r.finish.x, side r.finish⟩)]
+    | .jog a x b => #[(⟨r.start.x, side r.start⟩, ⟨r.start.x, y a⟩),
+        (⟨r.start.x, y a⟩, ⟨x, y a⟩), (⟨x, y a⟩, ⟨x, y b⟩), (⟨x, y b⟩, ⟨r.finish.x, y b⟩),
+        (⟨r.finish.x, y b⟩, ⟨r.finish.x, side r.finish⟩)]
+
+/-- Whether, in a random channel of runs from ends reaching up to ends reaching down (distinct
+columns, so that no constraint forms a cycle), two runs cross at most once, and not at all when
+their ends stand in the same order above and below. -/
+def channelCrossOk (seed : Nat) : Bool := Id.run do
+  let k := 3 + seed % 9
+  let (r, _) := GraphOrder.draws seed.toUInt64 (2 * k) 40
+  -- tops on even columns, bottoms on odd ones, 20 apart: no two ends at one column
+  let runs : Array RunSpec := (Array.range k).map fun i =>
+    ⟨⟨(r.getD (2 * i) 0).toFloat * 40, .up, some (2 * i)⟩,
+     ⟨(r.getD (2 * i + 1) 0).toFloat * 40 + 20, .down, some (2 * i + 1)⟩⟩
+  -- the same column twice above or below belongs to one owner: keep the first run of a column
+  let mut seenTop : Array Float := #[]
+  let mut seenBottom : Array Float := #[]
+  let mut keep : Array RunSpec := #[]
+  for q in runs do
+    if !seenTop.contains q.start.x && !seenBottom.contains q.finish.x then
+      keep := keep.push q
+      seenTop := seenTop.push q.start.x
+      seenBottom := seenBottom.push q.finish.x
+  let (placed, depth) := placeRuns keep 6 12
+  if placed.any (fun p => match p with | .jog _ _ _ => true | _ => false) then return true
+  let segs := channelSegments keep placed (depth.toFloat + 2)
+  for i in [0:keep.size] do
+    for j in [i + 1:keep.size] do
+      let a := keep.getD i default
+      let b := keep.getD j default
+      let mut n := 0
+      for (p, q) in segs.getD i #[] do
+        for (u, v) in segs.getD j #[] do
+          if GraphQuality.segmentsCross p q u v then n := n + 1
+      let agree := (a.start.x < b.start.x) == (a.finish.x < b.finish.x)
+      if n > 1 || (agree && n > 0) then return false
+  return true
+
+/-- The checks of bundled routes on the measured graphs and the graph files (all but the two
+largest): the problems of `problems` (none), crossings at most a fiftieth above the spline
+routes' (they follow the same orders), no more edges entering a cluster that holds neither of
+their ends than the spline routes. -/
+def ioChecks : IO (Array (String × Bool)) := do
+  let files ← GraphQuality.fileGraphs ("PILeanTest" / "graphs")
+  let mut out : Array (String × Bool) := #[]
+  for (name, g) in GraphQuality.graphs ++ files do
+    if GraphQuality.slowGraphs.contains name then continue
+    let ls := g.layout {}
+    let lb := g.layout (bundled {})
+    let ps := problems g lb false false 6
+    out := out.push (s!"bundled {name}: ports, axes, no shared segment, no node passed, lanes \
+      apart, one arrowhead per entry port{if ps.isEmpty then "" else s!" ({ps[0]!})"}", ps.isEmpty)
+    let cs := GraphQuality.crossingPairs ls
+    let cb := routeCrossings lb
+    out := out.push (s!"bundled {name}: {cb} crossings, the spline routes' {cs} and a fiftieth",
+      cb.toFloat ≤ cs.toFloat * 1.02 + 1)
+    let fs := ((clearanceProblems g ls).filter (Graphs.has · "enters cluster")).size
+    let fb := foreignClusterEntries g lb
+    out := out.push (s!"bundled {name}: {fb} edges enter a cluster that holds neither end, the \
+      spline routes {fs}", fb ≤ fs)
+  out := out.push ("bundled channel: two runs cross at most once, and not when their ends agree \
+    (random channels)", (List.range 300).all channelCrossOk)
+  return out
 
 /-- Writes the spline and the bundled drawing of the graphs of `PILeanTest/graphs` and of the
 measured graphs to `dir` as SVG and prints their measures and problems. -/
@@ -423,10 +504,12 @@ def writeSamples (dir : String) (names : List String := []) : IO Unit := do
     IO.FS.writeFile s!"{dir}/{name}-spline.svg" (ls.toSvg {})
     IO.FS.writeFile s!"{dir}/{name}-bundled.svg" (lb.toSvg {})
     if g.nodes.size ≤ 200 then
-      IO.FS.writeBinFile s!"{dir}/{name}-bundled.png" ((lb.toImage {} 2).writePng.toOption.getD .empty)
-      IO.FS.writeBinFile s!"{dir}/{name}-spline.png" ((ls.toImage {} 2).writePng.toOption.getD .empty)
+      let png := fun (l : Layout) => (l.toImage {} 2).writePng.toOption.getD .empty
+      IO.FS.writeBinFile s!"{dir}/{name}-bundled.png" (png lb)
+      IO.FS.writeBinFile s!"{dir}/{name}-spline.png" (png ls)
     let ps := problems g lb false false 6
-    let bendsMean := (lb.edges.foldl (fun n e => n + bends e) 0).toFloat / max 1 lb.edges.size.toFloat
+    let bendsMean :=
+      (lb.edges.foldl (fun n e => n + bends e) 0).toFloat / max 1 lb.edges.size.toFloat
     IO.println s!"{name}: {ms} ms, crossings {GraphQuality.crossingPairs ls} spline / \
       {routeCrossings lb} bundled, length {GraphQuality.edgeLength ls} / {routeLength lb}, \
       area {GraphQuality.area ls} / {GraphQuality.area lb}, bends {bendsMean}, \

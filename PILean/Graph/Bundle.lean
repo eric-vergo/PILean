@@ -34,10 +34,10 @@ lanes (`Routing.bundled`), in the manner of well laid cable trays:
   lanes that are `laneGap` apart turning onto tracks `laneGap` apart lie on one diagonal) form a
   bundle and are drawn as concentric quarter circles: the innermost with `radius`, the lane `k`
   places further out with `radius + k * laneGap`. A corner never takes more of a segment than it
-  has: of a segment between two corners the two radii take at most its length, of one at a port
-  at most its length less the stem (and the arrowhead); a bundle whose corners do not fit is
-  scaled down as a whole (every radius by the smallest factor any of its corners needs), so its
-  corners stay in proportion.
+  has: of a segment between two corners each takes at most its share in proportion to the radii
+  they want, of one at a port at most its length less the stem (and the arrowhead); a bundle whose
+  corners do not fit keeps them concentric with a smaller innermost radius when one of at least
+  zero is enough, and is scaled as a whole otherwise.
 
 Every route starts at its source's exit port, ends at its target's entry port and has only
 horizontal and vertical segments (`routeWalk_head`, `routeWalk_last`, `routeWalk_axis`, proved
@@ -284,7 +284,7 @@ def bundleTracks (b : BundleInput) : BundleTracks := Id.run do
   let mut depth : Array Nat := Array.replicate channels 0
   for c in [0:channels] do
     let (ps, d) := placeRuns (runs.getD c #[]) b.style.laneGap b.style.trackGap
-      (blocked.getD c #[])
+      (blocked.getD c #[]) b.style.maxRuns
     depth := depth.setIfInBounds c d
     for p in ps, (k, j) in from_.getD c #[] do
       placed := placed.modify k fun a => a.setIfInBounds j (some p)
@@ -337,7 +337,8 @@ def cornerRadii (st : BundleStyle) (routes : Array (Array Point)) (corners : Arr
   for cs in corners, k in [0:corners.size] do
     for c in cs, i in [0:cs.size] do
       let s : Point := c.outDir - c.inDir
-      let turn : Int := (c.inDir.x + 2 * c.inDir.y + 4 * c.outDir.x + 8 * c.outDir.y).round.toInt64.toInt
+      let turn : Int :=
+        (c.inDir.x + 2 * c.inDir.y + 4 * c.outDir.x + 8 * c.outDir.y).round.toInt64.toInt
       let diag : Int := (s.y * c.at_.x - s.x * c.at_.y).round.toInt64.toInt
       -- how far towards the inside of the turn: the innermost corner has the largest value
       let inward := s.x * c.at_.x

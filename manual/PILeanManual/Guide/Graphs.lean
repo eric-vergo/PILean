@@ -90,8 +90,8 @@ refined by Gansner, Koutsofios, North and Vo, in phases whose work is bounded by
 5. *Edges.* Each edge is the shortest route through the free space beside the nodes of the layers
    it crosses, drawn as one curve that rounds the bends of that route and stays clear of the boxes
    and cluster sides beside it; or horizontal and vertical segments with rounded corners
-   (`routing := .orthogonal`). Directed edges end in an arrowhead at the target's outline; labels
-   sit on plates of the page colour.
+   (`routing := .orthogonal`); or bundled (`routing := .bundled`, below). Directed edges end in an
+   arrowhead at the target's outline; labels sit on plates of the page colour.
 
 Everything is deterministic: every tie is decided by node and edge numbers, and the starts of the
 crossing reduction, which run at the same time, are compared as if they had run one after the
@@ -113,6 +113,35 @@ def buildFigure : GraphFigure :=
 ```
 
 :::figure PILeanManual.Graphs.buildFigure (alt := "Six boxes laid out from left to right: source, parse, check, lower, emit and report, joined by arrows made of horizontal and vertical segments with rounded corners; the edges from parse to check and from check to lower carry the labels 'syntax' and 'types'.")
+:::
+
+## Bundled Routes
+%%%
+tag := "graph-bundled"
+%%%
+
+With `routing := .bundled` the edges are drawn as horizontal and vertical segments in bundles of
+parallel lanes ({name}`PILean.Graph.bundleRoutes`). Every node has one exit port, the middle of
+its lower side, and one entry port, the middle of its upper side (for layers from left to right,
+its right and left sides). The edges that leave a node share one stem from its exit port and
+leave it each on a track of its own; the edges that enter a node join one stem, which ends in one
+arrowhead. Between two layers lies a channel, as high as its tracks need: the horizontal runs get
+their tracks by the methods of channel routing ({name}`PILean.Graph.placeRuns`: vertical
+constraints, the nesting of runs that turn the same way so that two runs cross at most once,
+doglegs, the left-edge rule). A long edge runs as a straight vertical lane beside the nodes of the
+layers it crosses, and lanes that turn together turn with concentric corners. An edge against the
+layers, and a self-loop, keeps to the ports: it leaves downwards, turns up a corridor beside its
+source and comes down into its target. The look is `bundle`, a
+{name}`PILean.Graph.BundleStyle`: the distance between lanes, the radius of the innermost corner,
+the length of the stems and the least gap between two runs on one track.
+
+```lean
+/-- The interpreter's modules with bundled routes. -/
+@[figure]
+def depsBundled : GraphFigure := { graph := deps, options := { routing := .bundled } }
+```
+
+:::figure PILeanManual.Graphs.depsBundled (alt := "The same five boxes in layers, joined by edges of horizontal and vertical segments: each box has one stem below it, from which its edges leave on their own tracks, and one stem above it, where its edges join and end in one arrowhead.") (width := "40%")
 :::
 
 ## Clusters
@@ -193,7 +222,9 @@ is kept), and by a cap on dummy nodes: long edges are broken into dummy nodes on
 and dummy nodes together stay within `maxLayoutNodes`; otherwise no edge gets any and each long edge
 is drawn directly from its source to its target. The real nodes are not capped. Placing the
 horizontal runs of orthogonal routes compares each run with the runs placed before it in the same
-gap, so `k` runs in one gap cost `k²/2` comparisons, outside both budgets. The extra starts of the
+gap, so `k` runs in one gap cost `k²/2` comparisons, outside both budgets; bundled routes compare
+the runs of a channel pairwise too, up to `BundleStyle.maxRuns` runs (a channel with more gives
+each run a track of its own, without the constraints between them). The extra starts of the
 crossing reduction have a budget too, so a large graph gets none, and sifting is skipped above a
 number of node pairs. Packing components ({name}`PILean.Graph.layoutPacked`) cannot make a drawing
 narrower than its widest component.

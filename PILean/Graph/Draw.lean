@@ -80,7 +80,8 @@ arrowhead. -/
 def PortMark.draw (st : Style) (p : PortMark) : Shape :=
   let line : Line := { ink := st.edge, width := st.edgeWidth, cap := "round", join := "round" }
   .group ((p.stem.map fun s => #[Shape.path s none (some line)]).getD #[] ++
-    (p.head.map fun h => #[Shape.path h (some (.solid st.edge)) (some { line with width := 0.5 })]).getD #[])
+    (p.head.map fun h =>
+      #[Shape.path h (some (.solid st.edge)) (some { line with width := 0.5 })]).getD #[])
 
 /-- The shape of a cluster: a faint tint of a palette colour, a hairline, the title at the top
 left. -/

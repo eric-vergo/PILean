@@ -49,6 +49,8 @@ def rendererSources : Array (String × String) :=
     ("PILean.Exact", include_str "../Exact.lean"),
     ("PILean.Explorer", include_str "../Explorer.lean"),
     ("PILean.Geometry", include_str "../Geometry.lean"),
+    ("PILean.Graph.Bundle", include_str "../Graph/Bundle.lean"),
+    ("PILean.Graph.Channel", include_str "../Graph/Channel.lean"),
     ("PILean.Graph.Compound", include_str "../Graph/Compound.lean"),
     ("PILean.Graph.Coordinates", include_str "../Graph/Coordinates.lean"),
     ("PILean.Graph.Draw", include_str "../Graph/Draw.lean"),

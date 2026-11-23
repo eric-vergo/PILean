@@ -151,7 +151,8 @@ def layoutPacked (g : Graph) (o : LayeredOptions := {}) (st : Style := {}) (gap 
     ports := ports ++ m.ports.map fun p => { p with node := keep.getD p.node 0 }
   let sorted := edges.qsort fun a b => a.index < b.index
   return ({ nodes, edges := sorted, clusters := clusters.qsort fun a b => a.index < b.index,
-            ports := ports.qsort fun a b => a.node < b.node || (a.node == b.node && !a.entry && b.entry) } :
+            ports := ports.qsort fun a b =>
+              a.node < b.node || (a.node == b.node && !a.entry && b.entry) } :
     Layout).fit st.margin
 
 /-- The layout mirrored: upside down (`vertical`), or left to right. Boxes, routes, arrowheads,

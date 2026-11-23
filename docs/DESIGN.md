@@ -45,7 +45,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Graph.Fixed` | graphs at given positions (page, world or exact), edges straight or bent around nodes | done |
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
-| `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline or orthogonal edges, arrowheads, edge labels and clusters, circular and tree layouts, components laid out apart and packed, mirrored layouts, drawing on the canvas as SVG and PNG, and as SVG for a web page | done; layering proved, see below |
+| `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline, orthogonal or bundled edges (one entry and one exit port per node, tracks in channels, concentric corners), arrowheads, edge labels and clusters, circular and tree layouts, components laid out apart and packed, mirrored layouts, drawing on the canvas as SVG and PNG, and as SVG for a web page | done; layering proved, see below |
 | `PILean.Trust` | done: SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_proves` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
 
 ## Public API in Pillow's spirit
@@ -277,7 +277,80 @@ spans of the edges, at most `E (L - 1)`; `C` clusters):
    (`lake test` lays out 5000 runs in one gap under its CPU bound). Ends are spread along the
    node's side in the order of the other ends; an arrowhead lies along the end of its curve, with
    Graphviz's proportion to the node; labels on plates of the page colour at the middle of the
-   edge.
+   edge. Bundled routes (`Routing.bundled`) are the next section.
+
+**Bundled routes** (`Routing.bundled`, `Graph/Channel`, `Graph/Bundle`; the look is
+`LayeredOptions.bundle`, a `BundleStyle`; the spline routes stay the default). Edges drawn as
+horizontal and vertical segments in bundles of parallel lanes, as cables are laid in a tray:
+
+* *Ports.* Every node has one exit port, the middle of its lower side, and one entry port, the
+  middle of its upper side (in the layers' frame; left to right and the mirrored directions
+  follow). The edges that leave a node share one vertical stem from the exit port and leave it,
+  each on its own track; the edges that enter a node join one stem, which ends in one arrowhead.
+  An edge against the layers (cycle removal) and a self-loop keep to the ports: they leave
+  downwards, turn up a *corridor* beside the source (room the layout keeps on the node's right,
+  `laneGap` for each), run up the lanes of their dummy nodes, pass up a corridor beside the
+  target and come down into its entry port.
+* *Channels and tracks* (`placeRuns`, the channel routing of circuit layout with two-terminal
+  nets). The band between two layers is a channel (one more above the first layer and below the
+  last, used by the corridors). An edge that changes its position across the layers there does so
+  on a horizontal run with a track of its own height. The *vertical constraints* of Hashimoto and
+  Stevens: where an end whose vertical piece comes from above and one whose piece goes on below
+  stand at one column (closer than `laneGap`), the first run lies above the second; they are kept
+  through one hub per pair of such columns, linear in the runs. The *nesting* of the runs that turn
+  the same way: of two overlapping runs going right (from `a` above to `b > a` below) the one with
+  the larger `a`, then the larger `b`, lies above, and mirrored for runs going left; then they do
+  not cross, where the other order crosses them twice, and two runs whose order changes across
+  the channel cross once either way. *Doglegs* (Deutsch): when the constraints form a cycle (two
+  runs that swap two columns), the first run in the nesting order that nothing above it waits for
+  is split at a free column (at least `max laneGap trackGap` from every vertical piece of the
+  channel, the nearest such to the middle of its run) into two parts on two tracks joined by a
+  vertical jog; an edge that repeats a straight one is split so at once. The order: Kahn's
+  algorithm, the next run being a ready one of the lowest rank in its direction's nesting order,
+  the two directions in step. The tracks (`tracksInOrder`, the left-edge rule): each run in that
+  order gets the track below the lowest earlier run it is in conflict with: the runs overlap (or
+  come within `trackGap`) and do not *fork* from one stem (a run leaving a stem to the left and one
+  leaving it to the right share a track, so the stem forks there), or one must lie above the
+  other at a column.
+* *Room.* The layout reserves the room the routes need: the dummy nodes of a bundled layout stand
+  `laneGap` apart (in place of `edgeGap`), so the lanes of long edges beside each other are evenly
+  spaced; a channel is `stemLength + radius` above its first track, `laneGap` per track, and
+  `stemLength + radius` and an arrowhead below its last; nothing is squeezed. Before the routes, a
+  pass moves a run of a chain's dummy nodes onto the line of its neighbour in the chain when that
+  closes a jog narrower than a lane without opening another and every layer of the run has room
+  (`straightenLanes`, at most three passes linear in the dummy nodes).
+* *Corners.* Corners of one turn whose centres can coincide (lanes `laneGap` apart turning onto
+  tracks `laneGap` apart lie on one diagonal) form a bundle and are concentric quarter circles: the
+  innermost of radius `radius`, the lane `k` places further out `radius + k × laneGap`. The rule
+  that fits them: of a segment between two corners each takes at most its share in proportion to
+  the radii they want, of a segment at a port at most its length less the stem (and the
+  arrowhead); a bundle that does not fit keeps its corners concentric with a smaller innermost
+  radius when one of at least zero is enough, and is scaled as a whole otherwise.
+
+Work: the legs of the routes are the sum of the spans of the edges; a channel of `k` runs costs
+`O(k²)` (the nesting order and the tracks compare runs pairwise; at most `k` doglegs, each `O(k)`
+to find its column), up to `BundleStyle.maxRuns` (4000) runs; a channel with more gives each run
+a track of its own in `O(k log k)`, without the constraints between them. `lake test` lays out
+5000 bundled routes leaving one node, 20000 parallel edges and 10000 nodes with ten self-loops each
+under CPU and memory bounds.
+
+*Proved* (`Graph/Channel`, `Graph/Bundle`): two runs in conflict never share a track
+(`tracksInOrder_ne`, for the conflict of `placeRuns`, which is symmetric:
+`RunPart.conflicts_comm`); every route is a walk of horizontal and vertical moves that starts at
+its source's exit port and ends at its target's entry port (`routeWalk_head`, `routeWalk_last`,
+`routeWalk_axis`). *Tested* (`PILeanTest/GraphBundles.lean`, on every measured graph and graph
+file but the two largest, on hostile graphs: multi-edges, self-loops, cycles, a node with 200
+edges in or out, a chain with shortcuts, complete bipartite graphs, nested clusters, labels, an
+undirected graph; from the top down, left to right, both mirrored and packed; each checker with a
+planted fault): every route leaves at the exit port and enters at the entry port of the finished
+picture, its segments and the straight pieces of its path are horizontal or vertical, no two edges
+share a piece of a segment except the trunk of a port both use, no route passes within two pixels
+of a node it does not end at, parallel segments of two edges are at least `laneGap` apart, one
+arrowhead per entry port and none on an edge; crossings at most a fiftieth above the spline
+routes'; no more edges through a foreign cluster than the spline routes; in random channels two
+runs cross at most once, and not when their ends agree. Two edges can still cross more than once
+in all when the layers' order swaps them in one channel and back in another (the measures count
+such pairs: up to 7 of 146 edges on blueprint A by chapter).
 
 Node boxes are whole even pixels from the label measured with the style's text engine (or, for a node with a `size`, that size made whole and even, for a caller that measures its labels itself), and each
 layer is as tall as its tallest box; outlines are one pixel on pixel centres. The result of every

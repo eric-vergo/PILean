@@ -1,5 +1,7 @@
 # dot - graphviz version 16.1.0 (20260904.0139), dot -Tplain, default settings; see README.md
 graph	nodes	edges	crossings	length	area	turning	inflections	outside	nearest
+blueprint-67-chapters	67	171	529	127946	4958620	60.6	0.61	2779	0.1
+blueprint-67	67	171	279	108473	5390965	40.2	0.25	866	0.5
 blueprint-a-chapters	58	146	310	84947	3767044	52.0	0.53	1998	0.2
 blueprint-a-nested	58	146	326	99293	4395684	66.1	0.69	0	0.1
 blueprint-a	58	146	252	71977	3288402	43.6	0.29	110	0.3

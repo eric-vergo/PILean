@@ -120,7 +120,7 @@ def main (args : List String) : IO UInt32 := do
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++ Blur.checks ++
     Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
     Graphs.checks ++ GraphOrder.checks ++ GraphRoutes.checks ++ GraphBundles.checks ++ GraphQuality.checks ++
-    (← GraphQuality.ioChecks) ++ GraphDot.checks ++
+    (← GraphQuality.ioChecks) ++ (← GraphBundles.ioChecks) ++ GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
     Enclosures.checks ++ FigureChecks.checks ++ (← FigureChecks.ioChecks) ++

@@ -311,6 +311,10 @@ def graphEntries : Array GraphEntry :=
   #[{ name := "graph-compiler", layout := fun st => GraphFigures.compiler.layout {} st },
     { name := "graph-modules", layout := fun st => GraphFigures.modules.layout {} st,
       scale := 0.75 },
+    { name := "graph-compiler-bundled", layout := fun st =>
+        GraphFigures.compiler.layout { routing := .bundled } st },
+    { name := "graph-modules-bundled", layout := fun st =>
+        GraphFigures.modules.layout { routing := .bundled } st, scale := 0.75 },
     { name := "graph-ring", layout := fun st => GraphFigures.ring.circularLayout {} st },
     { name := "graph-tree", layout := fun st => GraphFigures.tree.treeLayout 0 {} st },
     { name := "graph-proved", layout := fun st => ProvedExamples.provedGraph.layout {} st },

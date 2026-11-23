@@ -542,7 +542,8 @@ the ratio measured when it was set; `0` where Graphviz's value is nothing to com
 graph it draws without crossings may have none, and the turning and inflections are then held
 to a degree and to a twentieth of an inflection for each edge). -/
 def ratios : Array (String × Float × Float × Float × Float) :=
-  #[("blueprint-a", 1.11, 0.95, 1.23, 1.05), ("blueprint-a-chapters", 0.96, 1.02, 1.57, 1.29),
+  #[("blueprint-67", 1.16, 1.01, 1.53, 1.66), ("blueprint-67-chapters", 0.93, 1.16, 1.65, 1.4),
+    ("blueprint-a", 1.11, 0.95, 1.23, 1.05), ("blueprint-a-chapters", 0.96, 1.02, 1.57, 1.29),
     ("blueprint-a-nested", 1.09, 1.01, 1.63, 1.29), ("blueprint-b", 1.17, 1.27, 0.97, 2.8),
     ("blueprint-b-chapters", 0.71, 1.0, 1.2, 1.1), ("chain", 0, 1.24, 0, 0),
     ("dense-dag", 1.16, 0.81, 1.24, 1.82), ("module-800", 1.33, 1.09, 0.97, 0.92),
@@ -572,7 +573,7 @@ def ioChecks : IO (Array (String × Bool)) := do
   let files ← fileGraphs dir
   let mut out : Array (String × Bool) :=
     #[(s!"graph files: {files.size} graphs and {recorded.size} recorded rows",
-        files.size == 10 && recorded.size == 25)]
+        files.size == 12 && recorded.size == 27)]
   for (name, g) in graphs ++ files do
     if slowGraphs.contains name then continue
     let l := g.layout

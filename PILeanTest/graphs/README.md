@@ -9,6 +9,10 @@ stored. They are read by `GraphQuality.parseGraphFile` and measured by `GraphQua
 * `code-site-c.graph`: a code site of about 2,900 declarations in 85 modules, one cluster per
   module; `code-site-c-modules.graph`: its 85 modules and the dependencies between them;
   `code-site-c-largest-module.graph`: its largest module, in one cluster.
+* `blueprint-67.graph`: the dependency graph of a blueprint of 67 nodes and 171 edges, read from
+  its built site; `blueprint-67-chapters.graph`: the same with one cluster for each chapter that
+  holds more than one node (a cluster's title as long as its chapter's name in the site's
+  address).
 * `neighbourhood-N.graph`: views of the neighbourhood of one declaration with `N` nodes (the
   number is the count of nodes; `neighbourhood-star-401` is a node with 400 neighbours that
   have no other edges).

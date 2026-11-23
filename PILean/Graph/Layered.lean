@@ -42,6 +42,8 @@ five phases, each with its work bounded by its input:
    of that route and stays clear of the boxes and cluster sides beside it (`fitPieces`), so that
    no edge passes near a node it does not end at (`clearanceProblems`) or turns back across the
    layers; or as horizontal and vertical segments with rounded corners (`Routing.orthogonal`);
+   or in bundles of parallel lanes with one entry and one exit port per node
+   (`Routing.bundled`, `PILean.Graph.Bundle`);
    reversed edges are drawn in their own direction; edges meet a node's side at points spread
    by `portStep`; directed edges end in an arrowhead at the target's outline, along the end of
    the curve; labels sit on plates at the middle of their edges; self-loops are small loops
@@ -92,8 +94,8 @@ each phase.
 
 ## Main definitions
 
-* `Graph.layout`, `Skeleton`, `skeleton`, `strays`, `Plan`, `layoutPlan`, `routeOne`,
-  `routeAll`.
+* `Graph.layout`, `Skeleton`, `skeleton`, `strays`, `Plan`, `layoutPlan`, `straightenLanes`,
+  `routeOne`, `routeBundled`, `routeAllPorts`, `routeAll`.
 -/
 
 namespace PILean.Graph
@@ -345,7 +347,8 @@ def straightenLanes (n : Nat) (order : Array (Array Nat)) (chains : Array (Array
         while k + 2 < c.size && (at_ xs (c.getD (k + 1) 0) - here).abs ≤ 0.01 do k := k + 1
         let prev := at_ xs (c.getD (i - 1) 0)
         let next := at_ xs (c.getD (k + 1) 0)
-        let before := (if small (prev - here) then 1 else 0) + (if small (next - here) then 1 else 0)
+        let before :=
+          (if small (prev - here) then 1 else 0) + (if small (next - here) then 1 else 0)
         -- the targets: the line before, then the line after, a real node's first
         let realPrev := c.getD (i - 1) 0 < n
         let targets := if realPrev || !(c.getD (k + 1) 0 < n) then #[prev, next] else #[next, prev]
@@ -357,7 +360,8 @@ def straightenLanes (n : Nat) (order : Array (Array Nat)) (chains : Array (Array
             let d := c.getD (i + j) 0
             let layer := order.getD (layerOf.getD d 0) #[]
             let p := pos.getD d 0
-            (p == 0 || t - xs.getD (layer.getD (p - 1) 0) 0 ≥ sep (layer.getD (p - 1) 0) d - 0.01) &&
+            (p == 0 ||
+              t - xs.getD (layer.getD (p - 1) 0) 0 ≥ sep (layer.getD (p - 1) 0) d - 0.01) &&
               (p + 1 ≥ layer.size ||
                 xs.getD (layer.getD (p + 1) 0) 0 - t ≥ sep d (layer.getD (p + 1) 0) - 0.01)
           if fits then
