@@ -9,7 +9,11 @@ folder for screenshots. The site is served on 127.0.0.1 with a strict content po
 from the site's files and the inline scripts of the head (by hash), no inline event handlers, no
 plug-ins, nothing from elsewhere. Checked: every picture loads in the light and the dark theme and
 the right one is shown; the source line's links; the figures page; the still frame under reduced
-motion; no horizontal scrolling at narrow widths; no content-policy report about a figure.
+motion; no horizontal scrolling at narrow widths; no content-policy report about a figure. For the
+explorers: the slider and the stepper change the frame (by pointer and by keyboard), the view
+zooms and resets from the keyboard, an inline element links to its declaration and carries its
+title, the inline tint follows the theme, without script every frame is listed, reduced motion
+has no play button, and at 360 px the narrow rendition is shown.
 """
 
 import base64
@@ -65,7 +69,119 @@ document.addEventListener('securitypolicyviolation', e => {
 """
 
 PAGES = ["Pictures-with-proofs/A-function/", "Pictures-with-proofs/Data/",
-         "Pictures-with-proofs/A-relation/", "Pictures-with-proofs/Motion/", "Figures/"]
+         "Pictures-with-proofs/A-relation/", "Pictures-with-proofs/Motion/", "Figures/",
+         "Pictures-with-proofs/Explorers/"]
+EXPLORERS = "Pictures-with-proofs/Explorers/"
+
+
+def current(page, fig):
+    return page.evaluate(f"""() => {{
+      const f = document.querySelector('figure#{fig}');
+      const shown = [...f.querySelectorAll('li.pilean-explorer-frame')]
+        .filter(li => li.offsetParent !== null);
+      return shown.map(li => Number(li.dataset.index));
+    }}""")
+
+
+def explorer_checks(c, browser, base, shots):
+    """The explorers and the inline figure (see the module docstring)."""
+    for scheme in ["light", "dark"]:
+        ctx = browser.new_context(color_scheme=scheme, viewport={"width": 1100, "height": 900})
+        ctx.add_init_script(REPORTS)
+        page = ctx.new_page()
+        page.goto(base + EXPLORERS)
+        page.wait_for_load_state("networkidle")
+        fill = page.evaluate("""() => getComputedStyle(document.querySelector(
+          'figure#inline svg path[fill-opacity]')).fill""")
+        c.check(f"{scheme}: the inline picture's tint follows the theme",
+                ("rgb(0, 104, 166)" == fill) == (scheme == "light"), fill)
+        reports = [r for r in page.evaluate("window.__cspReports")
+                   if r["directive"] != "script-src-attr"]
+        c.check(f"{scheme}: the explorers page has no content-policy report", not reports,
+                str(reports))
+        if shots:
+            page.screenshot(path=f"{shots}/{scheme}-explorers.png", full_page=True)
+        ctx.close()
+
+    ctx = browser.new_context(viewport={"width": 1100, "height": 900})
+    ctx.add_init_script(REPORTS)
+    page = ctx.new_page()
+    page.goto(base + EXPLORERS)
+    page.wait_for_load_state("networkidle")
+    c.check("the slider shows the poster frame only", current(page, "radius") == [2],
+            str(current(page, "radius")))
+    page.evaluate("""() => { const s = document.querySelector('figure#radius input[type=range]');
+      s.value = '4'; s.dispatchEvent(new Event('input', {bubbles: true})); }""")
+    c.check("moving the slider changes the frame", current(page, "radius") == [4],
+            str(current(page, "radius")))
+    out = page.locator("figure#radius .pilean-explorer-value").inner_text()
+    c.check("the slider's value is announced", out == "10/10", out)
+    page.locator("figure#radius input[type=range]").focus()
+    page.keyboard.press("ArrowLeft")
+    c.check("the slider works from the keyboard", current(page, "radius") == [3],
+            str(current(page, "radius")))
+    page.locator("figure#word [data-action=next]").click()
+    counter = page.locator("figure#word .pilean-explorer-counter").inner_text()
+    c.check("next shows the second step", current(page, "word") == [1] and counter == "Step 2 of 4",
+            counter)
+    page.locator("figure#word [data-action=prev]").click()
+    c.check("previous shows the first step again", current(page, "word") == [0])
+    page.locator("figure#word [data-action=next]").focus()
+    page.keyboard.press("Enter")
+    caption = page.locator("figure#word .pilean-explorer-caption").inner_text()
+    c.check("the stepper works from the keyboard, its caption announced",
+            current(page, "word") == [1] and caption.startswith("a:"), caption)
+    view = page.locator("figure#radius .pilean-explorer-view")
+    box0 = page.evaluate("""() => document.querySelector(
+      'figure#radius li.pilean-explorer-current svg').getAttribute('viewBox')""")
+    view.focus()
+    page.keyboard.press("+")
+    box1 = page.evaluate("""() => document.querySelector(
+      'figure#radius li.pilean-explorer-current svg').getAttribute('viewBox')""")
+    page.keyboard.press("0")
+    box2 = page.evaluate("""() => document.querySelector(
+      'figure#radius li.pilean-explorer-current svg').getAttribute('viewBox')""")
+    c.check("+ zooms the view and 0 resets it",
+            float(box1.split()[2]) < float(box0.split()[2]) and box2.split()[2] == box0.split()[2],
+            f"{box0} / {box1} / {box2}")
+    link = page.locator("figure#inline a.pilean-decl-link").first
+    c.check("an element of the inline figure links to its declaration",
+            link.get_attribute("href") == "lean:decl/Example.cubic"
+            and link.get_attribute("aria-label") == "ζ^0")
+    title = page.evaluate("""() => document.querySelector('figure#inline svg title').textContent""")
+    c.check("an element's title is in the page (hover text)", title == "the window", title)
+    labelled = page.evaluate("""() => { const f = document.querySelector('figure#radius');
+      return f.getAttribute('role') === 'group' &&
+        document.getElementById(f.getAttribute('aria-labelledby')) !== null; }""")
+    c.check("the explorer is a group labelled by its caption", labelled)
+    ctx.close()
+
+    ctx = browser.new_context(java_script_enabled=False, viewport={"width": 1100, "height": 900})
+    page = ctx.new_page()
+    page.goto(base + EXPLORERS)
+    shown = current(page, "radius")
+    hidden = page.locator("figure#radius .pilean-explorer-controls").is_hidden()
+    c.check("without script every frame is shown and the controls are hidden",
+            shown == [0, 1, 2, 3, 4] and hidden, str(shown))
+    ctx.close()
+
+    ctx = browser.new_context(reduced_motion="reduce")
+    page = ctx.new_page()
+    page.goto(base + EXPLORERS)
+    page.wait_for_load_state("networkidle")
+    c.check("reduced motion: no play button",
+            page.locator("figure#word [data-action=play]").is_hidden())
+    ctx.close()
+
+    ctx = browser.new_context(viewport={"width": 360, "height": 800})
+    page = ctx.new_page()
+    page.goto(base + EXPLORERS)
+    page.wait_for_load_state("networkidle")
+    narrow = page.evaluate("""() => [...document.querySelectorAll('figure#inline svg')]
+      .filter(s => s.getBoundingClientRect().width > 0).map(s => s.id)""")
+    c.check("360 px: the inline figure shows its narrow rendition",
+            narrow == ["inline-svg-narrow"], str(narrow))
+    ctx.close()
 
 
 class Checks:
@@ -162,7 +278,7 @@ def main(site, shots=None):
 
         page.goto(base + "Figures/")
         items = page.locator(".pilean-figure-index > li")
-        c.check("the figures page lists four figures", items.count() == 4)
+        c.check("the figures page lists seven figures", items.count() == 7)
         thumbs = page.evaluate("""() => [...document.querySelectorAll('.pilean-index-thumb img')]
             .every(i => i.complete && i.naturalWidth > 0)""")
         c.check("the figures page's pictures load", thumbs)
@@ -189,7 +305,9 @@ def main(site, shots=None):
                     src)
             ctx.close()
 
-        for width in [320, 375, 600]:
+        explorer_checks(c, browser, base, shots)
+
+        for width in [320, 360, 375, 600]:
             ctx = browser.new_context(viewport={"width": width, "height": 800})
             page = ctx.new_page()
             for url in PAGES:

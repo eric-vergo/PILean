@@ -189,4 +189,47 @@ theorem circleAnimation_spec (i : Nat) :
 /-- The hypotheses are met: frame 5 is at a third of a second. -/
 example : circleAnimation.exactTime 5 = 1 / 3 := by decide +kernel
 
+/-! ### Explorers and an inline figure -/
+
+open PILean.Plane in
+/-- A window disk of radius `r` about `1/2` over the five unit steps `ζʲ`, each step's point
+naming `cubic` so that it links to it. -/
+def windowAt (r : Float) : Plane.Figure :=
+  { width := 360,
+    items := #[disk ⟨0.5, 0⟩ r |>.accent 0 |>.named "the window"] ++
+      ((List.range 5).toArray.map fun j => segment ⟨0, 0⟩ (rootOfUnity 5 j) |>.faint) ++
+      ((List.range 5).toArray.map fun j => point (rootOfUnity 5 j)
+        |>.named s!"ζ^{j}" |>.declRef ``Example.cubic) }
+
+/-- The window's radius from 0.6 to 1.0: a slider over five frames. -/
+@[figure]
+def radiusExplorer : Explorer :=
+  Plane.slider "r" ((List.range 5).toArray.map fun k =>
+    (s!"{6 + k}/10", windowAt (0.6 + k.toFloat / 10))) (poster := 2)
+
+open PILean.Plane in
+/-- The point after the first `n` letters of the word `a b a`, each a fifth turn clockwise about
+`-1` (`a`) or `1` (`b`). -/
+def wordAt (n : Nat) : Plane.Figure :=
+  let turn := fun (c : Point) (p : Point) =>
+    let a := -(2 * pi / 5)
+    let v := p - c
+    c + (⟨a.cos * v.x - a.sin * v.y, a.sin * v.x + a.cos * v.y⟩ : Point)
+  let letters := [false, true, false].take n
+  let pts := letters.foldl (fun acc l => acc.push (turn (if l then ⟨1, 0⟩ else ⟨-1, 0⟩) acc.back!))
+    #[(⟨0, 0.3⟩ : Point)]
+  { width := 360,
+    items := #[circle ⟨-1, 0⟩ 1.5 |>.accent 0, circle ⟨1, 0⟩ 1.5 |>.accent 1,
+      polyline pts |>.faint |>.dashed, point pts.back! |>.named "the point"] }
+
+/-- The word `a b a` acting on a point, letter by letter: four steps. -/
+@[figure]
+def wordExplorer : Explorer :=
+  Plane.stepper #[("start", wordAt 0), ("a: a fifth turn about −1", wordAt 1),
+    ("b: a fifth turn about 1", wordAt 2), ("a again", wordAt 3)]
+
+/-- The window of radius 0.8, inline, with a narrow rendition. -/
+@[figure]
+def windowInline : Plane.Figure := { windowAt 0.8 with narrowWidth := some 280 }
+
 end Example

@@ -46,8 +46,8 @@ desc="the page names the theorem"; check grep -q 'lean:decl/Example.cubicPlot_sp
 desc="the page has a dark picture"; check grep -q 'Example.cubicPlot-dark.svg' "$page"
 desc="the animation has its still frame for reduced motion"
 check grep -q 'prefers-reduced-motion: reduce' "$scratch/a/html-multi/Pictures-with-proofs/Motion/index.html"
-desc="the figures page lists four figures"
-check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 4
+desc="the figures page lists seven figures"
+check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 7
 desc="no inline event handler and no script in the figures' markup"
 check python3 -I tests/markup_check.py "$scratch/a/html-multi"
 

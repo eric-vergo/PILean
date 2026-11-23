@@ -63,6 +63,20 @@ point.
 The divisors of 24 ordered by divisibility; an edge joins $`a` to $`b` when $`b` covers $`a`.
 :::
 
+# Explorers
+
+:::figure_explorer Example.radiusExplorer (label := "radius") (alt := "A window disk about 1/2 over the five unit steps, its radius from 0.6 to 1.0.")
+The window as its radius grows.
+:::
+
+:::figure_explorer Example.wordExplorer (label := "word") (alt := "Two circles about -1 and 1 and a point moved by fifth turns about each, letter by letter.")
+The word $`aba` acting on a point.
+:::
+
+:::figure Example.windowInline (label := "inline") (inline := true) (alt := "A window disk of radius 0.8 about 1/2 over the five unit steps.")
+The window of radius 0.8, inline; each step's point links to its declaration.
+:::
+
 # Motion
 
 {figref "circle"}[] moves; with reduced motion the page shows a still frame instead.

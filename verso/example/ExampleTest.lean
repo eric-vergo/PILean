@@ -85,7 +85,7 @@ def checks : Array (String × Bool) := #[
     (Style.darkVariant? { Style.light with lineWidth := 3 }).map (·.lineWidth) == some 3),
   ("dark: the colours are the dark style's",
     (Style.darkVariant? Style.light).map (·.background) == some Style.dark.background),
-  ("table: four figures", table.size == 4),
+  ("table: seven figures", table.size == 7),
   ("render: an unknown name is refused",
     (renderSite table #["Example.nope"] {}).toOption.isNone),
   ("render: a script address as repository is refused",
