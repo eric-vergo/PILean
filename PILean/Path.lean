@@ -155,12 +155,14 @@ def arcError (r δ : Float) : Float :=
 /-- The cubic pieces of the arc of the circle with centre `c` and radius `r` from angle `θ₀` to
 `θ₁` (radians; a point at angle `θ` is `c + r (cos θ, sin θ)`, so on screen, with `y` down, a
 growing angle turns clockwise). The sweep `θ₁ - θ₀` is clamped to one full turn either way; the
-commands start where the arc starts (no move). -/
+commands start where the arc starts (no move). No commands when the radius or an angle is not
+finite. -/
 def arcCmds (c : Point) (r θ₀ θ₁ : Float) : Array PathCmd := Id.run do
+  let bad := fun (x : Float) => x.isNaN || x.isInf
+  if bad r || bad θ₀ || bad θ₁ then return #[]
   let tau := 2 * 3.141592653589793
   let sweep := max (-tau) (min tau (θ₁ - θ₀))
   let n := arcPieceCount sweep
-  if n == 0 || r.isNaN || r.isInf || θ₀.isNaN || θ₀.isInf then return #[]
   let δ := sweep / n.toFloat
   let k := 4 / 3 * (δ / 4).tan * r
   let at_ := fun (θ : Float) => (⟨c.x + r * θ.cos, c.y + r * θ.sin⟩ : Point)
