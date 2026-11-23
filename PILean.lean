@@ -26,8 +26,13 @@ import PILean.Plot.Exact
 import PILean.Plane.Basic
 import PILean.Plane.Frame
 import PILean.Plane.Draw
+import PILean.Plane.Check
+import PILean.Plane.Render
 import PILean.Plane
 import PILean.Exact.Plane
+import PILean.Explorer
+import PILean.Plane.Graph
+import PILean.Graph.Fixed
 import PILean.Graph.Model
 import PILean.Graph.Layout
 import PILean.Graph.Layering
