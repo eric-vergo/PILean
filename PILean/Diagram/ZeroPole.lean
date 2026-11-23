@@ -198,6 +198,7 @@ def Faithful (R : RationalPlot) (d : Diagram) : Prop :=
 instance (R : RationalPlot) (d : Diagram) : Decidable (R.Faithful d) :=
   inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _))
 
+/-- Every mark of the zeros is a zero's and of no other class. -/
 theorem isZero_of_mem_zeroMarks {R : RationalPlot} {m : Mark} (h : m ∈ R.zeroMarks) :
     isZero m.part = true ∧ isPole m.part = false ∧ isLabel m.part = false ∧
       m.part.isDecoration = false := by
@@ -205,12 +206,14 @@ theorem isZero_of_mem_zeroMarks {R : RationalPlot} {m : Mark} (h : m ∈ R.zeroM
   obtain ⟨_, _, rfl⟩ := h
   simp [isZero, isPole, isLabel, Part.isDecoration]
 
+/-- Every mark of the poles is a pole's and of no other class. -/
 theorem isPole_of_mem_poleMarks {R : RationalPlot} {m : Mark} (h : m ∈ R.poleMarks) :
     isZero m.part = false ∧ isPole m.part = true ∧ isLabel m.part = false ∧
       m.part.isDecoration = false := by
   simp only [poleMarks, List.mem_flatMap, List.mem_cons, List.not_mem_nil, or_false] at h
   obtain ⟨_, _, rfl | rfl⟩ := h <;> simp [isZero, isPole, isLabel, Part.isDecoration]
 
+/-- Every written multiplicity is a label and of no other class. -/
 theorem isLabel_of_mem_labelMarks {R : RationalPlot} {m : Mark} (h : m ∈ R.labelMarks) :
     isZero m.part = false ∧ isPole m.part = false ∧ isLabel m.part = true ∧
       m.part.isDecoration = false := by
@@ -218,6 +221,7 @@ theorem isLabel_of_mem_labelMarks {R : RationalPlot} {m : Mark} (h : m ∈ R.lab
   rcases h with ⟨_, _, h⟩ | ⟨_, _, h⟩ <;> split at h <;> cases h <;>
     simp [isZero, isPole, isLabel, Part.isDecoration]
 
+/-- Every decoration is a decoration and of no other class. -/
 theorem isDecoration_of_mem_decorationMarks {R : RationalPlot} {m : Mark}
     (h : m ∈ R.decorationMarks) :
     isZero m.part = false ∧ isPole m.part = false ∧ isLabel m.part = false ∧

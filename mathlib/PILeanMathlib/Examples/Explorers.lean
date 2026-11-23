@@ -36,7 +36,7 @@ theorem cayleyExplorer_zmod :
     ∀ n ∈ moduli.values, ∀ a ∈ generators.values, ∀ s t : ℕ,
       (s, t) ∈ (cayleyDiagram n a).arrows.map (fun x => (x.2.1, x.2.2)) ↔
         s < n ∧ t < n ∧ (t : ZMod n) = s + a ∧ (((2 * a : ℕ) : ZMod n) = 0 → s < t) := by
-  obtain ⟨hx, -, -, h⟩ := cayleyExplorer_spec
+  obtain ⟨hx, -, -, -, -, -, h⟩ := cayleyExplorer_spec
   refine ⟨hx, fun n hn a ha s t => ?_⟩
   have hn0 : 0 < n := by simp only [moduli] at hn; revert hn; decide +revert
   rw [(h n hn a ha).2.2]
@@ -80,7 +80,7 @@ theorem latticeExplorer_span :
         p ∈ Submodule.span ℤ {((1 : ℚ), (0 : ℚ)), (x, y)} ∧
           -3 ≤ p.1 ∧ p.1 ≤ 3 ∧ -2 ≤ p.2 ∧ p.2 ≤ 2) ∧
       ((latticeDiagram x y).dots.map (·.2.1)).Nodup := by
-  obtain ⟨hx, -, -, h⟩ := latticeExplorer_spec
+  obtain ⟨hx, -, -, -, -, -, h⟩ := latticeExplorer_spec
   refine ⟨hx, fun x hxm y hym => ?_⟩
   obtain ⟨-, hdet, hf, -⟩ := h x hxm y hym
   refine ⟨fun p => ?_, (lattice x y).nodup_dots hdet hf⟩

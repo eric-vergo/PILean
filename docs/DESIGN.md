@@ -952,8 +952,9 @@ compared with the object. The choices:
   memory and time bounds (`PILeanTest/Bounds.lean`). `tools/pdf-compare.py` renders the gallery's
   PDFs with Ghostscript and Quick Look and compares them with the PNGs.
 
-A gallery plot of 640 × 400 pixels is a PDF of about 10 to 20 KB, a third to a half of its SVG:
-the content streams are compressed. The reader and the check are bounded (`Pdf.Limits`: 64 MiB of
+Across the gallery a PDF is 0.17 to 0.95 times the size of the picture's SVG (the median about a
+third; the content streams are compressed, while the outlines of text make them longer than an
+SVG with `<text>`), at most about 49 KB; the function plot of 640 × 400 pixels is 6 KB. The reader and the check are bounded (`Pdf.Limits`: 64 MiB of
 input, nesting 32, strings of 64 KiB, dictionaries of 4096 keys, a million cross-reference
 entries, 32 sections; content streams decode to at most 256 MiB, measured before they are
 allocated).
