@@ -275,15 +275,18 @@ open Canvas Exact
 
 /-! ### What the drawing does with a point and a segment -/
 
-/-- Every shape of a marker is a filled circle centred at the marker's position. -/
+/-- Every shape of a marker is the outline of its marker shape (`markerPath`: a circle, a square, a
+diamond or a cross) centred at the marker's position. -/
 theorem Env.marker_centred (e : Env) (l : Look) (q : Point) :
-    ∀ s ∈ e.marker l q,
-      ∃ (r : Float) (f : Fill), s = .path (Canvas.circle q r) (some f) none 1 := by
+    ∀ s ∈ e.marker l q, ∃ (r : Float) (f : Option Fill) (ln : Option Line),
+      s = .path (markerPath l.marker q r) f ln 1 := by
   intro s hs
-  simp only [Env.marker, List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at hs
-  rcases hs with rfl | rfl
-  · exact ⟨_, _, rfl⟩
-  · exact ⟨_, _, rfl⟩
+  unfold Env.marker at hs
+  split at hs
+  · simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at hs
+    rcases hs with rfl | rfl <;> split <;> exact ⟨_, _, _, rfl⟩
+  · simp only [List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at hs
+    subst hs; split <;> exact ⟨_, _, _, rfl⟩
 
 /-- A point is drawn as the marker at the frame's image of it. -/
 theorem drawGeom_point (e : Env) (l : Look) (p : Point) :
@@ -375,6 +378,30 @@ theorem pointNearDisk_eq {γ : Type} [PlanePoint γ] (p : α) (c : γ) (r : β) 
   split
   · simp [point, Plane.point, Item.incident, Item.mapLook, Item.mapInfo]
   · exact ⟨{}, {}, rfl⟩
+
+/-- The intersection of two closed disks with exact centres and radii (a lens when their circles
+cross), bounded by arcs of the circles. -/
+def lens (c₁ c₂ : α) (r₁ r₂ : β) : Item :=
+  Plane.lens (PlanePoint.toPoint c₁) (RealValue.toFloat r₁) (PlanePoint.toPoint c₂)
+    (RealValue.toFloat r₂)
+
+/-- The union of two closed disks with exact centres and radii. -/
+def diskUnion (c₁ c₂ : α) (r₁ r₂ : β) : Item :=
+  Plane.diskUnion (PlanePoint.toPoint c₁) (RealValue.toFloat r₁) (PlanePoint.toPoint c₂)
+    (RealValue.toFloat r₂)
+
+/-- The first closed disk without the second, with exact centres and radii. -/
+def diskDifference (c₁ c₂ : α) (r₁ r₂ : β) : Item :=
+  Plane.diskDifference (PlanePoint.toPoint c₁) (RealValue.toFloat r₁) (PlanePoint.toPoint c₂)
+    (RealValue.toFloat r₂)
+
+/-- A tick mark at the exact point `p` across the segment from `a` to `b`. -/
+def tickAt (p a b : α) (length : Option Float := none) : Item :=
+  Plane.tick (PlanePoint.toPoint p) (PlanePoint.toPoint b - PlanePoint.toPoint a) length
+
+/-- A label beside the segment between exact points, at its middle, on the clear side. -/
+def labelBeside (s : String) (a b : α) (offset : Option Float := none) : Item :=
+  Plane.labelBeside s (PlanePoint.toPoint a) (PlanePoint.toPoint b) offset
 
 /-- An exact point is the point item at its conversion. -/
 theorem point_eq (p : α) : point p = .shape (.point (PlanePoint.toPoint p)) := rfl
