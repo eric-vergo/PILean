@@ -73,7 +73,7 @@ def goldenChecks (update : Bool) : IO (Array (String × Bool)) := do
 
 /-- The Mathlib revision of `lakefile.lean` is the one of `lake-manifest.json`. -/
 def pinChecks : IO (Array (String × Bool)) := do
-  let rev := "56a005855ea17e0b0958f73ec801ae140b0a1679"
+  let rev := "fc4f59e577feb1a4956671bc04ac18aaaf8cd842"
   let lakefile ← (IO.FS.readFile "lakefile.lean") <|> pure ""
   let manifest ← (IO.FS.readFile "lake-manifest.json") <|> pure ""
   return #[("pin: lakefile.lean and lake-manifest.json name the same Mathlib revision",

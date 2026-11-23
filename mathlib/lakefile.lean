@@ -20,7 +20,7 @@ Mathlib, at a fixed commit.
 open Lake DSL
 
 require mathlib from git "https://github.com/leanprover-community/mathlib4" @
-  "56a005855ea17e0b0958f73ec801ae140b0a1679"
+  "fc4f59e577feb1a4956671bc04ac18aaaf8cd842"
 require pilean from ".."
 
 package «pilean-mathlib» where
