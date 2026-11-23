@@ -6,7 +6,7 @@ is only tested, and what you still have to trust.
 
 ## The idea
 
-Every picture here is the value of a Lean declaration. Four kinds have an exact specification:
+Every picture here is the value of a Lean declaration. Five kinds have an exact specification:
 
 | Picture | The Lean object | What the theorem says |
 |---|---|---|
@@ -14,6 +14,7 @@ Every picture here is the value of a Lean declaration. Four kinds have an exact 
 | Data plot | a list of integer (or exact rational) points | the plotted series has exactly the points of the list, in order, none added or dropped, each coordinate converted to a floating-point number |
 | Graph | a list of nodes and a relation on them (or an edge list) | the nodes are exactly the list and the edges exactly the related pairs, each once; the layout has one route for each edge, with that edge's two ends, and the picture draws those routes. Nothing is said about where a node is placed or how a route runs |
 | Animation | a drawing as a function of time, a frame rate | frame `i` is the drawing function applied to the exact rational time `i / fps` converted to a floating-point number. Nothing is said about the drawing function itself or about the number of frames |
+| Plane figure of exact points | points of a type with rational enclosures (`Exact.PlanePoint`: rationals, integers, or an algebraic representation such as ℤ[ζ₅] by integer coefficients) | each exact point is drawn as a marker centred at the frame's image of its conversion (the centre of its ball at 64 bits, converted by `Exact.toFloat`), a segment between the images of its ends; a figure of points draws one marker per point, in order. A rational point is its own ball. That the ball of another representation holds its value is declared by its instance, not proved (the core has no real numbers); the frame's fitting is floating point |
 
 **Floating point.** Every statement in this table is about exact numbers and lists. The picture
 is computed from them in floating-point arithmetic: the conversion of each exact number
@@ -154,6 +155,25 @@ not rational-valued.
   function is its conversion `Exact.toFloat`.
 * `Animation.frameSeq_getElem`, `Animation.frameTrees_getElem`: frame `i` of the raster frame
   sequence (animated PNG, GIF) and of the animated SVG is the drawing at that time.
+
+**Plane figures** (`PILean/Exact/Plane.lean`, `PILean/Plane/Draw.lean`)
+
+* `Exact.PlanePoint.re_ratPair`, `im_ratPair`, `toPoint_ratPair`, `toPoint_intPair`,
+  `RealValue.toFloat_rat`: a rational (integer) point is its own ball, of radius 0, at every
+  precision, and is drawn at its coordinates converted by `Exact.toFloat`; the instances for
+  `Rat`, `Int` and their pairs satisfy `LawfulRealValue` and `LawfulPlanePoint`.
+* `Plane.Figure.draw_eq`: the drawing is the background, then each item's shapes in order.
+* `Plane.drawGeom_point`, `Plane.drawGeom_segment`, `Plane.Env.marker_centred`,
+  `Plane.drawItem_shape`: a point is drawn as filled circles centred at the frame's image of it, a
+  segment as the polyline between the images of its ends.
+* `Plane.Exact.point_draw`, `point_draw_default`, `segment_draw`, `points_draw`,
+  `figure_points_draw`: the same for exact points through `PlanePoint.toPoint`; a figure whose
+  items are exact points draws, after its background, one marker at the image of each, in order.
+* The gallery's `zetaSteps` (`PILeanTest/PlaneExact.lean`) has `zetaSteps_spec`: its items, each
+  point of ℤ[ζ₅] drawn at the frame's image of its conversion, and which steps `ζʲ` lie in the
+  window, decided exactly in ℚ(√5).
+* Not proved: the fitting of the frame, label placement, arcs and the rasteriser (tested); that
+  the balls of ℚ(√5) and ℤ[ζ₅] hold their values (checked exactly by squaring in the tests).
 
 ## Plots against the real numbers
 

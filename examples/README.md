@@ -30,6 +30,18 @@ same everywhere.
 
 The PNG of each figure has the same name with `.png`.
 
+## Plane figures
+
+Figures of plane geometry (`PILeanTest/Examples.lean`, `PlaneFigures`, and
+`PILeanTest/PlaneExact.lean`), in world coordinates fitted into the page with one scale, drawn on
+the vector canvas; colours by role from `Style.plane`, light and dark (`-dark`).
+
+| Figure | Light | Dark |
+|---|---|---|
+| **Two disks and a chord** — closed disks of radius `√(3 + φ)` about `±1`, the chord from `−E` to `E`, a mark for a turn of 72° clockwise, labels placed by direction (`plane-disks`) | ![](plane-disks.svg) | ![](plane-disks-dark.svg) |
+| **The elements** — a line and a ray clipped to the frame, a dashed circle, an arc with an arrowhead, a sector, a regular pentagon, a tinted triangle, a polyline, arrows, angle marks both ways, labels on four sides of a point (`plane-constructions`) | ![](plane-constructions.svg) | ![](plane-constructions-dark.svg) |
+| **Exact points of ℤ[ζ₅]** — the unit steps `ζʲ` and a window disk; the steps in the window are decided exactly in ℚ(√5), and `zetaSteps_spec` says where each point is drawn (`plane-exact`) | ![](plane-exact.svg) | ![](plane-exact-dark.svg) |
+
 ## Graphs
 
 Graphs are Lean values (`PILeanTest/Examples.lean`, `GraphFigures`), laid out by

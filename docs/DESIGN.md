@@ -30,14 +30,16 @@ outline, what is exact and what is floating point, and the open choices.
 |---|---|---|
 | `PILean.Color` | `Rgba` (8-bit sRGB, straight alpha), `LinearRgba`, OKLab / OKLCH, gamut mapping, WCAG contrast, hex, `over`, `mixOk` | done |
 | `PILean.Geometry` | `Point`, `Affine`, `Box` | done |
-| `PILean.Path` | `PathCmd`, `Path`, shapes, `transform`, `flatten`, `bounds` | done |
+| `PILean.Path` | `PathCmd`, `Path`, shapes, circular arcs (`arc`, `arcTo`, `arcError`), `transform`, `flatten`, `bounds` | done |
 | `PILean.Svg` | the SVG document model and writer | done |
 | `PILean.Plot.Ticks`, `Scale`, `Sample`, `Figure`, `Proofs` | nice ticks (multipliers proved ascending and inside their interval), linear and logarithmic scales with minor ticks, adaptive sampling of functions, the `Figure` model (panels, axes, series, legends, annotations) drawn on the canvas | done |
 | `PILean.Raster` | anti-aliased scanline fill by area coverage in integers (non-zero and even-odd), clipping to rectangles and paths, the stroker (joins, caps, miter limit, dashes), gradients, compositing in linear light, group opacity, `Draw` (in the spirit of `ImageDraw`), Gaussian blur and drop shadows, SVG nodes drawn | done |
 | `PILean.Image` | `Image` (mode, size, pixels in a `ByteArray`), `getpixel`, `putpixel`, crop, paste with a mask, alpha compositing, convert, flips and quarter turns, resize (nearest, bilinear, box, Lanczos) | done |
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`, `pHYs` (written); the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Anim` | a `FrameSeq` (equally sized RGBA frames, a rational delay each, a loop count) and its codecs. APNG: writer (frame differencing to the changed rectangle, equal frames merged, delays as reduced fractions) and reader (composes `dispose_op` and `blend_op`, any PNG colour type, caps on size, frames and bytes). GIF89a: writer (LZW, one global palette by median cut or the exact colours, optional Floyd–Steinberg dithering, differencing with a transparent index, delays in centiseconds with exact cumulative time, loop extension) and reader (global and local tables, interlacing, disposal 0–3, transparency, caps) | done |
-| `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark` | done |
+| `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips, metadata through `Shape.tagged` and `ShapeInfo`; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark`, with the plane colours and sizes `PlaneStyle` | done |
+| `PILean.Plane` (`Basic`, `Frame`, `Draw`) | plane figures: elements in world coordinates (`Geom`), looks by role (`Look`, `Tone`), items with metadata (`Item`), builders and modifiers; the frame (`Frame`, one scale, `y` up) fitted to the items' reaches (`Frame.fit`), clipping (`clipLine`); the figure (`Figure`) drawn on the canvas | done |
+| `PILean.Exact.Plane` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn | done |
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline or orthogonal edges, arrowheads, edge labels and clusters, circular and tree layouts, components laid out apart and packed, mirrored layouts, drawing on the canvas as SVG and PNG, and as SVG for a web page | done; layering proved, see below |
@@ -483,6 +485,49 @@ The 2000 × 1200 function plot (`lake exe pilean-test --bench`, one core of an A
 load average about 14): layout 3 ms, drawing 320 ms, conversion to an 8-bit image 98 ms, PNG
 encoding 732 ms (159,548 bytes). PNG encoding dominates (LZ77 and Huffman at level 6), then the
 rasteriser's full-image background and curve strokes.
+
+## Plane figures
+
+A `Plane.Figure` is a list of items, a page width (and optionally a height), a padding, a `Style`
+and metadata. Items are in world coordinates (`y` up, angles counterclockwise in radians); the
+frame maps them to the page with one scale for both axes, so circles stay round and angles true.
+
+* **Fitting.** Every item has *reaches*: world points with the pixel extent of what is drawn at
+  them (a marker's radius, half a stroke, an arrowhead, an angle mark's radius, a label's box).
+  `Frame.fit` takes the largest scale at which every reach fits inside the padding across the
+  page (bisection over the scale: when no label is wider than the page, the scales that fit form
+  an interval from 0), centres the drawing, and makes the page as tall as the reaches need, in
+  whole pixels. With `view`, a given world box is fitted instead. Lines and rays reach the two
+  points that define them and are drawn to the edge of the page (Liang and Barsky's clipping).
+* **Pixel sizes.** Stroke widths, marker radii, arrowheads, label sizes and offsets and angle
+  marks are in pixels at every scale; only world lengths (radii of circles, disks, arcs) scale.
+* **Labels** are attached to a point with a placement (centred, one of eight sides, or a
+  direction) and an offset: the label's box stands `offset` pixels from the point, measured with
+  the style's text engine, so a label follows its point and LaTeX labels (`pilean-leantex`) are
+  placed by their own measure.
+* **Colours** are roles of `Style.plane`: the ink, three accents (Okabe and Ito's blue,
+  vermilion and bluish green, adjusted per background), a faint construction colour and the
+  opacity of tinted fills. The light and the dark values meet WCAG contrast on their backgrounds
+  (ink 7:1, accents and faint 4.5:1; on a tinted fill, ink 7:1, accents 4.5:1, faint 3:1, mixed
+  both in linear light and in sRGB), checked by the tests. A figure in `Style.dark` is the dark
+  twin; Verso sites show the twin that matches the page (`pilean-verso-manual`'s `SiteOutputs`).
+* **Metadata.** Every item (and the figure) can carry a title, a description, classes, an id and
+  a Lean declaration (`Item.named`, `describedBy`, `withClass`, `withId`, `declRef`), written as
+  SVG `title` and `desc` children and `class`, `id` and `data-lean-decl` attributes of a `g`
+  (`Canvas.Shape.tagged`); images leave them out. Ids and classes are reduced to ASCII letters,
+  digits, `_`, `-` and `.`.
+* **Exact points** (`PILean.Exact.Plane`). A type with an instance of `Exact.PlanePoint` gives
+  rational balls around the two coordinates of its values at any precision (`Exact.RealValue`
+  for real numbers, such as radii); the figure converts the centres at 64 bits to `Float` at the
+  last step. The core has no real numbers, so that a ball holds the value is declared by the
+  instance; the laws that can be stated without them (radii between 0 and `2⁻ᵏ`) are the classes
+  `LawfulRealValue` and `LawfulPlanePoint`. A representation that needs a context (a cyclotomic
+  ring with its tables) gives the instance on a type that carries it. The tests have worked
+  instances for Gaussian rationals, ℚ(√5) and ℤ[ζ₅] (integer coefficient arrays), whose balls
+  are checked exactly by squaring rationals.
+* **Arcs** (`Path.arc`): at most a quarter turn per cubic, control points on the tangents at
+  `(4/3) tan(δ/4) r`, radial error at most `r (2/27) sin⁶(δ/4) / cos²(δ/4)` (Goldapp 1991), at most
+  `2.73 × 10⁻⁴ r`; the tests sample the curves against this bound.
 
 ## Text in images
 

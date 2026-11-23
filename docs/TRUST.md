@@ -173,6 +173,7 @@ canonical encoding of what is drawn.
 | Type | Outputs |
 |---|---|
 | `Plot.Figure` | SVG; PNG |
+| `Plane.Figure` | SVG; PNG |
 | `Graph` (default layered layout, light style, scale 1), or `GraphFigure` (graph, layout options, style, PNG scale) | SVG; PNG |
 | `Animation` | animated SVG; APNG (file extension `png`); GIF; poster frame (PNG, suffix `-poster`) |
 
@@ -282,7 +283,7 @@ this byte string:
 
 The renderer, `PILean.Trust.rendererId` (`PILean/Trust/Renderer.lean`), is the SHA-256 of the
 Lean toolchain's version and of the source files of every library module that turns a figure into
-bytes (the plots, graphs and animations, the SVG writer, the rasteriser, the lettering, the PNG,
+bytes (the plots, plane figures, graphs and animations, the SVG writer, the rasteriser, the lettering, the PNG,
 APNG and GIF writers, the source records: the modules `Renderer.lean` imports, listed in
 `rendererSources`). It is computed from the files' text as it was when the library was compiled
 (`include_str`), so nobody has to remember to change it: any change to that code changes every fingerprint, even a
