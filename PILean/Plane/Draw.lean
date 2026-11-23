@@ -129,7 +129,8 @@ def marker (e : Env) (l : Look) (q : Point) : Array Shape :=
   let haloShape : Shape := match m with
     | .dot => .path (markerPath m q (r + ring)) (some (.solid bg)) none 1
     | .ring => .path (markerPath m q (r + w / 2 + ring)) (some (.solid bg)) none 1
-    | .cross => .path (markerPath m q r) none (some { ink := bg, width := w + 2 * ring, cap := "round" }) 1
+    | .cross =>
+      .path (markerPath m q r) none (some { ink := bg, width := w + 2 * ring, cap := "round" }) 1
     | _ => .path (markerPath m q r) none (some { ink := bg, width := 2 * ring, join := "round" }) 1
   let body : Shape := match m with
     | .ring => .path (markerPath m q r) none (some { ink := c, width := w }) 1

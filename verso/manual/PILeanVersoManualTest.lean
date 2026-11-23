@@ -154,7 +154,8 @@ def main : IO UInt32 := do
       !name.isEmpty && (rest.drop name.length).startsWith "="
     check (exFigures.length == 3 && exFigures.all (!has · "<script") &&
       exFigures.all (!handler ·)) "the explorers' markup has no script and no event handler"
-    IO.println s!"size: the explorers page is {ex.utf8ByteSize} bytes for {svgParts.length} pictures"
+    IO.println s!"size: the explorers page is {ex.utf8ByteSize} bytes for \
+      {svgParts.length} pictures"
     -- a damaged copy is found
     let damaged := tmp / "damaged"
     IO.FS.createDirAll damaged

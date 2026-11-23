@@ -61,8 +61,8 @@ def chordEnd : Exact.Zeta5 := Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2
 def threePlusPhi : Exact.QSqrt5 := ⟨7 / 2, 1 / 2⟩
 
 /-- The items of `planeDisks`: two closed disks of radius `√(3 + φ)` about `-1` (accent 0) and `1`
-(accent 1), the chord from `-E` to `E`, and the step `ζ²` from `1`, and the radius from `-1` to `E`. `E` lies on the
-boundary of the left disk and takes its colour; `-E` lies on the right one's. -/
+(accent 1), the chord from `-E` to `E`, the step `ζ²` from `1`, and the radius from `-1` to `E`.
+`E` lies on the boundary of the left disk and takes its colour; `-E` lies on the right one's. -/
 def planeItems : Array Plane.Item :=
   let r : Exact.SqrtOf Exact.QSqrt5 := ⟨threePlusPhi⟩
   let left := Exact.Zeta5.ofInt (-1)

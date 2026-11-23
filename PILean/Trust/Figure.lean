@@ -168,7 +168,8 @@ def planeBytes (fig : Plane.Figure) (bytes : Unit → Except String ByteArray) :
 figure's layout warnings when `warn`. -/
 def planeOutputs (fig : Plane.Figure) (suffix : String) (warn : Bool) : Array Output :=
   let g := fig.autoPlaced
-  #[{ name := suffix, format := .svg, bytes := fun _ => planeBytes fig fun _ => .ok fig.toSvg.toUTF8,
+  #[{ name := suffix, format := .svg,
+      bytes := fun _ => planeBytes fig fun _ => .ok fig.toSvg.toUTF8,
       spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
       inline := fun _ => some
         (InlineSvg.ofStyle g.frame.width.round g.frame.height.round fig.svgNodes fig.style),
@@ -198,7 +199,8 @@ instance : ToOutputs Explorer where
   outputs x :=
     let p := x.posterFrame
     let ok := fun (b : Unit → Except String ByteArray) =>
-      if x.valid then b () else .error s!"the explorer has {x.frames.size} frames for         {x.values} values and {x.steps} steps, or its poster {x.poster} is not among them"
+      if x.valid then b () else .error s!"the explorer has {x.frames.size} frames for \
+        {x.values} values and {x.steps} steps, or its poster {x.poster} is not among them"
     #[{ name := "", format := .svg, bytes := fun _ => ok fun _ => .ok p.toSvg.toUTF8,
         spec := p.toSvg.toUTF8, textEngine := p.style.text.id,
         inline := fun _ => some p.inline,

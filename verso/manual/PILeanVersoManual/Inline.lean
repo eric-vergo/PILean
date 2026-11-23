@@ -224,7 +224,9 @@ def explorerJs : String := r##"// PILean explorers: one frame at a time, a slide
       if (timer) { clearInterval(timer); timer = null; }
       if (play) { play.setAttribute("aria-pressed", "false"); play.textContent = "▶"; }
     }
-    if (slider) slider.addEventListener("input", function () { vi = Number(slider.value); show(); });
+    if (slider) {
+      slider.addEventListener("input", function () { vi = Number(slider.value); show(); });
+    }
     root.addEventListener("click", function (ev) {
       var b = ev.target.closest ? ev.target.closest("[data-action]") : null;
       if (!b || !root.contains(b)) return;
@@ -312,11 +314,15 @@ def explorerCss : String := r##"
 }
 a.pilean-decl-link { cursor: pointer; }
 a.pilean-decl-link:focus { outline: none; }
-a.pilean-decl-link:focus-visible { outline: 3px solid var(--pilean-focus, #2563eb); outline-offset: 2px; }
+a.pilean-decl-link:focus-visible {
+  outline: 3px solid var(--pilean-focus, #2563eb); outline-offset: 2px;
+}
 a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
 .pilean-explorer { max-width: 100%; }
 .pilean-explorer-view { max-width: 100%; touch-action: none; border-radius: 6px; }
-.pilean-explorer-view:focus-visible { outline: 3px solid var(--pilean-focus, #2563eb); outline-offset: 2px; }
+.pilean-explorer-view:focus-visible {
+  outline: 3px solid var(--pilean-focus, #2563eb); outline-offset: 2px;
+}
 .pilean-explorer-frames {
   list-style: none; margin: 0; padding: 0;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 0.75rem;
@@ -346,11 +352,15 @@ a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
 .pilean-explorer-controls input:focus-visible {
   outline: 3px solid var(--pilean-focus, #2563eb); outline-offset: 2px;
 }
-.pilean-explorer-steps, .pilean-explorer-zoom { display: inline-flex; align-items: center; gap: 0.3rem; }
+.pilean-explorer-steps, .pilean-explorer-zoom {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+}
 .pilean-explorer-counter { font-variant-numeric: tabular-nums; }
 .pilean-explorer-caption { font-style: italic; }
 @media (prefers-reduced-motion: reduce) {
-  .pilean-explorer *, .pilean-inline-svg * { transition: none !important; animation: none !important; }
+  .pilean-explorer *, .pilean-inline-svg * {
+    transition: none !important; animation: none !important;
+  }
 }
 "##
 

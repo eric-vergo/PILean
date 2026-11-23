@@ -263,7 +263,8 @@ def backgroundAt (e : Env) (before : Array Leaf) (q : Point) : Rgba :=
   before.foldl (init := e.style.background) fun bg lf =>
     (drawGeom e lf.look lf.geom).foldl (init := bg) fun bg s => match s with
       | .path p (some (.solid c)) _ _ =>
-        let holds := (p.flatten 0.25).foldl (fun b pl => if insidePolyline q pl then !b else b) false
+        let holds :=
+          (p.flatten 0.25).foldl (fun b pl => if insidePolyline q pl then !b else b) false
         if holds && c.a < 255 then srgbOver c bg else bg
       | _ => bg
 

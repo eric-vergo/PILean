@@ -343,7 +343,8 @@ def layoutChecks : Array (String × Bool) :=
   let base := fun (items : Array Item) => ({ items, width := 300 } : Plane.Figure)
   let overlapping := base #[point ⟨0, 0⟩, point ⟨3, 1⟩, label "first label" ⟨1, 1⟩,
     label "second label" ⟨1.1, 1⟩]
-  let overSegment := base #[segment ⟨0, 0⟩ ⟨3, 0⟩, point ⟨1.5, 1⟩, label "crossing" ⟨1.5, 0.05⟩ .below (some 0)]
+  let overSegment := base #[segment ⟨0, 0⟩ ⟨3, 0⟩, point ⟨1.5, 1⟩,
+    label "crossing" ⟨1.5, 0.05⟩ .below (some 0)]
   let outsideView : Plane.Figure :=
     { items := #[point ⟨0, 0⟩, point ⟨5, 5⟩], view := some ⟨-1, -1, 1, 1⟩, width := 200 }
   let close := base #[point ⟨0, 0⟩, point ⟨0.01, 0⟩, point ⟨3, 3⟩]
@@ -485,7 +486,8 @@ def styleChecks : Array (String × Bool) :=
   -- A: the image's pixel inside a tint is the sRGB composite, light and dark
   let tintItems := #[disk ⟨0, 0⟩ 1 |>.accent 0 |>.noOutline, point ⟨1.6, 1.6⟩ |>.halo false,
     point ⟨-1.6, -1.6⟩ |>.halo false]
-  let tinted := fun (st : Style) => ({ items := tintItems, width := 200, style := st } : Plane.Figure)
+  let tinted := fun (st : Style) =>
+    ({ items := tintItems, width := 200, style := st } : Plane.Figure)
   let pixelOk := fun (st : Style) =>
     let f := tinted st
     let q := f.frame.toScreen ⟨0, 0⟩
@@ -521,7 +523,8 @@ def styleChecks : Array (String × Bool) :=
     ("B: the lens is two exact arcs, closed, through the circles' crossings",
       arcs.size == 1 && arcs[0]!.size == 2 &&
       (match lensPath with
-        | some p => (p.cmds.filter fun c => match c with | .cubic .. => true | _ => false).size ≥ 2 &&
+        | some p =>
+            (p.cmds.filter fun c => match c with | .cubic .. => true | _ => false).size ≥ 2 &&
             (p.flatten 0.1).any fun pl => pl.points.any fun q => (q - corner).norm < 0.6
         | none => false)),
     ("B: disjoint, nested and crossing disks combine",
