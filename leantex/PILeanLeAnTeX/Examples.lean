@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanLeAnTeX.Engine
+import PILean.Trust.Attr
 
 /-!
 # Gallery figures with LaTeX labels
@@ -53,28 +54,48 @@ def subgroups : Graph :=
       !(c != a && c != b && c % a == 0 && b % c == 0))
     fun d => if d == 12 then "$\\{0\\}$" else s!"$\\langle {d} \\rangle$"
 
-/-- `E = ζ - ζ²` with `ζ = e^{2πi/5}`. -/
-def chordEnd : Point := Plane.rootOfUnity 5 1 - Plane.rootOfUnity 5 2
+/-- `E = ζ - ζ²` with `ζ = e^{2πi/5}`, exact in ℤ[ζ₅]. -/
+def chordEnd : Exact.Zeta5 := Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2
+
+/-- `3 + φ`, the square of the disks' radius, in ℚ(√5). -/
+def threePlusPhi : Exact.QSqrt5 := ⟨7 / 2, 1 / 2⟩
+
+/-- The items of `planeDisks`: two closed disks of radius `√(3 + φ)` about `-1` (accent 0) and `1`
+(accent 1), the chord from `-E` to `E`, and the step `ζ²` from `1`, and the radius from `-1` to `E`. `E` lies on the
+boundary of the left disk and takes its colour; `-E` lies on the right one's. -/
+def planeItems : Array Plane.Item :=
+  let r : Exact.SqrtOf Exact.QSqrt5 := ⟨threePlusPhi⟩
+  let left := Exact.Zeta5.ofInt (-1)
+  let right := Exact.Zeta5.ofInt 1
+  let z2 := Exact.Zeta5.pow 2
+  #[Plane.Exact.disk left r |>.accent 0, Plane.Exact.disk right r |>.accent 1,
+    Plane.Exact.segment (-chordEnd) chordEnd |>.width 3,
+    Plane.Exact.arrow right (right + z2) |>.accent 2,
+    Plane.Exact.point chordEnd |>.accent 0 |>.incident .on "the left circle",
+    Plane.Exact.point (-chordEnd) |>.accent 1 |>.incident .on "the right circle",
+    Plane.Exact.point left, Plane.Exact.point right,
+    Plane.Exact.label "$E$" chordEnd .auto |>.accent 0,
+    Plane.Exact.label "$-E$" (-chordEnd) .auto |>.accent 1,
+    Plane.Exact.label "$\\zeta^2$" (right + z2) .auto |>.accent 2,
+    Plane.Exact.segment left chordEnd |>.faint |>.dashed,
+    Plane.Exact.labelBeside "$\\sqrt{3+\\varphi}$" left chordEnd |>.faint,
+    Plane.Exact.label "$-1$" left .auto, Plane.Exact.label "$+1$" right .auto]
 
 /-- Two closed disks of radius `√(3 + φ)` about `±1`, their chord from `-E` to `E`, and the
 step `ζ²`, every label LaTeX: `$\zeta^2$`, `$-E$`, `$\sqrt{3+\varphi}$`. -/
-def planeDisks : Plane.Figure :=
-  let r := Float.sqrt (3 + (1 + Float.sqrt 5) / 2)
-  let z2 := Plane.rootOfUnity 5 2
-  { width := 480
-    items := #[
-      Plane.disk ⟨-1, 0⟩ r |>.accent 0, Plane.disk ⟨1, 0⟩ r |>.accent 1,
-      Plane.segment ((-1 : Float) * chordEnd) chordEnd |>.width 3,
-      Plane.arrow ⟨1, 0⟩ (⟨1, 0⟩ + z2) |>.accent 2,
-      Plane.segment ⟨-1, 0⟩ (⟨-1, 0⟩ + Plane.polar r (Plane.deg 200)) |>.faint |>.dashed,
-      Plane.point ((-1 : Float) * chordEnd) |>.accent 0, Plane.point chordEnd |>.accent 1,
-      Plane.point ⟨-1, 0⟩, Plane.point ⟨1, 0⟩,
-      Plane.label "$-E$" ((-1 : Float) * chordEnd) .belowLeft |>.accent 0,
-      Plane.label "$E$" chordEnd .aboveRight |>.accent 1,
-      Plane.label "$\\zeta^2$" (⟨1, 0⟩ + z2) .aboveLeft |>.accent 2,
-      Plane.label "$\\sqrt{3+\\varphi}$" (⟨-1, 0⟩ + Plane.polar (r / 2) (Plane.deg 200)) .above
-        |>.faint,
-      Plane.label "$-1$" ⟨-1, 0⟩ .right, Plane.label "$+1$" ⟨1, 0⟩ .right] }
+@[figure]
+def planeDisks : Plane.Figure := { width := 480, items := planeItems }
+
+/-- What `planeDisks` holds, and that its colours are right: `|E + 1|² = 3 + φ`, so `E` is on the
+boundary of the disk about `-1` (the left one, whose colour it takes), and `|-E - 1|² = 3 + φ`,
+so `-E` is on the boundary of the disk about `1`; decided exactly in ℚ(√5). -/
+theorem planeDisks_spec :
+    planeDisks.items = planeItems ∧
+    (chordEnd + Exact.Zeta5.ofInt 1).normSq = threePlusPhi ∧
+    (-chordEnd - Exact.Zeta5.ofInt 1).normSq = threePlusPhi := by
+  refine ⟨rfl, ?_, ?_⟩ <;> decide +kernel
+
+figure_proves planeDisks planeDisks_spec
 
 /-- The plane figures with the engine, light and dark: file stem and figure. -/
 def planes (e : TextEngine) : Array (String × Plane.Figure) :=
