@@ -17,6 +17,7 @@ import PILeanTest.GraphOrder
 import PILeanTest.GraphQuality
 import PILeanTest.GraphDot
 import PILeanTest.Exact
+import PILeanTest.Plane
 import PILeanTest.GraphRoutes
 import PILeanTest.Trust
 import PILeanTest.TrustBuild
@@ -31,11 +32,11 @@ import PILeanTest.Axioms
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
 `PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`, `PILeanTest.Plots`,
 `PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.GraphRoutes`, `PILeanTest.Trust`,
-`PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`) and compares
-every gallery figure's SVG and PNG, every gallery graph's SVG and PNG, and every gallery
-animation's SVG, APNG, GIF and poster, with
-its files in `examples/` (the goldens), byte for byte; it also renders each figure twice to check
-that the output is deterministic. `lake exe pilean-test --update` rewrites
+`PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`) and
+compares every gallery figure's SVG and PNG, every gallery plane figure's and graph's SVG and
+PNG, and every gallery animation's SVG, APNG, GIF and poster, with its files in `examples/` (the
+goldens), byte for byte; it also renders each figure twice to check that the output is
+deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
 `tools/compare-render.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the graph
 layout and its output on module graphs of 100, 800 and 3000 nodes;
@@ -110,7 +111,7 @@ def main (args : List String) : IO UInt32 := do
     (← GraphQuality.ioChecks) ++ GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
-    (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
+    PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
     Axioms.coverageChecks driverModules
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
@@ -142,6 +143,24 @@ def main (args : List String) : IO UInt32 := do
           the change)"
         failed := failed + 1
       else IO.println s!"golden {pngPath}: same"
+  for (name, fig) in Examples.planes do
+    let svg := fig.toSvg
+    let pngName := (System.FilePath.mk name).withExtension "png" |>.toString
+    let outs : Array (String × ByteArray) := #[(name, svg.toUTF8), (pngName, fig.toPng.getD .empty)]
+    if svg != fig.toSvg then
+      IO.eprintln s!"FAIL {name}: not deterministic"; failed := failed + 1
+    for (file, bytes) in outs do
+      let path : System.FilePath := "examples" / file
+      if args == ["--update"] then
+        IO.FS.writeBinFile path bytes
+        IO.println s!"wrote {path}"
+      else
+        let golden ← if ← path.pathExists then IO.FS.readBinFile path else pure .empty
+        if golden.data != bytes.data then
+          IO.eprintln s!"FAIL {path}: differs (`lake exe pilean-test --update` after checking \
+            the change)"
+          failed := failed + 1
+        else IO.println s!"golden {path}: same"
   for (stem, entry, st) in Examples.graphs do
     let svg := entry.svg st
     let outs : Array (String × ByteArray) :=

@@ -5,6 +5,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILean
 import PILeanTest.Graphs
 import PILeanTest.ProvedExamples
+import PILeanTest.PlaneExact
 import PILean.Trust.Attr
 
 /-!
@@ -370,6 +371,79 @@ end Animations
 def animations : Array (String × Animation) :=
   #[("wave", Animations.wave), ("growing-bars", Animations.bars),
     ("graph-build", Animations.graphBuild), ("proved-clock", ProvedExamples.provedClock)]
+
+/-! ### Plane figures -/
+
+namespace PlaneFigures
+
+open PILean.Plane
+
+/-- The golden ratio. -/
+def phi : Float := (1 + Float.sqrt 5) / 2
+
+/-- The critical radius `√(3 + φ)`. -/
+def critical : Float := Float.sqrt (3 + phi)
+
+/-- `E = ζ - ζ²`, `ζ = e^{2πi/5}`. -/
+def chordEnd : Point := rootOfUnity 5 1 - rootOfUnity 5 2
+
+/-- Two closed disks of the critical radius about `-1` and `1`, the chord between `-E` and `E`
+where their boundaries meet, and a mark for a clockwise turn of 72° about the left centre. -/
+@[figure]
+def disks : Plane.Figure where
+  width := 520
+  items := #[
+    disk ⟨-1, 0⟩ critical |>.accent 0 |>.named "the left disk" |>.describedBy
+      "the closed disk of radius √(3 + φ) about −1",
+    disk ⟨1, 0⟩ critical |>.accent 1 |>.named "the right disk",
+    segment ((-1 : Float) * chordEnd) chordEnd |>.width 3 |>.named "the critical chord"
+      |>.declRef `PILeanTest.Examples.PlaneFigures.chordEnd,
+    angleMark ⟨-1, 0⟩ (deg 18) (deg 18 - deg 72) (some 46) |>.faint,
+    label "72°" (⟨-1, 0⟩ + polar 0.68 (deg (-18))) .right (some 2) |>.faint |>.size 12,
+    point ((-1 : Float) * chordEnd) |>.accent 0, point chordEnd |>.accent 1,
+    point ⟨-1, 0⟩, point ⟨1, 0⟩, point ⟨0, 0⟩,
+    label "−E" ((-1 : Float) * chordEnd) .belowLeft |>.accent 0,
+    label "E" chordEnd .aboveRight |>.accent 1,
+    label "−1" ⟨-1, 0⟩ .left, label "+1" ⟨1, 0⟩ .right, label "0" ⟨0, 0⟩ .below]
+  info := { title := "Two closed disks and the critical chord" }
+
+/-- Every kind of element: a line and a ray clipped to the frame, a dashed circle, an arc with an
+arrowhead, a sector, a regular pentagon, a tinted triangle, a polyline, arrows, angle marks both
+ways, and labels on all sides of a point. -/
+@[figure]
+def constructions : Plane.Figure where
+  width := 520
+  view := some ⟨-3.2, -2.2, 3.2, 2.2⟩
+  items := #[
+    line ⟨-3, -1.8⟩ ⟨3, 1.4⟩ |>.faint |>.dashed,
+    ray ⟨0, 0⟩ ⟨1, -0.4⟩ |>.faint,
+    circle ⟨0, 0⟩ 1.6 |>.faint |>.dashed #[2, 4] |>.width 1.5,
+    sector ⟨0, 0⟩ 1.6 (deg 20) (deg 70) |>.accent 2,
+    arc ⟨0, 0⟩ 1.9 (deg 100) (deg 170) |>.accent 1 |>.withArrow,
+    regularPolygon ⟨-1.9, -1.1⟩ 0.6 5 (pi / 2) |>.accent 0 |>.filled,
+    polygon #[⟨1.4, -1.6⟩, ⟨2.8, -1.6⟩, ⟨2.1, -0.4⟩] |>.accent 1 |>.filled,
+    polyline #[⟨-2.8, 1.9⟩, ⟨-2.2, 1.3⟩, ⟨-1.6, 1.8⟩, ⟨-1.0, 1.2⟩] |>.accent 0 |>.withArrow,
+    arrow ⟨0, 0⟩ (polar 1.6 (deg 45)) |>.width 2.5,
+    angleMark ⟨0, 0⟩ 0 (deg 45) none |>.accent 2,
+    angleMark ⟨-1.9, -1.1⟩ (deg 90) (deg 18) (some 30) |>.faint,
+    point ⟨0, 0⟩, point (polar 1.6 (deg 45)) |>.accent 2,
+    label "N" ⟨2.3, 1.3⟩ .above |>.size 12, label "S" ⟨2.3, 1.3⟩ .below |>.size 12,
+    label "E" ⟨2.3, 1.3⟩ .right |>.size 12, label "W" ⟨2.3, 1.3⟩ .left |>.size 12,
+    point ⟨2.3, 1.3⟩ |>.faint,
+    label "O" ⟨0, 0⟩ .belowLeft, label "P" (polar 1.6 (deg 45)) .aboveRight |>.accent 2]
+  info := { title := "The elements of a plane figure" }
+
+/-- The plane figures of the gallery by name. -/
+def figures : Array (String × Plane.Figure) :=
+  #[("plane-disks", disks), ("plane-constructions", constructions),
+    ("plane-exact", PILeanTest.PlaneExact.zetaSteps)]
+
+end PlaneFigures
+
+/-- The plane gallery: file name and figure; each figure light and dark. -/
+def planes : Array (String × Plane.Figure) :=
+  PlaneFigures.figures.map (fun (n, f) => (n ++ ".svg", f)) ++
+    PlaneFigures.figures.map (fun (n, f) => (n ++ "-dark.svg", { f with style := Style.dark }))
 
 /-! ### Raster pictures
 

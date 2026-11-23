@@ -21,6 +21,8 @@ import PILeanTest.GraphQuality
 import PILeanTest.GraphDot
 import PILeanTest.Exact
 import PILeanTest.GraphRoutes
+import PILeanTest.Plane
+import PILeanTest.PlaneExact
 import PILeanTest.Trust
 import PILeanTest.TrustBuild
 import PILeanTest.Inert
