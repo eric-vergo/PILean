@@ -253,7 +253,8 @@ def main : IO UInt32 := do
     check (frames == 9) s!"every frame of both explorers is in the page ({frames})"
     check (has ex "data-poster=\"\"" && has ex "class=\"pilean-explorer-controls\" hidden=\"\"")
       "without script the frames are listed and the controls hidden"
-    check (has ex "<input type=\"range\" min=\"0\" max=\"4\" step=\"1\" value=\"2\"" &&
+    check (has ex ("<input type=\"range\" data-axis=\"value\" min=\"0\" max=\"4\" " ++
+        "step=\"1\" value=\"2\"") &&
       has ex "aria-valuetext=\"8/10\"") "the slider starts at the poster, with its value"
     check (has ex "data-action=\"prev\"" && has ex "data-action=\"next\"" &&
       has ex "Step 1 of 4" && has ex "aria-live=\"polite\"") "the stepper's controls and caption"

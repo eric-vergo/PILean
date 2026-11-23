@@ -14,14 +14,15 @@ and the inline scripts of the head (by hash), no inline event handlers, no plug-
 elsewhere. Checked: every picture loads in the light and the dark theme and the right one is
 shown; the source line's links; the figures page; the still frame under reduced motion; no
 horizontal scrolling at narrow widths; no content-policy report about a figure. For the
-explorers: the slider and the stepper change the frame (by pointer and by keyboard) and say what
+explorers: the sliders (one for each parameter of a family of two) and the stepper change the frame (by pointer and by keyboard) and say what
 they show from the frames' data, whatever the captions hold; one status region speaks, only
 when asked; the page scrolls under a wheel or a one-finger swipe, the picture zooms under Ctrl
 and the wheel or two fingers; frames of different sizes keep their own view; the script set up
 twice acts once; the controls are large enough to touch; an inline element carries its title and
 its link; the inline tint follows the theme, also for an id that starts with a digit, and under
 a policy that allows the pictures' style elements by hash only; without script every frame is a
-grid cell in order and nothing is focusable; reduced motion has no play button; at 360 px the
+grid cell in order after the poster, which comes first across the width, and nothing is
+focusable; reduced motion has no play button; at 360 px the
 narrow rendition is shown. The three link modes: `lean:` links, links into the site that a click
 follows to an existing anchor (also in the side-by-side layout), and no links. Everything a
 figure shows is centred in its container and stays within it: wide, in the narrow column of the
@@ -236,6 +237,32 @@ def control_checks(c, browser, base, shots):
     playing = page.evaluate("window.__liveChanges.length")
     c.check("while the steps play nothing is announced",
             pressed == "true" and moved != [1] and playing == 0, f"{pressed} {moved} {playing}")
+    # a family of two parameters: a slider for each, the second played
+    c.check("a family of two parameters shows its poster frame", current(page, "family") == [4],
+            str(current(page, "family")))
+    names = page.evaluate("""() => [...document.querySelectorAll(
+      'figure#family input[type=range]')].map(s => [s.dataset.axis, s.getAttribute('aria-label'),
+      s.getAttribute('aria-valuetext')])""")
+    c.check("a family of two parameters has a slider for each, named for what it sets",
+            names == [["value", "Value of r in Figure 1.4.3", "8/10"],
+                      ["step", "Value of c in Figure 1.4.3", "1/4"]], str(names))
+    page.evaluate("""() => { const s = document.querySelector('figure#family input[data-axis=step]');
+      s.value = '2'; s.dispatchEvent(new Event('input', {bubbles: true})); }""")
+    shown = page.locator("figure#family .pilean-explorer-step-value").inner_text()
+    c.check("the second slider moves the second parameter", current(page, "family") == [5]
+            and shown == "2/4", f"{current(page, 'family')} {shown}")
+    page.locator("figure#family [data-action=next]").click()
+    said = page.locator("figure#family .pilean-explorer-status").text_content()
+    vt = page.locator("figure#family input[data-axis=step]").get_attribute("aria-valuetext")
+    c.check("next moves the second parameter round and says its value",
+            current(page, "family") == [3] and said == "c = 0/4" and vt == "0/4",
+            f"{current(page, 'family')} {said} {vt}")
+    page.locator("figure#family input[data-axis=value]").focus()
+    page.keyboard.press("ArrowRight")
+    c.check("the first slider keeps the second parameter", current(page, "family") == [6],
+            str(current(page, "family")))
+    play = page.locator("figure#family [data-action=play]").get_attribute("aria-label")
+    c.check("the play button names the parameter it plays", play == "Play c", str(play))
     view = page.locator("figure#radius .pilean-explorer-view")
     box0 = view_box(page, "radius")
     view.focus()
@@ -388,13 +415,18 @@ def noscript_checks(c, browser, base, shots):
     cells = page.evaluate("""() => [...document.querySelectorAll('figure#radius li')].map(li => {
       const r = li.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top),
         Math.round(r.width),
-        li.querySelector('.pilean-explorer-frame-label').offsetHeight > 0]; })""")
+        li.querySelector('.pilean-explorer-frame-label').offsetHeight > 0,
+        li.hasAttribute('data-poster')]; })""")
+    poster = [x for x in cells if x[4]]
+    rest = [x for x in cells if not x[4]]
     in_order = all((b[1] > a[1] + 16) or (abs(b[1] - a[1]) <= 16 and b[0] > a[0])
-                   for a, b in zip(cells, cells[1:]))
-    c.check("without script the frames are a grid in order, as many columns as fit, equal "
-            "cells, each labelled",
-            in_order and len({l for l, *_ in cells}) >= 2 and len({w for _, _, w, _ in cells}) == 1
-            and all(l for *_, l in cells), str(cells))
+                   for a, b in zip(rest, rest[1:]))
+    c.check("without script the poster comes first across the width, the other frames follow "
+            "in a grid in order, as many columns as fit, equal cells, each labelled",
+            len(poster) == 1 and all(poster[0][1] < x[1] for x in rest) and
+            all(poster[0][2] > x[2] for x in rest) and
+            in_order and len({l for l, *_ in rest}) >= 2 and len({w for _, _, w, *_ in rest}) == 1
+            and all(x[3] for x in cells), str(cells))
     ctx.close()
     ctx = browser.new_context(java_script_enabled=False, viewport={"width": 360, "height": 800})
     page = ctx.new_page()
@@ -931,7 +963,7 @@ def main(argv):
 
         page.goto(base + "Figures/")
         items = page.locator(".pilean-figure-index > li")
-        c.check("the figures page lists fourteen figures", items.count() == 14, str(items.count()))
+        c.check("the figures page lists fifteen figures", items.count() == 15, str(items.count()))
         thumbs = page.evaluate("""() => [...document.querySelectorAll('.pilean-index-thumb img')]
             .every(i => i.complete && i.naturalWidth > 0)""")
         c.check("the figures page's pictures load", thumbs)

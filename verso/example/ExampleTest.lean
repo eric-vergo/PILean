@@ -83,8 +83,10 @@ def plotSite : Except String SiteRender :=
 
 /-- The paths of the plot's files. -/
 def plotPaths : Array String :=
-  #["PictureExample/Figures/Example.cubicPlot-dark.png",
+  #["PictureExample/Figures/Example.cubicPlot-dark.pdf",
+    "PictureExample/Figures/Example.cubicPlot-dark.png",
     "PictureExample/Figures/Example.cubicPlot-dark.svg",
+    "PictureExample/Figures/Example.cubicPlot.pdf",
     "PictureExample/Figures/Example.cubicPlot.png", "PictureExample/Figures/Example.cubicPlot.svg"]
 
 /-- The bytes of inline SVG the inline figure puts in a page: its picture and its narrow
@@ -121,7 +123,7 @@ def checks : Array (String × Bool) := #[
     (Style.darkVariant? { Style.light with lineWidth := 3 }).map (·.lineWidth) == some 3),
   ("dark: the colours are the dark style's",
     (Style.darkVariant? Style.light).map (·.background) == some Style.dark.background),
-  ("table: fourteen figures", table.size == 14),
+  ("table: fifteen figures", table.size == 15),
   ("standing: a figure linked by figure_proves is proved by its theorem",
     standingOf "Example.divisorHasse" == some (.proved #["Example.divisorHasse_spec"]) &&
     standingOf "Example.reductionSquare" == some (.proved #["Example.reductionSquare_spec"])),
@@ -156,10 +158,10 @@ def checks : Array (String × Bool) := #[
     (renderSite table #[] { sourcePrefix := "a/b" }).toOption.isNone),
   ("render: a folder prefix is accepted",
     (renderSite table #[] { sourcePrefix := "a/b/" }).toOption.isSome),
-  ("render: a plot gives four files, once, with the commit, inert SVG", match plotSite with
+  ("render: a plot gives six files, once, with the commit, inert SVG", match plotSite with
     | .ok s => s.files.map (·.entry.path) == plotPaths &&
         s.files.all (·.entry.commit == some "abcd1234") &&
-        (s.manifest.splitOn "\"path\"").length == 5 &&
+        (s.manifest.splitOn "\"path\"").length == 7 &&
         s.files.all fun f => f.entry.format != "svg" ||
           ((String.fromUTF8? f.bytes).map Svg.isInert).getD false
     | .error _ => false),
@@ -167,7 +169,7 @@ def checks : Array (String × Bool) := #[
     match renderSite table #["Example.circleAnimation"] {} with
     | .ok s => (s.figures["Example.circleAnimation"]?.map fun f =>
         f.files.map fun sf => (sf.name, sf.format.name)) ==
-          some #[("", "svg"), ("", "apng"), ("", "gif"), ("-poster", "png")]
+          some #[("", "svg"), ("", "apng"), ("", "gif"), ("-poster", "png"), ("-poster", "pdf")]
     | .error _ => false),
   ("use: figure_explorer on a plot fails the build",
     failsWith #[{ decl := "Example.cubicPlot", explorer := true }] {} "is not an explorer"),
@@ -214,9 +216,24 @@ def checks : Array (String × Bool) := #[
         frames := #[default] }
     frameValue fs 0 == "1 · 2" && frameStep fs 0 == "Step 9 of 9: a · b" &&
       frameCounter fs 0 == "Step 1 of 1"),
-  ("size: read from the SVG and the PNG", match plotSite with
+  ("labels: the steps of a second parameter say its value, with no counter",
+    let fs : FrameSet :=
+      { axisName := "r", axisValues := #["1", "2"], stepName := "c", stepCaptions := #["0", "1/4"],
+        frames := #[default, default, default, default] }
+    frameCounter fs 3 == "" && frameStepText fs 3 == "c = 1/4" &&
+      frameLabel fs 3 == "r = 2 · c = 1/4"),
+  ("markup: a family of two parameters has a slider for each and names the played one",
+    let fs : FrameSet :=
+      { axisName := "r", axisValues := #["1", "2"], stepName := "c", stepCaptions := #["0", "1/4"],
+        frames := #[default, default, default, default] }
+    let h := explorerHtml "x" fs (fun _ => none) "alt" "Figure 1"
+    (h.splitOn "type=\"range\"").length == 3 && (h.splitOn "data-axis=\"step\"").length == 2 &&
+      (h.splitOn "aria-label=\"Play c\"").length == 2 &&
+      (h.splitOn "data-step-say=\"c = 1/4\"").length == 3),
+  ("size: read from the SVG and the PNG, none for the PDF", match plotSite with
     | .ok s => s.files.all fun f =>
-        imageSize? (if f.entry.format == "svg" then .svg else .png) f.bytes == some (640, 400)
+        if f.entry.format == "pdf" then imageSize? .pdf f.bytes == none
+        else imageSize? (if f.entry.format == "svg" then .svg else .png) f.bytes == some (640, 400)
     | .error _ => false),
   ("size: zero and missing refused",
     imageSize? .svg "<svg width=\"0\" height=\"3\"/>".toUTF8 == none &&

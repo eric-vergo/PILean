@@ -64,6 +64,11 @@ import PILeanManual.Api.PILean.Image.Basic
 import PILeanManual.Api.PILean.Image.Ops
 import PILeanManual.Api.PILean.Image.Proofs
 import PILeanManual.Api.PILean.Path
+import PILeanManual.Api.PILean.Pdf.Check
+import PILeanManual.Api.PILean.Pdf.Figures
+import PILeanManual.Api.PILean.Pdf.Object
+import PILeanManual.Api.PILean.Pdf.Read
+import PILeanManual.Api.PILean.Pdf.Write
 import PILeanManual.Api.PILean.Plane
 import PILeanManual.Api.PILean.Plane.Basic
 import PILeanManual.Api.PILean.Plane.Check
@@ -209,6 +214,12 @@ The modules, by the folder they are in:
   {ref "api-PILean.Image.Basic"}[`PILean.Image.Basic`],
   {ref "api-PILean.Image.Ops"}[`PILean.Image.Ops`],
   {ref "api-PILean.Image.Proofs"}[`PILean.Image.Proofs`]
+* *Pdf*:
+  {ref "api-PILean.Pdf.Check"}[`PILean.Pdf.Check`],
+  {ref "api-PILean.Pdf.Figures"}[`PILean.Pdf.Figures`],
+  {ref "api-PILean.Pdf.Object"}[`PILean.Pdf.Object`],
+  {ref "api-PILean.Pdf.Read"}[`PILean.Pdf.Read`],
+  {ref "api-PILean.Pdf.Write"}[`PILean.Pdf.Write`]
 * *Plane*:
   {ref "api-PILean.Plane"}[`PILean.Plane`],
   {ref "api-PILean.Plane.Basic"}[`PILean.Plane.Basic`],
@@ -393,6 +404,16 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.Image.Proofs}
 
 {include 1 PILeanManual.Api.PILean.Path}
+
+{include 1 PILeanManual.Api.PILean.Pdf.Check}
+
+{include 1 PILeanManual.Api.PILean.Pdf.Figures}
+
+{include 1 PILeanManual.Api.PILean.Pdf.Object}
+
+{include 1 PILeanManual.Api.PILean.Pdf.Read}
+
+{include 1 PILeanManual.Api.PILean.Pdf.Write}
 
 {include 1 PILeanManual.Api.PILean.Plane}
 

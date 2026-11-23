@@ -41,8 +41,8 @@ def powers : Figure where
   panels := #[{
     x := { label := "n" }, y := { label := "value" },
     series := #[.ofIntPoints "n²" ((List.range 7).map fun k =>
-        let n : Int := k - 3; (n, n ^ 2)),
-      .ofIntPoints "n³" ((List.range 7).map fun k => let n : Int := k - 3; (n, n ^ 3))] }]
+        let n : Int := (k : Int) - 3; (n, n ^ 2)),
+      .ofIntPoints "n³" ((List.range 7).map fun k => let n : Int := (k : Int) - 3; (n, n ^ 3))] }]
 ```
 
 ```lean (name := pdfEx)

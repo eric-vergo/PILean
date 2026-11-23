@@ -51,8 +51,8 @@ desc="the page names the theorem"; check grep -q 'lean:decl/Example.cubicPlot_sp
 desc="the page has a dark picture"; check grep -q 'Example.cubicPlot-dark.svg' "$page"
 desc="the animation has its still frame for reduced motion"
 check grep -q 'prefers-reduced-motion: reduce' "$scratch/a/html-multi/Pictures-with-proofs/Motion/index.html"
-desc="the figures page lists fourteen figures"
-check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 14
+desc="the figures page lists fifteen figures"
+check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 15
 desc="no inline event handler and no script in the figures' markup"
 check python3 -I tests/markup_check.py "$scratch/a/html-multi"
 desc="every inline picture is the body of a file the manifest lists"
@@ -61,14 +61,14 @@ check python3 -I tests/inline_check.py "$scratch/a/html-multi"
 # The figures' pages.
 pages="$scratch/a/html-multi/Figures"
 desc="every figure has a page"
-check test "$(grep -l 'data-pilean-page=' "$pages"/*/index.html | wc -l | tr -d ' ')" = 14
+check test "$(grep -l 'data-pilean-page=' "$pages"/*/index.html | wc -l | tr -d ' ')" = 15
 desc="every figure's page agrees with the manifest (page_check.py)"
 check python3 -I tests/page_check.py "$scratch/a/html-multi"
 cubic="$pages/Example.cubicPlot/index.html"
 desc="a figure's source line links its page"
 check grep -q 'class="pilean-page-link" href="Figures/Example.cubicPlot/' "$page"
 desc="the figures page links each figure's page"
-check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 14
+check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 15
 desc="a proved figure's page shows its theorem's statement as highlighted Lean"
 check bash -c "grep -q 'class=\"pilean-page-decl pilean-page-theorem\" data-lean-decl=\"Example.cubicPlot_spec\"' '$cubic' && grep -q 'class=\"hl lean' '$cubic'"
 desc="the page shows the definitions the figure is built from"
