@@ -12,11 +12,11 @@ import PILean.Trust.Attr
 The figures, built with PILean only from plain functions on the natural numbers and the
 integers (this module imports nothing from Mathlib). `PILeanMathlib.Examples.NumberTheory` proves
 that each draws Mathlib's object: Euler's totient `Nat.totient` and the number of divisors
-`(Nat.divisors n).card` on `1, …, 100`, the prime-counting function `Nat.primeCounting` on
-`2, …, 200` against the comparison curve `n / (Hₙ - 1)`, the primes (`Nat.Prime`) on an Ulam
-spiral of `1, …, 441`, the quadratic residues modulo the primes `3, 5, 7, 11, 13` with their
-Legendre symbols (`IsSquare`, `legendreSym`), and the Gaussian primes (`Prime` in `GaussianInt`)
-among the Gaussian integers `a + b i` with `|a|, |b| ≤ 7`.
+`(Nat.divisors n).card` (`σ₀`) on `1, …, 100`, the prime-counting function `Nat.primeCounting`
+on `2, …, 100` against the comparison curve `n / (Hₙ - 1)` (`harmonic`), the primes
+(`Nat.Prime`) on an Ulam spiral of `1, …, 441`, the quadratic residues modulo the primes
+`3, 5, 7, 11, 13` with their Legendre symbols (`IsSquare`, `legendreSym`), and the Gaussian
+primes (`Prime` in `GaussianInt`) among the Gaussian integers `a + b i` with `|a|, |b| ≤ 7`.
 -/
 
 namespace PILeanMathlib.Examples
@@ -36,36 +36,41 @@ def isPrime' (n : Nat) : Bool := 2 ≤ n && (List.range' 2 (n - 2)).all fun d =>
 def primeCount (n : Nat) : Nat := ((List.range (n + 1)).filter isPrime').length
 
 /-- The harmonic number `Hₙ = 1 + 1/2 + ⋯ + 1/n`. -/
-def harmonic (n : Nat) : Rat := ((List.range' 1 n).map fun (k : Nat) => (1 : Rat) / k).foldl (· + ·) 0
+def harmonic' : Nat → Rat
+  | 0 => 0
+  | n + 1 => harmonic' n + 1 / (n + 1)
 
 /-- The plot of the totient on `1, …, 100`. -/
 def totientPlot : SeqPlot := { lo := 1, hi := 100, series := [("φ(n)", fun n => totient' n)] }
 
 /-- Euler's totient. -/
 @[figure]
-def totientFigure : Diagram := { totientPlot.figure with title := "Euler's totient φ(n), n ≤ 100" }
+def totientFigure : Diagram :=
+  { totientPlot.figure with title := "Euler's totient φ(n), 1 ≤ n ≤ 100" }
 
 /-- The plot of the number of divisors on `1, …, 100`. -/
-def divisorPlot : SeqPlot := { lo := 1, hi := 100, series := [("d(n)", fun n => divisorCount n)] }
+def divisorPlot : SeqPlot :=
+  { lo := 1, hi := 100, series := [("d(n) = σ₀(n)", fun n => divisorCount n)] }
 
 /-- The number of divisors. -/
 @[figure]
 def divisorFigure : Diagram :=
-  { divisorPlot.figure with title := "The number of divisors d(n), n ≤ 100" }
+  { divisorPlot.figure with title := "The number of divisors d(n), 1 ≤ n ≤ 100" }
 
-/-- The plot of the prime-counting function on `2, …, 200` and the curve `n / (Hₙ - 1)`. -/
+/-- The plot of the prime-counting function on `2, …, 100` and the curve `n / (Hₙ - 1)`. -/
 def primeCountPlot : SeqPlot :=
-  { lo := 2, hi := 200, series := [("π(n)", fun n => primeCount n)],
-    curves := [("n / (Hₙ − 1)", fun n => n / (harmonic n - 1))] }
+  { lo := 2, hi := 100, series := [("π(n)", fun n => primeCount n)],
+    curves := [("n / (Hₙ − 1)", fun n => n / (harmonic' n - 1))] }
 
 /-- The prime-counting function against a comparison curve. -/
 @[figure]
 def primeCountFigure : Diagram :=
-  { primeCountPlot.figure with title := "π(n) and n / (Hₙ − 1), 2 ≤ n ≤ 200" }
+  { primeCountPlot.figure with title := "π(n) and n / (Hₙ − 1), 2 ≤ n ≤ 100" }
 
-/-- The Ulam spiral of `1, …, 441` with the primes marked. -/
+/-- The Ulam spiral of `1, …, 441` with the primes marked solid and `1` written in its cell. -/
 def ulamPlot : CellPlot :=
-  { cells := ulamCells 441 isPrime', headings := [("1", (1 / 2, 1 / 2))], solid := true }
+  { cells := (ulamCells 441 isPrime').map fun c => if c.key = 1 then { c with text := "1" } else c,
+    solid := true }
 
 /-- The primes on the Ulam spiral. -/
 @[figure]
@@ -75,24 +80,28 @@ def ulamFigure : Diagram :=
 /-- The primes of the table of residues. -/
 def residuePrimes : List Nat := [3, 5, 7, 11, 13]
 
-/-- The Legendre symbol `(a / p)` by Euler's criterion as a search: `0` when `p ∣ a`, `1` when `a`
-is a square modulo `p`, `-1` otherwise. -/
+/-- The Legendre symbol `(a / p)` as a search: `0` when `p ∣ a`, `1` when `a` is a square modulo
+`p`, `-1` otherwise. -/
 def legendre' (p a : Nat) : Int :=
   if a % p = 0 then 0 else if (List.range p).any (fun x => x * x % p == a % p) then 1 else -1
+
+/-- The text of a Legendre symbol: `0`, `1` or `−1` (with the minus sign `−`). -/
+def symbolText (s : Int) : String := if s < 0 then "−" ++ toString s.natAbs else toString s
 
 /-- The cell of `a` in row `i` (the prime `p`) of the table of residues. -/
 def residueCell (p i a : Nat) : NumberCell :=
   { key := 100 * p + a, pos := ((a : Int), -(i : Int)), marked := legendre' p a == 1,
-    text := toString (legendre' p a) }
+    text := symbolText (legendre' p a) }
 
 /-- The table of residues: row `i` for the `i`-th prime `p`, cell `a` for `0 ≤ a < p`, marked when
 `a` is a nonzero square modulo `p`, with the Legendre symbol written in it; the primes at the
-left. -/
+left and the residues `a` above. -/
 def residuePlot : CellPlot where
   cells := residuePrimes.zipIdx.flatMap fun (p, i) => (List.range p).map fun a =>
     residueCell p i a
   headings := residuePrimes.zipIdx.map (fun (p, i) => (s!"p = {p}", (-1, 1 / 2 - (i : Rat)))) ++
-    (List.range 13).map fun (a : Nat) => (toString a, ((a : Rat) + 1 / 2, 3 / 2))
+    ("a", (-1, 3 / 2)) ::
+      (List.range 13).map fun (a : Nat) => (toString a, ((a : Rat) + 1 / 2, 3 / 2))
 
 /-- The quadratic residues. -/
 @[figure]
