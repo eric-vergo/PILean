@@ -594,7 +594,7 @@ def windowAt (r : Rat) : Plane.Figure :=
 over some of them, every vertex clear of its boundary and recording on which side it is. -/
 @[figure]
 def graphInWindow : Plane.Figure :=
-  { windowAt (11 / 10) with info := { title := "A graph in a window" } }
+  { windowAt 1 with info := { title := "A graph in a window" } }
 
 /-- The window of `graphInWindow` as its radius grows from 6/5 to 9/5 in steps of 1/10: a
 parameter axis; each vertex records, exactly, on which side of the window it is. -/
