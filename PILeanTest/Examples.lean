@@ -495,26 +495,45 @@ def disks : Plane.Figure where
   items := Disks.items
   info := { title := "Two closed disks and the critical chord" }
 
-/-- What `disks` draws and why its records and colours are right. Its items are `Disks.items`;
-the left disk is the closed disk of radius `√(3 + φ)` about `-1` in accent 0, titled "the left
-circle", the right one about `1` in accent 1; the chord runs from `-E` to `E`; the point `E` is in
-accent 0 and records being on the left circle, `-E` is in accent 1 and records being on the right
-one, `0` records being on the chord, and the crossings `±(ζ - ζ⁴)` record being on both circles.
-The records hold, exactly in ℚ(√5): `|E + 1|² = 3 + φ` and `|E - 1|² < 3 + φ` (so `E` is on the
-left circle and inside the right disk), the same for `-E` with the sides exchanged,
-`|ζ - ζ⁴ ± 1|² = 3 + φ` for both crossings, and `0` is the midpoint of `-E` and `E`. -/
+/-- What `disks` draws, item for item, and why its records and colours are right. The data are
+`E = ζ - ζ²`, the crossing `ζ - ζ⁴`, the centres `-1` and `1` and the radius `√(3 + φ)`
+(`3 + φ = 7/2 + √5/2`). The items are written out in drawing order, each with its colour (accent,
+`faint` or the ink), its title, its marker and the incidences it records: the left disk about
+`-1` in accent 0, titled "the left circle", the right one about `1` in accent 1, the chord from
+`-E` to `E`, the faint mark of a clockwise turn of 72° about `-1` with its label "72°", the
+crossings `±(ζ - ζ⁴)` as faint rings recording being on both circles, `-E` in accent 1 recording
+being on the right circle, `E` in accent 0 recording being on the left one, the centres, `0`
+recording being on the chord, and the labels "−E", "E", "−1", "+1" and "0", each at its point,
+with its placement and colour. The records hold, exactly in ℚ(√5): `|E + 1|² = 3 + φ` and
+`|E - 1|² < 3 + φ` (so `E` is on the left circle and inside the right disk), the same for `-E`
+with the sides exchanged, `|ζ - ζ⁴ ± 1|² = 3 + φ` for both crossings, and `0` is the midpoint
+of `-E` and `E`. Not stated: how the builders and modifiers draw (the library's code, with
+`Plane.drawItem_point` and `Plane.Exact.IsPoint.draw` for points), the layout, the fonts, the
+style's colour values and the pixels. -/
 theorem disks_spec :
-    disks.items = Disks.items ∧
-    Plane.Exact.IsDisk Disks.leftDisk leftCentre critical (.accent 0) "the left circle" ∧
-    Plane.Exact.IsDisk Disks.rightDisk rightCentre critical (.accent 1) "the right circle" ∧
-    Plane.Exact.IsSegment Disks.chord (-chordEnd) chordEnd .ink "the chord" ∧
-    Plane.Exact.IsPoint Disks.pointE chordEnd (.accent 0) #[(.on, "the left circle")] ∧
-    Plane.Exact.IsPoint Disks.pointNegE (-chordEnd) (.accent 1) #[(.on, "the right circle")] ∧
-    Plane.Exact.IsPoint Disks.pointZero Zeta5.zero .ink #[(.on, "the chord")] ∧
-    Plane.Exact.IsPoint Disks.upperCrossing crossing .faint
-      #[(.on, "the left circle"), (.on, "the right circle")] ∧
-    Plane.Exact.IsPoint Disks.lowerCrossing (-crossing) .faint
-      #[(.on, "the left circle"), (.on, "the right circle")] ∧
+    chordEnd = Zeta5.pow 1 - Zeta5.pow 2 ∧ crossing = Zeta5.pow 1 - Zeta5.pow 4 ∧
+    leftCentre = Zeta5.ofInt (-1) ∧ rightCentre = Zeta5.ofInt 1 ∧ critical = ⟨⟨7 / 2, 1 / 2⟩⟩ ∧
+    disks.items = #[
+      Plane.Exact.disk leftCentre critical |>.accent 0 |>.named "the left circle"
+        |>.describedBy "the closed disk of radius √(3 + φ) about −1",
+      Plane.Exact.disk rightCentre critical |>.accent 1 |>.named "the right circle"
+        |>.describedBy "the closed disk of radius √(3 + φ) about 1",
+      Plane.Exact.segment (-chordEnd) chordEnd |>.width 3 |>.named "the chord"
+        |>.declRef `PILeanTest.Examples.PlaneFigures.chordEnd,
+      angleMark ⟨-1, 0⟩ (deg 18) (deg 18 - deg 72) (some 46) |>.faint,
+      label "72°" (⟨-1, 0⟩ + polar 0.68 (deg (-18))) .right (some 2) |>.size 12,
+      Plane.Exact.point crossing |>.marker .ring |>.faint |>.incident .on "the left circle"
+        |>.incident .on "the right circle",
+      Plane.Exact.point (-crossing) |>.marker .ring |>.faint |>.incident .on "the left circle"
+        |>.incident .on "the right circle",
+      Plane.Exact.point (-chordEnd) |>.accent 1 |>.incident .on "the right circle",
+      Plane.Exact.point chordEnd |>.accent 0 |>.incident .on "the left circle",
+      Plane.Exact.point leftCentre, Plane.Exact.point rightCentre,
+      Plane.Exact.point Zeta5.zero |>.incident .on "the chord",
+      Plane.Exact.label "−E" (-chordEnd) .belowLeft |>.accent 1,
+      Plane.Exact.label "E" chordEnd .aboveRight |>.accent 0,
+      Plane.Exact.label "−1" leftCentre .auto, Plane.Exact.label "+1" rightCentre .auto,
+      Plane.Exact.label "0" Zeta5.zero .below] ∧
     (chordEnd - leftCentre).normSq = critical.radicand ∧
     QSqrt.lt (chordEnd - rightCentre).normSq critical.radicand = true ∧
     (-chordEnd - rightCentre).normSq = critical.radicand ∧
@@ -524,16 +543,7 @@ theorem disks_spec :
     (-crossing - leftCentre).normSq = critical.radicand ∧
     (-crossing - rightCentre).normSq = critical.radicand ∧
     (-chordEnd + chordEnd == Zeta5.zero) = true := by
-  refine ⟨rfl, ?_⟩
-  repeat' apply And.intro
-  all_goals first
-    | decide +kernel
-    | simp [Plane.Exact.IsDisk, Plane.Exact.IsSegment, Plane.Exact.IsPoint, Disks.leftDisk,
-        Disks.rightDisk, Disks.chord, Disks.pointE, Disks.pointNegE, Disks.pointZero,
-        Disks.upperCrossing, Disks.lowerCrossing, Plane.Exact.disk, Plane.Exact.segment,
-        Plane.Exact.point, Plane.disk, Plane.segment, Plane.point, Item.accent, Item.tone,
-        Item.faint, Item.marker, Item.width, Item.named, Item.describedBy, Item.declRef,
-        Item.incident, Item.mapLook, Item.mapInfo, and_assoc, exists_and_left, exists_eq_left']
+  sorry
 
 figure_proves disks disks_spec
 

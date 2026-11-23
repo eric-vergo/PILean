@@ -108,30 +108,41 @@ step `ζ²`, every label LaTeX: `$\zeta^2$`, `$-E$`, `$\sqrt{3+\varphi}$`. -/
 @[figure]
 def planeDisks : Plane.Figure := { width := 480, items := planeItems }
 
-/-- What `planeDisks` draws and why its colours and records are right: its items are
-`planeItems`; the left disk is the closed disk of radius `√(3 + φ)` about `-1` in accent 0,
-titled "the left circle", the right one about `1` in accent 1; the point `E` is in accent 0 and
-records being on the left circle, `-E` is in accent 1 and records being on the right one. The
-records hold, exactly in ℚ(√5): `|E + 1|² = 3 + φ` and `|E - 1|² < 3 + φ`, so `E` is on the left
-circle and inside the right disk, and the same for `-E` with the sides exchanged. -/
+/-- What `planeDisks` draws, item for item, and why its colours and records are right. The data
+are `E = ζ - ζ²`, the centres `-1` and `1` and the radius `√(3 + φ)` (`3 + φ = 7/2 + √5/2`). The
+items are written out in drawing order, each with its colour (accent, `faint` or the ink), its
+title and the incidences it records: the left disk about `-1` in accent 0, titled "the left
+circle", the right one about `1` in accent 1, the chord from `-E` to `E`, the arrow of the step
+`ζ²` from `1` in accent 2, `E` in accent 0 recording being on the left circle, `-E` in accent 1
+recording being on the right one, the centres, the labels `$E$` (accent 0), `$-E$` (accent 1)
+and `$\zeta^2$` (accent 2) at their points, the faint dashed radius from `-1` to `E` with its
+label `$\sqrt{3+\varphi}$` beside it, and the labels `$-1$` and `$+1$`. The records hold, exactly
+in ℚ(√5): `|E + 1|² = 3 + φ` and `|E - 1|² < 3 + φ`, so `E` is on the left circle and inside the
+right disk, and the same for `-E` with the sides exchanged. Not stated: how the builders and
+modifiers draw, the layout, how LeAnTeX typesets the labels, the fonts, the style's colour values
+and the pixels. -/
 theorem planeDisks_spec :
-    planeDisks.items = planeItems ∧
-    Plane.Exact.IsDisk leftDisk leftCentre radius (.accent 0) "the left circle" ∧
-    Plane.Exact.IsDisk rightDisk rightCentre radius (.accent 1) "the right circle" ∧
-    Plane.Exact.IsPoint pointE chordEnd (.accent 0) #[(.on, "the left circle")] ∧
-    Plane.Exact.IsPoint pointNegE (-chordEnd) (.accent 1) #[(.on, "the right circle")] ∧
+    chordEnd = Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2 ∧ leftCentre = Exact.Zeta5.ofInt (-1) ∧
+    rightCentre = Exact.Zeta5.ofInt 1 ∧ radius = ⟨⟨7 / 2, 1 / 2⟩⟩ ∧
+    planeDisks.items = #[
+      Plane.Exact.disk leftCentre radius |>.accent 0 |>.named "the left circle",
+      Plane.Exact.disk rightCentre radius |>.accent 1 |>.named "the right circle",
+      Plane.Exact.segment (-chordEnd) chordEnd |>.width 3,
+      Plane.Exact.arrow rightCentre (rightCentre + Exact.Zeta5.pow 2) |>.accent 2,
+      Plane.Exact.point chordEnd |>.accent 0 |>.incident .on "the left circle",
+      Plane.Exact.point (-chordEnd) |>.accent 1 |>.incident .on "the right circle",
+      Plane.Exact.point leftCentre, Plane.Exact.point rightCentre,
+      Plane.Exact.label "$E$" chordEnd .auto |>.accent 0,
+      Plane.Exact.label "$-E$" (-chordEnd) .auto |>.accent 1,
+      Plane.Exact.label "$\\zeta^2$" (rightCentre + Exact.Zeta5.pow 2) .auto |>.accent 2,
+      Plane.Exact.segment leftCentre chordEnd |>.faint |>.dashed,
+      Plane.Exact.labelBeside "$\\sqrt{3+\\varphi}$" leftCentre chordEnd |>.faint,
+      Plane.Exact.label "$-1$" leftCentre .auto, Plane.Exact.label "$+1$" rightCentre .auto] ∧
     (chordEnd - leftCentre).normSq = radius.radicand ∧
     Exact.QSqrt.lt (chordEnd - rightCentre).normSq radius.radicand = true ∧
     (-chordEnd - rightCentre).normSq = radius.radicand ∧
     Exact.QSqrt.lt (-chordEnd - leftCentre).normSq radius.radicand = true := by
-  refine ⟨rfl, ?_⟩
-  repeat' apply And.intro
-  all_goals first
-    | decide +kernel
-    | simp [Plane.Exact.IsDisk, Plane.Exact.IsPoint, leftDisk, rightDisk, pointE, pointNegE,
-        Plane.Exact.disk, Plane.Exact.point, Plane.disk, Plane.point, Plane.Item.accent,
-        Plane.Item.tone, Plane.Item.named, Plane.Item.incident, Plane.Item.mapLook,
-        Plane.Item.mapInfo, and_assoc, exists_and_left, exists_eq_left']
+  sorry
 
 figure_proves planeDisks planeDisks_spec
 

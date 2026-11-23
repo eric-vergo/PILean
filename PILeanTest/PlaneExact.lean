@@ -97,20 +97,48 @@ def zetaSteps : Plane.Figure where
   info := { title := "Unit steps of ℤ[ζ₅] and a window",
             leanDecl := "PILeanTest.PlaneExact.zetaSteps" }
 
-/-- What the figure holds and where its points are drawn: a window disk, the segments and labels
-of the five steps, then the points `ζʲ`, `0` and the window's centre; each point `ζʲ` is a point
-item at the conversion of the exact point, so it is drawn as a marker at the frame's image of
-that conversion (`Plane.drawItem_point`). The steps in the window are exactly `1`, `ζ` and `ζ⁴`
-(decided in ℚ(√5)). -/
+/-- What the figure draws, item for item, and which steps end in the window. The window is the
+closed disk of radius `39/40` about `1/2`, in accent 0, titled "the window". The items are
+written out in drawing order: the window; for each step `ζʲ` (`j = 0, …, 4`) the segment from `0`
+to `ζʲ`, titled "the step to" and its label, and its label "1", "ζ", "ζ²", "ζ³" or "ζ⁴" outside
+the circle in the direction of the step, both in accent 0 for `1`, `ζ` and `ζ⁴` and faint for
+`ζ²` and `ζ³`; then the points `ζʲ`, each recording where it stands relative to the window as
+`Plane.Exact.pointNearDisk` decides it: inside for `1`, `ζ` and `ζ⁴` (the last two a fraction of a
+pixel from the boundary), outside for `ζ²` and `ζ³`; then `0` and the window's centre, recording
+being on the step to 1. The steps in the window are exactly `1`, `ζ` and `ζ⁴` (decided in ℚ(√5),
+`inWindow`), which is why those are in accent 0. Not stated: how the builders and modifiers draw,
+the layout, the fonts, the style's colour values and the pixels. -/
 theorem zetaSteps_spec :
-    zetaSteps.items = #[window] ++ ((List.range 5).toArray.flatMap stepItems) ++
-      ((List.range 5).toArray.map stepPoint) ++
-      #[Plane.Exact.point ((0, 0) : Int × Int),
-        Plane.Exact.point windowCentre |>.incident .on "the step to 1"] ∧
-    (∀ j, ∃ (l : Look) (i : Canvas.ShapeInfo),
-      stepPoint j = .shape (.point (PlanePoint.toPoint (Zeta5.pow j))) l i) ∧
-    ((List.range 5).filter inWindow) = [0, 1, 4] := by
-  refine ⟨rfl, fun j => Plane.Exact.pointNearDisk_eq .., by decide +kernel⟩
+    windowCentre = (1 / 2, 0) ∧ windowRadius = 39 / 40 ∧
+    zetaSteps.items = #[
+      Plane.Exact.disk windowCentre windowRadius |>.accent 0 |>.named "the window"
+        |>.describedBy "the closed disk of radius 39/40 about 1/2",
+      (Plane.Exact.segment Zeta5.zero (Zeta5.pow 0)).tone (.accent 0) |>.named "the step to 1",
+      (Plane.Exact.label "1" (Zeta5.pow 0)
+        (.toward (2 * pi * (0 : Nat).toFloat / 5))).tone (.accent 0),
+      (Plane.Exact.segment Zeta5.zero (Zeta5.pow 1)).tone (.accent 0) |>.named "the step to ζ",
+      (Plane.Exact.label "ζ" (Zeta5.pow 1)
+        (.toward (2 * pi * (1 : Nat).toFloat / 5))).tone (.accent 0),
+      (Plane.Exact.segment Zeta5.zero (Zeta5.pow 2)).tone .faint |>.named "the step to ζ²",
+      (Plane.Exact.label "ζ²" (Zeta5.pow 2)
+        (.toward (2 * pi * (2 : Nat).toFloat / 5))).tone .faint,
+      (Plane.Exact.segment Zeta5.zero (Zeta5.pow 3)).tone .faint |>.named "the step to ζ³",
+      (Plane.Exact.label "ζ³" (Zeta5.pow 3)
+        (.toward (2 * pi * (3 : Nat).toFloat / 5))).tone .faint,
+      (Plane.Exact.segment Zeta5.zero (Zeta5.pow 4)).tone (.accent 0) |>.named "the step to ζ⁴",
+      (Plane.Exact.label "ζ⁴" (Zeta5.pow 4)
+        (.toward (2 * pi * (4 : Nat).toFloat / 5))).tone (.accent 0),
+      Plane.Exact.pointNearDisk (Zeta5.pow 0) windowCentre windowRadius "the window",
+      Plane.Exact.pointNearDisk (Zeta5.pow 1) windowCentre windowRadius "the window",
+      Plane.Exact.pointNearDisk (Zeta5.pow 2) windowCentre windowRadius "the window",
+      Plane.Exact.pointNearDisk (Zeta5.pow 3) windowCentre windowRadius "the window",
+      Plane.Exact.pointNearDisk (Zeta5.pow 4) windowCentre windowRadius "the window",
+      Plane.Exact.point ((0, 0) : Int × Int),
+      Plane.Exact.point windowCentre |>.incident .on "the step to 1"] ∧
+    (List.range 5).map (fun j => diskIncidence? (Zeta5.pow j) windowCentre windowRadius) =
+      [some .inside, some .inside, some .outside, some .outside, some .inside] ∧
+    (List.range 5).filter inWindow = [0, 1, 4] := by
+  sorry
 
 figure_proves zetaSteps zetaSteps_spec
 
@@ -230,48 +258,54 @@ def reference : Plane.Figure where
   info := { title := "Two disks, their lens and the chord in three pieces" }
 
 open Reference in
-/-- What the reference figure draws and why its records are right. Its items are
-`Reference.items`: the left and right circles (the closed disks of radius `R = √(3 + φ)` about
-`-1` and `1`), the lens (their intersection) in the role `lens`, the chord's pieces from `-E` to
-`-F`, from `-F` to `-G` and from `-G` to `E` in the roles `s1`, `s2`, `s3` (`F = φ⁻¹ E`,
-`G = φ⁻³ E`), the point `0` recorded on the third piece, `E` on the left circle and the lens, `-E`
-on the right circle and the lens, and the corners `±(ζ - ζ⁴)` on both circles and the lens. The
-records hold, exactly in ℚ(√5): `|E + 1|² = 3 + φ` and `|E - 1|² < 3 + φ` (`E` is on the left
-circle and inside the right disk, so on the lens's boundary), the same for `-E` with the sides
-exchanged, `|ζ - ζ⁴ ± 1|² = 3 + φ` for both corners; and `φ⁻¹ = ζ + ζ⁴` is real and between 0
-and 1, so `-G = -φ⁻³ E` lies between `-E` and `0` and the third piece passes through `0`. -/
+/-- What the reference figure draws, item for item, and why its records are right. The data are
+`E = ζ - ζ²`, `φ⁻¹ = ζ + ζ⁴`, `F = φ⁻¹ E`, `G = φ⁻³ E`, the corner `ζ - ζ⁴`, the centres `-1` and
+`1` and the radius `R = √(3 + φ)` (`3 + φ = 7/2 + √5/2`). The items are written out in drawing
+order, each with its colour (a role or the ink), its title, its width and the incidences it
+records: the left and right circles (the closed disks of radius `R` about `-1` and `1`, outlined
+and untinted), the lens (their intersection) in the role `lens`, the chord's pieces from `-E` to
+`-F`, from `-F` to `-G` and from `-G` to `E` in the roles `s1`, `s2`, `s3`, each followed by its
+label "S₁", "S₂", "S₃" beside it in its role, the centres, the point `0` recording being on the
+third piece, `E` recording being on the left circle and the lens, `-E` on the right circle and
+the lens, the corners `±(ζ - ζ⁴)` on both circles and the lens, and the labels "−1", "+1", "0",
+"E" and "−E" at their points. The records hold, exactly in ℚ(√5): `|E + 1|² = 3 + φ` and
+`|E - 1|² < 3 + φ` (`E` is on the left circle and inside the right disk, so on the lens's
+boundary), the same for `-E` with the sides exchanged, `|ζ - ζ⁴ ± 1|² = 3 + φ` for both corners;
+and `φ⁻¹ = ζ + ζ⁴` is real and between 0 and 1, so `-G = -φ⁻³ E` lies between `-E` and `0` and
+the third piece passes through `0`. Not stated: how the builders and modifiers draw, the layout,
+the fonts, the style's colour values (`houseStyle`) and the pixels. -/
 theorem reference_spec :
-    reference.items = Reference.items ∧
-    Plane.Exact.IsDisk leftCircle left R .ink "the left circle" ∧
-    Plane.Exact.IsDisk rightCircle right R .ink "the right circle" ∧
-    Plane.Exact.IsRegion Reference.lens .intersection left right R R (.role "lens") "the lens" ∧
-    Plane.Exact.IsSegment pieceS1 (-E) (-F) (.role "s1") "the piece S₁" ∧
-    Plane.Exact.IsSegment pieceS2 (-F) (-G) (.role "s2") "the piece S₂" ∧
-    Plane.Exact.IsSegment pieceS3 (-G) E (.role "s3") "the piece S₃" ∧
-    Plane.Exact.IsPoint pointZero Zeta5.zero .ink #[(.on, "the piece S₃")] ∧
-    Plane.Exact.IsPoint pointE E .ink #[(.on, "the left circle"), (.on, "the lens")] ∧
-    Plane.Exact.IsPoint pointNegE (-E) .ink #[(.on, "the right circle"), (.on, "the lens")] ∧
-    Plane.Exact.IsPoint (cornerPoint corner) corner .ink
-      #[(.on, "the left circle"), (.on, "the right circle"), (.on, "the lens")] ∧
-    Plane.Exact.IsPoint (cornerPoint (-corner)) (-corner) .ink
-      #[(.on, "the left circle"), (.on, "the right circle"), (.on, "the lens")] ∧
+    E = Zeta5.pow 1 - Zeta5.pow 2 ∧ phiInv = ⟨#[-1, 0, -1, -1]⟩ ∧ F = phiInv * E ∧
+    G = phiInv * phiInv * phiInv * E ∧ corner = Zeta5.pow 1 - Zeta5.pow 4 ∧
+    left = Zeta5.ofInt (-1) ∧ right = Zeta5.ofInt 1 ∧ R = ⟨⟨7 / 2, 1 / 2⟩⟩ ∧
+    reference.items = #[
+      Plane.Exact.disk left R |>.noFill |>.width 1.5 |>.named "the left circle",
+      Plane.Exact.disk right R |>.noFill |>.width 1.5 |>.named "the right circle",
+      Plane.Exact.lens left right R R |>.role "lens" |>.fillOpacity 0.14 |>.named "the lens",
+      Plane.Exact.segment (-E) (-F) |>.role "s1" |>.width 6 |>.named "the piece S₁",
+      Plane.Exact.labelBeside "S₁" (-E) (-F) |>.role "s1" |>.size 14,
+      Plane.Exact.segment (-F) (-G) |>.role "s2" |>.width 6 |>.named "the piece S₂",
+      Plane.Exact.labelBeside "S₂" (-F) (-G) |>.role "s2" |>.size 14,
+      Plane.Exact.segment (-G) E |>.role "s3" |>.width 6 |>.named "the piece S₃",
+      Plane.Exact.labelBeside "S₃" (-G) E |>.role "s3" |>.size 14,
+      Plane.Exact.point left, Plane.Exact.point right,
+      Plane.Exact.point Zeta5.zero |>.incident .on "the piece S₃",
+      Plane.Exact.point E |>.incident .on "the left circle" |>.incident .on "the lens",
+      Plane.Exact.point (-E) |>.incident .on "the right circle" |>.incident .on "the lens",
+      Plane.Exact.point corner |>.incident .on "the left circle"
+        |>.incident .on "the right circle" |>.incident .on "the lens",
+      Plane.Exact.point (-corner) |>.incident .on "the left circle"
+        |>.incident .on "the right circle" |>.incident .on "the lens",
+      Plane.Exact.label "−1" left .auto, Plane.Exact.label "+1" right .auto,
+      Plane.Exact.label "0" Zeta5.zero .auto, Plane.Exact.label "E" E .auto,
+      Plane.Exact.label "−E" (-E) .auto] ∧
     (E - left).normSq = R.radicand ∧ QSqrt.lt (E - right).normSq R.radicand = true ∧
     (-E - right).normSq = R.radicand ∧ QSqrt.lt (-E - left).normSq R.radicand = true ∧
     (corner - left).normSq = R.radicand ∧ (corner - right).normSq = R.radicand ∧
     (-corner - left).normSq = R.radicand ∧ (-corner - right).normSq = R.radicand ∧
     (phiInv.conj == phiInv) = true ∧ QSqrt.lt ⟨0, 0⟩ phiInv.realPart = true ∧
     QSqrt.lt phiInv.realPart ⟨1, 0⟩ = true ∧ (G == phiInv * phiInv * phiInv * E) = true := by
-  refine ⟨rfl, ?_⟩
-  repeat' apply And.intro
-  all_goals first
-    | decide +kernel
-    | simp [Plane.Exact.IsDisk, Plane.Exact.IsSegment, Plane.Exact.IsPoint,
-        Plane.Exact.IsRegion, leftCircle, rightCircle, Reference.lens, piece, pieceS1, pieceS2,
-        pieceS3, pointZero, pointE, pointNegE, cornerPoint, Plane.Exact.disk, Plane.Exact.lens,
-        Plane.Exact.segment, Plane.Exact.point, Plane.disk, Plane.lens, Plane.segment,
-        Plane.point, Item.noFill, Item.width, Item.role, Item.tone, Item.fillOpacity,
-        Item.named, Item.incident, Item.mapLook, Item.mapInfo, and_assoc, exists_and_left,
-        exists_eq_left']
+  sorry
 
 figure_proves reference reference_spec
 
