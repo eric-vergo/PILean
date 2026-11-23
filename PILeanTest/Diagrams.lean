@@ -398,6 +398,11 @@ def faultChecks : Array (String × Bool) :=
         { m with shape := .text "xx" (pl.pos 3) .auto }))),
     ("graph: an edge relabelled as another is refused", !decide (pg.Faithful pl
       (changeMark petersen e0 fun m => { m with part := .edge 7 0 }))),
+    ("graph: an edge drawn in an accent colour is refused", !decide (pg.Faithful pl
+      (changeMark petersen e0 fun m => { m with ink := .accent 0 }))),
+    ("graph: a vertex's name drawn in an accent colour is refused", !decide (pg.Faithful pl
+      (changeMark petersen (posOf petersen (.vertex 3) + 10) fun m =>
+        { m with ink := .accent 2 }))),
     ("hasse: the cube is faithful", decide (bl.Faithful bl.layout cube)),
     ("hasse: a non-cover drawn as an edge is refused", !decide (bl.Faithful bl.layout
       (addMark cube

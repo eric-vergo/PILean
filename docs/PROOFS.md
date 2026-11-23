@@ -249,7 +249,7 @@ figure is a note, and nothing is drawn).
   is drawn by the relation: `adj i j` for a directed graph, `i ≤ j` and `adj i j ∨ adj j i` for
   an undirected one), `FinGraph.edgePairs_nodup`, `FinGraph.draw_faithful` (at every layout the
   drawn edges are `edgePairs` in order, the vertex dots `0, …, n - 1`, each dot, name and edge at
-  the layout's positions, a loop a circle through its vertex), `FinGraph.toGraph_layout_edges`
+  the layout's positions in its colour role (dots by their mark, names in the ink, edges faint), a loop a circle through its vertex), `FinGraph.toGraph_layout_edges`
   (the layered layout of `PILean.Graph` has one route per drawn pair).
 * Hasse diagrams: `FinPoset.mem_coverPairs` (an edge is drawn exactly when it is a cover:
   `i < j` and nothing strictly between), `FinPoset.draw_faithful`, and

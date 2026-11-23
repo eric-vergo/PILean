@@ -156,14 +156,14 @@ def edgeMark (g : FinGraph) (L : Layout) (e : Nat × Nat) : Mark :=
       else .segment (L.pos e.1) (L.pos e.2) }
 
 /-- Whether a mark is placed where the layout puts its part: a vertex's dot at its position in
-its ink (`dotInk`: accent 1 exactly for a marked vertex) and its name there, an edge's shape as
-`edgeMark` makes it. A mark of any other part is refused. -/
+its ink (`dotInk`: accent 1 exactly for a marked vertex) and its name there in the ink, an
+edge's shape and ink as `edgeMark` makes them. A mark of any other part is refused. -/
 def placed (g : FinGraph) (L : Layout) (m : Mark) : Bool :=
   match m.part, m.shape with
   | .vertex i, .dot p => p == L.pos i && m.ink == g.dotInk i
-  | .vertex i, .text s p _ => s == g.label i && p == L.pos i
+  | .vertex i, .text s p _ => s == g.label i && p == L.pos i && m.ink == .ink
   | .vertex _, _ => false
-  | .edge i j, s => s == (g.edgeMark L (i, j)).shape
+  | .edge i j, s => s == (g.edgeMark L (i, j)).shape && m.ink == (g.edgeMark L (i, j)).ink
   | _, _ => false
 
 /-- The diagram of the graph at the layout `L`: the edges (`edgeMark`, in the order of
