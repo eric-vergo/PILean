@@ -181,7 +181,7 @@ left out:
 ```fileText "manual/FirstProgram/Main.lean"
 ```
 
-In the project's `lakefile.lean`, beside the `require` line:
+In the project's `lakefile.lean`, beside the `require` line (the toml form is below):
 
 ```
 lean_exe «first-plot» where
@@ -190,8 +190,9 @@ lean_exe «first-plot» where
 
 Then `lake exe first-plot` builds it and writes `trig.svg`, `trig-dark.svg`, `trig.png` and
 `banner.png` into the folder it is run from. The manual's `lake test` runs this file (with the
-toolchain above and the library at the manual's own commit) and checks that it writes those four
-files.
+toolchain that runs the test, against the library built in the same checkout) and checks that it
+writes those four files. In a `lakefile.toml`, the executable is `[[lean_exe]]` with `name =
+"first-plot"` and `root = "Main"`.
 
 # Where to Go Next
 %%%

@@ -20,7 +20,8 @@ import VersoManual
 * ```` ```fileText "path" ``` ```` (an empty code block): the text of a file of the repository,
   by its path from the repository's root, from its first `import` line on (the licence header
   is left out), shown as a code block. The file must exist when the manual is built, so the page
-  shows what the file holds; `lake test` elaborates the files shown this way.
+  shows what the file holds. The manual's `lake test` runs the one file Getting Started shows
+  this way, `manual/FirstProgram/Main.lean`; other files shown with it are not elaborated.
 * `{toolchain}[]`: the toolchain named in the repository's `lean-toolchain`, read when the
   manual is built, as code.
 * `{inSource "path"}` followed by a declaration name in backticks: a declaration of one of the

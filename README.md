@@ -142,38 +142,36 @@ checks that the picture changes with time and that reduced motion shows the post
 
 ## Trust model (outline)
 
-PILean treats what it is given as untrusted: text in a figure (titles, labels) is escaped before
-it reaches SVG, characters XML cannot carry are dropped, element and attribute names are checked,
-and every loop is bounded by its input (curve flattening has a cap per curve). The traceability layer
+PILean treats what it is given as untrusted: text in a figure (titles, labels) is escaped before it
+reaches SVG, characters XML cannot carry are dropped, element and attribute names are checked, and
+every loop is bounded by its input (curve flattening has a cap per curve). The traceability layer
 records in each image the Lean file and declaration that produced it and a fingerprint of the
 drawing and the declaration, with a manifest and two checkers (`pilean-build --check`,
-`pilean-verify`); theorems tie a figure to the Lean object it shows ([`docs/PROOFS.md`](docs/PROOFS.md)). PNG and DEFLATE data read from files are untrusted: every length is
-checked, the output size is capped, and mutated files end in clean errors. With the default
-limits, reading a PNG of `n` bytes holds at most the input, its image data (at most `n` bytes), the
-data of one other chunk at a time, the text entries (their strings with 128 bytes for each entry
-at most `Limits.maxTextBytes`, 4 MiB; an entry over the budget is dropped and counted), and two
-buffers whose sizes together are at most `Limits.maxBytes` (512 MiB), allocated only after the
-header has been checked against the caps; its work is linear in those sizes. The buffer of the
-image data is sized from the header (after a check that the compressed data is long enough for
-it) and inflating stops at its end; a zlib stream decoded without an expected size is measured
-before its output is allocated, so a bomb is refused without its output. GIF and APNG hold the
-composed frames (at most `Limits.maxBytes`, checked before each frame is decoded) and a constant
-number of frame-sized buffers. These bound the buffers the readers allocate, not the memory of
-the whole process.
-The graph layout's work is bounded by the numbers of nodes and edges and two work budgets
-(`LayeredOptions.layerWork`, `coordinateWork`), with a cap on dummy nodes (`maxLayoutNodes`: past
-it no edge gets dummy nodes; the real nodes are not capped); `docs/DESIGN.md` gives the cost of
-each phase, some of them quadratic in the size of one layer or gap. The
-command-line tools read only regular files, follow no symbolic link below the folder they are
-given, and print what they read escaped. `lake test` runs the readers, the layout and the tools on
-hostile inputs in child processes and checks their memory and CPU time
-(`PILeanTest/Bounds.lean`, `PILeanTest/Tools.lean`). The rasteriser
-computes coverage in integers from outlines on a grid of 1/256 pixel, so the same outlines give
-the same coverage on every machine; the colour of a pixel also depends on its paint, the clips and
-the compositing ("Exact and floating point" in `docs/DESIGN.md`), and the outlines themselves are
-computed in floating point. The
-rasteriser is tested, not proved.
-`docs/DESIGN.md` has the details and the open choices.
+`pilean-verify`); theorems tie a figure to the Lean object it shows
+([`docs/PROOFS.md`](docs/PROOFS.md)). PNG and DEFLATE data read from files are untrusted: every
+length is checked, the output size is capped, and mutated files end in clean errors. With the
+default limits, reading a PNG of `n` bytes holds at most the input, its image data (at most `n`
+bytes), the data of one other chunk at a time with the strings decoded from it, the text entries
+(their strings with 128 bytes for each entry at most `Limits.maxTextBytes`, 4 MiB; an entry over the
+budget, or a malformed one, is dropped and counted), and two buffers whose sizes together are at
+most `Limits.maxBytes` (512 MiB), allocated only after the header has been checked against the caps;
+its work is linear in those sizes. The buffer of the image data is sized from the header (after a
+check that the compressed data is long enough for it) and inflating stops at its end; a zlib stream
+decoded without an expected size is measured before its output is allocated, so a bomb is refused
+without its output. GIF and APNG hold the composed frames (at most `Limits.maxBytes`, checked before
+each frame is decoded) and a constant number of frame-sized buffers. These bound the buffers the
+readers allocate, not the memory of the whole process. The graph layout's work is bounded by the
+numbers of nodes and edges and two work budgets (`LayeredOptions.layerWork`, `coordinateWork`), with
+a cap on dummy nodes (`maxLayoutNodes`: past it no edge gets dummy nodes; the real nodes are not
+capped); `docs/DESIGN.md` gives the cost of each phase, some of them quadratic in the size of one
+layer or gap. The command-line tools read only regular files, follow no symbolic link below the
+folder they are given, and print what they read escaped. `lake test` runs the readers, the layout
+and the tools on hostile inputs in child processes and checks their memory and CPU time
+(`PILeanTest/Bounds.lean`, `PILeanTest/Tools.lean`). The rasteriser computes coverage in integers
+from outlines on a grid of 1/256 pixel, so the same outlines give the same coverage on every
+machine; the colour of a pixel also depends on its paint, the clips and the compositing ("Exact and
+floating point" in `docs/DESIGN.md`), and the outlines themselves are computed in floating point.
+The rasteriser is tested, not proved. `docs/DESIGN.md` has the details and the open choices.
 
 ## Licence
 

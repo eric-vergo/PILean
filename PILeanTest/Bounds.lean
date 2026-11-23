@@ -268,7 +268,7 @@ def cases : Array Case :=
       expect := "ok 10000 nodes", maxRss := 384 <<< 20, maxUserMs := 10000 },
     { name := "graph: 5000 orthogonal routes sideways in one gap (tracks placed pairwise)",
       kind := "graph", bytes := pure .empty, argv := some #["graph", "star", "5000", "orthogonal"],
-      expect := "ok 5001 nodes", maxRss := 256 <<< 20, maxUserMs := 20000 },
+      expect := "ok 5001 nodes", maxRss := 128 <<< 20, maxUserMs := 4000 },
     { name := "graph: 20000 nodes, 40000 random edges", kind := "graph", bytes := pure .empty,
       argv := some #["graph", "sparse", "20000"], expect := "ok 20000 nodes",
       maxRss := 512 <<< 20, maxUserMs := 40000 }]

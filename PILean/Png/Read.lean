@@ -42,8 +42,9 @@ text and colour-space chunks it found.
 * Text. The text entries share the budget `Limits.maxTextBytes`: each costs the UTF-8 sizes of
   its keyword, text, language and translated keyword and `textEntryCost` (`TextEntry.cost`), so
   entries without text use it up too. Compressed text (`zTXt`, compressed `iTXt`) is inflated
-  with the budget left as its cap. An entry over the budget, or a malformed one, is dropped and
-  counted in `Decoded.textDropped`.
+  with the smaller of the budget left and 1 MiB as its cap. While one text chunk is read, the
+  strings decoded from it exist beside it until its cost is checked. An entry over the budget,
+  or a malformed one, is dropped and counted in `Decoded.textDropped`.
 * Formats. All five colour types; bit depths 1, 2, 4, 8 and 16 as the specification allows
   for each; Adam7 interlacing. The result is `l` for colour type 0, `rgb` for 2 and 3, and
   `rgba` for 4 and 6; a `tRNS` chunk turns types 0, 2 and 3 into `rgba` (grey and
@@ -345,12 +346,13 @@ def parseTextEntry (ty : String) (d : ByteArray) (budget : Nat) : Option TextEnt
 
 /-- Reads a `tEXt`, `zTXt` or `iTXt` chunk; `none` for a malformed one or one over the text
 budget: its text is at most the budget before it is decoded (compressed text is inflated with
-the budget as its cap), and the entry's `TextEntry.cost` is at most the budget. Returns the
-entry and its cost. -/
+the smaller of the budget and 1 MiB as its cap), and the entry's `TextEntry.cost` is at most the
+budget. Returns the entry and its cost. -/
 def parseText (ty : String) (d : ByteArray) (budget : Nat) : Option (TextEntry × Nat) := do
   let e ← parseTextEntry ty d budget
   guard (e.cost ≤ budget)
   return (e, e.cost)
+
 /-- Reads the PNG file `bytes`. Fails with a `PngError` if the file is malformed, uses an
 unsupported feature, or is larger than `lim` allows; see the module documentation for the exact
 rules. -/

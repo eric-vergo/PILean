@@ -329,12 +329,12 @@ pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check]
   component, `.` or `..` in a path is refused, so nothing is written outside `DIR`.
 * `--repo` must be an `http` or `https` link (`safeLink?`), `--commit` 4 to 64 lowercase
   hexadecimal digits.
-* With `--check`, the output is rendered in memory and compared byte for byte with `DIR`
-  (give the same `--repo` and `--commit` as the build). It prints `stale: PATH` (different
-  bytes, the manifest included), `missing: PATH`, and `extra: PATH` (a file under `DIR` that is
-  neither in the manifest nor the manifest itself), and `ok: N files match` if all is well. The
-  folder is listed to at most 32 levels of directories and 100,000 entries; a folder beyond
-  either bound is not listed partly: it gets the line `cannot check: REASON` and fails.
+* With `--check`, the output is rendered in memory and compared byte for byte with `DIR` (give the
+  same `--repo` and `--commit` as the build). It prints `stale: PATH` (different bytes, the manifest
+  included), `missing: PATH`, and `extra: PATH` (a file under `DIR` that is neither in the manifest
+  nor the manifest itself), and `ok: N files match` if all is well. The folder is listed to at most
+  32 levels of directories and 100,000 entries (directories count, empty ones included); a folder
+  beyond either bound is not listed partly: it gets the line `cannot check: REASON` and fails.
 * Exit status 0 on success, 1 if a file is stale, missing or extra, the folder cannot be listed
   completely or a figure cannot be rendered, 2 on a wrong command line.
 * Bounds: at most 4096 figures and 65,536 files (the most a manifest may list), each file at
@@ -367,16 +367,17 @@ characters).
 lake exe pilean-verify DIR
 ```
 
-resolves `DIR` once and reads `DIR/manifest.json` as untrusted input: a regular file (not a
-symbolic link, not a FIFO or device; checked before it is opened), at most 16 MiB, read by a small bounded JSON reader
-(`PILean/Trust/Json.lean`: nesting at most 8, strings at most 64 KiB, integers of at most 15
-digits only, no repeated key, nothing after the value). The manifest is rejected as a whole, before
-any file is touched, if a path is empty, longer than 1024 bytes, absolute, has `..` or `.` or an
-empty component, a backslash, a colon or any character outside `[A-Za-z0-9._/-]`, if a path is
-listed twice, a format is unknown or a hash is not 64 lowercase hexadecimal digits. The folder
-is then listed, to at most 32 levels of directories and 100,000 entries; a folder beyond either
-bound is an error (exit status 1, a message, no line about any file), never a partial listing.
-Then each listed file gets one line, and after them each file that is not listed:
+resolves `DIR` once and reads `DIR/manifest.json` as untrusted input: a regular file (not a symbolic
+link, not a FIFO or device; checked before it is opened), at most 16 MiB, read by a small bounded
+JSON reader (`PILean/Trust/Json.lean`: nesting at most 8, strings at most 64 KiB, integers of at
+most 15 digits only, no repeated key, nothing after the value). The manifest is rejected as a whole,
+before any file is touched, if a path is empty, longer than 1024 bytes, absolute, has `..` or `.` or
+an empty component, a backslash, a colon or any character outside `[A-Za-z0-9._/-]`, if a path is
+listed twice, a format is unknown or a hash is not 64 lowercase hexadecimal digits. The folder is
+then listed, to at most 32 levels of directories and 100,000 entries (directories count, empty ones
+included); a folder beyond either bound is an error (exit status 1, a message, no line about any
+file), never a partial listing. Then each listed file gets one line, and after them each file that
+is not listed:
 
 | Line | Meaning |
 |---|---|

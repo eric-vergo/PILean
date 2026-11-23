@@ -194,19 +194,19 @@ The defaults are the code's own, printed here when the manual was built:
 ```
 
 With the default limits, reading a PNG of `n` bytes holds at most: the input; its image data (at
-most `n` bytes); the data of one other chunk at a time (`PLTE` and `tRNS` are kept); the text
-entries, whose strings with 128 bytes for each entry come to at most `Limits.maxTextBytes` (an
-entry over the budget is dropped and counted in `Decoded.textDropped`); and two buffers whose
-sizes together are at most `Limits.maxBytes`, allocated only after the header has been checked
-against the caps. Its work is linear in those sizes. The buffer of the decompressed image data
-is sized from the header, after a check that the compressed data is long enough for that size at
-DEFLATE's greatest ratio, and inflating stops with an error at its end; a zlib stream decoded
-without an expected size (`zlibDecompress` without `expected`) is measured first, so a stream
-that would expand past the cap is refused without its output being made. GIF and APNG hold the
-composed frames (at most `Limits.maxBytes`, checked before each frame is decoded) and a constant
-number of frame-sized buffers. These bound the buffers the readers allocate, not the memory of
-the whole process. `lake test` runs the readers on hostile inputs in child processes and checks
-their memory and CPU time.
+most `n` bytes); the data of one other chunk at a time, with the strings decoded from it (`PLTE` and
+`tRNS` are kept); the text entries, whose strings with 128 bytes for each entry come to at most
+`Limits.maxTextBytes` (an entry over the budget is dropped and counted in `Decoded.textDropped`);
+and two buffers whose sizes together are at most `Limits.maxBytes`, allocated only after the header
+has been checked against the caps. Its work is linear in those sizes. The buffer of the decompressed
+image data is sized from the header, after a check that the compressed data is long enough for that
+size at DEFLATE's greatest ratio, and inflating stops with an error at its end; a zlib stream
+decoded without an expected size (`zlibDecompress` without `expected`) is measured first, so a
+stream that would expand past the cap is refused without its output being made. GIF and APNG hold
+the composed frames (at most `Limits.maxBytes`, checked before each frame is decoded) and a constant
+number of frame-sized buffers. These bound the buffers the readers allocate, not the memory of the
+whole process. `lake test` runs the readers on hostile inputs in child processes and checks their
+memory and CPU time.
 
 ```lean (name := hostileEx)
 #eval match Image.readPng (ByteArray.mk #[137, 80, 78, 71, 13, 10, 26, 10, 0, 0]) with

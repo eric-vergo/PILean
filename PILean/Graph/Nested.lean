@@ -89,7 +89,8 @@ def wrapLayers (top height : Array Nat) (width : Array Float) (lean : Array Int)
 
 /-- The first layer of each of `m` items for the edges `edges` between them (pairs of item
 numbers; loops and pairs out of range are ignored), item `i` being `height i` layers high and
-`width i` wide: cycles removed (`elsPositions`), then the layers of least total span in which
+`width i` wide: cycles removed (`elsPositions`), then network simplex towards the layers of
+least total span (reached when it finishes within `work`) in which
 every edge's target starts at least the height of its source below the source's first layer
 (`simplexSolve` within the work `work`, from the longest paths), then the layers wider than
 `limit` split (`wrapLayers`; none for `limit ≤ 0`). Returns the first layers and the number of

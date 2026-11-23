@@ -20,12 +20,12 @@ five phases, each with its work bounded by its input:
 
 1. **Cycle removal** (`elsPositions`, `PILean.Graph.Layering`): edges that point backwards in a
    greedy order are reversed for the layout; self-loops are set aside.
-2. **Layers** (`assignWide`): the layers of least total edge span by network simplex
-   (`PILean.Graph.Simplex`), balanced, the layers wider than `maxLayerWidth` split into rows, and
-   relaxed by `fixLayers` so that every edge points to a deeper layer. A graph with clusters is
-   layered from the inside out, every cluster keeping a block of layers to itself
-   (`assignNested`, `PILean.Graph.Nested`). When an edge has a label, the layers are doubled so
-   that the label has a layer of its own half-way along its edge.
+2. **Layers** (`assignWide`): network simplex (`PILean.Graph.Simplex`) towards the layers of least
+   total edge span (reached when it finishes within `layerWork`), balanced, the layers wider than
+   `maxLayerWidth` split into rows, and relaxed by `fixLayers` so that every edge points to a deeper
+   layer. A graph with clusters is layered from the inside out, every cluster keeping a block of
+   layers to itself (`assignNested`, `PILean.Graph.Nested`). When an edge has a label, the layers
+   are doubled so that the label has a layer of its own half-way along its edge.
 3. **Crossing reduction** (`orderLayers`, `PILean.Graph.Ordering`): long edges are cut into
    chains of dummy nodes; weighted-median sweeps and transposition from a depth-first, a
    breadth-first and a bottom-up start and from more depth-first starts drawn from a fixed

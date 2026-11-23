@@ -154,10 +154,11 @@ refused, so every file a build writes is one `pilean-verify` can check.
 
 With `--check`, the output is rendered in memory and compared byte for byte with `DIR`: it prints
 `stale: PATH`, `missing: PATH` and `extra: PATH` for each difference, and `ok: N files match` if
-there is none. The folder is listed to at most 32 levels of directories and 100,000 entries; a
-folder beyond either bound gets the line `cannot check: REASON` instead of a partial listing.
-Exit status 0 on success, 1 if a file is stale, missing or extra, the folder cannot be listed
-completely or a figure cannot be rendered, 2 on a wrong command line.
+there is none. The folder is listed to at most 32 levels of directories and 100,000 entries
+(directories count, empty ones included); a folder beyond either bound gets the line `cannot check:
+REASON` instead of a partial listing. Exit status 0 on success, 1 if a file is stale, missing or
+extra, the folder cannot be listed completely or a figure cannot be rendered, 2 on a wrong command
+line.
 
 ## The Manifest
 %%%

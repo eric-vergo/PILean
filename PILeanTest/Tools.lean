@@ -65,6 +65,34 @@ def everyChar : String := Id.run do
     if v < 0xD800 || 0xDFFF < v then s := s.push (Char.ofNat v)
   return s
 
+/-- `n` zero bytes. -/
+def zeroBytes (n : Nat) : ByteArray := Id.run do
+  let mut b := ByteArray.emptyWithCapacity n
+  for _ in [0:n] do b := b.push 0
+  return b
+
+/-- The bounded readers of the tools at their caps: one byte over a cap is an error, never a
+partial result. -/
+def readerCapChecks : Array (String × Bool) :=
+  let items := fun (n : Nat) => "[" ++ ",".intercalate (List.replicate n "1") ++ "]"
+  let manifestOf := fun (n : Nat) =>
+    "{\"format\":\"pilean-manifest-1\",\"files\":" ++ items n ++ "}"
+  #[("caps: a source record is not read from an input one byte over maxInput",
+      match Source.read? (zeroBytes (maxInput + 1)) with
+      | .error e => e == "the input is too large"
+      | .ok _ => false),
+    ("caps: JSON one byte over maxJsonInput is refused before it is read",
+      match Json.parse (zeroBytes (maxJsonInput + 1)) with
+      | .error e => e == "the input is too large"
+      | .ok _ => false),
+    ("caps: a JSON array over maxJsonItems is refused, one at it is read",
+      (Json.parse (items (maxJsonItems + 1)).toUTF8).toOption.isNone &&
+        (Json.parse (items maxJsonItems).toUTF8).toOption.isSome),
+    ("caps: a manifest listing more than maxManifestFiles files is refused as such",
+      match Manifest.parse (manifestOf (maxManifestFiles + 1)).toUTF8 with
+      | .error e => e == "the manifest lists too many files"
+      | .ok _ => false)]
+
 /-- The checks. -/
 def ioChecks : IO (Array (String × Bool)) := do
   let scratch ← IO.FS.realPath (← IO.FS.createTempDir)
@@ -81,6 +109,15 @@ def ioChecks : IO (Array (String × Bool)) := do
     let zero ← tool "pilean-info" #["/dev/zero"] scratch
     r := r.push ("info: a device is refused without reading", zero.status == some 1 &&
       (zero.rss.map (fun m => decide (m < 64 <<< 20))).getD false)
+    -- a file one byte over the source reader's cap
+    let big := scratch / "big.svg"
+    IO.FS.writeBinFile big (zeroBytes (maxInput + 1))
+    let bigInfo ← tool "pilean-info" #[big.toString] scratch
+    IO.FS.removeFile big
+    r := r.push ("info: a file one byte over maxInput is refused without a partial answer",
+      bigInfo.status == some 1 && bigInfo.out.isEmpty &&
+        (bigInfo.err.splitOn s!"larger than {maxInput} bytes").length > 1)
+    r := r ++ readerCapChecks
     -- text that would forge or hide output
     let src : Source :=
       { module := "M", decl := "d\u202Eevil\u2066x\u200B\uFEFF", file := "F.lean", line := 1,
