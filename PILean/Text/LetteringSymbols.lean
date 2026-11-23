@@ -92,7 +92,7 @@ def mathSigns : Char → Option Spec
       stroke [pt 290 570, pt 90 90]] 60 60)
   | '∞' => some (spec [loop [arc 170 330 170 150 50 310, pt 381 445,
       arc 490 330 170 150 130 (-130), pt 279 445]] 50 50)
-  | '√' => some (spec [stroke [pt 0 290, pt 55 330, pt 175 39, pt 350 661, pt 600 661]] 50 30)
+  | '√' => some (spec [stroke [pt 0 330, pt 80 390, pt 215 (-20), pt 390 760, pt 660 760]] 50 30)
   | _ => none
 
 end PILean.Lettering

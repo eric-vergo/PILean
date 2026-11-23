@@ -60,8 +60,8 @@ def greek : Char → Option Spec
       arc 300 540 100 131 180 60]] 45 45)
   | 'ε' => some (spec [stroke [arc 226 255 200 226 40 320], stroke [pt 60 255, pt 230 255]]
       45 40)
-  | 'ζ' => some (spec [stroke [pt 330 701, pt 170 701, arc 170 586 130 115 90 270,
-      arc 200 255 190 216 90 (-100), pt 150 (-30), arc 90 (-30) 60 61 0 (-100)]] 60 50)
+  | 'ζ' => some (spec [stroke [pt 110 701, pt 370 701, pt 160 351,
+      arc 290 210 170 220 140 270, arc 290 (-90) 110 80 90 (-40)]] 60 50)
   | 'η' => some (spec [stroke [pt 0 39, pt 0 471],
       stroke [arc 205 270 205 211 180 0, pt 410 (-161)]])
   | 'θ' => some (spec [ring 175 350 175 321, stroke [pt 70 350, pt 280 350]] 45 45)
