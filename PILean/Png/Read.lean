@@ -33,12 +33,17 @@ text and colour-space chunks it found.
   against `Limits.maxBytes`, and the compressed data must be large enough to hold the
   decompressed size at DEFLATE's greatest ratio (`maxDeflateRatio`). The decompressor writes into
   one buffer of exactly the expected size; the filters are reversed in that buffer, in place; the
-  samples are then written into one buffer of exactly the decoded size. So besides the input
-  and the concatenated image data (at most the input's size), decoding holds two buffers whose
-  sizes together are at most `Limits.maxBytes`, and its work is linear in their sizes and in the
-  input.
-  Compressed text (`zTXt`, compressed `iTXt`) is inflated under a shared budget of
-  `Limits.maxTextBytes`; an entry over budget is dropped.
+  samples are then written into one buffer of exactly the decoded size. So besides the input,
+  the concatenated image data (at most the input's size), the data of one other chunk at a time
+  (`PLTE` and `tRNS` are kept) and the text entries, decoding holds two buffers whose sizes
+  together are at most `Limits.maxBytes`, and its work is linear in their sizes and in the
+  input. The image data's buffer is sized from the header; inflating it stops with an error at
+  its end, so the stream is not measured first.
+* Text. The text entries share the budget `Limits.maxTextBytes`: each costs the UTF-8 sizes of
+  its keyword, text, language and translated keyword and `textEntryCost` (`TextEntry.cost`), so
+  entries without text use it up too. Compressed text (`zTXt`, compressed `iTXt`) is inflated
+  with the budget left as its cap. An entry over the budget, or a malformed one, is dropped and
+  counted in `Decoded.textDropped`.
 * Formats. All five colour types; bit depths 1, 2, 4, 8 and 16 as the specification allows
   for each; Adam7 interlacing. The result is `l` for colour type 0, `rgb` for 2 and 3, and
   `rgba` for 4 and 6; a `tRNS` chunk turns types 0, 2 and 3 into `rgba` (grey and
@@ -65,6 +70,8 @@ structure Decoded where
   srgbIntent : Option UInt8
   /-- The `gAMA` value (gamma times 100000). -/
   gamma : Option UInt32
+  /-- The number of text chunks that are not in `text`: malformed, or over the text budget. -/
+  textDropped : Nat := 0
 
 /-- The fields of a validated `IHDR`. -/
 structure Header where
@@ -285,7 +292,17 @@ def buildImage (h : Header) (palette trns raw : ByteArray) : Except PngError Raw
 
 /-- The text of a Latin-1 byte string. -/
 def latin1String (b : ByteArray) : String :=
-  String.ofList (b.toList.map fun x => Char.ofNat x.toNat)
+  b.foldl (fun s x => s.push (Char.ofNat x.toNat)) ""
+
+/-- What every text entry costs from the text budget besides its strings, so that entries
+without text still use it up. -/
+def textEntryCost : Nat := 128
+
+/-- What a text entry costs from the text budget: the UTF-8 sizes of all its strings (keyword,
+text, language, translated keyword) and `textEntryCost`. -/
+def TextEntry.cost (e : TextEntry) : Nat :=
+  e.keyword.utf8ByteSize + e.text.utf8ByteSize + e.language.utf8ByteSize +
+    e.translatedKeyword.utf8ByteSize + textEntryCost
 
 /-- The index of the first zero byte at or after `i`, if any. -/
 def findNul (d : ByteArray) (i : Nat) : Option Nat := Id.run do
@@ -293,9 +310,9 @@ def findNul (d : ByteArray) (i : Nat) : Option Nat := Id.run do
     if byteAt d j == 0 then return some j
   return none
 
-/-- Reads a `tEXt`, `zTXt` or `iTXt` chunk; `none` for a malformed one or one over the text
-budget. Returns the entry and the size it used from the budget. -/
-def parseText (ty : String) (d : ByteArray) (budget : Nat) : Option (TextEntry × Nat) := do
+/-- The entry of a `tEXt`, `zTXt` or `iTXt` chunk, with its text at most `budget` bytes before
+it is decoded; `none` for a malformed chunk or a longer text. -/
+def parseTextEntry (ty : String) (d : ByteArray) (budget : Nat) : Option TextEntry := do
   let k ← findNul d 0
   let kw := latin1String (d.extract 0 k)
   guard (validKeyword kw)
@@ -308,11 +325,11 @@ def parseText (ty : String) (d : ByteArray) (budget : Nat) : Option (TextEntry �
   | "tEXt" =>
     let t := d.extract (k + 1) d.size
     guard (t.size ≤ budget)
-    return ({ keyword := kw, text := latin1String t }, t.size)
+    return { keyword := kw, text := latin1String t }
   | "zTXt" =>
     guard (byteAt d (k + 1) == 0)
     let t ← inflateText (d.extract (k + 2) d.size)
-    return ({ keyword := kw, text := latin1String t }, t.size)
+    return { keyword := kw, text := latin1String t }
   | _ =>
     let flag := byteAt d (k + 1)
     guard (k + 2 < d.size && byteAt d (k + 2) == 0 && flag ≤ 1)
@@ -323,9 +340,17 @@ def parseText (ty : String) (d : ByteArray) (budget : Nat) : Option (TextEntry �
     let body := d.extract (tk + 1) d.size
     let raw ← if flag == 1 then inflateText body else if body.size ≤ budget then some body else none
     let t ← String.fromUTF8? raw
-    return ({ keyword := kw, text := t, international := true, language := lang,
-              translatedKeyword := tkw }, raw.size)
+    return { keyword := kw, text := t, international := true, language := lang,
+             translatedKeyword := tkw }
 
+/-- Reads a `tEXt`, `zTXt` or `iTXt` chunk; `none` for a malformed one or one over the text
+budget: its text is at most the budget before it is decoded (compressed text is inflated with
+the budget as its cap), and the entry's `TextEntry.cost` is at most the budget. Returns the
+entry and its cost. -/
+def parseText (ty : String) (d : ByteArray) (budget : Nat) : Option (TextEntry × Nat) := do
+  let e ← parseTextEntry ty d budget
+  guard (e.cost ≤ budget)
+  return (e, e.cost)
 /-- Reads the PNG file `bytes`. Fails with a `PngError` if the file is malformed, uses an
 unsupported feature, or is larger than `lim` allows; see the module documentation for the exact
 rules. -/
@@ -341,6 +366,7 @@ def decode (bytes : ByteArray) (lim : Limits := {}) : Except PngError Decoded :=
   let mut sawEnd := false
   let mut text : Array TextEntry := #[]
   let mut budget := lim.maxTextBytes
+  let mut dropped := 0
   let mut srgb : Option UInt8 := none
   let mut gamma : Option UInt32 := none
   for _ in [0:bytes.size / 12 + 1] do
@@ -401,6 +427,7 @@ def decode (bytes : ByteArray) (lim : Limits := {}) : Except PngError Decoded :=
       if let some (e, used) := parseText ty data budget then
         text := text.push e
         budget := budget - min used budget
+      else dropped := dropped + 1
     | _ =>
       if (byteAt tyBytes 0) &&& 32 == 0 then throw (.unknownCriticalChunk ty)
   let some h := hdr | throw .truncated
@@ -412,6 +439,6 @@ def decode (bytes : ByteArray) (lim : Limits := {}) : Except PngError Decoded :=
     | .error e => throw (.inflate e)
   if raw.size != h.rawSize then throw (.badImageData "too little image data")
   let image ← buildImage h plte trns raw
-  return { image, text, srgbIntent := srgb, gamma }
+  return { image, text, srgbIntent := srgb, gamma, textDropped := dropped }
 
 end PILean.Png

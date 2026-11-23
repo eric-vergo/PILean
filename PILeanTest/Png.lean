@@ -263,6 +263,27 @@ def pngChecks : Array (String × Bool) := Id.run do
       | .error _ => false
     | .error _ => false
   r := r.push ("png metadata round trip", mdOk)
+  -- the text budget is charged for every field of an entry and for the entry itself
+  let tiny : Limits := { maxTextBytes := 3 * (1 + textEntryCost) + 10 }
+  let manyEntries := (List.range 5).toArray.map fun _ => ({ keyword := "k", text := "" } :
+    TextEntry)
+  let budgetOk := match encode img { text := manyEntries } with
+    | .ok b => match decode b tiny with
+      | .ok d => d.text.size == 3 && d.textDropped == 2
+      | .error _ => false
+    | .error _ => false
+  let longFields : Array TextEntry :=
+    #[{ keyword := "k", text := "", international := true, language := "de",
+        translatedKeyword := String.ofList (List.replicate 198 'a') }]
+  let fieldsOk := match encode img { text := longFields } with
+    | .ok b => match decode b { maxTextBytes := 200 + textEntryCost } with
+      | .ok d => d.text.isEmpty && d.textDropped == 1
+      | .error _ => false
+    | .error _ => false
+  r := r.push ("png reader: entries without text use up the text budget, and the dropped ones \
+    are counted", budgetOk)
+  r := r.push ("png reader: the keyword, language and translated keyword count in the text \
+    budget", fieldsOk)
   let isErr (x : Except PngError ByteArray) : Bool :=
     match x with | .error (.invalidInput _) => true | _ => false
   let withText (k t : String) : Except PngError ByteArray :=
