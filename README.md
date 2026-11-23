@@ -27,7 +27,7 @@ only code that uses the attribute or the checks does.
 | Text in images: a `TextEngine` interface; the built-in single-stroke lettering (430 characters: ASCII, Latin-1, Greek, scripts, math signs, arrows, typographic punctuation) draws labels into PNGs; SVG keeps real `<text>` | done ([specimen](examples/lettering-specimen.png)) |
 | LaTeX labels: the package `pilean-leantex` (folder [`leantex/`](leantex/README.md)) typesets titles, axis and tick labels, legends and node labels with [LeAnTeX](https://github.com/eric-vergo/LeAnTeX), drawn as glyph outlines in SVG and PNG | done; goldens, inert SVG, hostile labels under CPU and memory bounds ([gallery](leantex/examples/)) |
 | Animations: one `Animation` (a drawing as a function of time, frame rate, duration, loops) written as animated SVG (SMIL only, interpolated attributes or frame switching), APNG and GIF, with a poster frame for reduced motion | done; outputs read back by PILean's readers and opened by macOS's ImageIO; the animated SVGs of the gallery checked in headless Chromium (frames differ with time, poster shown under reduced motion, `tools/anim-browser-check.py`) |
-| Graphs: nodes, edges and nested clusters; layered (Sugiyama) layout with cycle removal, network simplex layering, weighted-median crossing reduction with sifting and seeded starts, and under cluster constraints, Brandes–Köpf and network simplex coordinates, spline or orthogonal edges that keep clear of nodes, arrowheads, edge labels; circular and tree layouts; components laid out apart and packed, mirrored layouts; a bounded DOT reader and laid-out DOT writer; SVG and PNG, and SVG for a web page (classes, ids and titles on nodes, edges and clusters) | done; proved: every edge points to a deeper layer (by a final repair pass) and the layout has one route per edge; where nodes and routes lie is tested (cluster boxes, edge clearance); compared with Graphviz's `dot` in [`docs/DESIGN.md`](docs/DESIGN.md) |
+| Graphs: nodes, edges and nested clusters; layered (Sugiyama) layout with cycle removal, network simplex layering, weighted-median crossing reduction with sifting and seeded starts, and under cluster constraints, Brandes–Köpf and network simplex coordinates, spline or orthogonal edges that keep clear of nodes, arrowheads, edge labels; circular and tree layouts; components laid out apart and packed, mirrored layouts; a bounded DOT reader and laid-out DOT writer; SVG and PNG, and SVG for a web page (classes, ids and titles on nodes, edges and clusters) | done; proved: after cycle removal every edge between two different nodes points to a deeper layer (by a final repair pass; self-loops are drawn apart) and the layout has one route per valid edge (both ends among the nodes); where nodes and routes lie is tested (cluster boxes, edge clearance); compared with Graphviz's `dot` in [`docs/DESIGN.md`](docs/DESIGN.md) |
 | Source information: the Lean declaration, file, line, repository, commit and version recorded in SVG (`<metadata>`, `<title>`, `<desc>`), PNG and APNG (`iTXt`) and GIF (comment) files and read back by a size-capped reader; `lake exe pilean-info FILE` prints it; SHA-256 in pure Lean; `Svg.isInert` checks that an SVG runs no script and loads nothing | done; see [`docs/TRUST.md`](docs/TRUST.md); round trips tested on every format with hostile input, SHA-256 against FIPS and NIST vectors and `shasum`, padding and digest size proved |
 | Traceable builds: the attribute `@[figure]` and the term `figures%` collect the figures of a project; fingerprints (SHA-256 of the drawing's SVG encoding, the declaration's source text and position, and the version); `lake exe pilean-build` renders them deterministically with a `manifest.json` (`--check` compares a directory with the build), `lake exe pilean-verify DIR` checks a directory against its manifest | done; see [`docs/TRUST.md`](docs/TRUST.md) (including use in CI); tested end to end with damaged, missing, extra and hostile files |
 | Theorems tying a figure to its Lean object: a plot of an exact function on the rationals (the plotted points are exactly its values on a stated grid; nothing is proved between two samples), a data plot (the points are the input list), a graph (nodes and edges are the relation and the layout has one route per edge) and an animation (frame `i` is the drawing at `i / fps`). The theorems are about exact numbers and lists; the step from them to pixels is floating point and tested, not proved | done for these four; see [`docs/PROOFS.md`](docs/PROOFS.md) for what is proved, tested and trusted; one example of each in the gallery |
@@ -149,19 +149,29 @@ records in each image the Lean file and declaration that produced it and a finge
 drawing and the declaration, with a manifest and two checkers (`pilean-build --check`,
 `pilean-verify`); theorems tie a figure to the Lean object it shows ([`docs/PROOFS.md`](docs/PROOFS.md)). PNG and DEFLATE data read from files are untrusted: every length is
 checked, the output size is capped, and mutated files end in clean errors. With the default
-limits, reading a PNG of `n` bytes holds at most the input, the image data (at most `n` bytes)
-and two buffers whose sizes together are at most `Limits.maxBytes` (512 MiB), allocated only after
-the header has been checked against the caps, and its work is linear in those sizes; a zlib stream
-is measured before its output is allocated, so a bomb is refused without its output; GIF and APNG
-hold the composed frames (at most `Limits.maxBytes`) and a constant number of frame-sized buffers.
+limits, reading a PNG of `n` bytes holds at most the input, its image data (at most `n` bytes), the
+data of one other chunk at a time, the text entries (their strings with 128 bytes for each entry
+at most `Limits.maxTextBytes`, 4 MiB; an entry over the budget is dropped and counted), and two
+buffers whose sizes together are at most `Limits.maxBytes` (512 MiB), allocated only after the
+header has been checked against the caps; its work is linear in those sizes. The buffer of the
+image data is sized from the header (after a check that the compressed data is long enough for
+it) and inflating stops at its end; a zlib stream decoded without an expected size is measured
+before its output is allocated, so a bomb is refused without its output. GIF and APNG hold the
+composed frames (at most `Limits.maxBytes`, checked before each frame is decoded) and a constant
+number of frame-sized buffers. These bound the buffers the readers allocate, not the memory of
+the whole process.
 The graph layout's work is bounded by the numbers of nodes and edges and two work budgets
-(`LayeredOptions.layerWork`, `coordinateWork`), with a cap on dummy nodes (`maxLayoutNodes`). The
+(`LayeredOptions.layerWork`, `coordinateWork`), with a cap on dummy nodes (`maxLayoutNodes`: past
+it no edge gets dummy nodes; the real nodes are not capped); `docs/DESIGN.md` gives the cost of
+each phase, some of them quadratic in the size of one layer or gap. The
 command-line tools read only regular files, follow no symbolic link below the folder they are
 given, and print what they read escaped. `lake test` runs the readers, the layout and the tools on
 hostile inputs in child processes and checks their memory and CPU time
 (`PILeanTest/Bounds.lean`, `PILeanTest/Tools.lean`). The rasteriser
 computes coverage in integers from outlines on a grid of 1/256 pixel, so the same outlines give
-the same pixels on every machine; the outlines themselves are computed in floating point. The
+the same coverage on every machine; the colour of a pixel also depends on its paint, the clips and
+the compositing ("Exact and floating point" in `docs/DESIGN.md`), and the outlines themselves are
+computed in floating point. The
 rasteriser is tested, not proved.
 `docs/DESIGN.md` has the details and the open choices.
 

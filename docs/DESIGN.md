@@ -178,8 +178,9 @@ spans of the edges, at most `E (L - 1)`; `C` clusters):
    the resulting order are reversed for the layout and drawn in their own direction. At most
    `3V + 2` steps, `O(V + E)` plus a scan of the nodes each time no source or sink is left.
    Self-loops are set aside and drawn as small loops.
-2. *Layers*: the layers of least total edge span by network simplex (Gansner, Koutsofios, North
-   and Vo, 1993; `Graph/Simplex`) from the longest-path layering; two balancing passes; then
+2. *Layers*: network simplex (Gansner, Koutsofios, North and Vo, 1993; `Graph/Simplex`) from the
+   longest-path layering, towards the layers of least total edge span (the objective; it is
+   reached when the search finishes within `layerWork`); two balancing passes; then
    `fixLayers`, which relaxes the edges sorted by the order of their source and so makes every
    edge point down whatever came before (proved). `O(E log V)` for the start, `O(V + E)` per
    exchange at worst. When an edge has a label the layers are doubled so that the label has a
@@ -263,7 +264,12 @@ spans of the edges, at most `E (L - 1)`; `C` clusters):
    by halves, down to the corner itself (`fitPieces`). An edge never turns back across the
    layers. A gap grows, up to `sidewaysGap` (2.5) times, until its widest step is no flatter
    than `flattest` (12) to one; orthogonal routes (`Routing.orthogonal`) are horizontal and
-   vertical segments with rounded corners on tracks of their own. Ends are spread along the
+   vertical segments with rounded corners on tracks of their own: in each gap between two
+   layers, the horizontal runs going one way are taken in order and each gets the track after the
+   highest one among the runs placed before it in that gap that it overlaps (within 6 pixels), so
+   `k` runs in one gap and direction cost
+   `k (k − 1) / 2` comparisons, a term that neither `layerWork` nor `coordinateWork` bounds
+   (`lake test` lays out 5000 runs in one gap under its CPU bound). Ends are spread along the
    node's side in the order of the other ends; an arrowhead lies along the end of its curve, with
    Graphviz's proportion to the node; labels on plates of the page colour at the middle of the
    edge.
@@ -368,7 +374,10 @@ about a tenth above the values measured.
 
 Measured with the machine's load average about 3 to 12 (PILean's runs under the higher load).
 Ratios are PILean over `dot`; where two numbers stand in a cell they are PILean's and `dot`'s.
-`dot`'s area leaves out its cluster boxes (its plain output has none), PILean's includes them.
+The area in the table is computed by `tools/graph-compare.py` for both programs in the same way,
+as the box around the nodes and the edges' points: neither includes cluster boxes (`dot`'s plain
+output has none, and the comparator reads only the nodes and edges of PILean's file). The area
+that `lake test` holds PILean's drawings to (`PILeanTest/GraphQuality.lean`) includes them.
 Times are one run each: PILean's layout alone (the starts of the crossing reduction on several
 processors), and `dot` on the file (including its start).
 

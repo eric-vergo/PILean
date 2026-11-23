@@ -332,10 +332,16 @@ pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check]
 * With `--check`, the output is rendered in memory and compared byte for byte with `DIR`
   (give the same `--repo` and `--commit` as the build). It prints `stale: PATH` (different
   bytes, the manifest included), `missing: PATH`, and `extra: PATH` (a file under `DIR` that is
-  neither in the manifest nor the manifest itself), and `ok: N files match` if all is well.
-* Exit status 0 on success, 1 if a file is stale, missing or extra or a figure cannot be
-  rendered, 2 on a wrong command line.
-* Bounds: at most 4096 figures, 256 MiB for each output file.
+  neither in the manifest nor the manifest itself), and `ok: N files match` if all is well. The
+  folder is listed to at most 32 levels of directories and 100,000 entries; a folder beyond
+  either bound is not listed partly: it gets the line `cannot check: REASON` and fails.
+* Exit status 0 on success, 1 if a file is stale, missing or extra, the folder cannot be listed
+  completely or a figure cannot be rendered, 2 on a wrong command line.
+* Bounds: at most 4096 figures and 65,536 files (the most a manifest may list), each file at
+  most 64 MiB with its source record in (the most the source reader of `pilean-verify` reads),
+  checked on the finished file; a file whose bytes are not of its output's format (an `apng`
+  output must have an `acTL` chunk before its image data, a `png` output none) is refused. So
+  every file a build writes is one `pilean-verify` can check.
 
 ### The manifest
 
@@ -367,14 +373,17 @@ symbolic link, not a FIFO or device; checked before it is opened), at most 16 Mi
 digits only, no repeated key, nothing after the value). The manifest is rejected as a whole, before
 any file is touched, if a path is empty, longer than 1024 bytes, absolute, has `..` or `.` or an
 empty component, a backslash, a colon or any character outside `[A-Za-z0-9._/-]`, if a path is
-listed twice, a format is unknown or a hash is not 64 lowercase hexadecimal digits. Then each
-listed file gets one line, and after them each file that is not listed:
+listed twice, a format is unknown or a hash is not 64 lowercase hexadecimal digits. The folder
+is then listed, to at most 32 levels of directories and 100,000 entries; a folder beyond either
+bound is an error (exit status 1, a message, no line about any file), never a partial listing.
+Then each listed file gets one line, and after them each file that is not listed:
 
 | Line | Meaning |
 |---|---|
-| `ok: PATH` | a regular file of the listed size and SHA-256, whose source record agrees with the manifest (module, declaration, file, line, column, version, repository, commit and fingerprint) |
-| `missing: PATH` | the file does not exist |
+| `ok: PATH` | a regular file of the listed size and SHA-256 and of the listed format, whose source record agrees with the manifest (module, declaration, file, line, column, version, repository, commit and fingerprint) |
+| `missing: PATH` | no file has that path, spelled exactly so (on a file system that ignores case, a file found only under another spelling is `missing`, and listed as `extra` under its own) |
 | `changed: PATH` | another size or hash |
+| `format differs: PATH` | the bytes are not of the listed format (`svg`, `png`, `apng` with an `acTL` chunk before the image data, `gif`) |
 | `not a regular file: PATH` | the file, or a directory on its way below `DIR`, is a symbolic link, a directory, a FIFO or a device (nothing is followed or opened) |
 | `source differs: PATH` | the source record in the file differs from the manifest |
 | `no source: PATH` | the file has no readable source record |
@@ -390,11 +399,13 @@ is what its manifest says. `pilean-build --check` checks that it is what the bui
 
 * `pilean-info` prints what a file says about itself. A source record is written by whoever
   wrote the file; nothing is signed, so the record alone establishes nothing.
-* `pilean-verify` exiting 0 establishes that the directory and its manifest agree: every listed
-  file is there with the listed size and SHA-256 and carries the listed source record, and
-  there is no other file. It does not establish where either came from. Someone who can write
-  both the files and the manifest can make a directory that passes, with any source record; the
-  fingerprint is compared with the manifest's, not recomputed.
+* `pilean-verify` exiting 0 establishes that the directory and its manifest agree: every listed file
+  is there under exactly its listed name, with the listed size, SHA-256 and format, and carries the
+  listed source record, and there is no other file (a folder too deep or too large to list
+  completely is an error, not a pass; directories that hold no file are not compared). It does not
+  establish where either came from. Someone who can write both the files and the manifest can make a
+  directory that passes, with any source record; the fingerprint is compared with the manifest's,
+  not recomputed.
 * `pilean-build --check` exiting 0 establishes that the directory holds, byte for byte, what
   the driver that was run renders now from the declarations compiled into it, and nothing else.
   That ties the files to the Lean source to the extent that the driver was built from that

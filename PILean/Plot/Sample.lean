@@ -10,10 +10,11 @@ import PILean.Geometry
 A function's graph is drawn from samples chosen for the picture: dense where the curve bends,
 sparse where it is straight, and broken where it is not continuous.
 
-* The interval starts as 64 equal pieces (`maxPoints - 1` if that is fewer). A piece is halved while its midpoint is more than a
-  tolerance (a quarter of a pixel) off the chord, or the piece is wider than 8 pixels, down to a
-  depth of 14 halvings, within a budget of points. Values more than the plot's height beyond the
-  range it shows are treated as at that distance, so that nothing is refined out of sight.
+* The interval starts as 64 equal pieces (`maxPoints - 1` if that is fewer). A piece is
+  halved while its midpoint is more than a tolerance (a quarter of a pixel) off the chord, or
+  the piece is wider than 8 pixels, down to a depth of 14 halvings, within a budget of points.
+  Values more than the plot's height beyond the range it shows are treated as at that distance,
+  so that nothing is refined out of sight.
 * A sample whose value is not finite breaks the curve; the edge of the region where the function
   is defined is found by halving (so `√x` reaches its end and `1/x` stops at its pole).
 * A piece halved to the full depth whose ends still lie more than two pixels apart is a jump:

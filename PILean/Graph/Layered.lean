@@ -62,10 +62,13 @@ with that cluster and the node or cluster the edge leads to kept one above the o
 The number of dummy nodes is the sum of the spans of the edges, at most `E × (L - 1)` for `L`
 layers; when the real and dummy nodes together would be more than
 `LayeredOptions.maxLayoutNodes`, long edges get no dummy nodes and are drawn straight between
-their ends. With that cap, the work allowed to the two network simplex phases
-(`layerWork`, `coordinateWork`) and the sweeps, every phase's work is bounded by a function of
-the numbers of nodes and edges that is at most `O((V + E) log (V + E))` times the sweeps, plus
-the two work budgets.
+their ends. With that cap, the two network simplex phases are bounded by their work budgets
+(`layerWork`, `coordinateWork`), and every other phase by a function of the numbers of nodes and
+edges and of the options (the sweeps, the starts, the cluster rounds). Not every such function
+is near-linear: sifting costs `O(k² d)` for a layer of `k` nodes of mean degree `d` (skipped
+above `siftPairLimit` pairs), and the tracks of orthogonal routes cost `k (k − 1) / 2`
+comparisons for `k` horizontal runs in one gap and direction; `docs/DESIGN.md` gives the cost of
+each phase.
 
 ## References
 

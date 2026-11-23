@@ -75,9 +75,13 @@ proved.
 Every theorem below depends on no axiom beyond Lean's three standard ones (`propext`,
 `Classical.choice`, `Quot.sound`); there is no `sorry`, no `native_decide` and no `bv_decide`
 anywhere in the library. The build of the tests checks this for every declaration of the library
-and of the test modules the test driver imports, theorems and definitions alike, without a list
-of names, and reports any `axiom` they declare, used or not (`PILeanTest/Axioms.lean`); every
-`lake test` checks that no file of the library is left out of that check. Each main theorem sits
+and of the test modules the test driver imports, of every kind (theorems, definitions, opaque
+constants, inductive types with their constructors and recursors), without a list of names, and
+reports any `axiom` they declare, used or not (`PILeanTest/Axioms.lean`); every `lake test`
+checks that no file of the library is left out of that check and that every test module in the
+test driver's imported environment is in it. The check reads the axioms Lean records for each
+declaration of an environment that it trusts: it does not check the declarations again in the
+kernel. Each main theorem sits
 beside an `example` that shows its hypotheses can be met. The gallery pictures that have a theorem
 (`examples/README.md`) carry it next to the code in `PILeanTest/ProvedExamples.lean`.
 
@@ -124,7 +128,10 @@ not rational-valued.
   (`fixLayers`) that moves a node down until its incoming edges point down, and the theorem is
   about that pass. Nothing is proved about the layers network simplex and balancing produce
   before it (`layersBeforeRepair`); a test checks, on random graphs, the fixtures and the import
-  graphs, that the repair changes nothing there, so the layers you see are the simplex's own.
+  graphs, that the repair did not change the balanced layers there, so on those graphs the layers
+  you see are those of network simplex followed by balancing. Least total edge span is the
+  objective of network simplex, reached when it finishes within its work budget (`layerWork`);
+  nothing checks that it was reached.
 * `Graph.assignNested_lt`, `Graph.assignWide_lt`: the same for the two other layerings the layout
   calls: of a graph with clusters, layered from the inside out (every edge between two different
   nodes points, from the node that comes first in the order `assignNested` returns, to a deeper
