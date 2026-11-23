@@ -137,6 +137,42 @@ def checkAll (ms : Array SpecMutation) : IO (Array (String × Bool)) := do
   IO.FS.removeDirAll scratch
   return out
 
+/-- The changes to the data of the gallery's combinatorial diagrams (`PILeanTest/Diagrams.lean`)
+that their specifications must catch: an edge, a cover, a cell, an entry, an incidence, a step or
+a drawing changed. -/
+def diagramMutations : Array SpecMutation :=
+  let f : System.FilePath := "PILeanTest" / "Diagrams.lean"
+  #[{ file := f, what := "the Petersen graph loses the condition on its last pair",
+      anchor := "def petersenGraph : FinGraph where",
+      edits := [("a != c && a != d && b != c && b != d", "a != c && a != d && b != c")],
+      spec := "petersen_spec" },
+    { file := f, what := "the subsets are ordered by size instead of inclusion",
+      anchor := "def booleanLattice : FinPoset where",
+      edits := [("le i j := i.val &&& j.val == i.val", "le i j := decide (i.val ≤ j.val)")],
+      spec := "cube_spec" },
+    { file := f, what := "the Young diagram has the shape (5, 3, 2, 1)",
+      anchor := "def shape5331 : YoungShape", edits := [("[5, 3, 3, 1]", "[5, 3, 2, 1]")],
+      spec := "young_spec" },
+    { file := f, what := "an entry of the tableau is 3 instead of 4",
+      anchor := "def ssyt : Tableau", edits := [("[[1, 1, 2, 4],", "[[1, 1, 2, 3],")],
+      spec := "tableau_spec" },
+    { file := f, what := "the wiring figure draws the matrix",
+      anchor := "def permWiring : Diagram :=",
+      edits := [("perm.figure FinPerm.wiring", "perm.figure FinPerm.matrix")],
+      spec := "permWiring_spec" },
+    { file := f, what := "vertex 11 hangs from vertex 6", anchor := "def treeParents :",
+      edits := [("some 7, some 7]", "some 7, some 6]")], spec := "tree_spec" },
+    { file := f, what := "the third set is the multiples of 7",
+      anchor := "def multiples : SetSystem",
+      edits := [("[2, 3, 5].map", "[2, 3, 7].map")], spec := "venn_spec" },
+    { file := f, what := "a line of the Fano plane is changed",
+      anchor := "def fanoPlane : SetSystem",
+      edits := [("[2, 4, 5]]", "[2, 4, 6]]")], spec := "fano_spec" },
+    { file := f, what := "the Dyck word ends with two downs", anchor := "def dyckWord : List Bool",
+      edits := [("true, false]", "false, false]")], spec := "dyck_spec" },
+    { file := f, what := "the board has the shape (4, 2, 1)", anchor := "def board : Polyomino",
+      edits := [("[4, 3, 1]", "[4, 2, 1]")], spec := "ferrers_spec" }]
+
 /-- The changes to the core's figures with specifications (`PILeanTest.Examples` and
 `PILeanTest.PlaneExact`). -/
 def mutations : Array SpecMutation :=
@@ -181,7 +217,7 @@ def mutations : Array SpecMutation :=
     { file := plane, what := "the points do not record the window",
       anchor := "def stepPoint (j : Nat) : Item :=",
       edits := [("Plane.Exact.pointNearDisk (Zeta5.pow j) windowCentre windowRadius \"the window\"",
-        "Plane.Exact.point (Zeta5.pow j)")], spec := "zetaSteps_spec" }]
+        "Plane.Exact.point (Zeta5.pow j)")], spec := "zetaSteps_spec" }] ++ diagramMutations
 
 /-- The checks of `mutations`. -/
 def ioChecks : IO (Array (String × Bool)) := checkAll mutations

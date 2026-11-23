@@ -3,115 +3,60 @@
   <g>
     <title>The Dyck path UUDUUDDDUD</title>
     <path d="M0 0 L420 0 L420 150 L0 150 Z" fill="#16181c"/>
-    <path d="M16.75 132.98 L16.75 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M55.4 132.98 L55.4 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M94.05 132.98 L94.05 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M132.7 132.98 L132.7 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M171.35 132.98 L171.35 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M210 132.98 L210 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M248.65 132.98 L248.65 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M287.3 132.98 L287.3 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M325.95 132.98 L325.95 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M364.6 132.98 L364.6 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M403.25 132.98 L403.25 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M16.75 132.98 L403.25 132.98" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M16.75 94.32 L403.25 94.32" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M16.75 55.68 L403.25 55.68" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M16.75 17.03 L403.25 17.03" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 133.05 L16.5 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M55.2 133.05 L55.2 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M93.9 133.05 L93.9 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M132.6 133.05 L132.6 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M171.3 133.05 L171.3 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M210 133.05 L210 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M248.7 133.05 L248.7 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M287.4 133.05 L287.4 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M326.1 133.05 L326.1 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M364.8 133.05 L364.8 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M403.5 133.05 L403.5 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 133.05 L403.5 133.05" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 94.35 L403.5 94.35" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 55.65 L403.5 55.65" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 16.95 L403.5 16.95" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <g>
       <title>step 0</title>
-      <path d="M16.75 132.98 L55.4 94.32" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M16.5 133.05 L55.2 94.35" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>step 1</title>
-      <path d="M55.4 94.32 L94.05 55.68" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M55.2 94.35 L93.9 55.65" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>step 2</title>
-      <path d="M94.05 55.68 L132.7 94.32" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M93.9 55.65 L132.6 94.35" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>step 3</title>
-      <path d="M132.7 94.32 L171.35 55.68" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M132.6 94.35 L171.3 55.65" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>step 4</title>
-      <path d="M171.35 55.68 L210 17.03" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M171.3 55.65 L210 16.95" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>step 5</title>
-      <path d="M210 17.03 L248.65 55.68" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M210 16.95 L248.7 55.65" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>step 6</title>
-      <path d="M248.65 55.68 L287.3 94.32" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M248.7 55.65 L287.4 94.35" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>step 7</title>
-      <path d="M287.3 94.32 L325.95 132.98" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M287.4 94.35 L326.1 133.05" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>step 8</title>
-      <path d="M325.95 132.98 L364.6 94.32" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M326.1 133.05 L364.8 94.35" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>step 9</title>
-      <path d="M364.6 94.32 L403.25 132.98" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-    <g>
-      <title>vertex 0</title>
-      <path d="M21.5 132.98 C21.5 135.6 19.37 137.73 16.75 137.73 C14.13 137.73 12 135.6 12 132.98 C12 130.35 14.13 128.23 16.75 128.23 C19.37 128.23 21.5 130.35 21.5 132.98 Z" fill="#16181c"/>
-      <path d="M20.25 132.98 C20.25 134.91 18.68 136.48 16.75 136.48 C14.82 136.48 13.25 134.91 13.25 132.98 C13.25 131.04 14.82 129.48 16.75 129.48 C18.68 129.48 20.25 131.04 20.25 132.98 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 1</title>
-      <path d="M60.15 94.32 C60.15 96.95 58.02 99.07 55.4 99.07 C52.78 99.07 50.65 96.95 50.65 94.32 C50.65 91.7 52.78 89.57 55.4 89.57 C58.02 89.57 60.15 91.7 60.15 94.32 Z" fill="#16181c"/>
-      <path d="M58.9 94.32 C58.9 96.26 57.33 97.82 55.4 97.82 C53.47 97.82 51.9 96.26 51.9 94.32 C51.9 92.39 53.47 90.82 55.4 90.82 C57.33 90.82 58.9 92.39 58.9 94.32 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 2</title>
-      <path d="M98.8 55.68 C98.8 58.3 96.67 60.43 94.05 60.43 C91.43 60.43 89.3 58.3 89.3 55.68 C89.3 53.05 91.43 50.93 94.05 50.93 C96.67 50.93 98.8 53.05 98.8 55.68 Z" fill="#16181c"/>
-      <path d="M97.55 55.68 C97.55 57.61 95.98 59.18 94.05 59.18 C92.12 59.18 90.55 57.61 90.55 55.68 C90.55 53.74 92.12 52.18 94.05 52.18 C95.98 52.18 97.55 53.74 97.55 55.68 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 3</title>
-      <path d="M137.45 94.32 C137.45 96.95 135.32 99.07 132.7 99.07 C130.08 99.07 127.95 96.95 127.95 94.32 C127.95 91.7 130.08 89.57 132.7 89.57 C135.32 89.57 137.45 91.7 137.45 94.32 Z" fill="#16181c"/>
-      <path d="M136.2 94.32 C136.2 96.26 134.63 97.82 132.7 97.82 C130.77 97.82 129.2 96.26 129.2 94.32 C129.2 92.39 130.77 90.82 132.7 90.82 C134.63 90.82 136.2 92.39 136.2 94.32 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 4</title>
-      <path d="M176.1 55.68 C176.1 58.3 173.97 60.43 171.35 60.43 C168.73 60.43 166.6 58.3 166.6 55.68 C166.6 53.05 168.73 50.93 171.35 50.93 C173.97 50.93 176.1 53.05 176.1 55.68 Z" fill="#16181c"/>
-      <path d="M174.85 55.68 C174.85 57.61 173.28 59.18 171.35 59.18 C169.42 59.18 167.85 57.61 167.85 55.68 C167.85 53.74 169.42 52.18 171.35 52.18 C173.28 52.18 174.85 53.74 174.85 55.68 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 5</title>
-      <path d="M214.75 17.03 C214.75 19.65 212.62 21.78 210 21.78 C207.38 21.78 205.25 19.65 205.25 17.03 C205.25 14.4 207.38 12.28 210 12.28 C212.62 12.28 214.75 14.4 214.75 17.03 Z" fill="#16181c"/>
-      <path d="M213.5 17.03 C213.5 18.96 211.93 20.53 210 20.53 C208.07 20.53 206.5 18.96 206.5 17.03 C206.5 15.09 208.07 13.53 210 13.53 C211.93 13.53 213.5 15.09 213.5 17.03 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 6</title>
-      <path d="M253.4 55.68 C253.4 58.3 251.27 60.43 248.65 60.43 C246.03 60.43 243.9 58.3 243.9 55.68 C243.9 53.05 246.03 50.93 248.65 50.93 C251.27 50.93 253.4 53.05 253.4 55.68 Z" fill="#16181c"/>
-      <path d="M252.15 55.68 C252.15 57.61 250.58 59.18 248.65 59.18 C246.72 59.18 245.15 57.61 245.15 55.68 C245.15 53.74 246.72 52.18 248.65 52.18 C250.58 52.18 252.15 53.74 252.15 55.68 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 7</title>
-      <path d="M292.05 94.32 C292.05 96.95 289.92 99.07 287.3 99.07 C284.68 99.07 282.55 96.95 282.55 94.32 C282.55 91.7 284.68 89.57 287.3 89.57 C289.92 89.57 292.05 91.7 292.05 94.32 Z" fill="#16181c"/>
-      <path d="M290.8 94.32 C290.8 96.26 289.23 97.82 287.3 97.82 C285.37 97.82 283.8 96.26 283.8 94.32 C283.8 92.39 285.37 90.82 287.3 90.82 C289.23 90.82 290.8 92.39 290.8 94.32 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 8</title>
-      <path d="M330.7 132.98 C330.7 135.6 328.57 137.73 325.95 137.73 C323.33 137.73 321.2 135.6 321.2 132.98 C321.2 130.35 323.33 128.23 325.95 128.23 C328.57 128.23 330.7 130.35 330.7 132.98 Z" fill="#16181c"/>
-      <path d="M329.45 132.98 C329.45 134.91 327.88 136.48 325.95 136.48 C324.02 136.48 322.45 134.91 322.45 132.98 C322.45 131.04 324.02 129.48 325.95 129.48 C327.88 129.48 329.45 131.04 329.45 132.98 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 9</title>
-      <path d="M369.35 94.32 C369.35 96.95 367.22 99.07 364.6 99.07 C361.98 99.07 359.85 96.95 359.85 94.32 C359.85 91.7 361.98 89.57 364.6 89.57 C367.22 89.57 369.35 91.7 369.35 94.32 Z" fill="#16181c"/>
-      <path d="M368.1 94.32 C368.1 96.26 366.53 97.82 364.6 97.82 C362.67 97.82 361.1 96.26 361.1 94.32 C361.1 92.39 362.67 90.82 364.6 90.82 C366.53 90.82 368.1 92.39 368.1 94.32 Z" fill="#68b6ec"/>
-    </g>
-    <g>
-      <title>vertex 10</title>
-      <path d="M408 132.98 C408 135.6 405.87 137.73 403.25 137.73 C400.63 137.73 398.5 135.6 398.5 132.98 C398.5 130.35 400.63 128.23 403.25 128.23 C405.87 128.23 408 130.35 408 132.98 Z" fill="#16181c"/>
-      <path d="M406.75 132.98 C406.75 134.91 405.18 136.48 403.25 136.48 C401.32 136.48 399.75 134.91 399.75 132.98 C399.75 131.04 401.32 129.48 403.25 129.48 C405.18 129.48 406.75 131.04 406.75 132.98 Z" fill="#68b6ec"/>
+      <path d="M364.8 94.35 L403.5 133.05" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
   </g>
 </svg>

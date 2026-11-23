@@ -190,7 +190,8 @@ instance (T : Tableau) : Decidable T.IsStandard :=
 def draw (T : Tableau) : Diagram where
   marks := (cellList T.shape).map (cellMark T.convention .ink) ++
     T.entryTexts.map fun e =>
-      { part := .entry e.1.1 e.1.2, shape := .text e.2 (cellCentre T.convention e.1.1 e.1.2) .center }
+      { part := .entry e.1.1 e.1.2,
+        shape := .text e.2 (cellCentre T.convention e.1.1 e.1.2) .center }
 
 /-- The diagram draws the tableau faithfully: its cells are exactly the cells of its shape, in
 order, its written entries are the filling (`entryTexts`), cell by cell, and each mark is where

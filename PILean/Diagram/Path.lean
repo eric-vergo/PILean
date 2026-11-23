@@ -76,12 +76,11 @@ def gridMarks (P : LatticePath) : List Mark :=
       { part := .guide, ink := .faint,
         shape := .segment ((x0 : Rat), (y0 : Rat) + j) ((x1 : Rat), (y0 : Rat) + j) }
 
-/-- The diagram: the grid, then each step as a segment in accent 0, then a dot at each point. -/
+/-- The diagram: the grid, then each step as a segment in accent 0. -/
 def draw (P : LatticePath) : Diagram where
   marks := P.gridMarks ++
-    P.stepList.map (fun (k, p, q) => { part := .step k, shape := .segment p q, ink := .accent 0 }) ++
-    (List.range (P.steps.length + 1)).map fun k =>
-      { part := .vertex k, shape := .dot (ofInts (P.point k)), ink := .accent 0 }
+    P.stepList.map (fun (k, p, q) =>
+      { part := .step k, shape := .segment p q, ink := .accent 0 })
   width := min 520 (36 * ((P.box.2.2.1 - P.box.1).toNat.toFloat + 1) + 24)
 
 /-- The diagram draws the path faithfully: its steps are exactly `stepList`, in order. -/

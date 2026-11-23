@@ -108,7 +108,8 @@ def ioChecks : IO (Array (String × Bool)) := do
   let fine := entries.filter (!·.standing.unmarked)
   let ok ← build fine (root / "a") { requireStanding := true }
   let all ← build entries (root / "b") {}
-  let manifest := (Manifest.parse (← IO.FS.readBinFile (root / "a" / manifestName))).toOption.getD #[]
+  let manifest :=
+    (Manifest.parse (← IO.FS.readBinFile (root / "a" / manifestName))).toOption.getD #[]
   let mut filesAgree := !manifest.isEmpty
   for m in manifest do
     match Source.read? (← IO.FS.readBinFile (root / "a" / m.path)) with

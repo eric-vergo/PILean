@@ -153,7 +153,8 @@ def permTwoLine : Diagram :=
 theorem permTwoLine_spec :
     perm.FaithfulTwoLine permTwoLine ∧ perm.IsPerm ∧
     permTwoLine.entries = [((0, 0), "1"), ((0, 1), "2"), ((0, 2), "3"), ((0, 3), "4"),
-      ((0, 4), "5"), ((1, 0), "4"), ((1, 1), "2"), ((1, 2), "5"), ((1, 3), "1"), ((1, 4), "3")] := by
+      ((0, 4), "5"), ((1, 0), "4"), ((1, 1), "2"), ((1, 2), "5"), ((1, 3), "1"),
+      ((1, 4), "3")] := by
   exact ⟨perm.twoLine_faithful, by decide, by decide +kernel⟩
 
 figure_proves permTwoLine permTwoLine_spec
@@ -340,7 +341,8 @@ def figures : Array (String × Diagram) :=
   #[("diagram-petersen", petersen), ("diagram-cube", cube), ("diagram-young", young),
     ("diagram-tableau", tableau), ("diagram-perm-two-line", permTwoLine),
     ("diagram-perm-matrix", permMatrix), ("diagram-perm-cycles", permCycles),
-    ("diagram-perm-wiring", permWiring), ("diagram-tree", tree), ("diagram-binary-tree", binaryTree),
+    ("diagram-perm-wiring", permWiring), ("diagram-tree", tree),
+    ("diagram-binary-tree", binaryTree),
     ("diagram-venn", venn), ("diagram-fano", fano), ("diagram-dyck", dyck),
     ("diagram-ferrers", ferrers)]
 
@@ -420,9 +422,11 @@ def faultChecks : Array (String × Bool) :=
     ("young: two cells swapped is refused", !decide (shape5331.Faithful (swapFirst young))),
     ("tableau: faithful", decide (ssyt.Faithful tableau)),
     ("tableau: a changed entry is refused", !decide (ssyt.Faithful
-      (changeMark tableau t0 fun m => { m with shape := .text "2" (cellCentre .french 0 0) .center }))),
+      (changeMark tableau t0 fun m =>
+        { m with shape := .text "2" (cellCentre .french 0 0) .center }))),
     ("tableau: an entry in another cell's place is refused", !decide (ssyt.Faithful
-      (changeMark tableau t0 fun m => { m with shape := .text "1" (cellCentre .french 1 0) .center }))),
+      (changeMark tableau t0 fun m =>
+        { m with shape := .text "1" (cellCentre .french 1 0) .center }))),
     ("tableau: a dropped entry is refused", !decide (ssyt.Faithful (dropMark tableau t0))),
     ("tableau: an English cell in a French tableau is refused", !decide (ssyt.Faithful
       (changeMark tableau 0 fun m =>

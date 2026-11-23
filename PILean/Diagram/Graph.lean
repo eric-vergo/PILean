@@ -163,7 +163,8 @@ def placed (g : FinGraph) (L : Layout) (m : Mark) : Bool :=
 def draw (g : FinGraph) (L : Layout) : Diagram where
   marks := g.edgePairs.map (g.edgeMark L) ++
     (List.range g.n).map (fun i => { part := .vertex i, shape := .dot (L.pos i) }) ++
-    (List.range g.n).map (fun i => { part := .vertex i, shape := .text (g.label i) (L.pos i) .auto })
+    (List.range g.n).map (fun i =>
+      { part := .vertex i, shape := .text (g.label i) (L.pos i) .auto })
 
 /-- The diagram draws the graph faithfully at the layout `L`: its edges are exactly `edgePairs`,
 in order; its vertex dots are `0, …, n - 1`, in order; and every mark is placed where `L` puts its
@@ -220,6 +221,7 @@ end FinGraph
 
 /-- The hypotheses can be met: the directed 2-cycle on two vertices draws the edges `(0, 1)` and
 `(1, 0)`. -/
-example : (FinGraph.mk 2 (fun i j => i != j) true true #[]).edgePairs = [(0, 1), (1, 0)] := by decide
+example : (FinGraph.mk 2 (fun i j => i != j) true true #[]).edgePairs = [(0, 1), (1, 0)] := by
+  decide
 
 end PILean.Diagram

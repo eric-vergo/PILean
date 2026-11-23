@@ -87,6 +87,7 @@ import PILean.Version
 # PILean
 
 A pure-Lean image library: colours, geometry, paths, images, a rasteriser with paints and
-compositing, PNG and SVG output, plots, plane figures and graphs. See `README.md` and
+compositing, PNG and SVG output, plots, plane figures, graphs, and diagrams of combinatorial
+objects and orders drawn from their data (`PILean.Diagram`). See `README.md` and
 `docs/DESIGN.md`.
 -/

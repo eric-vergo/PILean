@@ -35,7 +35,7 @@ rasteriser, colours and style) is the tested code of plane figures, and no theor
 * `QPoint`, `Part`, `Side`, `Shape`, `Ink`, `Mark`, `Diagram`
 * `Diagram.edges`, `Diagram.vertices`, `Diagram.cells`, `Diagram.entries`, `Diagram.steps`:
   read-backs
-* `Mark.toItem`, `Diagram.toPlane`: the drawing as a plane figure
+* `Mark.toItem`, `Mark.toItemIn`, `Diagram.toPlane`: the drawing as a plane figure
 * `maxMarks`: the most marks a diagram is drawn with
 
 ## Main results
@@ -249,17 +249,36 @@ def Ink.apply : Ink → Item → Item
   | .accent k, it => it.accent k
   | .tint k, it => (it.accent k).filled
 
-/-- The plane item of a mark: its shape's item in its ink, named by its part (`Part.title`). -/
-def Mark.toItem (gap : Float) (m : Mark) : Item :=
+/-- The titles of the circles among `marks` that pass exactly through `p`
+(`(p - c)² = r²` in rational arithmetic), for the incidences a dot records. -/
+def circlesThrough (marks : List Mark) (p : QPoint) : List String :=
+  marks.filterMap fun m => match m.shape with
+    | .circle c r =>
+      if (p.1 - c.1) * (p.1 - c.1) + (p.2 - c.2) * (p.2 - c.2) = r * r && !m.part.title.isEmpty
+      then some m.part.title else none
+    | _ => none
+
+/-- The plane item of a mark: its shape's item in its ink, named by its part (`Part.title`); a dot
+records that it is on each of the `onCircles` (by title), which the layout checks of plane figures
+require of a point drawn on a curve. -/
+def Mark.toItem (gap : Float) (m : Mark) (onCircles : List String := []) : Item :=
   let it := m.ink.apply (m.shape.toItem gap)
+  let it := onCircles.foldl (fun it t => it.incident .on t) it
   if m.part.title.isEmpty then it else it.named m.part.title
+
+/-- The plane item of the mark `m` of the diagram's `marks`: a dot records the circles of the
+diagram it lies on exactly (`circlesThrough`). -/
+def Mark.toItemIn (gap : Float) (marks : List Mark) (m : Mark) : Item :=
+  match m.shape with
+  | .dot p => m.toItem gap (circlesThrough marks p)
+  | _ => m.toItem gap
 
 namespace Diagram
 
-/-- The diagram as a plane figure: one item per mark, in order (`Mark.toItem`), with the
+/-- The diagram as a plane figure: one item per mark, in order (`Mark.toItemIn`), with the
 diagram's width, style and title. -/
 def toPlane (d : Diagram) : Plane.Figure where
-  items := (d.marks.map (Mark.toItem d.arrowGap)).toArray
+  items := (d.marks.map (Mark.toItemIn d.arrowGap d.marks)).toArray
   width := d.width
   style := d.style
   info := { title := d.title, description := d.description }
@@ -267,7 +286,7 @@ def toPlane (d : Diagram) : Plane.Figure where
 
 /-- The plane figure's items are the marks' items, in order. -/
 theorem toPlane_items (d : Diagram) :
-    d.toPlane.items = (d.marks.map (Mark.toItem d.arrowGap)).toArray := rfl
+    d.toPlane.items = (d.marks.map (Mark.toItemIn d.arrowGap d.marks)).toArray := rfl
 
 /-- The diagram `d ()` when `ok`, otherwise a diagram with the note `what` only: how a builder
 refuses data beyond its caps, so that the work on hostile input stays bounded. The diagram is a

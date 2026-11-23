@@ -241,7 +241,8 @@ def strand (σ : FinPerm) (i : Nat) : Nat × QPoint × QPoint :=
 arguments above the top line (entries `(0, i)`) and the values below the bottom one (entries
 `(1, i)`). -/
 def wiring (σ : FinPerm) : Diagram where
-  marks := [{ part := .guide, shape := .segment (-1 / 2, 2) ((σ.n : Rat) - 1 / 2, 2), ink := .faint },
+  marks :=
+    [{ part := .guide, shape := .segment (-1 / 2, 2) ((σ.n : Rat) - 1 / 2, 2), ink := .faint },
       { part := .guide, shape := .segment (-1 / 2, 0) ((σ.n : Rat) - 1 / 2, 0), ink := .faint }] ++
     (List.range σ.n).map (fun i =>
       let (_, p, q) := σ.strand i

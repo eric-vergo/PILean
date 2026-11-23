@@ -181,7 +181,7 @@ def venn (S : SetSystem) : Diagram where
       let c := (vennCentres S.sets.length).getD s (0, 0)
       { part := .note s, ink := .accent s,
         shape := .text (S.setNames.getD s s!"S{s}")
-          (c.1 * (3 / 2), c.2 + (if c.2 < 0 then -1 else 1) * (17 / 20)) .center }) ++
+          (c.1 * (3 / 2), c.2 + (if c.2 < 0 then -1 else 1) * (19 / 20)) .center }) ++
     S.memberList.map fun (x, k, p) => { part := .member x k, shape := .text (S.name x) p .center }
   width := 400
 
@@ -192,7 +192,8 @@ def FaithfulVenn (S : SetSystem) (d : Diagram) : Prop :=
     (d.marks.filterMap fun m => match m.part, m.shape with
       | .set s, .circle c r => some (s, c, r)
       | _, _ => none) =
-    (List.range S.sets.length).map fun s => (s, (vennCentres S.sets.length).getD s (0, 0), vennRadius)
+    (List.range S.sets.length).map fun s =>
+      (s, (vennCentres S.sets.length).getD s (0, 0), vennRadius)
 
 instance (S : SetSystem) (d : Diagram) : Decidable (S.FaithfulVenn d) :=
   inferInstanceAs (Decidable (_ ∧ _))
