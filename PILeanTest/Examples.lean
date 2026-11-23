@@ -211,6 +211,22 @@ def awkward : Figure where
         ⟨i.toFloat, if i == 7 then 0 / 0 else if i == 14 then 1 / 0 else (i.toFloat / 3).sin⟩)
         (markers := true)] }]
 
+/-- A unit circle and its inscribed regular hexagon on equal axes, with a shaded horizontal band
+(`|y| ≤ 1/2`) and a vertical band (`x ≥ 1/2`). -/
+def equalAxes : Figure where
+  title := "Equal axes and shaded bands"
+  panels := #[{
+      x := { label := "x", domain := some (-1.5, 1.5) },
+      y := { label := "y", domain := some (-1.2, 1.2) },
+      equalAspect := true,
+      series := #[.line "unit circle" ((List.range 97).toArray.map fun i =>
+            let a := 2 * pi * i.toFloat / 96
+            ⟨a.cos, a.sin⟩),
+        .line "hexagon" ((List.range 7).toArray.map fun i =>
+            let a := 2 * pi * i.toFloat / 6
+            ⟨a.cos, a.sin⟩) (dash := #[5, 4])],
+      notes := #[.hband (-0.5) 0.5 "|y| ≤ 1/2", .vband 0.5 1.5 "x ≥ 1/2"] }]
+
 /-- A figure in the dark style. -/
 def dark (fig : Figure) : Figure := { fig with style := Style.dark }
 
@@ -220,7 +236,7 @@ def figures : Array (String × Figure) :=
     ("collatz-data-plot", collatz), ("scatter-plot", scatter), ("band-area-plot", bands),
     ("grouped-bars", groupedBars), ("stacked-bars", stackedBars), ("histogram", histogram),
     ("poles", poles), ("error-bars", errors), ("log-axis", growth),
-    ("small-multiples", smallMultiples), ("awkward-data", awkward),
+    ("small-multiples", smallMultiples), ("awkward-data", awkward), ("equal-axes", equalAxes),
     ("proved-function", ProvedExamples.provedFunction), ("proved-data", ProvedExamples.provedData)]
 
 /-- The gallery: file name and figure; each figure light and dark. -/
@@ -264,6 +280,19 @@ def tree : PILean.Graph :=
 
 end GraphFigures
 
+namespace GraphFigures
+
+/-- A small graph to be drawn at given positions: a hub, a ring of four, and an edge that would
+pass through the hub. -/
+def fixedGraph : PILean.Graph :=
+  PILean.Graph.ofNames #["hub", "north", "east", "south", "west"]
+    [(1, 0), (2, 0), (3, 0), (4, 0), (1, 3), (4, 2)]
+
+/-- The positions of `fixedGraph` (world coordinates, `y` up). -/
+def fixedPositions : Array Point := #[⟨0, 0⟩, ⟨0, 1⟩, ⟨1.2, 0⟩, ⟨0, -1⟩, ⟨-1.2, 0⟩]
+
+end GraphFigures
+
 /-- A graph figure: how to lay it out in a style, and the scale of its PNG. -/
 structure GraphEntry where
   /-- The file name without extension. -/
@@ -280,7 +309,10 @@ def graphEntries : Array GraphEntry :=
       scale := 0.75 },
     { name := "graph-ring", layout := fun st => GraphFigures.ring.circularLayout {} st },
     { name := "graph-tree", layout := fun st => GraphFigures.tree.treeLayout 0 {} st },
-    { name := "graph-proved", layout := fun st => ProvedExamples.provedGraph.layout {} st }]
+    { name := "graph-proved", layout := fun st => ProvedExamples.provedGraph.layout {} st },
+    { name := "graph-fixed", layout := fun st =>
+        GraphFigures.fixedGraph.fixedLayoutAt GraphFigures.fixedPositions 150 .aroundNodes 6 {}
+          st }]
 
 /-- The graph gallery: file stem, entry and style, each entry light and dark. -/
 def graphs : Array (String × GraphEntry × Style) :=
@@ -400,11 +432,12 @@ def disks : Plane.Figure where
       |>.declRef `PILeanTest.Examples.PlaneFigures.chordEnd,
     angleMark ⟨-1, 0⟩ (deg 18) (deg 18 - deg 72) (some 46) |>.faint,
     label "72°" (⟨-1, 0⟩ + polar 0.68 (deg (-18))) .right (some 2) |>.faint |>.size 12,
-    point ((-1 : Float) * chordEnd) |>.accent 0, point chordEnd |>.accent 1,
-    point ⟨-1, 0⟩, point ⟨1, 0⟩, point ⟨0, 0⟩,
+    point ((-1 : Float) * chordEnd) |>.accent 0 |>.incident .on "both circles",
+    point chordEnd |>.accent 1 |>.incident .on "both circles",
+    point ⟨-1, 0⟩, point ⟨1, 0⟩, point ⟨0, 0⟩ |>.incident .on "the chord",
     label "−E" ((-1 : Float) * chordEnd) .belowLeft |>.accent 0,
     label "E" chordEnd .aboveRight |>.accent 1,
-    label "−1" ⟨-1, 0⟩ .left, label "+1" ⟨1, 0⟩ .right, label "0" ⟨0, 0⟩ .below]
+    label "−1" ⟨-1, 0⟩ .auto, label "+1" ⟨1, 0⟩ .auto, label "0" ⟨0, 0⟩ .below]
   info := { title := "Two closed disks and the critical chord" }
 
 /-- Every kind of element: a line and a ray clipped to the frame, a dashed circle, an arc with an
@@ -426,17 +459,49 @@ def constructions : Plane.Figure where
     arrow ⟨0, 0⟩ (polar 1.6 (deg 45)) |>.width 2.5,
     angleMark ⟨0, 0⟩ 0 (deg 45) none |>.accent 2,
     angleMark ⟨-1.9, -1.1⟩ (deg 90) (deg 18) (some 30) |>.faint,
-    point ⟨0, 0⟩, point (polar 1.6 (deg 45)) |>.accent 2,
+    point ⟨0, 0⟩, point (polar 1.6 (deg 45)) |>.accent 2 |>.incident .on "the circle",
     label "N" ⟨2.3, 1.3⟩ .above |>.size 12, label "S" ⟨2.3, 1.3⟩ .below |>.size 12,
     label "E" ⟨2.3, 1.3⟩ .right |>.size 12, label "W" ⟨2.3, 1.3⟩ .left |>.size 12,
     point ⟨2.3, 1.3⟩ |>.faint,
     label "O" ⟨0, 0⟩ .belowLeft, label "P" (polar 1.6 (deg 45)) .aboveRight |>.accent 2]
   info := { title := "The elements of a plane figure" }
 
+/-- The vertices of a small graph in a window: a hexagonal ring and its centre. -/
+def ringPositions : Array Point :=
+  #[⟨0, 0⟩] ++ (List.range 6).toArray.map fun k => polar 1 (2 * pi * k.toFloat / 6)
+
+/-- A ring of six around a centre, as a graph. -/
+def ringGraph : PILean.Graph :=
+  PILean.Graph.ofNames #["0", "a", "b", "c", "d", "e", "f"]
+    ([(0, 1), (0, 3), (0, 5)] ++ (List.range 6).map fun k => (k + 1, (k + 1) % 6 + 1))
+    (directed := false)
+
+/-- A graph among other geometry (`Plane.graph`): its vertices at given points, a window disk
+around some of them, clear of every vertex. -/
+@[figure]
+def graphInWindow : Plane.Figure where
+  width := 420
+  items := #[disk ⟨0.35, 0⟩ 1.3 |>.accent 0 |>.named "the window",
+    Plane.graph ringGraph ringPositions]
+  info := { title := "A graph in a window" }
+
+
+/-- The window disk at radius `r` over the ring: an explorer frame. -/
+def windowAt (r : Float) : Plane.Figure :=
+  { width := 420, items := #[disk ⟨0.35, 0⟩ r |>.accent 0 |>.named s!"the window, r = {r}",
+      Plane.graph ringGraph ringPositions] }
+
+/-- The window of `graphInWindow` as its radius grows from 1.2 to 1.8 in steps of 1/10: a
+parameter axis. -/
+@[figure]
+def windowRadius : Explorer :=
+  Plane.slider "r" ((List.range 7).toArray.map fun k =>
+    (s!"{12 + k}/10", windowAt (1.2 + k.toFloat / 10)))
+
 /-- The plane figures of the gallery by name. -/
 def figures : Array (String × Plane.Figure) :=
   #[("plane-disks", disks), ("plane-constructions", constructions),
-    ("plane-exact", PILeanTest.PlaneExact.zetaSteps)]
+    ("plane-exact", PILeanTest.PlaneExact.zetaSteps), ("plane-graph", graphInWindow)]
 
 end PlaneFigures
 

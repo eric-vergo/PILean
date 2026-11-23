@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="400" viewBox="0 0 420 400">
+  <g>
+    <title>A graph in a window</title>
+    <path d="M0 0 L420 0 L420 400 L0 400 Z" fill="#16181c"/>
+    <g>
+      <title>the window</title>
+      <path d="M407 200 C407 303.01 323.49 386.52 220.48 386.52 C117.46 386.52 33.95 303.01 33.95 200 C33.95 96.99 117.46 13.48 220.48 13.48 C323.49 13.48 407 96.99 407 200 Z" fill="#68b6ec" fill-opacity="0.059" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>0 → a</title>
+      <path d="M170.26 200 L313.74 200" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>0 → c</title>
+      <path d="M170.26 200 L98.52 75.74" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>0 → e</title>
+      <path d="M170.26 200 L98.52 324.26" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>a → b</title>
+      <path d="M313.74 200 L242 75.74" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>b → c</title>
+      <path d="M242 75.74 L98.52 75.74" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>c → d</title>
+      <path d="M98.52 75.74 L26.78 200" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>d → e</title>
+      <path d="M26.78 200 L98.52 324.26" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>e → f</title>
+      <path d="M98.52 324.26 L242 324.26" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>f → a</title>
+      <path d="M242 324.26 L313.74 200" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>0</title>
+      <path d="M175.01 200 C175.01 202.62 172.88 204.75 170.26 204.75 C167.63 204.75 165.51 202.62 165.51 200 C165.51 197.38 167.63 195.25 170.26 195.25 C172.88 195.25 175.01 197.38 175.01 200 Z" fill="#16181c"/>
+      <path d="M173.76 200 C173.76 201.93 172.19 203.5 170.26 203.5 C168.32 203.5 166.76 201.93 166.76 200 C166.76 198.07 168.32 196.5 170.26 196.5 C172.19 196.5 173.76 198.07 173.76 200 Z" fill="#ececf0"/>
+    </g>
+    <text x="180.125" y="194.182" font-size="15" fill="#ececf0" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">0</text>
+    <g>
+      <title>a</title>
+      <path d="M318.49 200 C318.49 202.62 316.36 204.75 313.74 204.75 C311.11 204.75 308.99 202.62 308.99 200 C308.99 197.38 311.11 195.25 313.74 195.25 C316.36 195.25 318.49 197.38 318.49 200 Z" fill="#16181c"/>
+      <path d="M317.24 200 C317.24 201.93 315.67 203.5 313.74 203.5 C311.8 203.5 310.24 201.93 310.24 200 C310.24 198.07 311.8 196.5 313.74 196.5 C315.67 196.5 317.24 198.07 317.24 200 Z" fill="#ececf0"/>
+    </g>
+    <text x="323.616" y="194.171" font-size="15" fill="#ececf0" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">a</text>
+    <g>
+      <title>b</title>
+      <path d="M246.75 75.74 C246.75 78.37 244.62 80.49 242 80.49 C239.37 80.49 237.25 78.37 237.25 75.74 C237.25 73.12 239.37 70.99 242 70.99 C244.62 70.99 246.75 73.12 246.75 75.74 Z" fill="#16181c"/>
+      <path d="M245.5 75.74 C245.5 77.68 243.93 79.24 242 79.24 C240.06 79.24 238.5 77.68 238.5 75.74 C238.5 73.81 240.06 72.24 242 72.24 C243.93 72.24 245.5 73.81 245.5 75.74 Z" fill="#ececf0"/>
+    </g>
+    <text x="252.101" y="69.688" font-size="15" fill="#ececf0" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">b</text>
+    <g>
+      <title>c</title>
+      <path d="M103.27 75.74 C103.27 78.37 101.14 80.49 98.52 80.49 C95.89 80.49 93.77 78.37 93.77 75.74 C93.77 73.12 95.89 70.99 98.52 70.99 C101.14 70.99 103.27 73.12 103.27 75.74 Z" fill="#16181c"/>
+      <path d="M102.02 75.74 C102.02 77.68 100.45 79.24 98.52 79.24 C96.58 79.24 95.02 77.68 95.02 75.74 C95.02 73.81 96.58 72.24 98.52 72.24 C100.45 72.24 102.02 73.81 102.02 75.74 Z" fill="#ececf0"/>
+    </g>
+    <text x="108.326" y="69.983" font-size="15" fill="#ececf0" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">c</text>
+    <g>
+      <title>d</title>
+      <path d="M31.53 200 C31.53 202.62 29.4 204.75 26.78 204.75 C24.15 204.75 22.03 202.62 22.03 200 C22.03 197.38 24.15 195.25 26.78 195.25 C29.4 195.25 31.53 197.38 31.53 200 Z" fill="#16181c"/>
+      <path d="M30.28 200 C30.28 201.93 28.71 203.5 26.78 203.5 C24.84 203.5 23.28 201.93 23.28 200 C23.28 198.07 24.84 196.5 26.78 196.5 C28.71 196.5 30.28 198.07 30.28 200 Z" fill="#ececf0"/>
+    </g>
+    <text x="16.673" y="193.946" font-size="15" fill="#ececf0" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">d</text>
+    <g>
+      <title>e</title>
+      <path d="M103.27 324.26 C103.27 326.88 101.14 329.01 98.52 329.01 C95.89 329.01 93.77 326.88 93.77 324.26 C93.77 321.63 95.89 319.51 98.52 319.51 C101.14 319.51 103.27 321.63 103.27 324.26 Z" fill="#16181c"/>
+      <path d="M102.02 324.26 C102.02 326.19 100.45 327.76 98.52 327.76 C96.58 327.76 95.02 326.19 95.02 324.26 C95.02 322.32 96.58 320.76 98.52 320.76 C100.45 320.76 102.02 322.32 102.02 324.26 Z" fill="#ececf0"/>
+    </g>
+    <text x="108.531" y="338.322" font-size="15" fill="#ececf0" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">e</text>
+    <g>
+      <title>f</title>
+      <path d="M246.75 324.26 C246.75 326.88 244.62 329.01 242 329.01 C239.37 329.01 237.25 326.88 237.25 324.26 C237.25 321.63 239.37 319.51 242 319.51 C244.62 319.51 246.75 321.63 246.75 324.26 Z" fill="#16181c"/>
+      <path d="M245.5 324.26 C245.5 326.19 243.93 327.76 242 327.76 C240.06 327.76 238.5 326.19 238.5 324.26 C238.5 322.32 240.06 320.76 242 320.76 C243.93 320.76 245.5 322.32 245.5 324.26 Z" fill="#ececf0"/>
+    </g>
+    <text x="241.997" y="315.258" font-size="15" fill="#ececf0" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">f</text>
+  </g>
+</svg>

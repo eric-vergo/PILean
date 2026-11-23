@@ -339,8 +339,157 @@ def exact : Array (String × Bool) :=
       zeta.all fun z =>
         near ((fig.frame.toScreen (PlanePoint.toPoint z)) - o).norm fig.frame.scale 1e-9)]
 
+/-- The kinds of the problems of a figure. -/
+def kinds (fig : Plane.Figure) : Array ProblemKind := fig.problems.map (·.kind)
+
+/-- The checks of the layout checks and of automatic placement. -/
+def layoutChecks : Array (String × Bool) :=
+  let base := fun (items : Array Item) => ({ items, width := 300 } : Plane.Figure)
+  let overlapping := base #[point ⟨0, 0⟩, point ⟨3, 1⟩, label "first label" ⟨1, 1⟩,
+    label "second label" ⟨1.1, 1⟩]
+  let overSegment := base #[segment ⟨0, 0⟩ ⟨3, 0⟩, point ⟨1.5, 1⟩, label "crossing" ⟨1.5, 0.05⟩ .below (some 0)]
+  let outsideView : Plane.Figure :=
+    { items := #[point ⟨0, 0⟩, point ⟨5, 5⟩], view := some ⟨-1, -1, 1, 1⟩, width := 200 }
+  let close := base #[point ⟨0, 0⟩, point ⟨0.01, 0⟩, point ⟨3, 3⟩]
+  let near := base #[circle ⟨0, 0⟩ 1, point ⟨1.001, 0⟩, point ⟨-2, -2⟩]
+  let declared := base #[circle ⟨0, 0⟩ 1, point ⟨1.001, 0⟩ |>.incident .outside "the circle",
+    point ⟨-2, -2⟩]
+  let faintInk := base #[segment ⟨0, 0⟩ ⟨1, 1⟩ |>.color ⟨235, 235, 235, 255⟩]
+  let darkOnly := base #[label "navy" ⟨0, 0⟩ |>.color ⟨20, 20, 90, 255⟩, point ⟨1, 1⟩]
+  let autoFig := base #[segment ⟨0, 0⟩ ⟨2, 2⟩, segment ⟨0, 0⟩ ⟨-2, 2⟩, segment ⟨0, 0⟩ ⟨0, -2⟩,
+    point ⟨0, 0⟩, label "P" ⟨0, 0⟩ .auto]
+  let chosen := (autoFig.autoPlaced.leaves.filterMap fun lf => match lf.geom with
+    | .label _ _ pl _ => some pl
+    | _ => none)
+  let failing := { overlapping with checks := .fail }
+  let outs := PILean.Trust.ToOutputs.outputs failing
+  let warnOuts := PILean.Trust.ToOutputs.outputs overlapping
+  let zeta := Zeta5.pow 1
+  #[("checks: overlapping labels", (kinds overlapping).contains .labelOverlap),
+    ("checks: a label over a segment it is not attached to",
+      (kinds overSegment).contains .labelOverItem),
+    ("checks: a point outside the page", (kinds outsideView).contains .outside),
+    ("checks: markers that read as one", (kinds close).contains .markersTooClose),
+    ("checks: a point too near a circle with no incidence recorded",
+      (kinds near).contains .undecidedIncidence),
+    ("checks: an incidence recorded satisfies the check",
+      !(kinds declared).contains .undecidedIncidence),
+    ("checks: a colour of too little contrast", (kinds faintInk).contains .lowContrast),
+    ("checks: a colour that fails only in the dark twin",
+      (darkOnly.problems.any fun p => p.kind == .lowContrast && has p.message "dark twin") &&
+      !(darkOnly.problems.any fun p => p.kind == .lowContrast && has p.message "its style")),
+    ("checks: the gallery's plane figures have no problems",
+      Examples.planes.all fun (_, f) => f.problems.isEmpty),
+    ("checks: fail stops the outputs, warn reports on the SVG",
+      outs.all (fun o => match o.bytes () with | .error _ => true | .ok _ => false) &&
+      (warnOuts[0]!.problems ()).size > 0 && (warnOuts[1]!.problems ()).isEmpty &&
+      (match warnOuts[0]!.bytes () with | .ok _ => true | .error _ => false)),
+    ("checks: ignore reports nothing",
+      ({ overlapping with checks := .ignore } : Plane.Figure).checkMessages.isEmpty),
+    ("auto: the first free side is taken, clear of the three segments",
+      chosen.size == 1 && chosen[0]! != .aboveRight && chosen[0]! != .aboveLeft &&
+      chosen[0]! != .auto && autoFig.problems.isEmpty),
+    ("auto: a figure without auto labels is drawn as it is",
+      (Examples.PlaneFigures.constructions.autoPlaced).toSvg ==
+        Examples.PlaneFigures.constructions.toSvg),
+    ("exact incidence: ζ is inside the window, decided exactly",
+      diskIncidence? zeta windowCentre windowRadius == some .inside &&
+      diskIncidence? (Zeta5.pow 2) windowCentre windowRadius == some .outside &&
+      diskIncidence? ((1 : Rat), (0 : Rat)) ((0 : Rat), (0 : Rat)) (1 : Rat) == some .on),
+    ("exact incidence: the title records it",
+      match Plane.Exact.pointNearDisk zeta windowCentre windowRadius "the window" with
+      | .shape _ l i => l.incidence.isSome && i.title == "inside the window"
+      | _ => false)]
+
+/-- The checks of explorers. -/
+def explorerChecks : Array (String × Bool) :=
+  let x := Examples.PlaneFigures.windowRadius
+  let outs := PILean.Trust.ToOutputs.outputs x
+  let fs := (outs[0]!.frames ()).getD default
+  let bad : Explorer := { x with axisValues := x.axisValues.pop }
+  let g := Explorer.grid "r" #["1", "2"] #["a", "b", "c"] fun i j =>
+    ExplorerFrame.ofPlane { items := #[point ⟨i.toFloat, j.toFloat⟩] }
+  let steps := Plane.stepper #[("one", { items := #[point ⟨0, 0⟩] }),
+    ("two", { items := #[point ⟨0, 0⟩, point ⟨2, 1⟩] })]
+  #[("explorer: a slider of seven frames, well formed", x.valid && x.frames.size == 7 &&
+      x.values == 7 && x.steps == 1),
+    ("explorer: an SVG and a PNG, the SVG carrying every frame",
+      outs.map (·.format.name) == #["svg", "png"] && fs.frames.size == 7 &&
+      fs.axisValues == x.axisValues && fs.axisName == "r"),
+    ("explorer: every frame is inert", fs.frames.all fun f => Svg.isInert f.document),
+    ("explorer: the slider's frames share one frame (scale and size)",
+      let ws := x.frames.map (·.width)
+      let hs := x.frames.map (·.height)
+      ws.all (· == ws[0]!) && hs.all (· == hs[0]!)),
+    ("explorer: an ill-formed explorer cannot be rendered",
+      !bad.valid && (match (PILean.Trust.ToOutputs.outputs bad)[0]!.bytes () with
+        | .error _ => true | .ok _ => false)),
+    ("explorer: a grid is axis-major", g.valid && g.frames.size == 6 &&
+      ((g.frameAt 1 2).map (·.drawing)).isSome && (g.frameAt 2 0).isNone),
+    ("explorer: a step sequence plays as an animation of its steps",
+      let a := steps.toAnimation 0 0.5
+      steps.valid && a.frameCount == 2 && a.posterPng.isOk),
+    ("plane animation: one frame for every step",
+      (Plane.animation #[{ items := #[point ⟨0, 0⟩] }, { items := #[point ⟨1, 1⟩] }] 1).frameCount
+        == 2)]
+
+/-- The checks of the extensions of plots and graphs. -/
+def extensionChecks : Array (String × Bool) :=
+  let l := (Examples.equalAxes.layout)[0]!
+  let ppx := l.area.width / (l.sx.hi - l.sx.lo)
+  let ppy := l.area.height / (l.sy.hi - l.sy.lo)
+  let g := Examples.GraphFigures.fixedGraph
+  let pos := Examples.GraphFigures.fixedPositions
+  let lay := g.fixedLayoutAt pos 150 .aroundNodes 6
+  let straight := g.fixedLayoutAt pos 150 .straight
+  let centre := fun (b : Box) => (⟨(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2⟩ : Point)
+  let hub := lay.nodes[0]!.box
+  let crossing := lay.edges.filter fun e => e.src == 4 && e.dst == 2
+  let clear := crossing.all fun e => (e.path.flatten 0.25).all fun pl =>
+    pl.points.all fun q => distToBox q hub ≥ 5
+  let webNodes := g.nodes.mapIdx fun i n =>
+    ({ id := s!"n{i}", name := n.label, lines := #[n.label] } : PILean.Graph.WebNode)
+  let item := Plane.graph Examples.PlaneFigures.ringGraph Examples.PlaneFigures.ringPositions
+  let lv := item.leaves
+  #[("plot: equal aspect gives as many pixels per unit across as down",
+      (ppx - ppy).abs ≤ 1),
+    ("plot: bands drawn under the series, in SVG and PNG",
+      has Examples.equalAxes.toSvg "|y| ≤ 1/2" && Examples.equalAxes.toPng.isSome &&
+      has (Examples.dark Examples.equalAxes).toSvg (Svg.rgbHex Style.dark.inkMuted)),
+    ("graph: the fixed layout keeps the given positions",
+      let c0 := centre lay.nodes[0]!.box
+      (List.range 5).all fun i =>
+        let c := centre lay.nodes[i]!.box
+        nearPt (c - c0) ⟨150 * pos[i]!.x, -150 * pos[i]!.y⟩ 1.01),
+    ("graph: one route per valid edge", lay.edges.size == g.validEdges.size),
+    ("graph: around nodes, an edge through the hub is bent clear of it, and not when straight",
+      crossing.size == 1 && clear &&
+      (straight.edges.filter fun e => e.src == 4 && e.dst == 2).all fun e =>
+        (e.path.flatten 0.25).any fun pl => (polylineSegments pl).any fun (a, b) =>
+          segmentMeetsBox a b hub),
+    ("graph: the fixed layout draws as SVG, PNG and web SVG",
+      Svg.isInert (lay.toSvg {}) && Svg.isInert (lay.toWebSvg webNodes #[]) &&
+      has (lay.toWebSvg webNodes #[]) "id=\"n0\""),
+    ("graph: exact positions convert",
+      let le := g.fixedLayoutExact (#[((0 : Rat), (0 : Rat)), (0, 1), (6 / 5, 0), (0, -1),
+        (-6 / 5, 0)] : Array (Rat × Rat)) 150 .aroundNodes 6
+      le.nodes.size == 5 && (le.nodes.zip lay.nodes).all fun (a, b) => a.box == b.box),
+    ("plane graph: a point per node, a segment per edge, labels placed",
+      (lv.filter fun lf => match lf.geom with | .point _ => true | _ => false).size == 7 &&
+      (lv.filter fun lf => match lf.geom with | .segment .. => true | _ => false).size == 9)]
+
+/-- The specification helper for figures of exact points can be used: a figure of two integer
+points satisfies it by `rfl`. -/
+def twoPoints : Plane.Figure :=
+  { items := #[Plane.Exact.point ((0, 0) : Int × Int), Plane.Exact.point ((1, 2) : Int × Int)] }
+
+/-- `twoPoints` draws its two exact points. -/
+theorem twoPoints_spec : Plane.Exact.DrawsExactPoints twoPoints [((0, 0) : Int × Int), (1, 2)] :=
+  Plane.Exact.drawsExactPoints rfl
+
 /-- The checks. -/
 def checks : Array (String × Bool) :=
-  arcs ++ frames ++ labels ++ metadata ++ palette ++ figures ++ exact
+  arcs ++ frames ++ labels ++ metadata ++ palette ++ figures ++ exact ++ layoutChecks ++
+    explorerChecks ++ extensionChecks
 
 end PILeanTest.PlaneChecks

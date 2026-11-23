@@ -209,29 +209,37 @@ def window : Item :=
   (Plane.Exact.disk windowCentre windowRadius).accent 0 |>.named "the window" |>.describedBy
     "the closed disk of radius 39/40 about 1/2"
 
+/-- The point `ζʲ`, with where it stands relative to the window decided exactly
+(`Plane.Exact.pointNearDisk`): `ζ` and `ζ⁴` are inside it, a fraction of a pixel from its
+boundary at the gallery's scale, so the figure must say so. -/
+def stepPoint (j : Nat) : Item :=
+  Plane.Exact.pointNearDisk (Zeta5.pow j) windowCentre windowRadius "the window"
+
 /-- The unit steps `ζʲ` of ℤ[ζ₅] and a window: the steps ending in the window are coloured. -/
 @[figure]
 def zetaSteps : Plane.Figure where
   width := 420
   items := #[window] ++ ((List.range 5).toArray.flatMap stepItems) ++
-    ((List.range 5).toArray.map fun j => Plane.Exact.point (Zeta5.pow j)) ++
-    #[Plane.Exact.point ((0, 0) : Int × Int), Plane.Exact.point windowCentre]
+    ((List.range 5).toArray.map stepPoint) ++
+    #[Plane.Exact.point ((0, 0) : Int × Int),
+      Plane.Exact.point windowCentre |>.incident .on "the step to 1"]
   info := { title := "Unit steps of ℤ[ζ₅] and a window",
             leanDecl := "PILeanTest.PlaneExact.zetaSteps" }
 
 /-- What the figure holds and where its points are drawn: a window disk, the segments and labels
-of the five steps, then the points `ζʲ`, `0` and the window's centre; each exact point is drawn as
-the marker at the frame's image of its conversion. The steps in the window are exactly `1`, `ζ`
-and `ζ⁴` (decided in ℚ(√5)). -/
+of the five steps, then the points `ζʲ`, `0` and the window's centre; each point `ζʲ` is a point
+item at the conversion of the exact point, so it is drawn as a marker at the frame's image of
+that conversion (`Plane.drawItem_point`). The steps in the window are exactly `1`, `ζ` and `ζ⁴`
+(decided in ℚ(√5)). -/
 theorem zetaSteps_spec :
     zetaSteps.items = #[window] ++ ((List.range 5).toArray.flatMap stepItems) ++
-      ((List.range 5).toArray.map fun j => Plane.Exact.point (Zeta5.pow j)) ++
-      #[Plane.Exact.point ((0, 0) : Int × Int), Plane.Exact.point windowCentre] ∧
-    (∀ j, drawItem zetaSteps.env (Plane.Exact.point (Zeta5.pow j)) =
-      zetaSteps.env.marker {} (zetaSteps.env.frame.toScreen (PlanePoint.toPoint (Zeta5.pow j)))) ∧
+      ((List.range 5).toArray.map stepPoint) ++
+      #[Plane.Exact.point ((0, 0) : Int × Int),
+        Plane.Exact.point windowCentre |>.incident .on "the step to 1"] ∧
+    (∀ j, ∃ (l : Look) (i : Canvas.ShapeInfo),
+      stepPoint j = .shape (.point (PlanePoint.toPoint (Zeta5.pow j))) l i) ∧
     ((List.range 5).filter inWindow) = [0, 1, 4] := by
-  refine ⟨rfl, fun j => ?_, by decide +kernel⟩
-  exact Plane.Exact.point_draw_default zetaSteps.env (Zeta5.pow j)
+  refine ⟨rfl, fun j => Plane.Exact.pointNearDisk_eq .., by decide +kernel⟩
 
 figure_proves zetaSteps zetaSteps_spec
 
