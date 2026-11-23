@@ -166,6 +166,9 @@ def nonneg (x : QSqrt d) : Bool :=
 /-- Whether `x ≤ y`, exactly. -/
 def le (x y : QSqrt d) : Bool := nonneg (sub y x)
 
+/-- Whether `x < y`, exactly. -/
+def lt (x y : QSqrt d) : Bool := !le y x
+
 /-- The ball at precision `k`: `a + b · sqrtBall d k'` with `k'` large enough that `|b|` times
 the radius of the ball of `√d` is at most `2⁻ᵏ`. -/
 def ball (x : QSqrt d) (k : Nat) : RatBall :=
@@ -411,7 +414,8 @@ def foot (p : β) (a b : α) : Option Enclosed :=
 /-- Where the circles `(c₁, r₁)` and `(c₂, r₂)` meet (`Meeting`): two points, the one on the left
 of the direction from `c₁` to `c₂` first, when `|c₂ - c₁|²` and the squared half chord are decided
 to be positive; `apart` when the squared half chord is decided negative, or the centres are
-exactly equal and the radii decided to differ; `tangent` when the squared half chord is exactly 0. -/
+exactly equal and the radii decided to differ; `tangent` when the squared half chord is exactly
+0. -/
 def circleCircle {γ : Type} [RealValue γ] (c₁ c₂ : α) (r₁ r₂ : γ) : Meeting :=
   let base := fun (k : Nat) =>
     let x1 := PlanePoint.re c₁ k

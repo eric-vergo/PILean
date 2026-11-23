@@ -144,15 +144,25 @@ class ToOutputs (α : Type) where
   /-- The files a value is rendered to, in a fixed order. -/
   outputs : α → Array Output
 
-/-- Figures: the SVG, and the PNG when the figure has pixels. -/
+/-- The bytes of an output, or the problems as an error when `fail` and there are some. -/
+def checkedBytes (fail : Bool) (problems : Unit → Array String)
+    (bytes : Unit → Except String ByteArray) : Except String ByteArray :=
+  let ps := if fail then problems () else #[]
+  if ps.isEmpty then bytes () else .error ("problems: " ++ "; ".intercalate ps.toList)
+
+/-- Figures: the SVG (with the labelling problems the figure's `checks` level reports as
+warnings) and the PNG when the figure has pixels. A figure whose `checks` level is `fail` and
+that has labelling problems (`PILean.Plot.Check`) cannot be rendered. -/
 instance : ToOutputs Plot.Figure where
   outputs fig :=
-    #[{ name := "", format := .svg, bytes := fun _ => .ok fig.toSvg.toUTF8,
+    let ok := checkedBytes (fig.checks == .fail) fun _ => fig.checkMessages
+    #[{ name := "", format := .svg, bytes := fun _ => ok fun _ => .ok fig.toSvg.toUTF8,
         spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
         inline := fun _ => some (InlineSvg.ofStyle fig.width fig.height
-          (fig.draw.render (.forSvg fig.style.text fig.style.fontFamily)) fig.style) },
+          (fig.draw.render (.forSvg fig.style.text fig.style.fontFamily)) fig.style),
+        problems := fun _ => if fig.checks == .warn then fig.checkMessages else #[] },
       { name := "", format := .png,
-        bytes := fun _ => match fig.toPng with
+        bytes := fun _ => ok fun _ => match fig.toPng with
           | some b => .ok b
           | none => .error "the figure has no pixels",
         spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
@@ -161,8 +171,7 @@ instance : ToOutputs Plot.Figure where
 `checks` level is `fail` and it has some. -/
 def planeBytes (fig : Plane.Figure) (bytes : Unit → Except String ByteArray) :
     Except String ByteArray :=
-  let ps := if fig.checks == .fail then fig.checkMessages else #[]
-  if ps.isEmpty then bytes () else .error ("layout problems: " ++ "; ".intercalate ps.toList)
+  checkedBytes (fig.checks == .fail) (fun _ => fig.checkMessages) bytes
 
 /-- The SVG and PNG outputs of one plane figure, named with `suffix`; the SVG carries the
 figure's layout warnings when `warn`. -/
@@ -194,25 +203,36 @@ def _root_.PILean.ExplorerFrame.inline (f : ExplorerFrame) : InlineSvg :=
   InlineSvg.ofStyle f.width f.height f.svgNodes f.style
 
 /-- Families of frames: the poster's SVG (carrying every frame for a page that shows them
-inline) and PNG. An explorer that is not well formed (`Explorer.valid`) cannot be rendered. -/
+inline, and the frames' problems as warnings, `Explorer.problems`) and PNG, then each frame `k`
+as an SVG of its own named `-frame-k` (`k` from 0, in the order of `Explorer.frames`), so that
+every picture a page shows inline is a file with its fingerprint and its manifest entry. An
+explorer that is not well formed (`Explorer.valid`) cannot be rendered, nor one with a frame whose
+checks level is `fail` and that has problems (`Explorer.problemsFail`). -/
 instance : ToOutputs Explorer where
   outputs x :=
     let p := x.posterFrame
     let ok := fun (b : Unit → Except String ByteArray) =>
-      if x.valid then b () else .error s!"the explorer has {x.frames.size} frames for \
+      if !x.valid then .error s!"the explorer has {x.frames.size} frames for \
         {x.values} values and {x.steps} steps, or its poster {x.poster} is not among them"
+      else checkedBytes x.problemsFail (fun _ => x.problems) b
+    let frameOutputs := x.frames.zipIdx.map fun (f, k) =>
+      ({ name := s!"-frame-{k}", format := .svg, bytes := fun _ => ok fun _ => .ok f.toSvg.toUTF8,
+         spec := f.toSvg.toUTF8, textEngine := f.style.text.id,
+         inline := fun _ => some f.inline } : Output)
     #[{ name := "", format := .svg, bytes := fun _ => ok fun _ => .ok p.toSvg.toUTF8,
         spec := p.toSvg.toUTF8, textEngine := p.style.text.id,
         inline := fun _ => some p.inline,
         frames := fun _ => some
           { axisName := x.axisName, axisValues := x.axisValues,
             stepCaptions := x.stepCaptions, frames := x.frames.map (·.inline),
-            poster := x.poster } },
+            poster := x.poster },
+        problems := fun _ => if x.problemsFail then #[] else x.problems },
       { name := "", format := .png,
         bytes := fun _ => ok fun _ => match p.toPng with
           | some b => .ok b
           | none => .error "the poster has no pixels",
-        spec := (p.toSvg (outlines := true)).toUTF8, textEngine := p.style.text.id }]
+        spec := (p.toSvg (outlines := true)).toUTF8, textEngine := p.style.text.id }] ++
+      frameOutputs
 
 /-- A graph with how it is laid out and drawn. -/
 structure GraphFigure where
@@ -242,20 +262,23 @@ instance : ToOutputs GraphFigure where
 instance : ToOutputs Graph where
   outputs g := ToOutputs.outputs ({ graph := g } : GraphFigure)
 
-/-- Animations: the animated SVG, the APNG, the GIF and the poster frame (a PNG with the suffix
-`-poster`). -/
+/-- Animations: the animated SVG (with the animation's problems as warnings), the APNG, the GIF
+and the poster frame (a PNG with the suffix `-poster`). An animation whose problems stop it
+(`Animation.problemsFail`) cannot be rendered. -/
 instance : ToOutputs Animation where
   outputs a :=
     let svg := a.toSvg.toUTF8
+    let ok := checkedBytes a.problemsFail a.problems
     let toErr := fun {ε : Type} [ToString ε] (r : Except ε ByteArray) =>
       r.mapError toString
     let t := a.text.id
-    #[{ name := "", format := .svg, bytes := fun _ => .ok svg, spec := svg, textEngine := t },
-      { name := "", format := .apng, bytes := fun _ => toErr a.toApng, spec := svg,
+    #[{ name := "", format := .svg, bytes := fun _ => ok fun _ => .ok svg, spec := svg,
+        textEngine := t, problems := fun _ => if a.problemsFail then #[] else a.problems () },
+      { name := "", format := .apng, bytes := fun _ => ok fun _ => toErr a.toApng, spec := svg,
         textEngine := t },
-      { name := "", format := .gif, bytes := fun _ => toErr a.toGif, spec := svg,
+      { name := "", format := .gif, bytes := fun _ => ok fun _ => toErr a.toGif, spec := svg,
         textEngine := t },
-      { name := "-poster", format := .png, bytes := fun _ => toErr a.posterPng,
+      { name := "-poster", format := .png, bytes := fun _ => ok fun _ => toErr a.posterPng,
         spec := a.posterSvg.toUTF8, textEngine := t }]
 
 end PILean.Trust

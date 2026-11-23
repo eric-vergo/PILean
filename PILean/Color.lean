@@ -290,9 +290,11 @@ private def hexVals? : List Char → Option (List Nat)
     let vs ← hexVals? cs
     pure (v :: vs)
 
+/-- `#rrggbb` in lower case, the alpha left out (SVG writes it as an opacity). -/
+def Rgba.rgbHex (c : Rgba) : String := "#" ++ hexByte c.r ++ hexByte c.g ++ hexByte c.b
+
 /-- `#rrggbb` in lower case when the colour is opaque, `#rrggbbaa` otherwise. -/
-def Rgba.hex (c : Rgba) : String :=
-  "#" ++ hexByte c.r ++ hexByte c.g ++ hexByte c.b ++ (if c.a == 255 then "" else hexByte c.a)
+def Rgba.hex (c : Rgba) : String := c.rgbHex ++ (if c.a == 255 then "" else hexByte c.a)
 
 /-- The colour written as `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` (digits in either case; the
 short forms repeat each digit), or `none` for any other text. Input longer than nine bytes is

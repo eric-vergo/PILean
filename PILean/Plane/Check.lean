@@ -13,22 +13,38 @@ of `PILean.Graph.Check`), measured on the page, in pixels:
 * `labelOverlap`: two labels' boxes overlap by more than `labelTolerance` both ways.
 * `labelOverItem`: a label's box meets the strokes of an element (a segment, a line, a circle's
   boundary, an arrowhead, …) or a point's marker that the label is not attached to. A label is
-  attached to the marker at its point, and, when it is centred on its point, to the strokes that
-  pass within `attachTolerance` of it; a label beside a point keeps clear of the segments and
-  curves through that point.
+  attached only to the marker at its point (within `attachTolerance`): a label beside a point, or
+  centred on it, keeps clear of every stroke, those through its point included.
 * `outside`: a label, a marker or a stroke reaches beyond the page.
 * `markersTooClose`: two markers come within `markerGap` of each other (or overlap), so that they
   read as one.
 * `undecidedIncidence`: a point lies within `incidenceTolerance` of an element's strokes, so that a
-  reader cannot see whether it is on it or on which side, and its look records no incidence
-  (`Item.incident`; `Plane.Exact.pointNearDisk` decides it exactly and records it). A point at one
-  of the element's defining points (the end of a segment, a vertex, the end of an arc) is not
-  reported.
-* `lowContrast`: a colour an element uses is below `textContrast` (labels) or `graphicContrast`
-  (everything else) against what it is drawn on: the background with the tints of the earlier
-  elements that cover the label's centre or the marker's (composited in sRGB), in the figure's
-  style and, for a figure in the default light colours, in its dark twin (`Style.dark`'s
-  background, `PlaneStyle.dark`, and the dark colours of its roles).
+  reader cannot see whether it is on it or on which side, and records no incidence relative to
+  that element (`Item.incident`, which names the element by its title; `Plane.Exact.pointNearDisk`
+  decides it exactly and records it). A point at one of the element's defining points (the end of
+  a segment, a vertex, the end of an arc) is not reported.
+* `unknownIncidenceTarget`: a point records an incidence relative to a title no element has.
+* `wrongIncidence`: a recorded incidence the drawing contradicts: a point recorded `on` an element
+  more than `onTolerance` from its strokes, or recorded `inside` or `outside` a closed element
+  (a circle, a disk, a sector, a polygon, a region of disks) on the other side of its boundary
+  and more than `onTolerance` from it, or recorded `inside` or `outside` an element that encloses
+  nothing.
+* `lowContrast`: a colour an element uses, composited at its alpha over what it is drawn on, is
+  below `textContrast` (labels) or `graphicContrast` (everything else) against that: the
+  background with the tints of the earlier elements (composited in sRGB) at the label's centre,
+  at the marker's (the page itself for a marker with a halo), and at points along every stroke
+  (the least contrast along it), in the figure's style and, for a figure in the default light
+  colours, in its dark twin (`Style.dark`'s background, `PlaneStyle.dark`, and the dark colours of
+  its roles).
+* `nonFinite`: an element has a coordinate, radius, angle or pixel length that is not finite; it
+  is drawn as nothing or as nonsense.
+* `unknownRole`: an element's colour is a role (`Tone.role`) the style does not name, which is
+  drawn in the ink.
+* `darkThemeClash`: a page that shows the figure inline in its dark theme restyles each colour by
+  its light value (`Style.darkColourPairs`, the first pairing of a light colour kept), and an
+  element's colour would come out other than its dark twin's there: a fixed colour (`Tone.color`)
+  that equals a colour of the style, or a role whose light colour another role or style colour
+  shares with a different dark one.
 
 The geometry of an element is that of its drawing (`drawGeom`): its paths flattened to within a
 quarter pixel, so arcs, arrowheads and clipped lines are checked as drawn.
@@ -76,8 +92,13 @@ structure CheckOptions where
   markerGap : Float := 2
   /-- A point this near an element's strokes cannot be seen to be on it or off it. -/
   incidenceTolerance : Float := 2.5
-  /-- A label is attached to what passes this near its point. -/
+  /-- A label is attached to a marker centred this near its point. -/
   attachTolerance : Float := 1.5
+  /-- A point recorded on an element is at most this far from its strokes (the strokes are
+  flattened to within a quarter pixel). -/
+  onTolerance : Float := 0.5
+  /-- The most points along one stroke at which its contrast is measured. -/
+  strokeSamples : Nat := 48
   /-- The least contrast of a label's colour against the background. -/
   textContrast : Float := 4.5
   /-- The least contrast of any other element's colour against the background. -/
@@ -96,8 +117,18 @@ inductive ProblemKind where
   | markersTooClose
   /-- A point is too near an element to be seen on it or off it, and records no incidence. -/
   | undecidedIncidence
-  /-- A colour has too little contrast against the background. -/
+  /-- A point records an incidence relative to a title no element has. -/
+  | unknownIncidenceTarget
+  /-- A recorded incidence that the drawing contradicts. -/
+  | wrongIncidence
+  /-- A colour has too little contrast against what it is drawn on. -/
   | lowContrast
+  /-- An element has a number that is not finite. -/
+  | nonFinite
+  /-- An element's colour is a role the style does not name. -/
+  | unknownRole
+  /-- An element's colour comes out wrong in the dark theme of an inline picture. -/
+  | darkThemeClash
   deriving BEq, Inhabited, Repr
 
 /-- A problem: its kind, the positions of the elements involved (in `Figure.leaves`) and a
@@ -228,19 +259,10 @@ def boxMeets (box : Box) (segs : Array (Point × Point)) (marker : Option (Point
     (marker.any fun (c, r) => distToBox c box < r)
 
 /-- Whether a label at page point `q` is attached to an element: the element is a marker centred
-within `tol` of `q` (the label names the point), or the label is centred on its point (`centred`)
-and the element's strokes pass within `tol` of it (a label set on a line on purpose). A label
-beside a point is not attached to the segments and curves through that point, so it must keep
-clear of them. -/
-def attachedTo (q : Point) (centred : Bool) (segs : Array (Point × Point))
-    (marker : Option (Point × Float)) (tol : Float) : Bool :=
-  (centred && distToSegments q segs ≤ tol) || (marker.any fun (c, _) => (c - q).norm ≤ tol)
-
-/-- Whether an element is a label centred on its point. -/
-def Leaf.centred (lf : Leaf) : Bool :=
-  match lf.geom with
-  | .label _ _ .center _ => true
-  | _ => false
+within `tol` of `q` (the label names the point). A label is attached to no stroke, so it must keep
+clear of the segments and curves through its point. -/
+def attachedTo (q : Point) (marker : Option (Point × Float)) (tol : Float) : Bool :=
+  marker.any fun (c, _) => (c - q).norm ≤ tol
 
 /-! ### The checks -/
 
@@ -256,17 +278,29 @@ def insidePolyline (q : Point) (pl : Polyline) : Bool := Id.run do
       if q.x < x then inside := !inside
   return inside
 
-/-- The tints an element lies on at the page point `q`: the fills of the earlier elements whose
-filled outline holds `q`, composited in sRGB over the background, in drawing order (the colour
+/-- Whether the page point `q` is inside a set of closed polylines (even-odd over all of them). -/
+def insidePolylines (q : Point) (pls : Array Polyline) : Bool :=
+  pls.foldl (fun b pl => if insidePolyline q pl then !b else b) false
+
+/-- The tints an element lays on the page: each filled path of its drawing, flattened, with its
+colour. -/
+def tintsOf (e : Env) (lf : Leaf) : Array (Array Polyline × Rgba) :=
+  (drawGeom e lf.look lf.geom).filterMap fun s => match s with
+    | .path p (some (.solid c)) _ _ => if c.a < 255 then some (p.flatten 0.25, c) else none
+    | _ => none
+
+/-- What an element lies on at the page point `q`: the background with the tints `layers` (of the
+earlier elements, in drawing order) whose filled outline holds `q`, composited in sRGB (the colour
 browsers and PILean's images of plane figures show there). -/
+def backgroundOver (bg : Rgba) (layers : Array (Array (Array Polyline × Rgba))) (q : Point) :
+    Rgba :=
+  layers.foldl (init := bg) fun bg ts =>
+    ts.foldl (init := bg) fun bg (pls, c) => if insidePolylines q pls then srgbOver c bg else bg
+
+/-- The tints an element lies on at the page point `q`: `backgroundOver` the tints of the
+elements `before`. -/
 def backgroundAt (e : Env) (before : Array Leaf) (q : Point) : Rgba :=
-  before.foldl (init := e.style.background) fun bg lf =>
-    (drawGeom e lf.look lf.geom).foldl (init := bg) fun bg s => match s with
-      | .path p (some (.solid c)) _ _ =>
-        let holds :=
-          (p.flatten 0.25).foldl (fun b pl => if insidePolyline q pl then !b else b) false
-        if holds && c.a < 255 then srgbOver c bg else bg
-      | _ => bg
+  backgroundOver e.style.background (before.map (tintsOf e)) q
 
 /-- The styles a figure's colours are checked in: its own, and its dark twin when it has the
 default light colours (named for the messages). -/
@@ -275,6 +309,41 @@ def checkedStyles (st : Style) : Array (String × Style) :=
   let dark : Style :=
     { st with background := Style.dark.background, plane := st.plane.withColoursOf PlaneStyle.dark }
   #[("its style", st)] ++ (if twin then #[("the dark twin", dark)] else #[])
+
+/-- Whether a look's own numbers (stroke width, size, tint opacity, dashes) are finite. -/
+def Look.finite (l : Look) : Bool :=
+  l.width.all Float.isFinite && l.size.all Float.isFinite && l.fillOpacity.all Float.isFinite &&
+    l.weight.all Float.isFinite && l.dash.all Float.isFinite
+
+/-- Whether an element encloses a region whose inside and outside a point can be on: a circle, a
+disk, a sector, a polygon or a region of disks. -/
+def Geom.encloses : Geom → Bool
+  | .circle .. | .disk .. | .sector .. | .polygon .. | .disks .. => true
+  | _ => false
+
+/-- The closed page polylines that bound an element's region (`Geom.encloses`): its drawn paths,
+flattened. -/
+def regionPolylines (e : Env) (lf : Leaf) : Array Polyline :=
+  (drawGeom e lf.look lf.geom).flatMap fun s => match s with
+    | .path p _ _ _ => p.flatten 0.25
+    | _ => #[]
+
+/-- At most `n` points spread evenly along a stroke's segments (their midpoints). -/
+def strokeSamplePoints (segs : Array (Point × Point)) (n : Nat) : Array Point :=
+  let m := segs.size
+  if m == 0 || n == 0 then #[]
+  else
+    let step := max 1 ((m + n - 1) / n)
+    ((List.range ((m + step - 1) / step)).toArray.map fun k =>
+      let (a, b) := segs[k * step]!
+      a.mid b)
+
+/-- The roles a look names that the style does not. -/
+def Look.unknownRoles (ps : PlaneStyle) (l : Look) : Array String :=
+  let named := fun (t : Tone) => match t with
+    | .role n => if (ps.role? n).isSome then #[] else #[n]
+    | _ => #[]
+  named l.tone ++ (match l.fill with | some t => named t | none => #[])
 
 /-- The problems of a figure as it is laid out (no automatic placement; see `Figure.problems`). -/
 def problemsOf (fig : Figure) (o : CheckOptions := {}) : Array Problem := Id.run do
@@ -286,6 +355,28 @@ def problemsOf (fig : Figure) (o : CheckOptions := {}) : Array Problem := Id.run
   let page : Box := ⟨-0.5, -0.5, e.frame.width + 0.5, e.frame.height + 0.5⟩
   let mut out : Array Problem := #[]
   let n := leaves.size
+  -- numbers that are not finite, and roles the style does not name
+  for i in [0:n] do
+    let lf := leaves[i]!
+    if !(lf.geom.finite && lf.look.finite) then
+      out := out.push ⟨.nonFinite, #[i], s!"{lf.name i} has a number that is not finite and is \
+        not drawn as given"⟩
+    for r in lf.look.unknownRoles e.ps do
+      out := out.push ⟨.unknownRole, #[i], s!"{lf.name i} is in the role “{r}”, which the style \
+        does not name; it is drawn in the ink"⟩
+  -- colours the dark theme of an inline picture would restyle wrongly
+  let pairs := fig.style.darkColourPairs
+  if let some twin := fig.style.darkTwin? then
+    for i in [0:n] do
+      let lf := leaves[i]!
+      for t in #[lf.look.tone] ++ (match lf.look.fill with | some t => #[t] | none => #[]) do
+        let light := (t.resolve e.ps).rgbHex
+        let dark := (match t with | .color c => c | _ => t.resolve twin.plane).rgbHex
+        if let some (_, shown) := pairs.find? (·.1 == light) then
+          if shown != dark then
+            out := out.push ⟨.darkThemeClash, #[i], s!"{lf.name i}: its colour {light} comes \
+              out {shown} in the dark theme of an inline picture, which restyles colours by \
+              their light value, where its dark twin has {dark}; give it a colour of its own"⟩
   -- labels against labels and against everything else
   for i in [0:n] do
     let some (bi, qi) := labels[i]! | continue
@@ -296,8 +387,7 @@ def problemsOf (fig : Figure) (o : CheckOptions := {}) : Array Problem := Id.run
             s!"{leaves[i]!.name i} overlaps {leaves[j]!.name j}"⟩
     for j in [0:n] do
       if j == i || (labels[j]!).isSome then continue
-      if boxMeets bi segs[j]! markers[j]! &&
-          !attachedTo qi leaves[i]!.centred segs[j]! markers[j]! o.attachTolerance then
+      if boxMeets bi segs[j]! markers[j]! && !attachedTo qi markers[j]! o.attachTolerance then
         out := out.push ⟨.labelOverItem, #[i, j],
           s!"{leaves[i]!.name i} lies over {leaves[j]!.name j}"⟩
   -- the page
@@ -323,12 +413,37 @@ def problemsOf (fig : Figure) (o : CheckOptions := {}) : Array Problem := Id.run
         if d < ri + rj + o.markerGap then
           out := out.push ⟨.markersTooClose, #[i, j],
             s!"{leaves[i]!.name i} and {leaves[j]!.name j} are {d} pixels apart and read as one"⟩
-  -- incidences
+  -- incidences: each record held to the elements it names, and every near element recorded
   for i in [0:n] do
     let some (ci, _) := markers[i]! | continue
-    if leaves[i]!.look.incidence.isSome then continue
+    let recs := leaves[i]!.look.incidences
+    for (rel, what) in recs do
+      let targets := (List.range n).filter fun j => j != i && leaves[j]!.info.title == what
+      if targets.isEmpty then
+        out := out.push ⟨.unknownIncidenceTarget, #[i], s!"{leaves[i]!.name i} is recorded \
+          {rel.text} “{what}”, but no element has that title (Item.named)"⟩
+      for j in targets do
+        let d := distToSegments ci segs[j]!
+        let lj := leaves[j]!
+        let wrong : Option String := match rel with
+          | .on =>
+            if segs[j]!.isEmpty then some "which has no strokes to be on"
+            else if d > o.onTolerance then some s!"but is {d} pixels from it"
+            else none
+          | .inside | .outside =>
+            if !lj.geom.encloses then some "which encloses nothing"
+            else if d ≤ o.onTolerance then none
+            else
+              let ins := insidePolylines ci (regionPolylines e lj)
+              if ins == (rel == .inside) then none
+              else some s!"but is drawn {if ins then "inside" else "outside"} it, {d} pixels \
+                from its boundary"
+        if let some why := wrong then
+          out := out.push ⟨.wrongIncidence, #[i, j],
+            s!"{leaves[i]!.name i} is recorded {rel.text} {lj.name j}, {why}"⟩
     for j in [0:n] do
       if j == i || segs[j]!.isEmpty then continue
+      if recs.any fun (_, what) => leaves[j]!.info.title == what then continue
       let atDefining := (definingPoints leaves[j]!.geom).any fun p =>
         (e.frame.toScreen p - ci).norm ≤ 0.5
       if atDefining then continue
@@ -341,25 +456,31 @@ def problemsOf (fig : Figure) (o : CheckOptions := {}) : Array Problem := Id.run
   let mut seen : Array (String × String) := #[]
   for (themeName, st) in checkedStyles fig.style do
     let et : Env := { e with style := st }
+    let layers := leaves.map (tintsOf et)
     for i in [0:n] do
       let lf := leaves[i]!
       let c := lf.look.tone.resolve st.plane
       let isText := (labels[i]!).isSome
       let need := if isText then o.textContrast else o.graphicContrast
-      let spot := match labels[i]!, markers[i]! with
-        | some (b, _), _ => some (⟨(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2⟩ : Point)
-        | none, some (q, _) => some q
-        | none, none => none
-      let under := match spot with
-        | some q => backgroundAt et (leaves.extract 0 i) q
-        | none => st.background
-      let r := contrast c under
-      let key := (Svg.rgbHex c ++ Svg.rgbHex under ++ (if isText then "t" else "g"), themeName)
+      let spots : Array Point := match labels[i]!, markers[i]! with
+        | some (b, _), _ => #[⟨(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2⟩]
+        | none, some (q, _) => if lf.look.halo then #[] else #[q]
+        | none, none => strokeSamplePoints segs[i]! o.strokeSamples
+      let unders : Array Rgba :=
+        if spots.isEmpty then #[st.background]
+        else spots.map (backgroundOver st.background (layers.extract 0 i))
+      -- the least contrast of the colour, at its alpha, against what it lies on
+      let (r, under) := unders.foldl (init := ((1e300 : Float), st.background)) fun (m, u) bg =>
+        let x := contrast (srgbOver c bg) bg
+        if x < m then (x, bg) else (m, u)
+      let key := (Svg.rgbHex c ++ toString c.a ++ Svg.rgbHex under ++ (if isText then "t" else "g"),
+        themeName)
       if r < need && !seen.contains key then
         seen := seen.push key
+        let alpha := if c.a == 255 then "" else s!" at opacity {c.a.toNat.toFloat / 255}"
         out := out.push ⟨.lowContrast, #[i],
-          s!"{lf.name i}: the colour {Svg.rgbHex c} has contrast {r} against {Svg.rgbHex under}, \
-            what it is drawn on in {themeName}, below {need}"⟩
+          s!"{lf.name i}: the colour {Svg.rgbHex c}{alpha} has contrast {r} against \
+            {Svg.rgbHex under}, what it is drawn on in {themeName}, below {need}"⟩
   return out
 
 /-! ### Automatic placement of labels -/
@@ -422,7 +543,7 @@ def chooseAutoPlacements (e : Env) (leaves : Array Leaf) (o : CheckOptions := {}
           boxes.all (fun c => !boxesOverlap b c o.labelTolerance) &&
           (List.range leaves.size).all fun j =>
             (labelOf e leaves[j]!).isSome || !boxMeets b segs[j]! markers[j]! ||
-              attachedTo at_ false segs[j]! markers[j]! o.attachTolerance
+              attachedTo at_ markers[j]! o.attachTolerance
     let mut pick : Placement × Float := (cands[0]!, base)
     let mut found := false
     for k in [0:autoReach + 1] do

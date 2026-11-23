@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Canvas
 import PILean.Style
+import PILean.CheckLevel
 
 /-!
 # Plane figures: the model
@@ -169,17 +170,6 @@ inductive Incidence where
 def Incidence.text : Incidence → String
   | .on => "on" | .inside => "inside" | .outside => "outside"
 
-/-- How strictly a figure's layout checks (`PILean.Plane.Check`) are applied when it is
-rendered: not at all, as warnings, or as errors that stop its rendering. -/
-inductive CheckLevel where
-  /-- The checks are not run. -/
-  | ignore
-  /-- Problems are reported as warnings. -/
-  | warn
-  /-- A problem stops the figure from being rendered. -/
-  | fail
-  deriving BEq, Inhabited, Repr
-
 /-- What an element is, in world coordinates (see the module docstring). Angles are in radians,
 counterclockwise; lengths marked *pixels* are on the page. -/
 inductive Geom where
@@ -220,6 +210,25 @@ inductive Geom where
   | disks (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ : Point) (r₂ : Float)
   deriving Inhabited, Repr
 
+/-- Whether every number of an element is finite: its points, radii, angles and the pixel lengths
+it gives (an offset, a radius, a tick's length). An element that is not is drawn as nothing or as
+nonsense, and `Figure.problems` reports it. -/
+def Geom.finite : Geom → Bool
+  | .point p => p.isFinite
+  | .segment a b | .line a b | .ray a b | .arrow a b => a.isFinite && b.isFinite
+  | .circle c r | .disk c r => c.isFinite && r.isFinite
+  | .arc c r θ₀ θ₁ | .sector c r θ₀ θ₁ =>
+    c.isFinite && r.isFinite && θ₀.isFinite && θ₁.isFinite
+  | .polygon vs | .polyline vs => vs.all Point.isFinite
+  | .angleMark c θ₀ θ₁ radius =>
+    c.isFinite && θ₀.isFinite && θ₁.isFinite && radius.all Float.isFinite
+  | .label _ p place offset =>
+    p.isFinite && offset.all Float.isFinite && match place with
+      | .toward θ | .across θ => θ.isFinite
+      | _ => true
+  | .tick p dir length => p.isFinite && dir.isFinite && length.all Float.isFinite
+  | .disks _ c₁ r₁ c₂ r₂ => c₁.isFinite && r₁.isFinite && c₂.isFinite && r₂.isFinite
+
 /-- How an element is drawn. `none` takes the style's value. -/
 structure Look where
   /-- The colour. -/
@@ -252,9 +261,11 @@ structure Look where
   /-- The radius of a point's marker or the size of a label, in pixels. -/
   size : Option Float := none
   /-- For a point: where it stands relative to the curves or regions it is near, as decided by the
-  author (exactly, for exact points), and what it is relative to. A point drawn too near a curve
-  for a reader to see on which side it is must say so (`PILean.Plane.Check`). -/
-  incidence : Option (Incidence × String) := none
+  author (exactly, for exact points), each with the title of the element it is relative to
+  (`Item.named`). A point drawn too near an element for a reader to see on which side it is must
+  record it, and the layout checks hold each record to the element it names
+  (`PILean.Plane.Check`). -/
+  incidences : Array (Incidence × String) := #[]
   deriving Inhabited, Repr
 
 /-- A plane figure's element with its look and metadata, or a group of items with metadata. -/
@@ -420,12 +431,14 @@ def italic (it : Item) : Item := it.mapLook ({ · with italic := true })
 /-- The item with a marker radius or label size in pixels. -/
 def size (s : Float) (it : Item) : Item := it.mapLook ({ · with size := some s })
 
-/-- The point recorded as standing `rel` (on, inside, outside) relative to `what` (`"the
-window"`): the look keeps it for the layout checks, and the title says it (`inside the window`,
-after the title if there is one). -/
+/-- The point recorded as standing `rel` (on, inside, outside) relative to the element whose title
+is `what` (`Item.named`, `"the window"`; on a disk or a region means on its boundary): the look
+keeps the record for the layout checks, which hold it to that element (`PILean.Plane.Check`),
+and the title says it (`inside the window`, after the title if there is one). Recording a second
+incidence keeps the first. -/
 def incident (rel : Incidence) (what : String) (it : Item) : Item :=
   let words := s!"{rel.text} {what}"
-  (it.mapLook ({ · with incidence := some (rel, what) })).mapInfo fun i =>
+  (it.mapLook fun l => { l with incidences := l.incidences.push (rel, what) }).mapInfo fun i =>
     { i with title := if i.title.isEmpty then words else s!"{i.title}, {words}" }
 
 /-- A label for a point item, in the point's colour (the label follows the role of what it names):

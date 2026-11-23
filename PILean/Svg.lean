@@ -134,12 +134,8 @@ def pathData (p : Path) (decimals : Nat := 2) : String :=
     | .cubic a b q => "C" ++ pt a ++ " " ++ pt b ++ " " ++ pt q
     | .close => "Z")
 
-/-- A colour as `#rrggbb`. -/
-def rgbHex (c : Rgba) : String :=
-  let h := fun (v : UInt8) =>
-    let d := Nat.toDigits 16 v.toNat
-    String.ofList (List.replicate (2 - d.length) '0' ++ d)
-  "#" ++ h c.r ++ h c.g ++ h c.b
+/-- A colour as `#rrggbb` (`Rgba.rgbHex`). -/
+def rgbHex (c : Rgba) : String := c.rgbHex
 
 /-- The attributes painting with a colour: `key` (`fill` or `stroke`) as `#rrggbb`, and
 `key-opacity` when the colour is not opaque. `none` paints nothing. -/

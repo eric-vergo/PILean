@@ -3,7 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Plane.Render
-import PILean.Plot.Figure
+import PILean.Plot.Check
 import PILean.Anim.Animation
 
 /-!
@@ -21,13 +21,20 @@ The frames are kept in axis-major order: the frame of value `i` and step `j` is
 steps. The *poster* is the frame shown first and the one written as the explorer's files (its SVG
 and PNG); a page that cannot run the explorer's script shows it with the other frames listed below.
 
-`Explorer.toAnimation` plays a step sequence (at one value of the axis) as an `Animation`.
+`Explorer.toAnimation` plays a step sequence (at one value of the axis) as an `Animation`, every
+step as long as the others.
+
+Every frame keeps the problems the checks of its figure report (`ExplorerFrame.problems`, with
+the figure's checks level): a build reports them as warnings, frame by frame
+(`Explorer.problems`), or refuses to render the explorer when a frame whose level is `fail` has
+some (`Explorer.problemsFail`).
 
 ## Main definitions
 
 * `ExplorerFrame`, `ExplorerFrame.ofPlane`, `ExplorerFrame.ofPlot`.
 * `Explorer`, `Explorer.slider`, `Explorer.stepper`, `Explorer.grid`, `Explorer.valid`.
-* `Explorer.frameAt`, `Explorer.posterFrame`, `Explorer.toAnimation`.
+* `Explorer.frameAt`, `Explorer.posterFrame`, `Explorer.toAnimation`, `Explorer.stepTiming`.
+* `Explorer.problems`, `Explorer.problemsFail`, `Explorer.frameName`.
 -/
 
 namespace PILean
@@ -47,19 +54,27 @@ structure ExplorerFrame where
   srgb : Bool := false
   /-- Whether SVG text is drawn as shapes. -/
   textAsShapes : Bool := false
+  /-- The problems the checks of the figure the frame is drawn from report (the layout checks of
+  a plane figure, the labelling checks of a plot), unless its level is `ignore`. -/
+  problems : Unit → Array String := fun _ => #[]
+  /-- The checks level of that figure: whether its problems are warnings or stop the
+  rendering. -/
+  checks : CheckLevel := .warn
   deriving Inhabited
 
 namespace ExplorerFrame
 
-/-- The frame of a plane figure (its `auto` labels placed). -/
+/-- The frame of a plane figure (its `auto` labels placed), with its layout problems. -/
 def ofPlane (fig : Plane.Figure) : ExplorerFrame :=
   let g := fig.autoPlaced
   { drawing := g.draw, width := g.frame.width.round, height := g.frame.height.round,
-    style := fig.style, srgb := true, textAsShapes := fig.textAsShapes }
+    style := fig.style, srgb := true, textAsShapes := fig.textAsShapes,
+    problems := fun _ => fig.checkMessages, checks := fig.checks }
 
-/-- The frame of a plot. -/
+/-- The frame of a plot, with its labelling problems. -/
 def ofPlot (fig : Plot.Figure) : ExplorerFrame :=
-  { drawing := fig.draw, width := fig.width, height := fig.height, style := fig.style }
+  { drawing := fig.draw, width := fig.width, height := fig.height, style := fig.style,
+    problems := fun _ => fig.checkMessages, checks := fig.checks }
 
 /-- The frame's SVG nodes, text as SVG text (or as shapes, see `TextMode.forSvg`). -/
 def svgNodes (f : ExplorerFrame) (outlines : Option Bool := none) : Array Svg.Node :=
@@ -133,19 +148,65 @@ def grid (name : String) (values stepCaptions : Array String)
       (List.range (max 1 stepCaptions.size)).toArray.map fun j => frame i j,
     poster }
 
-/-- The steps at value `i` played as an animation, `secondsPerStep` each, looping, the first step
-as poster; the size and style are the poster frame's. -/
+/-- How frame `k` is named in a message: its position, its value and its step. -/
+def frameName (x : Explorer) (k : Nat) : String :=
+  let i := k / x.steps
+  let j := k % x.steps
+  let value := match x.axisValues[i]? with
+    | some v => s!", {x.axisName} = {v}"
+    | none => ""
+  let step := match x.stepCaptions[j]? with
+    | some c => s!", step {j + 1} “{c}”"
+    | none => ""
+  s!"frame {k}{value}{step}"
+
+/-- The problems of the frames (`ExplorerFrame.problems`) whose level is not `ignore`, each with
+the frame's name, in frame order. -/
+def problems (x : Explorer) : Array String :=
+  x.frames.zipIdx.flatMap fun (f, k) =>
+    if f.checks == .ignore then #[] else (f.problems ()).map (s!"{x.frameName k}: " ++ ·)
+
+/-- Whether a frame whose checks level is `fail` has problems, which stops the explorer from
+being rendered. -/
+def problemsFail (x : Explorer) : Bool :=
+  x.frames.any fun f => f.checks == .fail && !(f.problems ()).isEmpty
+
+/-- The frame rate and the number of frames per step that play steps of `s` seconds (at least
+0.05): for the first `k = 1, …, 10` frames per step whose rate `fps = round (k / s)` (between 1
+and 60) makes a step of `k / fps` seconds within 2 % of `s`, `(fps, k)`; the closest of them
+otherwise. Every step then lasts exactly `k / fps`, the same for all. -/
+def stepTiming (s : Float) : Nat × Nat := Id.run do
+  let s := max 0.05 s
+  let mut best : Nat × Nat := (1, 1)
+  let mut bestErr : Float := 1e300
+  for k in [1:11] do
+    let fps := max 1 (min 60 (k.toFloat / s).round.toUInt64.toNat)
+    let err := ((k.toFloat / fps.toFloat) - s).abs / s
+    if err ≤ 0.02 then return (fps, k)
+    if err < bestErr then
+      best := (fps, k)
+      bestErr := err
+  return best
+
+/-- The steps at value `i` played as an animation, about `secondsPerStep` each and every step as
+long as the others (`stepTiming`), looping, the first step as poster; the size, style,
+compositing and lettering are the poster frame's, and the problems are those of the frames
+played. -/
 def toAnimation (x : Explorer) (i : Nat := 0) (secondsPerStep : Float := 1) : Animation :=
   let p := x.posterFrame
   let n := x.steps
-  let step := max 0.05 secondsPerStep
+  let (fps, k) := stepTiming secondsPerStep
+  let played := (List.range n).toArray.filterMap fun j => (x.frameAt i j).map ((i * n + j), ·)
   { width := p.width.round.toUInt64.toNat, height := p.height.round.toUInt64.toNat,
-    fps := max 1 (1 / step).ceil.toUInt64.toNat, duration := step * n.toFloat,
+    fps, duration := (n * k).toFloat / fps.toFloat,
     frame := fun t =>
-      let j := min (n - 1) (t / step).floor.toUInt64.toNat
-      ((x.frameAt i j).getD p).drawing,
+      let f := (t * fps.toFloat).round.toUInt64.toNat
+      ((x.frameAt i (min (n - 1) (f / k))).getD p).drawing,
     posterTime := some 0, background := p.style.background, fontFamily := p.style.fontFamily,
-    text := p.style.text }
+    text := p.style.text, srgb := p.srgb, textAsShapes := p.textAsShapes,
+    problems := fun _ => played.flatMap fun (k, f) =>
+      if f.checks == .ignore then #[] else (f.problems ()).map (s!"{x.frameName k}: " ++ ·),
+    problemsFail := played.any fun (_, f) => f.checks == .fail && !(f.problems ()).isEmpty }
 
 end Explorer
 

@@ -12,8 +12,9 @@ import PILean.Exact.Plane
 * `Plane.graph g pos`: a graph drawn among the other elements of a plane figure, its node `i` a
   point at the world position `pos[i]` with the node's label beside it (placed `auto`), its edges
   segments (arrows when the graph and the edge are directed), an edge's label at its middle.
-  Every node carries its label as its title, every edge `src → dst`. `Plane.Exact.graph` takes
-  exact points.
+  Every node carries its label as its title, every edge `src → dst`; a function of the node's
+  index can change its point (record where it stands, say). `Plane.Exact.graph` takes exact
+  points.
 * `Plane.animation steps`: the steps of a sequence of plane figures as an `Animation`, all drawn
   in one frame (the world box that holds every step), so that nothing moves but what changes.
 * `Plane.stepper`, `Plane.slider`: explorers (`Explorer`) whose frames are plane figures, in one
@@ -29,8 +30,10 @@ namespace PILean.Plane
 
 /-- The graph `g` as plane items: node `i` a point at `pos[i]` (the origin when missing) with its
 label beside it, the edges as segments or arrows between the points (see the module docstring);
-self-loops are left out. -/
-def graph (g : PILean.Graph) (pos : Array Point) : Item :=
+self-loops are left out. `node i` changes the point item of node `i` (its colour, a recorded
+incidence, …). -/
+def graph (g : PILean.Graph) (pos : Array Point) (node : Nat → Item → Item := fun _ it => it) :
+    Item :=
   let at_ := fun (i : Nat) => pos.getD i ⟨0, 0⟩
   let edges := g.validEdges.filterMap fun (_, e) =>
     if e.src == e.dst then none
@@ -44,13 +47,14 @@ def graph (g : PILean.Graph) (pos : Array Point) : Item :=
         else #[item, label e.label (a.mid b) .auto |>.faint])
   let nodes := g.nodes.mapIdx fun i nd =>
     let p := at_ i
-    if nd.label.isEmpty then #[point p]
-    else #[point p |>.named nd.label, label nd.label p .auto]
+    if nd.label.isEmpty then #[node i (point p)]
+    else #[node i (point p |>.named nd.label), label nd.label p .auto]
   group (edges.flatten ++ nodes.flatten)
 
 /-- The graph `g` with node `i` at the exact point `pos[i]`, converted (see `Plane.graph`). -/
-def Exact.graph {α : Type} [Exact.PlanePoint α] (g : PILean.Graph) (pos : Array α) : Item :=
-  Plane.graph g (pos.map Exact.PlanePoint.toPoint)
+def Exact.graph {α : Type} [Exact.PlanePoint α] (g : PILean.Graph) (pos : Array α)
+    (node : Nat → Item → Item := fun _ it => it) : Item :=
+  Plane.graph g (pos.map Exact.PlanePoint.toPoint) node
 
 /-- The figures with one view: the world box that the figure of every item of every step shows
 (steps that have a `view` keep it). -/

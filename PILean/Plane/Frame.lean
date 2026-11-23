@@ -19,7 +19,9 @@ For a scale `s` the reaches fit across exactly when `max (pad - s xᵢ - lᵢ) �
 for every pair. When the extents fit at scale 0 (every right-hand side is at least 0: no label is
 wider than the page), the scales that fit form an interval from 0, and `fit` finds its end by
 bisection (60 halvings); it then centres the drawing in the room left and, without a given
-height, makes the page as tall as the reaches need, rounded up to a whole pixel.
+height, makes the page as tall as the reaches need, rounded up to a whole pixel. Extents that do
+not fit at scale 0 are shrunk until they do (`squeezeReaches`), so a label wider than the page
+does not collapse the scale.
 
 `clipLine` cuts the line or ray through two points to a box (Liang and Barsky's parametric
 clipping), which is how lines and rays are drawn to the edge of the frame.
@@ -77,13 +79,10 @@ structure Reach where
 /-- A world point with a symmetric extent of `e` pixels. -/
 def Reach.around (p : Point) (e : Float) : Reach := ⟨p, ⟨-e, -e, e, e⟩⟩
 
-/-- Whether a number is finite. -/
-def finite (x : Float) : Bool := !x.isNaN && !x.isInf
-
 /-- Whether a reach has finite coordinates and offsets. -/
 def Reach.finite (r : Reach) : Bool :=
-  Plane.finite r.at_.x && Plane.finite r.at_.y && Plane.finite r.off.x0 &&
-    Plane.finite r.off.y0 && Plane.finite r.off.x1 && Plane.finite r.off.y1
+  r.at_.x.isFinite && r.at_.y.isFinite && r.off.x0.isFinite && r.off.y0.isFinite &&
+    r.off.x1.isFinite && r.off.y1.isFinite
 
 /-- The interval of page positions of the origin along one axis at which every reach fits
 between `pad` and `size - pad`, at scale `s`: `(lo, hi)`, empty when `lo > hi`. `coord` gives a
@@ -107,15 +106,35 @@ def largestScale (ok : Float → Bool) (sMax : Float) : Float := Id.run do
     if ok mid then lo := mid else hi := mid
   return lo
 
+/-- The reaches with their extents along each axis shrunk, about each reach's point, by the one
+factor that makes the widest span of extents (the largest right extent less the smallest left
+one, and the same down) fit the room the page leaves (`width - 2 pad`, and `height - 2 pad` when
+the height is given); the reaches themselves when their extents fit. -/
+def squeezeReaches (rs : Array Reach) (width : Float) (height : Option Float) (pad : Float) :
+    Array Reach :=
+  let factor := fun (room lo hi : Float) =>
+    if hi - lo > room && room > 0 then room / (hi - lo) else 1
+  let fx := factor (width - 2 * pad) (rs.foldl (fun m r => min m r.off.x0) 0)
+    (rs.foldl (fun m r => max m r.off.x1) 0)
+  let fy := match height with
+    | some h => factor (h - 2 * pad) (rs.foldl (fun m r => min m r.off.y0) 0)
+        (rs.foldl (fun m r => max m r.off.y1) 0)
+    | none => 1
+  if fx == 1 && fy == 1 then rs
+  else rs.map fun r =>
+    { r with off := ⟨fx * r.off.x0, fy * r.off.y0, fx * r.off.x1, fy * r.off.y1⟩ }
+
 /-- The frame at which the reaches fit a page `width` pixels wide (and `height` high, if given)
 inside `pad` pixels on every side, at the largest scale (see the module docstring); `fallback`
-is the world box used when there are no finite reaches. -/
+is the world box used when there are no finite reaches. When the extents alone do not fit the
+page (a label wider than the page), they are shrunk first (`squeezeReaches`), so that the world
+points still fill the page; what reaches beyond it is then reported by the layout checks. -/
 def Frame.fit (reaches : Array Reach) (width : Float) (height : Option Float) (pad : Float)
     (fallback : Box := ⟨-1, -1, 1, 1⟩) : Frame := Id.run do
   let rs0 := reaches.filter (·.finite)
   let rs := if rs0.isEmpty then
       #[Reach.around ⟨fallback.x0, fallback.y0⟩ 0, Reach.around ⟨fallback.x1, fallback.y1⟩ 0]
-    else rs0
+    else squeezeReaches rs0 width height pad
   let xs := rs.map (·.at_.x)
   let ys := rs.map (·.at_.y)
   let span := fun (vs : Array Float) =>

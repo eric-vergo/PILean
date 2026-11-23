@@ -349,7 +349,8 @@ def layoutChecks : Array (String × Bool) :=
     { items := #[point ⟨0, 0⟩, point ⟨5, 5⟩], view := some ⟨-1, -1, 1, 1⟩, width := 200 }
   let close := base #[point ⟨0, 0⟩, point ⟨0.01, 0⟩, point ⟨3, 3⟩]
   let near := base #[circle ⟨0, 0⟩ 1, point ⟨1.001, 0⟩, point ⟨-2, -2⟩]
-  let declared := base #[circle ⟨0, 0⟩ 1, point ⟨1.001, 0⟩ |>.incident .outside "the circle",
+  let declared := base #[circle ⟨0, 0⟩ 1 |>.named "the circle",
+    point ⟨1.001, 0⟩ |>.incident .outside "the circle",
     point ⟨-2, -2⟩]
   let faintInk := base #[segment ⟨0, 0⟩ ⟨1, 1⟩ |>.color ⟨235, 235, 235, 255⟩]
   let darkOnly := base #[label "navy" ⟨0, 0⟩ |>.color ⟨20, 20, 90, 255⟩, point ⟨1, 1⟩]
@@ -370,7 +371,7 @@ def layoutChecks : Array (String × Bool) :=
     ("checks: a point too near a circle with no incidence recorded",
       (kinds near).contains .undecidedIncidence),
     ("checks: an incidence recorded satisfies the check",
-      !(kinds declared).contains .undecidedIncidence),
+      (kinds declared).isEmpty),
     ("checks: a colour of too little contrast", (kinds faintInk).contains .lowContrast),
     ("checks: a colour that fails only in the dark twin",
       (darkOnly.problems.any fun p => p.kind == .lowContrast && has p.message "dark twin") &&
@@ -395,7 +396,7 @@ def layoutChecks : Array (String × Bool) :=
       diskIncidence? ((1 : Rat), (0 : Rat)) ((0 : Rat), (0 : Rat)) (1 : Rat) == some .on),
     ("exact incidence: the title records it",
       match Plane.Exact.pointNearDisk zeta windowCentre windowRadius "the window" with
-      | .shape _ l i => l.incidence.isSome && i.title == "inside the window"
+      | .shape _ l i => l.incidences == #[(.inside, "the window")] && i.title == "inside the window"
       | _ => false)]
 
 /-- The checks of explorers. -/
@@ -446,7 +447,7 @@ def extensionChecks : Array (String × Bool) :=
     pl.points.all fun q => distToBox q hub ≥ 5
   let webNodes := g.nodes.mapIdx fun i n =>
     ({ id := s!"n{i}", name := n.label, lines := #[n.label] } : PILean.Graph.WebNode)
-  let item := Plane.graph Examples.PlaneFigures.ringGraph Examples.PlaneFigures.ringPositions
+  let item := Plane.Exact.graph Examples.PlaneFigures.ringGraph Examples.PlaneFigures.ringPositions
   let lv := item.leaves
   #[("plot: equal aspect gives as many pixels per unit across as down",
       (ppx - ppy).abs ≤ 1),

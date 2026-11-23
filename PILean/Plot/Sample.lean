@@ -41,15 +41,13 @@ private structure Piece where
   fb : Float
   depth : Nat
 
-/-- Whether a value is finite. -/
-def finite (v : Float) : Bool := !(v.isNaN || v.isInf)
 
 /-- `sampleFunction` with the function's values computed in a monad: the same samples in the
 same order, so that a caller can observe the evaluations (count them, for instance). -/
 def sampleFunctionM {M : Type → Type} [Monad M] (f : Float → M Float) (x0 x1 : Float)
     (sx sy height : Float) (ylo yhi : Float) (maxPoints : Nat := 6000) (tol : Float := 0.25) :
     M (Array (Array Point)) := do
-  if !(finite x0 && finite x1) || x1 ≤ x0 || maxPoints < 2 then return #[]
+  if !(Float.isFinite x0 && Float.isFinite x1) || x1 ≤ x0 || maxPoints < 2 then return #[]
   -- values beyond the visible range by more than its height count as at that distance, so that
   -- the curve is not refined where it cannot be seen
   let span := (yhi - ylo).abs
@@ -63,7 +61,7 @@ def sampleFunctionM {M : Type → Type} [Monad M] (f : Float → M Float) (x0 x1
   let mut evals := n + 1
   let fx ← xs.mapM f
   let push := fun (cur : Array Point) (p : Point) =>
-    if finite p.y then cur.push p else cur
+    if Float.isFinite p.y then cur.push p else cur
   if let some v := fx[0]? then cur := push cur ⟨x0, v⟩
   for i in [0:n] do
     let a := xs[i]?.getD x0
@@ -82,18 +80,18 @@ def sampleFunctionM {M : Type → Type} [Monad M] (f : Float → M Float) (x0 x1
         -- at full depth a continuous function moves by far less than a pixel; when the budget
         -- stopped the halving, only a move across the whole plot counts as a jump
         let limit := if pc.depth ≥ maxDepth then 2 else height
-        let jump := finite pc.fa && finite pc.fb && (cy pc.fb - cy pc.fa).abs * sy > limit
-        if jump || !finite pc.fb then
+        let jump := pc.fa.isFinite && pc.fb.isFinite && (cy pc.fb - cy pc.fa).abs * sy > limit
+        if jump || !Float.isFinite pc.fb then
           if cur.size > 1 then out := out.push cur
           cur := #[]
         cur := push cur ⟨pc.b, pc.fb⟩
         continue
       let fm ← f m
       evals := evals + 1
-      let bothFinite := finite pc.fa && finite pc.fb
+      let bothFinite := Float.isFinite pc.fa && Float.isFinite pc.fb
       let needSplit :=
-        if !bothFinite then finite pc.fa || finite pc.fb || finite fm
-        else if !finite fm then true
+        if !bothFinite then Float.isFinite pc.fa || Float.isFinite pc.fb || Float.isFinite fm
+        else if !Float.isFinite fm then true
         else
           let off := (cy fm - (cy pc.fa + cy pc.fb) / 2).abs * sy
           off > tol || (pc.b - pc.a) * sx > 8 ||
@@ -102,7 +100,7 @@ def sampleFunctionM {M : Type → Type} [Monad M] (f : Float → M Float) (x0 x1
         stack := stack.push ⟨m, fm, pc.b, pc.fb, pc.depth + 1⟩
         stack := stack.push ⟨pc.a, pc.fa, m, fm, pc.depth + 1⟩
       else
-        if !finite pc.fb then
+        if !Float.isFinite pc.fb then
           if cur.size > 1 then out := out.push cur
           cur := #[]
         else cur := push cur ⟨pc.b, pc.fb⟩
