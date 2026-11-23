@@ -106,6 +106,7 @@ def RunSpec.span (r : RunSpec) : Float × Float :=
 def overlaps (gap : Float) (p q : Float × Float) : Bool :=
   p.1 < q.2 + gap && q.1 < p.2 + gap
 
+/-- `overlaps` does not depend on the order of the stretches. -/
 theorem overlaps_comm (gap : Float) (p q : Float × Float) :
     overlaps gap p q = overlaps gap q p := by
   simp only [overlaps, Bool.and_comm]
@@ -131,6 +132,7 @@ below the lowest of the earlier items it is in conflict with (`c`), or the first
 def tracksInOrder (c : α → α → Bool) (ps : List α) : List Nat :=
   tracksAux c [] ps
 
+/-- The track the fold of `trackAfter` reaches is at least the one it starts from. -/
 theorem foldl_max_ge (c : α → α → Bool) (p : α) :
     ∀ (placed : List (α × Nat)) (t : Nat),
       t ≤ placed.foldl (fun t q => if c q.1 p then max t (q.2 + 1) else t) t
@@ -142,6 +144,7 @@ theorem foldl_max_ge (c : α → α → Bool) (p : α) :
     · exact Nat.le_max_left _ _
     · exact Nat.le_refl _
 
+/-- The fold of `trackAfter` reaches below the track of every placed item in conflict. -/
 theorem foldl_max_member (c : α → α → Bool) (p : α) :
     ∀ (placed : List (α × Nat)) (t : Nat) (q : α × Nat),
       q ∈ placed → c q.1 p = true →
@@ -160,6 +163,7 @@ theorem trackAfter_gt (c : α → α → Bool) (placed : List (α × Nat)) (p : 
     (h : q ∈ placed) (hc : c q.1 p = true) : q.2 < trackAfter c placed p :=
   foldl_max_member c p placed 0 q h hc
 
+/-- One track for every item. -/
 theorem tracksAux_length (c : α → α → Bool) :
     ∀ (placed : List (α × Nat)) (ps : List α), (tracksAux c placed ps).length = ps.length
   | _, [] => rfl
@@ -320,6 +324,7 @@ def RunPart.conflicts (laneGap gap : Float) (p q : RunPart) : Bool :=
   (overlaps gap p.spec.span q.spec.span && !(p.tee q || q.tee p)) ||
     (p.stacked laneGap q || q.stacked laneGap p)
 
+/-- `RunPart.conflicts` does not depend on the order of the parts. -/
 theorem RunPart.conflicts_comm (laneGap gap : Float) (p q : RunPart) :
     RunPart.conflicts laneGap gap p q = RunPart.conflicts laneGap gap q p := by
   simp only [RunPart.conflicts, overlaps_comm gap p.spec.span, Bool.or_comm]

@@ -81,12 +81,15 @@ def walk (p : Point) : List Move → List Point
 def routeWalk (start finish : Point) (ms : List Move) : List Point :=
   walk start (ms ++ [.h finish.x, .v finish.y])
 
+/-- A walk starts where it starts from. -/
 theorem walk_head (p : Point) (ms : List Move) : (walk p ms).head? = some p := by
   cases ms <;> rfl
 
+/-- A walk has a point. -/
 theorem walk_ne_nil (p : Point) (ms : List Move) : walk p ms ≠ [] := by
   cases ms <;> simp [walk]
 
+/-- A walk that ends by moving across to `x` and then to the height `y` ends at `(x, y)`. -/
 theorem walk_append_last (p : Point) (x y : Float) :
     ∀ ms : List Move, (walk p (ms ++ [.h x, .v y])).getLast? = some ⟨x, y⟩
   | [] => by simp [walk, Move.apply]
@@ -103,6 +106,7 @@ def AxisChain : List Point → Prop
   | a :: b :: rest => axisStep a b ∧ AxisChain (b :: rest)
   | _ => True
 
+/-- Every two points in a row of a walk lie on one horizontal or vertical line. -/
 theorem walk_axis : ∀ (p : Point) (ms : List Move), AxisChain (walk p ms)
   | p, [] => by simp [walk, AxisChain]
   | p, m :: ms => by

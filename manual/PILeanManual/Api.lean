@@ -26,6 +26,8 @@ import PILeanManual.Api.PILean.Exact.Plane
 import PILeanManual.Api.PILean.Exact.Spec
 import PILeanManual.Api.PILean.Explorer
 import PILeanManual.Api.PILean.Geometry
+import PILeanManual.Api.PILean.Graph.Bundle
+import PILeanManual.Api.PILean.Graph.Channel
 import PILeanManual.Api.PILean.Graph.Check
 import PILeanManual.Api.PILean.Graph.Compound
 import PILeanManual.Api.PILean.Graph.Coordinates
@@ -155,6 +157,8 @@ The modules, by the folder they are in:
   {ref "api-PILean.Exact.Plane"}[`PILean.Exact.Plane`],
   {ref "api-PILean.Exact.Spec"}[`PILean.Exact.Spec`]
 * *Graph*:
+  {ref "api-PILean.Graph.Bundle"}[`PILean.Graph.Bundle`],
+  {ref "api-PILean.Graph.Channel"}[`PILean.Graph.Channel`],
   {ref "api-PILean.Graph.Check"}[`PILean.Graph.Check`],
   {ref "api-PILean.Graph.Compound"}[`PILean.Graph.Compound`],
   {ref "api-PILean.Graph.Coordinates"}[`PILean.Graph.Coordinates`],
@@ -286,6 +290,10 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.Explorer}
 
 {include 1 PILeanManual.Api.PILean.Geometry}
+
+{include 1 PILeanManual.Api.PILean.Graph.Bundle}
+
+{include 1 PILeanManual.Api.PILean.Graph.Channel}
 
 {include 1 PILeanManual.Api.PILean.Graph.Check}
 
