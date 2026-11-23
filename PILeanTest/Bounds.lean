@@ -11,8 +11,11 @@ The readers are run on inputs made to cost as much as their caps allow, each in 
 (`pilean-probe KIND FILE`, built beside the test driver) under a CPU-time limit and a wall-clock
 watchdog,
 and the child's peak resident memory and CPU time are measured with `/usr/bin/time`. A check
-fails if the child is killed, gives the wrong answer, or uses more memory than the bound the
-reader's documentation states (the decoded buffers plus a fixed allowance for the runtime).
+fails if the child is killed, gives the wrong answer, uses more memory than the bound the
+reader's documentation states (the decoded buffers plus a fixed allowance for the runtime) or
+more CPU time than its case allows, or if either measurement is missing (`withinBounds`). The
+bounds are fixed numbers with room to spare: they catch a large regression on these inputs; they
+are not a proof of a reader's complexity.
 
 The large inputs are generated here, not stored: a zlib stream of zeros made of 258-byte matches,
 and PNG files that wrap it; the hostile graphs are made by the probe (`hostileGraph`), which
@@ -84,6 +87,38 @@ def pngWith (w h depth colorType : Nat) (idat : ByteArray) : ByteArray :=
     ⟨#[depth.toUInt8, colorType.toUInt8, 0, 0, 0]⟩
   Png.pngSignature ++ Png.chunk "IHDR" ihdr ++ Png.chunk "IDAT" idat ++
     Png.chunk "IEND" .empty
+
+/-- An APNG of `n` frames of `w × h` RGBA pixels, every frame the whole canvas and every frame's
+data a zlib stream of zeros (`zerosZlib`), so that the file is small and its frames large. -/
+def apngZeros (w h n : Nat) : ByteArray := Id.run do
+  let z := zerosZlib (h * (1 + w * 4))
+  let ihdr := Png.be32 w.toUInt32 ++ Png.be32 h.toUInt32 ++ ⟨#[8, 6, 0, 0, 0]⟩
+  let fctl := fun (seq : Nat) => Png.be32 seq.toUInt32 ++ Png.be32 w.toUInt32 ++
+    Png.be32 h.toUInt32 ++ Png.be32 0 ++ Png.be32 0 ++ ⟨#[0, 1, 0, 10, 0, 0]⟩
+  let mut out := Png.pngSignature ++ Png.chunk "IHDR" ihdr ++
+    Png.chunk "acTL" (Png.be32 n.toUInt32 ++ Png.be32 0)
+  let mut seq := 0
+  for i in [0:n] do
+    out := out ++ Png.chunk "fcTL" (fctl seq)
+    seq := seq + 1
+    if i == 0 then out := out ++ Png.chunk "IDAT" z
+    else
+      out := out ++ Png.chunk "fdAT" (Png.be32 seq.toUInt32 ++ z)
+      seq := seq + 1
+  return out ++ Png.chunk "IEND" .empty
+
+/-- A 1 × 1 grey PNG with `n` text chunks before its image data, each with the keyword `k` and
+no text: the most entries for the fewest bytes. -/
+def pngManyTexts (n : Nat) : ByteArray := Id.run do
+  let ihdr := Png.be32 1 ++ Png.be32 1 ++ ⟨#[8, 0, 0, 0, 0]⟩
+  let text := Png.chunk "tEXt" ⟨#[107, 0]⟩
+  let mut out := Png.pngSignature ++ Png.chunk "IHDR" ihdr
+  for _ in [0:n] do out := out ++ text
+  return out ++ Png.chunk "IDAT" (zerosZlib 2) ++ Png.chunk "IEND" .empty
+
+/-- The number of entries with the keyword `k` and no text that the default text budget holds
+(`Png.TextEntry.cost`). -/
+def maxTextEntries : Nat := ({} : Png.Limits).maxTextBytes / (1 + Png.textEntryCost)
 
 /-- The decompressed size of a non-interlaced PNG image (rows with their filter bytes). -/
 def rawSize (w h bytesPerPixel : Nat) : Nat := h * (1 + w * bytesPerPixel)
@@ -203,6 +238,9 @@ def cases : Array Case :=
     { name := "png: image data too short for its header is refused before allocating",
       kind := "png", bytes := pure (pngWith 8192 8191 8 6 (zerosZlib 1000)),
       expect := "error invalid image data", maxRss := baseRss },
+    { name := "png: 300000 empty text chunks are held to the text budget", kind := "png",
+      bytes := pure (pngManyTexts 300000), expect := s!"ok 1x1 1 text {maxTextEntries}",
+      maxRss := baseRss + 300000 * 14 + 4 * (1 <<< 22) },
     { name := "zlib: a bomb over the cap is refused without its output", kind := "zlib",
       bytes := pure (zerosZlib (zlibCap + 1)), expect := "error decompressed data exceeds",
       maxRss := baseRss + (8 <<< 20) },
@@ -212,6 +250,10 @@ def cases : Array Case :=
     { name := "gif: a 4096 x 4096 frame from 11 KB of LZW", kind := "gif",
       bytes := IO.FS.readBinFile ("PILeanTest" / "png" / "lzw-zeros-4096.gif"),
       expect := "ok 4096x4096", maxRss := baseRss + 4096 * 4096 * (4 * 3 + 1) },
+    { name := "apng: 64 frames of 1024 x 1024 fill the byte cap; the 65th is refused",
+      kind := "apng", bytes := pure (apngZeros 1024 1024 65),
+      expect := "error PILean.Anim.AnimError.tooLarge \"composed frames\"",
+      maxRss := baseRss + (1 <<< 28) + 8 * (1024 * 1024 * 4) },
     { name := "graph: edges spanning thousands of layers get no dummy nodes beyond the cap",
       kind := "graph", bytes := pure .empty, argv := some #["graph", "fan", "3000"],
       expect := "ok 3000 nodes", maxRss := 128 <<< 20, maxUserMs := 10000 },
@@ -224,12 +266,43 @@ def cases : Array Case :=
     { name := "graph: 10000 nodes with ten self-loops each", kind := "graph",
       bytes := pure .empty, argv := some #["graph", "loops", "10000"],
       expect := "ok 10000 nodes", maxRss := 384 <<< 20, maxUserMs := 10000 },
+    { name := "graph: 5000 orthogonal routes sideways in one gap (tracks placed pairwise)",
+      kind := "graph", bytes := pure .empty, argv := some #["graph", "star", "5000", "orthogonal"],
+      expect := "ok 5001 nodes", maxRss := 256 <<< 20, maxUserMs := 20000 },
     { name := "graph: 20000 nodes, 40000 random edges", kind := "graph", bytes := pure .empty,
       argv := some #["graph", "sparse", "20000"], expect := "ok 20000 nodes",
       maxRss := 512 <<< 20, maxUserMs := 40000 }]
 
+/-- Whether a run of a case passed: it exited with status 0 and the expected answer, and its peak
+memory and CPU time were both measured and within the case's bounds. A measurement that is
+missing fails the case: a bound that was not checked is not a bound that held. -/
+def withinBounds (c : Case) (run : Run) : Bool :=
+  run.status == some 0 && run.out.startsWith c.expect &&
+    (run.rss.map (fun m => decide (m ≤ c.maxRss))).getD false &&
+    (run.userMs.map (fun t => decide (t ≤ c.maxUserMs))).getD false
+
+/-- Checks of `withinBounds` and of the parsers of `/usr/bin/time` on made-up runs: a run with
+either measurement missing, or with an empty time report, fails. -/
+def verdictChecks : Array (String × Bool) :=
+  let c : Case :=
+    { name := "x", kind := "png", bytes := pure .empty, expect := "ok", maxRss := 100,
+      maxUserMs := 100 }
+  let good : Run := { status := some 0, out := "ok 1x1", rss := some 50, userMs := some 50 }
+  let mac := "  0.10 real  0.05 user  0.01 sys\n  52428800  maximum resident set size\n"
+  #[("bounds: a run within both measured bounds passes", withinBounds c good),
+    ("bounds: a run without a memory measurement fails",
+      !withinBounds c { good with rss := none }),
+    ("bounds: a run without a CPU time fails", !withinBounds c { good with userMs := none }),
+    ("bounds: a run over either bound fails",
+      !withinBounds c { good with rss := some 101 } &&
+        !withinBounds c { good with userMs := some 101 }),
+    ("bounds: an empty time report gives no measurement",
+      timeField "" "maximum resident set size" true == none && userTime "" == none),
+    ("bounds: a macOS time report is read",
+      timeField mac "maximum resident set size" true == some 52428800 && userTime mac == some 50)]
+
 /-- Runs every case; each check says the child finished in time with the expected answer and
-within its memory bound. -/
+within its memory and CPU bounds, both of them measured. -/
 def ioChecks : IO (Array (String × Bool)) := do
   let scratch ← IO.FS.createTempDir
   let mut r : Array (String × Bool) := #[]
@@ -245,12 +318,9 @@ def ioChecks : IO (Array (String × Bool)) := do
         | none => "memory not measured"
       let cpu := match run.userMs with | some t => s!"{t} ms" | none => "?"
       IO.println s!"bounds: {c.name}: {run.out}; {mem}; user {cpu}"
-      let ok := run.status == some 0 && run.out.startsWith c.expect &&
-        (run.rss.map (fun m => decide (m ≤ c.maxRss))).getD true &&
-        (run.userMs.map (fun t => decide (t ≤ c.maxUserMs))).getD true
-      r := r.push (s!"bounds: {c.name}", ok)
+      r := r.push (s!"bounds: {c.name}", withinBounds c run)
   finally
     IO.FS.removeDirAll scratch
-  return r
+  return verdictChecks ++ r
 
 end PILeanTest.Bounds

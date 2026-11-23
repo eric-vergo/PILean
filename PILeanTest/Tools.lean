@@ -80,7 +80,7 @@ def ioChecks : IO (Array (String × Bool)) := do
       made && info.status == some 1 && (info.err.splitOn "not a regular file").length > 1)
     let zero ← tool "pilean-info" #["/dev/zero"] scratch
     r := r.push ("info: a device is refused without reading", zero.status == some 1 &&
-      (zero.rss.map (fun m => decide (m < 64 <<< 20))).getD true)
+      (zero.rss.map (fun m => decide (m < 64 <<< 20))).getD false)
     -- text that would forge or hide output
     let src : Source :=
       { module := "M", decl := "d\u202Eevil\u2066x\u200B\uFEFF", file := "F.lean", line := 1,

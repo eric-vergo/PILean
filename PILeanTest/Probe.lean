@@ -9,8 +9,9 @@ import PILean
 
 `pilean-probe png|gif|apng|zlib FILE` decodes the file with the reader's default limits (zlib:
 an output cap of 256 MiB) and prints `ok` with the size of what was decoded, or `error` with the
-reason. The test driver runs it on hostile inputs under limits (`PILeanTest.Bounds`); it imports
-only the library, so what it costs is what the reader costs.
+reason; `pilean-probe graph KIND N` lays out a generated graph. The test driver runs it on
+hostile inputs under limits (`PILeanTest.Bounds`); it imports only the library, so what it
+costs is what the reader costs.
 -/
 
 open PILean
@@ -18,6 +19,7 @@ open PILean
 /-- A hostile graph of the given kind and size: `fan` (a chain with an edge from its first node
 to every other, so edges span up to `n` layers), `dense` (every pair `i < j`), `loops` (`n` nodes
 with ten self-loops each), `multi` (`n` parallel edges and `n` reversed ones between two nodes),
+`star` (an edge from one node to each of `n` others, all in one gap between two layers),
 `sparse` (`n` nodes, `2 n` pseudo-random edges). -/
 def hostileGraph (kind : String) (n : Nat) : Graph := Id.run do
   let mut es : Array (Nat × Nat) := #[]
@@ -32,6 +34,8 @@ def hostileGraph (kind : String) (n : Nat) : Graph := Id.run do
       for _ in [0:10] do es := es.push (i, i)
   | "multi" =>
     for _ in [0:n] do es := es.push (0, 1) |>.push (1, 0)
+  | "star" =>
+    for i in [1:n + 1] do es := es.push (0, i)
   | _ =>
     let mut s : Nat := 12345
     for _ in [0:2 * n] do
@@ -44,12 +48,15 @@ def hostileGraph (kind : String) (n : Nat) : Graph := Id.run do
   return if g.nodes.size < n then { g with nodes := g.nodes ++
     (Array.replicate (n - g.nodes.size) ({ label := "x" } : Graph.Node)) } else g
 
-/-- Decodes the file named by the second argument as the first says, or with `graph KIND N`
-lays out and draws a hostile graph (`hostileGraph`) and prints its size. -/
+/-- Decodes the file named by the second argument as the first says (a PNG's line also gives
+the number of text entries it returned), or with `graph KIND N` lays out and draws a hostile
+graph (`hostileGraph`) and prints its size; `graph KIND N SWEEPS WORK` sets two of the layout's
+budgets, `graph KIND N orthogonal` routes the edges orthogonally. -/
 def main (args : List String) : IO UInt32 := do
   if let "graph" :: kind :: n :: rest := args then
     let g := hostileGraph kind n.toNat!
     let o : Graph.LayeredOptions := match rest with
+      | ["orthogonal"] => { routing := .orthogonal }
       | [sw, cw] => { sweeps := sw.toNat!, coordinateWork := cw.toNat! }
       | _ => {}
     let l := Graph.layout g o
@@ -63,7 +70,7 @@ def main (args : List String) : IO UInt32 := do
   let bytes ← IO.FS.readBinFile file
   let line := match kind with
     | "png" => match Png.decode bytes with
-      | .ok d => s!"ok {d.image.width}x{d.image.height} {d.image.data.size}"
+      | .ok d => s!"ok {d.image.width}x{d.image.height} {d.image.data.size} text {d.text.size}"
       | .error e => s!"error {e}"
     | "gif" => match Anim.readGif bytes with
       | .ok s => s!"ok {s.width}x{s.height} frames {s.frames.size}"
