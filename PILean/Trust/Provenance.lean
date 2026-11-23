@@ -5,20 +5,24 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILean.Svg
 import PILean.Png
 import PILean.Version
+import PILean.Pdf.Read
+import PILean.Pdf.Object
+import PILean.Trust.Sha256
 
 /-!
 # Source information in images
 
 A `Source` says which Lean declaration, in which file and line, made an image. It is written into
-SVG, PNG, APNG and GIF files and read back; `docs/TRUST.md` describes the vocabulary.
+SVG, PNG, APNG, GIF and PDF files and read back; `docs/TRUST.md` describes the vocabulary.
 
 ## Main definitions
 
 * `Trust.Source`: the record; `Trust.Source.validate` says whether it can be written.
 * `Trust.Source.svgNodes`, `Trust.withSourceSvg`: the `<title>`, `<desc>` and `<metadata>`
   elements, as nodes and as text inserted into a document.
-* `Trust.withSourcePng`, `Trust.withSourceGif`, `Trust.withSource`: the source inserted into
-  finished PNG, APNG and GIF files, so every writer gets it without change.
+* `Trust.withSourcePng`, `Trust.withSourceGif`, `Trust.withSourcePdf`, `Trust.withSource`: the
+  source inserted into finished PNG, APNG, GIF and PDF files, so every writer gets it without
+  change.
 * `Trust.Source.read?`: reads the record back from any of the formats.
 * `Trust.safeLink?`, `Trust.escapeControl`, `Trust.infoLines`: how a reader shows what it read.
 
@@ -38,11 +42,19 @@ SVG, PNG, APNG and GIF files and read back; `docs/TRUST.md` describes the vocabu
 * GIF: one comment extension after the global colour table whose text is the line
   `PILean source 1` and then one `key=value` line a field, in UTF-8, in sub-blocks of at most
   255 bytes.
+* PDF: the document information dictionary, added by an incremental update (a new object, a
+  cross-reference section for it and a trailer with `/Info` and `/Prev`), so the bytes of the
+  file before it are kept. One key per field, `/PILean:` followed by the key, its value a text
+  string (UTF-16BE with its byte order mark, as a hexadecimal string), with `/Title` (the
+  declaration) and `/Producer` beside them. The reader follows the newest trailer's `/Info`
+  through the cross-reference table with the bounded reader of `PILean.Pdf.Read`.
 
 ## References
 
 * PNG Specification, Third Edition (W3C), section "Textual information" (`iTXt`).
 * Graphics Interchange Format, Version 89a (CompuServe, 1990), "Comment Extension".
+* ISO 32000-1:2008 (PDF 1.7), 7.5.6 "Incremental updates", 14.3.3 "Document information
+  dictionary", 7.9.2.2 "Text string type".
 * Scalable Vector Graphics (SVG) 1.1, `title`, `desc` and `metadata`; Extensible Markup Language
   (XML) 1.0, character and entity references.
 -/
@@ -526,16 +538,75 @@ def withSourceGif (d : ByteArray) (s : Source) : Except String ByteArray := do
   if (← gifFields d).isSome then throw "the GIF file already has a source"
   return d.extract 0 start ++ commentExtension (← s.gifText) ++ d.extract start d.size
 
+/-! ### PDF -/
+
+/-- The prefix of the keys of the information dictionary's source fields. -/
+def pdfPrefix : String := "PILean:"
+
+/-- The source fields of a PDF file's information dictionary (the newest trailer's `/Info`, keys
+`/PILean:…`); none if the file has no information dictionary or no such key. Fails if the file is
+not a PDF file with a classic cross-reference table that the bounded reader can read
+(`Pdf.readXref`), or a source value is not a text string (`Pdf.textString?`). -/
+def pdfFields (d : ByteArray) : Except String (Option (Array (String × String))) := do
+  let x ← Pdf.readXref {} d
+  match ← Pdf.infoDict? {} d x with
+  | some (.dict kvs) =>
+    let ours := kvs.filter (·.1.startsWith pdfPrefix)
+    if ours.isEmpty then return none
+    let mut out : Array (String × String) := #[]
+    for (k, v) in ours do
+      let .str b := v | throw s!"the value of {k} is not a string"
+      if b.size > 2 * maxField + 2 then throw s!"the value of {k} is too long"
+      let some t := Pdf.textString? b | throw s!"the value of {k} is not a text string"
+      out := out.push ((k.drop pdfPrefix.length).toString, t)
+    return some out
+  | _ => return none
+
+/-- The information dictionary of a source: `/Title` (the declaration), `/Producer` (PILean and
+its version) and one `/PILean:key` per field, each a text string. -/
+def Source.pdfInfo (s : Source) : Pdf.Obj :=
+  .dict (#[("Title", .str (Pdf.utf16Text s.decl)),
+    ("Producer", .str (Pdf.utf16Text s!"PILean {s.version}"))] ++
+    s.fields.map fun (k, v) => (pdfPrefix ++ k, .str (Pdf.utf16Text v)))
+
+/-- The PDF file `d` with the source as its information dictionary, added by an incremental
+update: the object (numbered `/Size`), a cross-reference section with it, and a trailer with
+`/Size`, `/Root`, `/Info`, `/Prev` and `/ID` (the first string kept; the second the first 16
+bytes of the SHA-256 of the file and the object). Fails if the file cannot be read by the bounded
+reader, its trailer has no `/Size` or `/Root`, or it already has a source. -/
+def withSourcePdf (d : ByteArray) (s : Source) : Except String ByteArray := do
+  s.validate
+  let x ← Pdf.readXref {} d
+  if (← pdfFields d).isSome then throw "the PDF file already has a source"
+  let some n := (x.trailer.get? "Size").bind Pdf.Value.nat? | throw "the trailer has no /Size"
+  let some (.ref r g) := x.trailer.get? "Root" | throw "the trailer has no /Root"
+  let some prev := x.sections[0]? | throw "no cross-reference section"
+  let body := d ++ (if Png.byteAt d (d.size - 1) == 10 then .empty else "\n".toUTF8)
+  let off := body.size
+  let obj := s!"{n} 0 obj\n{s.pdfInfo.write}\nendobj\n".toUTF8
+  let first := match x.trailer.get? "ID" with
+    | some (.arr #[.str a, _]) => a
+    | _ => (Sha256.hash d).extract 0 16
+  let second := (Sha256.hash (body ++ obj)).extract 0 16
+  let xref := off + obj.size
+  let tail := s!"xref\n{n} 1\n{Pdf.pad10 off} 00000 n \ntrailer\n<< /Size {n + 1} /Root {r} {g} R \
+    /Info {n} 0 R /Prev {prev} /ID [{Pdf.hexString first} {Pdf.hexString second}] >>\n\
+    startxref\n{xref}\n%%EOF\n"
+  return body ++ obj ++ tail.toUTF8
+
 /-! ### Dispatch -/
 
-/-- Whether `d` is a PNG, a GIF, or (anything else with `<svg`) an SVG document; none otherwise. -/
+/-- Whether `d` is a PNG, a GIF, a PDF (`%PDF-` first), or (anything else with `<svg`) an SVG
+document; none otherwise. -/
 def Source.format? (d : ByteArray) : Option String :=
   if d.extract 0 8 == Png.pngSignature then some "png"
   else if d.extract 0 4 == "GIF8".toUTF8 then some "gif"
+  else if d.extract 0 5 == "%PDF-".toUTF8 then some "pdf"
   else if (findBytes d "<svg".toUTF8).isSome then some "svg" else none
 
 /-- The source of an image file, found by its signature: PNG and APNG (`iTXt`), GIF (comment),
-or SVG (UTF-8 text with an `<svg` tag and a `pilean:source` element). Fails with a message if
+PDF (information dictionary), or SVG (UTF-8 text with an `<svg` tag and a `pilean:source`
+element). Fails with a message if
 the input is above `maxInput` bytes, is not one of these formats, is damaged where the source
 should be, has no source, or the source is invalid (see `Source.ofFields`). Never runs or follows
 anything it reads. -/
@@ -550,24 +621,30 @@ def Source.read? (d : ByteArray) : Except String Source := do
     match ← gifFields d with
     | some kvs => Source.ofFields kvs
     | none => throw "the GIF file has no PILean source comment"
+  | some "pdf" =>
+    match ← pdfFields d with
+    | some kvs => Source.ofFields kvs
+    | none => throw "the PDF file has no PILean source in its information dictionary"
   | some _ =>
     if !ByteArray.validateUTF8 d then throw "the SVG file is not valid UTF-8"
     match ← svgFields d with
     | some kvs => Source.ofFields kvs
     | none => throw "the SVG file has no pilean:source element"
-  | none => throw "not a PNG, GIF or SVG file"
+  | none => throw "not a PNG, GIF, PDF or SVG file"
 
-/-- The source inserted into an image file of any of the formats (PNG and APNG, GIF, SVG as UTF-8
-text), found by its signature; see `withSourcePng`, `withSourceGif` and `withSourceSvg`. -/
+/-- The source inserted into an image file of any of the formats (PNG and APNG, GIF, PDF, SVG as
+UTF-8 text), found by its signature; see `withSourcePng`, `withSourceGif`, `withSourcePdf` and
+`withSourceSvg`. -/
 def withSource (d : ByteArray) (s : Source) : Except String ByteArray :=
   match Source.format? d with
   | some "png" => withSourcePng d s
   | some "gif" => withSourceGif d s
+  | some "pdf" => withSourcePdf d s
   | some _ =>
     match String.fromUTF8? d with
     | some t => (withSourceSvg t s).map String.toUTF8
     | none => .error "the SVG file is not valid UTF-8"
-  | none => .error "not a PNG, GIF or SVG file"
+  | none => .error "not a PNG, GIF, PDF or SVG file"
 
 /-! ### Showing -/
 

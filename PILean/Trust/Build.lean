@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Trust.Manifest
 import PILean.Trust.Files
+import PILean.Pdf.Check
 
 /-!
 # `pilean-build`
@@ -60,8 +61,9 @@ deriving Inhabited
 fingerprint of the output's specification) inserted, and the manifest entry. Fails for an SVG
 output with text the built-in lettering cannot draw (`Lettering.missing`), since the figure's
 PNG, APNG or GIF would show a box for each such character; if the finished file is larger than
-`maxOutputBytes`; and if its bytes are not of the output's format (`detectedFormat?`), so that
-every file of a build is one `pilean-verify` accepts. -/
+`maxOutputBytes`; if its bytes are not of the output's format (`detectedFormat?`), so that
+every file of a build is one `pilean-verify` accepts; and, for a PDF, if the finished file fails
+the structural check (`Pdf.check`). -/
 def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     Except String BuiltFile := do
   let path ← outputPath e.toSourceData o
@@ -80,6 +82,8 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     throw s!"{path}: the file with its source record is larger than {maxOutputBytes} bytes"
   if detectedFormat? bytes != some o.format.name then
     throw s!"{path}: the bytes are not a file of the format {o.format.name}"
+  if o.format == .pdf then
+    if let .error err := Pdf.check bytes then throw s!"{path}: the PDF is malformed: {err}"
   let m : ManifestEntry := {
     path, format := o.format.name, bytes := bytes.size, sha256 := Sha256.hex (Sha256.hash bytes),
     fingerprint := (src.fingerprint.getD ""), module := e.module, decl := e.decl, file := e.file,

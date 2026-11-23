@@ -8,6 +8,7 @@ import PILean.Explorer
 import PILean.Graph.Draw
 import PILean.Anim.Animation
 import PILean.Diagram.Basic
+import PILean.Pdf.Figures
 
 /-!
 # Renderable figures
@@ -19,7 +20,8 @@ a fingerprint covers (see `docs/TRUST.md`).
 The specification of an output is the SVG document PILean's deterministic writer makes from the
 drawing, before any source information is added: for a figure, a graph and an animation the SVG
 output, the animation's APNG and GIF (the SVG of all frames) and its poster (the SVG of the poster
-frame); for a PNG the SVG with text as shapes, which is the drawing the PNG is rasterised from.
+frame); for a PNG and a PDF the SVG with text as shapes, which is the drawing the PNG is rasterised from
+and the PDF is written from.
 It covers the values a function takes where the figure samples it, not the function's code.
 
 ## Main definitions
@@ -43,14 +45,17 @@ inductive Format where
   | apng
   /-- A GIF animation. -/
   | gif
+  /-- A one-page PDF document (`PILean.Pdf`). -/
+  | pdf
 deriving BEq, Repr, Inhabited
 
-/-- The format's name, as written in a manifest: `svg`, `png`, `apng` or `gif`. -/
+/-- The format's name, as written in a manifest: `svg`, `png`, `apng`, `gif` or `pdf`. -/
 def Format.name : Format → String
   | .svg => "svg"
   | .png => "png"
   | .apng => "apng"
   | .gif => "gif"
+  | .pdf => "pdf"
 
 /-- The extension of the files of a format (without the dot): an animated PNG is a `png` file. -/
 def Format.ext : Format → String
@@ -58,6 +63,7 @@ def Format.ext : Format → String
   | .png => "png"
   | .apng => "png"
   | .gif => "gif"
+  | .pdf => "pdf"
 
 /-- The format with a given name, if there is one. -/
 def Format.ofName? : String → Option Format
@@ -65,6 +71,7 @@ def Format.ofName? : String → Option Format
   | "png" => some .png
   | "apng" => some .apng
   | "gif" => some .gif
+  | "pdf" => some .pdf
   | _ => none
 
 /-- How a figure stands with respect to the object it shows. A figure is `proved` when at least
@@ -202,8 +209,8 @@ def checkedBytes (fail : Bool) (problems : Unit → Array String)
   if ps.isEmpty then bytes () else .error ("problems: " ++ "; ".intercalate ps.toList)
 
 /-- Figures: the SVG (with the problems of its checks, `PILean.Plot.Check`, which the figure's
-`checks` level reports as warnings) and the PNG when the figure has pixels. A figure whose
-`checks` level is `fail` and that has such problems cannot be rendered. -/
+`checks` level reports as warnings), the PNG when the figure has pixels, and the PDF. A figure
+whose `checks` level is `fail` and that has such problems cannot be rendered. -/
 instance : ToOutputs Plot.Figure where
   outputs fig :=
     let ok := checkedBytes (fig.checks == .fail) fun _ => fig.checkMessages
@@ -217,6 +224,8 @@ instance : ToOutputs Plot.Figure where
         bytes := fun _ => ok fun _ => match fig.toPng with
           | some b => .ok b
           | none => .error "the figure has no pixels",
+        spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id },
+      { name := "", format := .pdf, bytes := fun _ => ok fun _ => .ok fig.toPdf,
         spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
 
 /-- The bytes of a plane figure's output, or the figure's layout problems as an error when its
@@ -225,9 +234,10 @@ def planeBytes (fig : Plane.Figure) (bytes : Unit → Except String ByteArray) :
     Except String ByteArray :=
   checkedBytes (fig.checks == .fail) (fun _ => fig.checkMessages) bytes
 
-/-- The SVG and PNG outputs of one plane figure, named with `suffix`; the SVG carries the
-figure's layout warnings when `warn`. -/
-def planeOutputs (fig : Plane.Figure) (suffix : String) (warn : Bool) : Array Output :=
+/-- The SVG and PNG outputs of one plane figure, named with `suffix`, and its PDF when `pdf`;
+the SVG carries the figure's layout warnings when `warn`. -/
+def planeOutputs (fig : Plane.Figure) (suffix : String) (warn : Bool) (pdf : Bool := true) :
+    Array Output :=
   let g := fig.autoPlaced
   #[{ name := suffix, format := .svg,
       bytes := fun _ => planeBytes fig fun _ => .ok fig.toSvg.toUTF8,
@@ -240,15 +250,20 @@ def planeOutputs (fig : Plane.Figure) (suffix : String) (warn : Bool) : Array Ou
       bytes := fun _ => planeBytes fig fun _ => match fig.toPng with
         | some b => .ok b
         | none => .error "the figure has no pixels",
-      spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
+      spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }] ++
+    if pdf then
+      #[{ name := suffix, format := .pdf, bytes := fun _ => planeBytes fig fun _ => .ok fig.toPdf,
+          spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
+    else #[]
 
 /-- Plane figures: the SVG (with the layout problems the figure's `checks` level reports as
-warnings) and the PNG, and the same at the narrow width (suffix `-narrow`) when the figure has
-one. A figure whose `checks` level is `fail` and that has layout problems cannot be rendered. -/
+warnings), the PNG and the PDF, and the SVG and PNG at the narrow width (suffix `-narrow`) when the
+figure has one (a rendition for small screens, which a paper does not need). A figure whose
+`checks` level is `fail` and that has layout problems cannot be rendered. -/
 instance : ToOutputs Plane.Figure where
   outputs fig :=
     planeOutputs fig "" true ++ match fig.narrow with
-      | some n => planeOutputs n "-narrow" true
+      | some n => planeOutputs n "-narrow" true (pdf := false)
       | none => #[]
 
 /-- An explorer frame for a page. -/
@@ -256,7 +271,7 @@ def _root_.PILean.ExplorerFrame.inline (f : ExplorerFrame) : InlineSvg :=
   InlineSvg.ofStyle f.width f.height f.svgNodes f.style
 
 /-- Families of frames: the poster's SVG (carrying every frame for a page that shows them
-inline, and the frames' problems as warnings, `Explorer.problems`) and PNG, then each frame `k`
+inline, and the frames' problems as warnings, `Explorer.problems`), PNG and PDF, then each frame `k`
 as an SVG of its own named `-frame-k` (`k` from 0, in the order of `Explorer.frames`), so that
 every picture a page shows inline is a file with its fingerprint and its manifest entry. An
 explorer that is not well formed (`Explorer.valid`) cannot be rendered, nor one with a frame whose
@@ -285,11 +300,13 @@ instance : ToOutputs Explorer where
         bytes := fun _ => ok fun _ => match p.toPng with
           | some b => .ok b
           | none => .error "the poster has no pixels",
+        spec := (p.toSvg (outlines := true)).toUTF8, textEngine := p.style.text.id },
+      { name := "", format := .pdf, bytes := fun _ => ok fun _ => .ok p.toPdf,
         spec := (p.toSvg (outlines := true)).toUTF8, textEngine := p.style.text.id }] ++
       frameOutputs
 
-/-- Diagrams: the outputs of their plane figure (`Diagram.toPlane`), so the SVG and PNG, and at a
-narrow width the same with the suffix `-narrow`. -/
+/-- Diagrams: the outputs of their plane figure (`Diagram.toPlane`), so the SVG, PNG and PDF, and
+at a narrow width the SVG and PNG with the suffix `-narrow`. -/
 instance : ToOutputs Diagram.Diagram where
   outputs d := ToOutputs.outputs d.toPlane
 
@@ -304,7 +321,8 @@ structure GraphFigure where
   /-- The scale of the PNG relative to the SVG. -/
   scale : Float := 1
 
-/-- A graph with the layout and style of the default `GraphFigure`: the SVG and the PNG. -/
+/-- A graph with the layout and style of the default `GraphFigure`: the SVG, the PNG and the
+PDF. -/
 instance : ToOutputs GraphFigure where
   outputs f :=
     let g := f.graph
@@ -315,6 +333,9 @@ instance : ToOutputs GraphFigure where
           | .ok b => .ok b
           | .error e => .error (toString e),
         spec := (g.toSvg f.options f.style (outlines := true)).toUTF8,
+        textEngine := f.style.text.id },
+      { name := "", format := .pdf, bytes := fun _ => .ok (g.toPdf f.options f.style),
+        spec := (g.toSvg f.options f.style (outlines := true)).toUTF8,
         textEngine := f.style.text.id }]
 
 /-- A graph is rendered with the default layered layout and light style, scale 1. -/
@@ -322,7 +343,7 @@ instance : ToOutputs Graph where
   outputs g := ToOutputs.outputs ({ graph := g } : GraphFigure)
 
 /-- Animations: the animated SVG (with the animation's problems as warnings), the APNG, the GIF
-and the poster frame (a PNG with the suffix `-poster`). An animation whose problems stop it
+and the poster frame (a PNG and a PDF with the suffix `-poster`). An animation whose problems stop it
 (`Animation.problemsFail`) cannot be rendered. -/
 instance : ToOutputs Animation where
   outputs a :=
@@ -338,6 +359,8 @@ instance : ToOutputs Animation where
       { name := "", format := .gif, bytes := fun _ => ok fun _ => toErr a.toGif, spec := svg,
         textEngine := t },
       { name := "-poster", format := .png, bytes := fun _ => ok fun _ => toErr a.posterPng,
+        spec := a.posterSvg.toUTF8, textEngine := t },
+      { name := "-poster", format := .pdf, bytes := fun _ => ok fun _ => .ok a.posterPdf,
         spec := a.posterSvg.toUTF8, textEngine := t }]
 
 end PILean.Trust

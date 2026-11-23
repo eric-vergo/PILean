@@ -51,9 +51,9 @@ def pngAnimated? (d : ByteArray) : Option Bool := Id.run do
     pos := pos + 12 + len
   return none
 
-/-- The manifest's name for the format of the bytes `d`, read from them: `svg`, `gif`, `png`, or
-`apng` for a PNG file with an `acTL` chunk before its image data (`Source.format?` tells the
-signatures apart; `pngAnimated?` the two kinds of PNG). None if it is none of these. -/
+/-- The manifest's name for the format of the bytes `d`, read from them: `svg`, `gif`, `pdf`,
+`png`, or `apng` for a PNG file with an `acTL` chunk before its image data (`Source.format?` tells
+the signatures apart; `pngAnimated?` the two kinds of PNG). None if it is none of these. -/
 def detectedFormat? (d : ByteArray) : Option String :=
   match Source.format? d with
   | some "png" => (pngAnimated? d).map fun a => if a then "apng" else "png"
@@ -63,7 +63,7 @@ def detectedFormat? (d : ByteArray) : Option String :=
 structure ManifestEntry where
   /-- The path relative to the output directory, with `/` as separator. -/
   path : String
-  /-- The format: `svg`, `png`, `apng` or `gif`. -/
+  /-- The format: `svg`, `png`, `apng`, `gif` or `pdf`. -/
   format : String
   /-- The size of the file in bytes. -/
   bytes : Nat
@@ -151,7 +151,7 @@ def Manifest.render (es : Array ManifestEntry) : String :=
 
 /-- The entry a JSON object describes; every key but `repo`, `commit`, the colour pairs,
 `standing` and `proves` must be there with a string or a number as its kind, the hashes in the
-form of `isFingerprint`, the format one of `svg`, `png`, `apng`, `gif`, the path `safePath`, and
+form of `isFingerprint`, the format one of `svg`, `png`, `apng`, `gif`, `pdf`, the path `safePath`, and
 the standing with its theorems well formed (`standingOk`). -/
 def ManifestEntry.ofJson (j : Json) : Except String ManifestEntry := do
   let str := fun (k : String) => do

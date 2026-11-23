@@ -9,6 +9,11 @@ import PILean.Sort
 import PILean.Svg
 import PILean.Svg.Inert
 import PILean.Png
+import PILean.Pdf.Object
+import PILean.Pdf.Write
+import PILean.Pdf.Read
+import PILean.Pdf.Check
+import PILean.Pdf.Figures
 import PILean.Anim
 import PILean.Text.Engine
 import PILean.Style

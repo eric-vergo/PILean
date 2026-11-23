@@ -33,6 +33,7 @@ import PILeanTest.Diagrams
 import PILeanTest.AlgebraDiagrams
 import PILeanTest.NumberDiagrams
 import PILeanTest.Standing
+import PILeanTest.Pdf
 
 /-!
 # The test driver
@@ -42,7 +43,7 @@ import PILeanTest.Standing
 `PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.GraphRoutes`, `PILeanTest.Trust`,
 `PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`,
 `PILeanTest.Diagrams`, `PILeanTest.AlgebraDiagrams`, `PILeanTest.NumberDiagrams`,
-`PILeanTest.Standing`), the
+`PILeanTest.Standing`, `PILeanTest.Pdf`), the
 changes to the figures that their specifications must catch (`PILeanTest.SpecMutations`), and
 compares every gallery figure's SVG and PNG, every gallery plane figure's (the diagrams' among
 them) and graph's SVG and
@@ -50,7 +51,8 @@ PNG, and every gallery animation's SVG, APNG, GIF and poster, with its files in 
 goldens), byte for byte; it also renders each figure twice to check that the output is
 deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
-`tools/compare-render.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the graph
+`tools/compare-render.py`; `--pdf-out DIR` writes every gallery PDF with a PNG of the same
+picture for `tools/pdf-compare.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the graph
 layout and its output on module graphs of 100, 800 and 3000 nodes;
 `--graph-compare-out DIR` writes the files of `tools/graph-compare.py`;
 `--bundle-measures [NAME…]` prints the measures of the spline and bundled routes of the measured
@@ -84,6 +86,8 @@ def main (args : List String) : IO UInt32 := do
   | ["--anim-out", dir] => AnimFiles.writeSamples dir; return 0
   | "--anim-out" :: _ => IO.eprintln "usage: --anim-out DIR"; return 1
   | ["--compare-out", dir] => Raster.writeCompare dir; return 0
+  | ["--pdf-out", dir] => PdfChecks.writeCompare dir; return 0
+  | "--pdf-out" :: _ => IO.eprintln "usage: --pdf-out DIR"; return 1
   | ["--specimen-out", dir] => Lettering.writeSpecimen dir; return 0
   | "--specimen-out" :: _ => IO.eprintln "usage: --specimen-out DIR"; return 1
   | ["--bench"] => Raster.bench; return 0
@@ -137,7 +141,8 @@ def main (args : List String) : IO UInt32 := do
     PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
     (← SpecMutations.ioChecks) ++ Axioms.coverageChecks driverModules ++ Diagrams.checks ++ AlgebraDiagrams.checks ++
     NumberDiagrams.checks ++
-    Standing.checks ++ (← Standing.ioChecks)
+    Standing.checks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++
+    (← PdfChecks.goldenChecks (args == ["--update"]))
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"
