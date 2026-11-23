@@ -17,7 +17,8 @@ says over ℝ what the bound means (`CertifiedPlot.Certifies`: the polyline is v
 
 ## Main definitions
 
-* `CertifiedPlot`, `CertifiedPlot.series`, `CertifiedPlot.title`, `CertifiedPlot.figure`.
+* `CertifiedPlot`, `CertifiedPlot.series`, `CertifiedPlot.title`, `CertifiedPlot.figure`,
+  `CertifiedPlot.ratText`.
 * `polySum`: `∑ k < n, c k * x ^ k` on the rational numbers, the shape of the approximants.
 -/
 
@@ -47,9 +48,13 @@ namespace CertifiedPlot
 /-- The curve: the line through the exact samples of the approximant. -/
 def series (c : CertifiedPlot) : Series := .ofExact c.curve c.approx c.lo c.hi c.steps
 
+/-- A rational number as a title writes it: `p/q`, with the minus sign `−`. -/
+def ratText (q : Rat) : String := if q < 0 then "−" ++ toString (-q) else toString q
+
 /-- The title: the function, the interval, the number of samples and the bound. -/
 def title (c : CertifiedPlot) : String :=
-  s!"{c.name} on [{c.lo}, {c.hi}] from {c.steps + 1} exact samples, within {c.delta} of the graph"
+  s!"{c.name} on [{ratText c.lo}, {ratText c.hi}] from {c.steps + 1} exact samples, within \
+    {ratText c.delta} of the graph"
 
 /-- The figure: one panel with the curve, the axes named `x` and `y`. -/
 def figure (c : CertifiedPlot) : Figure where

@@ -4,6 +4,10 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanMathlib.Axioms
 import PILeanMathlib.Category
+import PILeanMathlib.CertifiedPlot
+import PILeanMathlib.CertifiedPlotBound
+import PILeanMathlib.Examples.Real
+import PILeanMathlib.Examples.RealFigures
 import PILeanMathlib.Group
 import PILeanMathlib.Examples.Algebra
 import PILeanMathlib.Examples.AlgebraFigures
@@ -30,6 +34,11 @@ import PILeanMathlib.Polyline
   it approximates.
 * `PILeanMathlib.Examples.SineFigure`, `PILeanMathlib.Examples.Sine`: a figure of the sine and the
   theorem about it.
+* `PILeanMathlib.CertifiedPlot`, `PILeanMathlib.CertifiedPlotBound`: certified plots of real
+  functions as a kind (an exact approximant, an interval, a number of steps and a bound) and how
+  to prove the bound (Taylor's theorem, the arctangent's series, checked squares).
+* `PILeanMathlib.Examples.RealFigures`, `PILeanMathlib.Examples.Real`: the exponential, the cosine,
+  the logarithm, the arctangent and the square root, each with its bound proved.
 * `PILeanMathlib.Combinatorics`: Mathlib's simple graphs, digraphs, partial orders, Young
   diagrams, semistandard tableaux, permutations, Dyck words and finsets bound to PILean's
   combinatorial diagrams, with theorems that the drawn parts are those objects.

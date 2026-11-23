@@ -20,6 +20,10 @@ the theorems do not cover:
   on the page;
 * **pixels**: one unit of the ordinate is 143.5 pixels at the gallery size, the number the
   documents use to state the bound in pixels;
+* **certified plots**: the points of the plots of the exponential, the cosine, the logarithm, the
+  arctangent and the square root are as many as the grid's, within `1e-6` of the platform's
+  function, their midpoints within the proved bound of it, and each bound under a quarter of a
+  pixel at the gallery size;
 * **the pin**: `lakefile.lean` and `lake-manifest.json` name the same Mathlib revision;
 * **the diagrams**: the combinatorial figures, those of algebra and those of number theory pass
   the layout checks of plane figures in both themes;
@@ -32,7 +36,7 @@ the theorems do not cover:
 None of these is a theorem.
 -/
 
-open PILean PILean.Plot PILeanMathlib.Examples
+open PILean PILean.Plot PILeanMathlib PILeanMathlib.Examples
 
 namespace PILeanMathlibTest
 
@@ -56,6 +60,33 @@ def floatChecks : Array (String × Bool) :=
       | none => false),
     ("pixels: one unit of the ordinate is 143.5 pixels, so 1/2000 is under a tenth of a pixel",
       pixelsPerUnit == 143.5 && pixelsPerUnit / 2000 < 0.1)]
+
+/-- The certified plots with the platform's floating-point function of each. -/
+def certified : Array (CertifiedPlot × (Float → Float)) :=
+  #[(expPlot, Float.exp), (cosPlot, Float.cos), (logPlot, Float.log), (arctanPlot, Float.atan),
+    (sqrtPlot, Float.sqrt)]
+
+/-- The checks on the floating-point points of the certified plots and on their pages: the
+points are `steps + 1`, within `1e-6` of the platform's function, the midpoints of consecutive
+points within the proved bound of it, and the bound is under a quarter of a pixel at the gallery
+size (the number of pixels is printed). -/
+def certifiedChecks : IO (Array (String × Bool)) := do
+  let mut out := #[]
+  for (c, f) in certified do
+    let ps := c.series.points
+    let pairs := ps.toList.zip (ps.toList.drop 1)
+    let d := PILean.Exact.toFloat c.delta
+    let ppu := pixelsPerUnitOf c.figure
+    IO.println s!"{c.name}: the bound {c.delta} is {d * ppu} pixels at the gallery size \
+      ({ppu} pixels per unit)"
+    out := out ++ #[
+      (s!"{c.name}: {c.steps + 1} points", ps.size == c.steps + 1),
+      (s!"{c.name}: the points are within 1e-6 of the platform's function",
+        ps.all fun p => (p.y - f p.x).abs ≤ 1e-6),
+      (s!"{c.name}: the midpoints are within {c.delta} of the platform's function",
+        pairs.all fun (p, q) => ((p.y + q.y) / 2 - f ((p.x + q.x) / 2)).abs ≤ d),
+      (s!"{c.name}: the bound is under a quarter of a pixel", ppu > 0 && d * ppu < 0.25)]
+  return out
 
 /-- The golden checks: each file is its file in `examples/` and is drawn the same twice; with
 `update`, the files are rewritten. -/
@@ -112,7 +143,8 @@ end PILeanMathlibTest
 open PILeanMathlibTest in
 /-- Runs the checks; `--update` rewrites the goldens. -/
 def main (args : List String) : IO UInt32 := do
-  let all := floatChecks ++ (← goldenChecks (args == ["--update"])) ++ (← pinChecks) ++
+  let all := floatChecks ++ (← certifiedChecks) ++ (← goldenChecks (args == ["--update"])) ++
+    (← pinChecks) ++
     (← moduleChecks) ++ diagramChecks ++ (← Mutations.ioChecks)
   let mut failed := 0
   for (name, ok) in all do

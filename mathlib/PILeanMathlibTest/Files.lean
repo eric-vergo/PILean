@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanMathlib.Examples.SineFigure
+import PILeanMathlib.Examples.RealFigures
 import PILeanMathlib.Examples.CombinatoricsFigures
 import PILeanMathlib.Examples.AlgebraFigures
 import PILeanMathlib.Examples.NumberTheoryFigures
@@ -10,7 +11,8 @@ import PILeanMathlib.Examples.NumberTheoryFigures
 /-!
 # The files of the gallery
 
-The pictures of `sineFigure`, of the combinatorial figures
+The pictures of `sineFigure` and of the certified plots of real functions
+(`PILeanMathlib.Examples.RealFigures`), of the combinatorial figures
 (`PILeanMathlib.Examples.CombinatoricsFigures`) and of the figures of algebra
 (`PILeanMathlib.Examples.AlgebraFigures`) and of number theory
 (`PILeanMathlib.Examples.NumberTheoryFigures`), light and dark, as SVG and PNG. This module and
@@ -23,7 +25,8 @@ open PILean PILean.Plot PILeanMathlib.Examples
 
 /-- The figures of the gallery: file stem and figure. -/
 def figures : Array (String × Figure) :=
-  #[("sine-proved", sineFigure), ("sine-proved-dark", { sineFigure with style := Style.dark })]
+  #[("sine-proved", sineFigure), ("sine-proved-dark", { sineFigure with style := Style.dark })] ++
+    realFigures.flatMap fun (n, f) => #[(n, f), (n ++ "-dark", { f with style := Style.dark })]
 
 /-- The diagrams of the gallery: file stem and diagram. -/
 def diagrams : Array (String × PILean.Diagram.Diagram) :=
@@ -44,6 +47,15 @@ def files : Array (String × Except String ByteArray) := Id.run do
         | some b => .ok b
         | none => .error "no pixels")
   return out
+
+/-- The number of pixels of the first panel of a figure that one unit of the ordinate covers. -/
+def pixelsPerUnitOf (fig : Figure) : Float :=
+  match fig.layout[0]? with
+  | some l =>
+    match l.pos ⟨0, 0⟩, l.pos ⟨0, 1⟩ with
+    | some p, some q => (p.y - q.y).abs
+    | _, _ => 0
+  | none => 0
 
 /-- The number of pixels of the first panel of `sineFigure` that one unit of the ordinate
 covers. -/

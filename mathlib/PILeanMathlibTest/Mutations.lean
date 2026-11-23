@@ -5,10 +5,11 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILeanTest.SpecMutations
 
 /-!
-# Changes to the figures of number theory that must break their theorems
+# Changes to the figures that must break their theorems
 
-The figures live in a module without Mathlib (`PILeanMathlib/Examples/NumberTheoryFigures.lean`)
-and their theorems in one that imports it (`PILeanMathlib/Examples/NumberTheory.lean`). A change
+The figures live in a module without Mathlib (`PILeanMathlib/Examples/NumberTheoryFigures.lean`,
+`PILeanMathlib/Examples/RealFigures.lean`) and their theorems in one that imports it
+(`PILeanMathlib/Examples/NumberTheory.lean`, `PILeanMathlib/Examples/Real.lean`). A change
 to a figure is checked on one file that joins the two: the imports of both (but the figures'
 module), then the figures, then the theorems. The change is made in the figures' part by the core's
 `SpecMutation.apply`, and the joined file is compiled with the `lean` of the build (`LEAN`, which
@@ -19,18 +20,26 @@ first, which then fails the theorem's link).
 
 ## Main definitions
 
-* `joined`, `checkJoined`, `numberTheoryMutations`, `ioChecks`.
+* `Group`, `joined`, `checkJoined`, `numberTheoryMutations`, `realMutations`, `groups`,
+  `ioChecks`.
 -/
 
 namespace PILeanMathlibTest.Mutations
 
 open PILeanTest.SpecMutations
 
-/-- The figures' module, relative to this package's root. -/
-def figuresFile : System.FilePath := "PILeanMathlib" / "Examples" / "NumberTheoryFigures.lean"
-
-/-- The theorems' module, relative to this package's root. -/
-def theoremsFile : System.FilePath := "PILeanMathlib" / "Examples" / "NumberTheory.lean"
+/-- A module of figures, the module of their theorems, and the changes to check. -/
+structure Group where
+  /-- What the figures are, as the checks name them. -/
+  what : String
+  /-- The figures' module file, relative to this package's root. -/
+  figuresFile : System.FilePath
+  /-- The figures' module name, as the theorems' module imports it. -/
+  figuresModule : String
+  /-- The theorems' module file, relative to this package's root. -/
+  theoremsFile : System.FilePath
+  /-- The changes. -/
+  mutations : Array SpecMutation
 
 /-- The import lines of a file and the rest of it. -/
 def splitImports (text : String) : List String × List String :=
@@ -39,10 +48,10 @@ def splitImports (text : String) : List String × List String :=
 
 /-- The joined file: the imports of both files but the figures' module, the figures' text, the
 theorems' text; and the line (from 1) where the theorems' text begins. -/
-def joined (figures theorems : String) : String × Nat :=
+def joined (figuresModule figures theorems : String) : String × Nat :=
   let (fi, fb) := splitImports figures
   let (ti, tb) := splitImports theorems
-  let imports := (fi ++ ti.filter (· != "import PILeanMathlib.Examples.NumberTheoryFigures"))
+  let imports := (fi ++ ti.filter (· != s!"import {figuresModule}"))
     |>.eraseDups
   let head := imports ++ fb
   ("\n".intercalate (head ++ tb), head.length + 1)
@@ -56,7 +65,7 @@ def checkJoined (lean : String) (scratch : System.FilePath) (text : String) (sta
     | .ok t => pure t
     | .error e => return .error e
   let some (lo, hi) := specLines mutated m.spec | return .error s!"no lines for {m.spec}"
-  let changed := scratch / s!"NumberTheoryChanged{k}.lean"
+  let changed := scratch / s!"Changed{k}.lean"
   IO.FS.writeFile changed mutated
   let (c1, out1) ← compile lean changed
   let errs := errorLines out1 changed.toString
@@ -115,38 +124,82 @@ def numberTheoryMutations : Array SpecMutation :=
       edits := [("hi := (3, 2) }", "hi := (3, 2), marked := fun m n => m == 0 && n == 0 }")],
       spec := "latticeFigure_spec" }]
 
+/-- The changes to the certified plots of real functions that their theorems must catch: a
+bound, an interval, a number of steps, a name, a coefficient or a number of terms changed. -/
+def realMutations : Array SpecMutation :=
+  let f : System.FilePath := "joined"
+  #[{ file := f, what := "the exponential's bound is 1/2000", anchor := "def expPlot :",
+      edits := [("delta := 1 / 1000", "delta := 1 / 2000")], spec := "expFigure_spec" },
+    { file := f, what := "the exponential is plotted from -3", anchor := "def expPlot :",
+      edits := [("lo := -2", "lo := -3")], spec := "expFigure_spec" },
+    { file := f, what := "the exponential is named e^x", anchor := "def expPlot :",
+      edits := [("name := \"exp x\"", "name := \"e^x\"")], spec := "expFigure_spec" },
+    { file := f, what := "a coefficient of the cosine's polynomial is 1/25",
+      anchor := "def cosTaylor (x : Rat) : Rat :=",
+      edits := [("x ^ 4 / 24", "x ^ 4 / 25")], spec := "cosFigure_spec" },
+    { file := f, what := "the cosine is sampled in 48 steps", anchor := "def cosPlot :",
+      edits := [("steps := 96", "steps := 48")], spec := "cosFigure_spec" },
+    { file := f, what := "the logarithm's series has 5 terms", anchor := "def logApprox",
+      edits := [("-logSum 20 (1 - x)", "-logSum 5 (1 - x)")], spec := "logFigure_spec" },
+    { file := f, what := "the arctangent's series has no signs", anchor := "def arctanSum :",
+      edits := [("(-1) ^ n * x", "1 ^ n * x")], spec := "arctanFigure_spec" },
+    { file := f, what := "the square roots have 6 binary digits", anchor := "def sqrtApprox",
+      edits := [("(x * 4 ^ 30)", "(x * 4 ^ 6)"), ("/ 2 ^ 30", "/ 2 ^ 6")],
+      spec := "sqrtFigure_spec" }]
+
+/-- The groups of figures and their changes. -/
+def groups : Array Group :=
+  #[{ what := "number theory",
+      figuresFile := "PILeanMathlib" / "Examples" / "NumberTheoryFigures.lean",
+      figuresModule := "PILeanMathlib.Examples.NumberTheoryFigures",
+      theoremsFile := "PILeanMathlib" / "Examples" / "NumberTheory.lean",
+      mutations := numberTheoryMutations },
+    { what := "real functions",
+      figuresFile := "PILeanMathlib" / "Examples" / "RealFigures.lean",
+      figuresModule := "PILeanMathlib.Examples.RealFigures",
+      theoremsFile := "PILeanMathlib" / "Examples" / "Real.lean",
+      mutations := realMutations }]
+
 /-- The most compilations run at once (each loads Mathlib). -/
 def parallel : Nat := 5
 
-/-- The checks of the changes, named `the change breaks SPEC: WHAT`, `parallel` at a time after
-the unchanged joined file has compiled; without `LEAN` in the environment the check fails instead
-of running a `lean` of unknown origin. -/
-def ioChecks : IO (Array (String × Bool)) := do
-  let some lean ← IO.getEnv "LEAN"
-    | return #[("the changes to the figures of number theory are checked (LEAN is not set)",
-        false)]
-  let scratch ← IO.FS.createTempDir
-  let (text, start) := joined (← IO.FS.readFile figuresFile) (← IO.FS.readFile theoremsFile)
-  let plain := scratch / "NumberTheoryPlain.lean"
+/-- The checks of one group: the unchanged joined file compiles, then each change, `parallel` at a
+time, breaks its theorem. -/
+def groupChecks (lean : String) (scratch : System.FilePath) (g : Group) :
+    IO (Array (String × Bool)) := do
+  let (text, start) := joined g.figuresModule (← IO.FS.readFile g.figuresFile)
+    (← IO.FS.readFile g.theoremsFile)
+  let dir := scratch / g.what.replace " " "-"
+  IO.FS.createDirAll dir
+  let plain := dir / "Plain.lean"
   IO.FS.writeFile plain text
   let (c0, out0) ← compile lean plain
+  let name0 := s!"the joined file of the figures of {g.what} and their theorems compiles"
   if c0 != 0 || !(errorLines out0 plain.toString).isEmpty then
-    IO.eprintln s!"the joined file of number theory does not compile: {(out0.take 800).toString}"
-    IO.FS.removeDirAll scratch
-    return #[("the joined file of the figures of number theory and their theorems compiles",
-      false)]
-  let ms := numberTheoryMutations.zipIdx
-  let mut out := #[("the joined file of the figures of number theory and their theorems compiles",
-    true)]
-  for g in [0:(ms.size + parallel - 1) / parallel] do
-    let batch := ms.extract (g * parallel) ((g + 1) * parallel)
-    let tasks ← batch.mapM fun (m, k) => IO.asTask (checkJoined lean scratch text start m k)
+    IO.eprintln s!"{name0}: no: {(out0.take 800).toString}"
+    return #[(name0, false)]
+  let ms := g.mutations.zipIdx
+  let mut out := #[(name0, true)]
+  for b in [0:(ms.size + parallel - 1) / parallel] do
+    let batch := ms.extract (b * parallel) ((b + 1) * parallel)
+    let tasks ← batch.mapM fun (m, k) => IO.asTask (checkJoined lean dir text start m k)
     for ((m, _), t) in batch.zip tasks do
       let name := s!"the change breaks {m.spec}: {m.what}"
       match t.get with
       | .ok (.ok ()) => out := out.push (name, true)
       | .ok (.error why) => IO.eprintln s!"{name}: {why}"; out := out.push (name, false)
       | .error e => IO.eprintln s!"{name}: {e}"; out := out.push (name, false)
+  return out
+
+/-- The checks of every group; without `LEAN` in the environment the check fails instead of
+running a `lean` of unknown origin. -/
+def ioChecks : IO (Array (String × Bool)) := do
+  let some lean ← IO.getEnv "LEAN"
+    | return #[("the changes to the figures are checked (LEAN is not set)", false)]
+  let scratch ← IO.FS.createTempDir
+  let mut out := #[]
+  for g in groups do
+    out := out ++ (← groupChecks lean scratch g)
   IO.FS.removeDirAll scratch
   return out
 

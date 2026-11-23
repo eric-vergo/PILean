@@ -4,6 +4,10 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Trust.Attr
 import PILeanMathlib.Category
+import PILeanMathlib.CertifiedPlot
+import PILeanMathlib.CertifiedPlotBound
+import PILeanMathlib.Examples.Real
+import PILeanMathlib.Examples.RealFigures
 import PILeanMathlib.Group
 import PILeanMathlib.Examples.Algebra
 import PILeanMathlib.Examples.AlgebraFigures

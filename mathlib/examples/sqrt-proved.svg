@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400">
+  <defs>
+    <clipPath id="c0">
+      <path d="M56 36 L615 36 L615 351 L56 351 Z"/>
+    </clipPath>
+  </defs>
+  <path d="M0 0 L640 0 L640 400 L0 400 Z" fill="#ffffff"/>
+  <text x="16" y="27.1" font-size="15" fill="#18181b" text-anchor="start" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif" font-weight="600">√x on [1/4, 4] from 121 exact samples, within 1/4000 of the graph</text>
+  <path d="M62 337.5 L609 337.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M62 241.5 L609 241.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M62 145.5 L609 145.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M62 50.5 L609 50.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M70.5 42 L70.5 345" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M136.5 42 L136.5 345" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M202.5 42 L202.5 345" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M269.5 42 L269.5 345" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M335.5 42 L335.5 345" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M401.5 42 L401.5 345" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M468.5 42 L468.5 345" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M534.5 42 L534.5 345" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M601.5 42 L601.5 345" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <g clip-path="url(#c0)">
+    <path d="M103.19 337 L107.34 331.2 L111.48 325.71 L115.63 320.49 L119.78 315.5 L123.93 310.72 L128.08 306.11 L132.23 301.67 L136.38 297.37 L140.52 293.21 L144.67 289.17 L148.82 285.23 L152.97 281.4 L157.12 277.67 L161.27 274.02 L165.41 270.46 L169.56 266.97 L173.71 263.55 L177.86 260.2 L182.01 256.92 L186.16 253.69 L190.3 250.52 L194.45 247.41 L198.6 244.35 L202.75 241.33 L206.9 238.37 L211.05 235.44 L215.2 232.57 L219.34 229.73 L223.49 226.93 L227.64 224.17 L231.79 221.44 L235.94 218.75 L240.09 216.09 L244.23 213.47 L248.38 210.87 L252.53 208.31 L256.68 205.77 L260.83 203.27 L264.98 200.79 L269.13 198.33 L273.27 195.9 L277.42 193.5 L281.57 191.12 L285.72 188.76 L289.87 186.43 L294.02 184.12 L298.16 181.83 L302.31 179.56 L306.46 177.31 L310.61 175.08 L314.76 172.87 L318.91 170.67 L323.05 168.5 L327.2 166.34 L331.35 164.2 L335.5 162.08 L339.65 159.97 L343.8 157.89 L347.95 155.81 L352.09 153.75 L356.24 151.71 L360.39 149.68 L364.54 147.67 L368.69 145.67 L372.84 143.68 L376.98 141.71 L381.13 139.75 L385.28 137.8 L389.43 135.87 L393.58 133.95 L397.73 132.04 L401.88 130.14 L406.02 128.26 L410.17 126.38 L414.32 124.52 L418.47 122.67 L422.62 120.83 L426.77 119 L430.91 117.18 L435.06 115.38 L439.21 113.58 L443.36 111.79 L447.51 110.01 L451.66 108.25 L455.8 106.49 L459.95 104.74 L464.1 103 L468.25 101.27 L472.4 99.55 L476.55 97.83 L480.7 96.13 L484.84 94.43 L488.99 92.75 L493.14 91.07 L497.29 89.4 L501.44 87.74 L505.59 86.08 L509.73 84.43 L513.88 82.8 L518.03 81.16 L522.18 79.54 L526.33 77.93 L530.48 76.32 L534.63 74.71 L538.77 73.12 L542.92 71.53 L547.07 69.95 L551.22 68.38 L555.37 66.81 L559.52 65.25 L563.66 63.7 L567.81 62.15 L571.96 60.61 L576.11 59.08 L580.26 57.55 L584.41 56.03 L588.55 54.51 L592.7 53 L596.85 51.5 L601 50" fill="none" stroke="#0072b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <path d="M62 345.5 L609 345.5" fill="none" stroke="#96969e" stroke-width="1"/>
+  <path d="M62.5 42 L62.5 345.5" fill="none" stroke="#96969e" stroke-width="1"/>
+  <text x="70.5" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">0.0</text>
+  <text x="136.5" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">0.5</text>
+  <text x="202.5" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">1.0</text>
+  <text x="269.5" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">1.5</text>
+  <text x="335.5" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">2.0</text>
+  <text x="401.5" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">2.5</text>
+  <text x="468.5" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">3.0</text>
+  <text x="534.5" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">3.5</text>
+  <text x="601.5" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">4.0</text>
+  <text x="52.5" y="341.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">0.5</text>
+  <text x="52.5" y="245.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">1.0</text>
+  <text x="52.5" y="149.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">1.5</text>
+  <text x="52.5" y="54.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">2.0</text>
+  <path d="M70.5 345.5 L70.5 349.5 M136.5 345.5 L136.5 349.5 M202.5 345.5 L202.5 349.5 M269.5 345.5 L269.5 349.5 M335.5 345.5 L335.5 349.5 M401.5 345.5 L401.5 349.5 M468.5 345.5 L468.5 349.5 M534.5 345.5 L534.5 349.5 M601.5 345.5 L601.5 349.5 M83.5 345.5 L83.5 347.5 M96.5 345.5 L96.5 347.5 M109.5 345.5 L109.5 347.5 M123.5 345.5 L123.5 347.5 M149.5 345.5 L149.5 347.5 M162.5 345.5 L162.5 347.5 M176.5 345.5 L176.5 347.5 M189.5 345.5 L189.5 347.5 M216.5 345.5 L216.5 347.5 M229.5 345.5 L229.5 347.5 M242.5 345.5 L242.5 347.5 M255.5 345.5 L255.5 347.5 M282.5 345.5 L282.5 347.5 M295.5 345.5 L295.5 347.5 M308.5 345.5 L308.5 347.5 M322.5 345.5 L322.5 347.5 M348.5 345.5 L348.5 347.5 M362.5 345.5 L362.5 347.5 M375.5 345.5 L375.5 347.5 M388.5 345.5 L388.5 347.5 M415.5 345.5 L415.5 347.5 M428.5 345.5 L428.5 347.5 M441.5 345.5 L441.5 347.5 M454.5 345.5 L454.5 347.5 M481.5 345.5 L481.5 347.5 M494.5 345.5 L494.5 347.5 M508.5 345.5 L508.5 347.5 M521.5 345.5 L521.5 347.5 M547.5 345.5 L547.5 347.5 M561.5 345.5 L561.5 347.5 M574.5 345.5 L574.5 347.5 M587.5 345.5 L587.5 347.5 M58.5 337.5 L62.5 337.5 M58.5 241.5 L62.5 241.5 M58.5 145.5 L62.5 145.5 M58.5 50.5 L62.5 50.5 M60.5 317.5 L62.5 317.5 M60.5 298.5 L62.5 298.5 M60.5 279.5 L62.5 279.5 M60.5 260.5 L62.5 260.5 M60.5 222.5 L62.5 222.5 M60.5 203.5 L62.5 203.5 M60.5 183.5 L62.5 183.5 M60.5 164.5 L62.5 164.5 M60.5 126.5 L62.5 126.5 M60.5 107.5 L62.5 107.5 M60.5 88.5 L62.5 88.5 M60.5 69.5 L62.5 69.5" fill="none" stroke="#96969e" stroke-width="1"/>
+  <text x="335.5" y="378.22" font-size="12" fill="#484850" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">x</text>
+  <text x="27.162" y="193.5" font-size="12" fill="#484850" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif" transform="rotate(-90 27.162 193.5)">y</text>
+</svg>
