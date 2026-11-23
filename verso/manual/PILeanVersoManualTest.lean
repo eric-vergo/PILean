@@ -138,16 +138,24 @@ def main : IO UInt32 := do
       "the explorer's script is a file of the site"
     check (← (out1 / "html-multi" / "-verso-data" / "pilean-explorer.js").pathExists)
       "the script file is written"
-    check (has ex "html[data-theme=\"dark\"] #radius-x-f0 [fill=\"#ffffff\"]{fill:#16181c}" &&
+    check (has ex
+      "html[data-theme=\"dark\"] svg[id=\"radius-x-f0\"] [fill=\"#ffffff\"]{fill:#16181c}" &&
       has ex "@media (prefers-color-scheme: dark){html:not([data-theme=\"light\"])")
       "inline pictures carry their dark theme rules"
     check (has ex "pilean-has-narrow" && has ex "pilean-inline-narrow")
       "an inline figure carries its narrow rendition"
     check (has ex "<title>ζ^1</title>") "inline titles are in the page"
-    let svgParts := (ex.splitOn "<svg").drop 1 |>.map fun p =>
-      "<svg" ++ (p.splitOn "</svg>").headD "" ++ "</svg>"
+    let start := "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"pilean-inline-svg"
+    let svgParts := (ex.splitOn start).drop 1 |>.map fun p =>
+      start ++ (p.splitOn "</svg>").headD "" ++ "</svg>"
     check (svgParts.length == 11 && svgParts.all Svg.isInert)
       s!"every inline picture is inert ({svgParts.length})"
+    check (has ex "data-pilean-file=\"ManualExample/Figures/ManualExample.windowInline.svg\"" &&
+      has ex "data-pilean-file=\"ManualExample/Figures/ManualExample.windowInline-narrow.svg\"")
+      "an inline picture names its file"
+    check (!has ex "class=\"pilean-decl-link\"" && !has numbers "class=\"pilean-lean-link\"" &&
+      !has numbers "class=\"pilean-site-link\"")
+      "by default this genre's figures link no declaration"
     let exFigures := (ex.splitOn "<figure").drop 1 |>.map fun p => (p.splitOn "</figure>").headD ""
     let handler := fun (t : String) => ((t.splitOn " on").drop 1).any fun rest =>
       let name := rest.takeWhile Char.isAlpha
@@ -156,6 +164,25 @@ def main : IO UInt32 := do
       exFigures.all (!handler ·)) "the explorers' markup has no script and no event handler"
     IO.println s!"size: the explorers page is {ex.utf8ByteSize} bytes for \
       {svgParts.length} pictures"
+    -- the link modes
+    let out3 := tmp / "site"
+    let c5 ← generate ["--output", out3.toString, "--figure-lean-links", "site"]
+    check (c5 == 0) "the manual is generated with links into the site"
+    let ex3 ← IO.FS.readFile (out3 / "html-multi" / "Explorers" / "index.html")
+    let numbers3 ← IO.FS.readFile (out3 / "html-multi" / "Numbers" / "index.html")
+    check (has ex3
+        "<a href=\"Numbers/#ManualExample___trianglePoints\" class=\"pilean-decl-link\"" &&
+      has numbers3 "id=\"ManualExample___trianglePoints\"")
+      "an inline element links to its declaration's documentation, an anchor of the site"
+    check (!has ex3 "lean:decl/") "with links into the site there is no lean: link"
+    let list3 ← IO.FS.readFile (out3 / "html-multi" / "Figures" / "index.html")
+    check (has list3 "class=\"pilean-site-link\" href=\"Numbers/#triangle\"")
+      "the figures page links a figure's declaration to the figure"
+    let out4 := tmp / "ideil"
+    let c6 ← generate ["--output", out4.toString, "--figure-lean-links", "ideil"]
+    let ex4 ← IO.FS.readFile (out4 / "html-multi" / "Explorers" / "index.html")
+    check (c6 == 0 && has ex4 "href=\"lean:decl/ManualExample.trianglePoints\"")
+      "the editor's links are written on request"
     -- a damaged copy is found
     let damaged := tmp / "damaged"
     IO.FS.createDirAll damaged

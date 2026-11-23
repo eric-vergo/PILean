@@ -30,15 +30,19 @@ Its own command-line options are taken out before the generator sees the rest:
 * `--check-figures DIR`: render the figures and compare them with the folder `DIR` (a site's
   `-verso-data/pilean-figures`, a published copy) as `pilean-build --check` does, without
   building the site: exit status 0 if it holds exactly the render, 1 otherwise;
-* `--strict-figures`: also fail when the written folder has a file the render does not make.
+* `--strict-figures`: also fail when the written folder has a file the render does not make;
+* `--figure-inline-limit BYTES`: the most bytes of inline SVG one figure may put in the pages;
+* `--figure-lean-links ideil|site|none`: where the links to Lean declarations lead
+  (`PILeanVerso.LeanLinks`): `ideil` by default (`options.leanLinks`); with `site` the build
+  warns about each declaration it finds no place for in the site.
 -/
 
 namespace PILeanVerso
 
 open Lean Verso Doc Genre Manual PILean.Trust
 
-/-- The figure declarations a document uses, in document order (repeated as often as used). -/
-def usedFigures (p : Part Manual) : Array String := partFigures #[``Block.figure] p
+/-- The figures a document uses, in document order (repeated as often as used). -/
+def usedFigures (p : Part Manual) : Array FigureUse := partFigures #[``Block.figure] p
 
 /-- Renders the figures `doc` uses from the table `figures` (`site_figures%`), runs the generator
 `generate` on the remaining arguments, and checks the figures folders it wrote (see the module

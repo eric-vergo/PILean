@@ -27,7 +27,10 @@ Its own command-line options are taken out before the generator sees the rest:
   links to the source (the commit defaults to `git rev-parse HEAD` when a repository is given);
 * `--check-figures DIR`: render the figures and compare them with the folder `DIR` without
   building the site: exit status 0 if it holds exactly the render, 1 otherwise;
-* `--strict-figures`: also fail when the written folder has a file the render does not make.
+* `--strict-figures`: also fail when the written folder has a file the render does not make;
+* `--figure-inline-limit BYTES`: the most bytes of inline SVG one figure may put in the pages;
+* `--figure-lean-links ideil|site|none`: where the links to Lean declarations lead
+  (`PILeanVerso.LeanLinks`); `none` by default in this genre (`options.leanLinks`).
 
 `declStyle` sets how the figures' source lines show a declaration and its place
 (`defaultDeclStyle` when not given).
@@ -37,15 +40,15 @@ namespace PILeanVerso.Manual
 
 open Lean Verso Doc Genre Manual PILean.Trust PILeanVerso
 
-/-- The figure declarations a document's figure blocks use, in document order. -/
-def usedFigures (p : Part Manual) : Array String := partFigures #[``Block.figure] p
+/-- The figures a document's figure blocks use, in document order. -/
+def usedFigures (p : Part Manual) : Array FigureUse := partFigures #[``Block.figure] p
 
 /-- Renders the figures `doc` uses from the table `figures` (`site_figures%`), runs the generator
 `generate` on the remaining arguments, and checks the figures folders it wrote (see the module
 doc). `options` are the defaults of the command-line options; `declStyle` is how the source lines
 show declarations. -/
 def withFigures (doc : Part Manual) (figures : Array FigureEntry) (args : List String)
-    (generate : List String → IO UInt32) (options : SiteOptions := {})
+    (generate : List String → IO UInt32) (options : SiteOptions := { leanLinks := .none })
     (declStyle : DeclStyle := defaultDeclStyle) : IO UInt32 := do
   declStyleRef.set declStyle
   withFiguresFor (usedFigures doc) figures args generate options

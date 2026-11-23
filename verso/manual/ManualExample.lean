@@ -9,8 +9,9 @@ import ManualExample.Figures
 /-!
 # The example manual
 
-A small document of Verso's Manual genre with three PILean figures, a reference to one of them
-and the figures page; `pilean-verso-manual-example` generates it, `lake test` checks the result.
+A small document of Verso's Manual genre with PILean figures and explorers, a reference to one
+of them, the documentation of a declaration a picture links to, and the figures page;
+`pilean-verso-manual-example` generates it, `lake test` checks the result.
 -/
 
 open Verso.Genre Manual
@@ -27,7 +28,9 @@ tag := "manual-example"
 The triangular numbers, $`0 + 1 + \cdots + n`.
 :::
 
-{figref "triangle"}[] grows like half a square.
+{figref "triangle"}[] grows like half a square. Its points:
+
+{docstring ManualExample.trianglePoints}
 
 :::figure ManualExample.divisorGraph (alt := "The divisors of 12 as nodes, an edge from a to b when b covers a: 1 to 2 and 3, 2 to 4 and 6, 3 to 6, 4 and 6 to 12.") (proves := ManualExample.covers_count) (width := "60%")
 :::

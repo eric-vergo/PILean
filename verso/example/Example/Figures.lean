@@ -232,4 +232,38 @@ def wordExplorer : Explorer :=
 @[figure]
 def windowInline : Plane.Figure := { windowAt 0.8 with narrowWidth := some 280 }
 
+/-- A declaration whose name a page must escape: quotes, angle brackets and an ampersand. -/
+def «odd "name" <a href=x> & 'more'» : Nat := 0
+
+/-- The window of radius `r` at a width of `w` pixels. -/
+def windowSized (r w : Float) : Plane.Figure := { windowAt r with width := w }
+
+/-- Frames of two sizes, each keeping its own view box: a wide and a narrow window. -/
+@[figure]
+def sizesExplorer : Explorer :=
+  Explorer.stepper #[("wide", ExplorerFrame.ofPlane (windowSized 0.8 360)),
+    ("narrow", ExplorerFrame.ofPlane (windowSized 0.6 220)),
+    ("wide again", ExplorerFrame.ofPlane (windowSized 0.9 360))]
+
+open PILean.Plane in
+/-- A picture whose names, ids and links a page must escape. -/
+def oddAt (i : Nat) : Plane.Figure :=
+  { width := 300,
+    items := #[disk ⟨0.5, 0⟩ (0.6 + i.toFloat / 5) |>.accent 0
+        |>.named "</title><script>alert(1)</script> & \"q\"" |>.withId "1\" onload=\"x",
+      point ⟨0, 0⟩ |>.named "zero <b>" |>.declRef `Example.«odd "name" <a href=x> & 'more'»,
+      point ⟨1, 0⟩ |>.named "one" |>.declRef ``Example.cubic] }
+
+/-- Captions, values and an axis name that hold the separators of a frame's label (` · `,
+` = `, `Step 1 of 2: `) and markup a page must escape. -/
+@[figure]
+def oddExplorer : Explorer :=
+  Explorer.grid "x = \"<b>\" · y" #["1 · 2 = 3", "</style><script>alert(1)</script>"]
+    #["Step 9 of 9: a · b = c", "<img src=x onerror=alert(2)> & ' \""]
+    (fun i _ => ExplorerFrame.ofPlane (oddAt i))
+
+/-- The odd picture inline, under a label that starts with a digit. -/
+@[figure]
+def oddInline : Plane.Figure := oddAt 1
+
 end Example

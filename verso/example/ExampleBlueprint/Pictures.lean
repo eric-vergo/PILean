@@ -77,6 +77,26 @@ The word $`aba` acting on a point.
 The window of radius 0.8, inline; each step's point links to its declaration.
 :::
 
+# Inside an entry
+
+::::definition "window_family" (lean := "Example.windowAt")
+The window disks of radius $`r` about $`\tfrac{1}{2}`, drawn over the five unit steps.
+
+:::figure_explorer Example.sizesExplorer (label := "sizes") (alt := "The window disk at two widths of the picture, 360 and 220 pixels.")
+The window in frames of two sizes.
+:::
+
+:::figure Example.oddInline (label := "3d-odd") (inline := true) (alt := "A disk about 1/2 and two points, whose names hold markup.")
+A picture whose names and ids hold markup, under a label that starts with a digit.
+:::
+::::
+
+# Escaping
+
+:::figure_explorer Example.oddExplorer (label := "odd") (alt := "A disk about 1/2 whose radius grows, with captions that hold markup & separators.")
+Captions and values that hold the separators of a frame's label and markup: `<b>` · = .
+:::
+
 # Motion
 
 {figref "circle"}[] moves; with reduced motion the page shows a still frame instead.

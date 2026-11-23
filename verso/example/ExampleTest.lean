@@ -9,9 +9,10 @@ import Example
 # Checks of the adapter
 
 `lake test` builds and runs this module. Building it checks what the directive checks on a
-`proves :=` theorem; running it checks the options the directive accepts, the dark variants, the
-rendering of a site's figures (an unknown name, bad options, the files and the manifest), the
-sizes read from the files, the links and the wrapper's arguments.
+`proves :=` theorem and on the declaration of `figure_explorer`; running it checks the options
+the directive accepts, the dark variants, the rendering of a site's figures (an unknown name, bad
+options, the files and the manifest, a figure used in a way it cannot be shown, the inline
+limit), the sizes read from the files, the links and the wrapper's arguments.
 -/
 
 open Lean Elab PILean PILean.Trust PILeanVerso
@@ -54,6 +55,15 @@ run_meta do
       (``Example.cubicPlot, ``aboutDivisors), (``Example.cubicPlot, ``aboutSeries)] do
     if ← accepts f t then throwError "{t} was accepted for {f}"
 
+-- `figure_explorer` takes explorers only.
+#guard_msgs in
+run_meta do
+  unless (← explorerProblem? ``Example.radiusExplorer).isNone do
+    throwError "an explorer was refused"
+  let some msg ← explorerProblem? ``Example.cubicPlot | throwError "a plot was taken"
+  unless (← msg.toString).startsWith "Example.cubicPlot has the type" do
+    throwError "unexpected message {msg}"
+
 /-- The figures of the example, rendered for a site. -/
 def table : Array FigureEntry := site_figures%
 
@@ -66,6 +76,22 @@ def plotSite : Except String SiteRender :=
 def plotPaths : Array String :=
   #["Example/Figures/Example.cubicPlot-dark.png", "Example/Figures/Example.cubicPlot-dark.svg",
     "Example/Figures/Example.cubicPlot.png", "Example/Figures/Example.cubicPlot.svg"]
+
+/-- The bytes of inline SVG the inline figure puts in a page: its picture and its narrow
+rendition. -/
+def inlineBytes : Nat :=
+  match renderSite table #[{ decl := "Example.windowInline", inline := true }] {} with
+  | .ok s => match s.figures["Example.windowInline"]? with
+    | some f => (inlinePictures { decl := "", inline := true } f.files).foldl
+        (fun n i => n + i.document.utf8ByteSize) 0
+    | none => 0
+  | .error _ => 0
+
+/-- Whether rendering `used` fails with a message that contains `what`. -/
+def failsWith (used : Array FigureUse) (opts : SiteOptions) (what : String) : Bool :=
+  match renderSite table used opts with
+  | .ok _ => false
+  | .error e => (e.splitOn what).length > 1
 
 /-- A site's options with a repository and a commit. -/
 def withRepo : SiteOptions := { repo := some "https://e.org/r", commit := some "abcd" }
@@ -85,7 +111,7 @@ def checks : Array (String × Bool) := #[
     (Style.darkVariant? { Style.light with lineWidth := 3 }).map (·.lineWidth) == some 3),
   ("dark: the colours are the dark style's",
     (Style.darkVariant? Style.light).map (·.background) == some Style.dark.background),
-  ("table: seven figures", table.size == 7),
+  ("table: ten figures", table.size == 10),
   ("render: an unknown name is refused",
     (renderSite table #["Example.nope"] {}).toOption.isNone),
   ("render: a script address as repository is refused",
@@ -111,6 +137,48 @@ def checks : Array (String × Bool) := #[
         f.files.map fun sf => (sf.name, sf.format.name)) ==
           some #[("", "svg"), ("", "apng"), ("", "gif"), ("-poster", "png")]
     | .error _ => false),
+  ("use: figure_explorer on a plot fails the build",
+    failsWith #[{ decl := "Example.cubicPlot", explorer := true }] {} "is not an explorer"),
+  ("use: inline on a graph without an inline picture fails the build",
+    failsWith #[{ decl := "Example.divisorGraph", inline := true }] {} "has no inline picture"),
+  ("use: an explorer and an inline figure are accepted",
+    (renderSite table #[{ decl := "Example.radiusExplorer", explorer := true },
+      { decl := "Example.windowInline", inline := true }] {}).toOption.isSome),
+  ("limit: a figure shown as a file is not counted",
+    (renderSite table #["Example.windowInline", "Example.radiusExplorer"]
+      { inlineLimit := 1 }).toOption.isSome),
+  ("limit: one figure's pictures are counted once, together",
+    inlineBytes > 0 &&
+      (renderSite table #[{ decl := "Example.windowInline", inline := true },
+        { decl := "Example.windowInline", inline := true }]
+        { inlineLimit := inlineBytes }).toOption.isSome &&
+      failsWith #[{ decl := "Example.windowInline", inline := true }]
+        { inlineLimit := inlineBytes - 1 } "bytes of inline SVG"),
+  ("links: lean:decl/ links are encoded as Verso Blueprint encodes them",
+    [``Example.cubic, `Example.«odd "name" <a href=x> & 'more'», `α.β, `«a b/c?d#e»].all
+      fun n => leanDeclHref n.toString == Informal.LeanSourceAnchor.declHref n),
+  ("links: the modes' names", ["ideil", "site", "none"].map LeanLinks.ofString? ==
+    [some .ideil, some .site, some .none] && LeanLinks.ofString? "IDEiL" == none),
+  ("dom: ids are kept to letters, digits, - and _",
+    domSafe "3d-odd" == "3d-odd" && domSafe "a\"b <c>é" == "a_b__c__"),
+  ("theme: the dark rules select the picture by its id attribute",
+    themeCss "3d" #[("#000000", "#ffffff")] #[] ==
+      "html[data-theme=\"dark\"] svg[id=\"3d\"] [fill=\"#000000\"]{fill:#ffffff}" ++
+      "html[data-theme=\"dark\"] svg[id=\"3d\"] [stroke=\"#000000\"]{stroke:#ffffff}" ++
+      "@media (prefers-color-scheme: dark){" ++
+      "html:not([data-theme=\"light\"]) svg[id=\"3d\"] [fill=\"#000000\"]{fill:#ffffff}" ++
+      "html:not([data-theme=\"light\"]) svg[id=\"3d\"] [stroke=\"#000000\"]{stroke:#ffffff}}"),
+  ("prefix: an element inside a link is not linked again",
+    let inner := Svg.el "g" #[("data-lean-decl", "B")] #[Svg.el "path" #[]]
+    let outer := Svg.el "g" #[("data-lean-decl", "A")] #[inner]
+    let out := Svg.render 0 (prefixNode "p-" (fun n => some s!"#{n}") false outer)
+    (out.splitOn "<a ").length == 2),
+  ("labels: a caption with the label's separators is kept whole",
+    let fs : FrameSet :=
+      { axisName := "x = y", axisValues := #["1 · 2"], stepCaptions := #["Step 9 of 9: a · b"],
+        frames := #[default] }
+    frameValue fs 0 == "1 · 2" && frameStep fs 0 == "Step 9 of 9: a · b" &&
+      frameCounter fs 0 == "Step 1 of 1"),
   ("size: read from the SVG and the PNG", match plotSite with
     | .ok s => s.files.all fun f =>
         imageSize? (if f.entry.format == "svg" then .svg else .png) f.bytes == some (640, 400)
@@ -128,6 +196,12 @@ def checks : Array (String × Bool) := #[
         some (some "https://e.org", true, ["--output", "o"])),
   ("arguments: a missing value is refused",
     (parseWrapperArgs {} ["--check-figures"]).toOption.isNone),
+  ("arguments: the link mode is taken out",
+    (parseWrapperArgs {} ["--figure-lean-links", "site", "--output", "o"]
+      |>.toOption.map fun w => (w.options.leanLinks, w.rest)) == some (.site, ["--output", "o"])),
+  ("arguments: an unknown link mode is refused",
+    (parseWrapperArgs {} ["--figure-lean-links", "web"]).toOption.isNone &&
+      (parseWrapperArgs {} ["--figure-lean-links"]).toOption.isNone),
   ("arguments: the last output folder counts",
     outputDir ["--output", "a", "x", "--output", "b"] == "b" && outputDir [] == "_out")]
 

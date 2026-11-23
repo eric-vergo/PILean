@@ -14,15 +14,17 @@ them. The files go below the folder `figureFolder` of the site's data directory,
 `pilean-build` uses, with `manifest.json` beside them, so `pilean-verify` checks the published
 folder as it checks one made by `pilean-build`. Every SVG output must be inert
 (`PILean.Svg.inertProblem?`): no script, no event handler, nothing loaded from elsewhere; so must
-every picture a page puts inline (`Output.inline`, every frame of an explorer, `Output.frames`),
-and one figure's inline SVG may not pass `SiteOptions.inlineLimit` bytes.
+every picture a page puts inline (`Output.inline`, every frame of an explorer, `Output.frames`).
+What a document asks of a figure (`FigureUse`: inline, or as an explorer) is checked against what
+the figure has, and the inline SVG of one figure, counted once over everything the pages put
+inline for it, may not pass `SiteOptions.inlineLimit` bytes.
 
 The rendered site is kept in `siteRef` while the document is rendered: the generator wrapper
 (`PILeanVerso.withFigures`) sets it, and the figure blocks read it during traversal.
 
 ## Main definitions
 
-* `SiteOptions`, `SiteFile`, `SiteFigure`, `SiteRender`
+* `LeanLinks`, `SiteOptions`, `FigureUse`, `SiteFile`, `SiteFigure`, `SiteRender`
 * `renderSite`: the files and the manifest of the figures a site uses
 * `SiteRender.checkFolder`: the differences between a folder and the render
 * `imageSize?`: the size in pixels a picture asks for
@@ -35,7 +37,34 @@ open PILean PILean.Trust
 /-- The folder of the figures below the site's data directory. -/
 def figureFolder : String := "pilean-figures"
 
-/-- What a site's build records in its figures besides their source. -/
+/-- Where the links to Lean declarations of a site's figures lead: the declaration named in a
+figure's source line and on the figures page, and each element of an inline picture that names a
+declaration (`data-lean-decl`).
+
+* `ideil`: `lean:decl/<Name>` links, for an editor that shows the site beside the code (IDEiL);
+  in the source line they are shown only when the page's root has `data-lean-links`.
+* `site`: a link to the declaration's own place in the built site (a Blueprint entry or its Lean
+  panel, a docstring of a Verso manual, the figure the declaration draws); a declaration with no
+  such place gets no link, and the build warns.
+* `none`: no link; the name stays text and an element of a picture keeps its hover text. -/
+inductive LeanLinks where
+  /-- `lean:decl/<Name>` links. -/
+  | ideil
+  /-- Links into the built site. -/
+  | site
+  /-- No links. -/
+  | none
+deriving Inhabited, Repr, BEq, DecidableEq
+
+/-- The mode of a command-line value: `ideil`, `site` or `none`. -/
+def LeanLinks.ofString? : String → Option LeanLinks
+  | "ideil" => some .ideil
+  | "site" => some .site
+  | "none" => some .none
+  | _ => Option.none
+
+/-- What a site's build records in its figures besides their source, and how the pages link
+them. -/
 structure SiteOptions where
   /-- The repository's URL (`http` or `https`), recorded in every file and in the manifest. -/
   repo : Option String := none
@@ -47,7 +76,23 @@ structure SiteOptions where
   /-- The most bytes of SVG one figure may put inline in a page (its inline picture, or all the
   frames of an explorer); a figure above it fails the build. -/
   inlineLimit : Nat := 2000000
+  /-- Where the links to Lean declarations lead (`--figure-lean-links`). -/
+  leanLinks : LeanLinks := .ideil
 deriving Inhabited, Repr
+
+/-- How a document uses one figure: by its declaration's name, put inline (`inline := true`), or
+as an explorer (`figure_explorer`). -/
+structure FigureUse where
+  /-- The figure's declaration. -/
+  decl : String
+  /-- Whether a page puts the picture inline. -/
+  inline : Bool := false
+  /-- Whether a page shows it as an explorer. -/
+  explorer : Bool := false
+deriving Inhabited, Repr, BEq
+
+/-- A plain use of a figure, as a picture file. -/
+instance : Coe String FigureUse := ⟨fun d => { decl := d }⟩
 
 /-- Whether `s` is empty, or relative path components of `nameChar` characters each followed by
 `/`. -/
@@ -73,9 +118,11 @@ structure SiteFile where
   format : Format
   /-- The manifest entry and the bytes. -/
   built : BuiltFile
-  /-- The picture as nodes for a page that puts it inline (SVG outputs that have one). -/
+  /-- The picture as nodes, for a page that puts it inline (an SVG output that has one, of a
+  figure the document uses inline or as an explorer). -/
   inline : Option InlineSvg := none
-  /-- Every frame of an explorer, for a page that shows them inline. -/
+  /-- Every frame of an explorer, for a page that shows them inline (of a figure the document
+  uses as an explorer). -/
   frames : Option FrameSet := none
   /-- The layout warnings of the figure. -/
   problems : Array String := #[]
@@ -102,8 +149,9 @@ structure SiteRender where
 
 instance : Inhabited SiteRender := ⟨{}⟩
 
-/-- Renders the output `o` of `e` as `pilean-build` does, and checks that an SVG is inert. -/
-def renderSiteFile (e : FigureEntry) (o : Output) (opts : SiteOptions) :
+/-- Renders the output `o` of `e` as `pilean-build` does, and checks that an SVG is inert. The
+inline picture and the frames are kept only when the document puts them in a page (`u`). -/
+def renderSiteFile (e : FigureEntry) (o : Output) (opts : SiteOptions) (u : FigureUse) :
     Except String SiteFile := do
   let built ← renderOutput e o { repo := opts.repo, commit := opts.commit }
   if o.format == .svg then
@@ -112,43 +160,87 @@ def renderSiteFile (e : FigureEntry) (o : Output) (opts : SiteOptions) :
     | some text =>
       if let some why := Svg.inertProblem? text then
         throw s!"{built.entry.path}: the SVG is not inert ({why})"
-  let inline := o.inline ()
-  let frames := o.frames ()
-  let pictures := (inline.toArray ++ (frames.map (·.frames)).getD #[]).map (·.document)
-  for (doc, i) in pictures.zipIdx do
-    if let some why := Svg.inertProblem? doc then
-      throw s!"{built.entry.path}: inline picture {i} is not inert ({why})"
-  let size := pictures.foldl (fun n d => n + d.utf8ByteSize) 0
-  if size > opts.inlineLimit then
-    throw s!"{built.entry.path}: {size} bytes of inline SVG, more than the limit of \
-      {opts.inlineLimit} (--figure-inline-limit)"
+  let wanted := o.format == .svg && (u.inline || u.explorer)
+  let inline := if wanted then o.inline () else none
+  let frames := if wanted && u.explorer then o.frames () else none
   return { name := o.name, format := o.format, built, inline, frames, problems := o.problems () }
 
-/-- Renders the figures `used` (declaration names; repeated names count once) from the table
-`entries`, with all the messages (one per line) if a name has no entry, a figure cannot be
-rendered, an SVG is not inert, two files have one path, or there are more than `maxEntries`
-figures. -/
-def renderSite (entries : Array FigureEntry) (used : Array String) (opts : SiteOptions) :
+/-- The pictures a page puts inline for a figure used as `u`, from its files: the picture and
+its narrow rendition (`inline := true`), or every frame (an explorer). -/
+def inlinePictures (u : FigureUse) (fs : Array SiteFile) : Array InlineSvg :=
+  let svg := fun (name : String) => fs.find? fun f => f.format == .svg && f.name == name
+  if u.explorer then ((svg "").bind (·.frames)).map (·.frames) |>.getD #[]
+  else if u.inline then
+    ((svg "").bind (·.inline)).toArray ++ ((svg "-narrow").bind (·.inline)).toArray
+  else #[]
+
+/-- Why the figure `n`, used as `u`, cannot be shown so, if it cannot: an explorer must have
+frames, an inline figure an inline picture. -/
+def useProblem? (n : String) (u : FigureUse) (fs : Array SiteFile) : Option String :=
+  let svg := fs.find? fun f => f.format == .svg && f.name == ""
+  if u.explorer && (svg.bind (·.frames)).isNone then
+    some s!"{n} is shown with figure_explorer but is not an explorer (a declaration of type \
+      PILean.Explorer, made with Plane.slider, Plane.stepper or Explorer.grid)"
+  else if u.inline && !u.explorer && (svg.bind (·.inline)).isNone then
+    some s!"{n} is shown with (inline := true) but has no inline picture (plane figures, plots \
+      and explorers have one); remove the option to show its file"
+  else none
+
+/-- The checks of the pictures a page puts inline for the figure `n` used as `u`: each is inert,
+and together they are at most `limit` bytes. -/
+def inlineProblems (n : String) (u : FigureUse) (fs : Array SiteFile) (limit : Nat) :
+    Array String := Id.run do
+  let docs := (inlinePictures u fs).map (·.document)
+  let mut out := #[]
+  for (doc, i) in docs.zipIdx do
+    if let some why := Svg.inertProblem? doc then
+      out := out.push s!"{n}: inline picture {i} is not inert ({why})"
+  let size := docs.foldl (fun k d => k + d.utf8ByteSize) 0
+  if size > limit then
+    out := out.push s!"{n}: {size} bytes of inline SVG, more than the limit of {limit} \
+      (--figure-inline-limit)"
+  return out
+
+/-- The uses of the figures, one per declaration (in name order): inline or as an explorer when
+any use is. -/
+def mergeUses (used : Array FigureUse) : Array FigureUse :=
+  let m : Std.HashMap String FigureUse := used.foldl (init := {}) fun m u =>
+    match m[u.decl]? with
+    | some v =>
+      m.insert u.decl
+        { v with inline := v.inline || u.inline, explorer := v.explorer || u.explorer }
+    | none => m.insert u.decl u
+  m.toArray.map (·.2) |>.qsort (·.decl < ·.decl)
+
+/-- Renders the figures `used` (repeated names count once) from the table `entries`, with all
+the messages (one per line) if a name has no entry, a figure cannot be rendered or cannot be
+shown as it is used (`useProblem?`), an SVG or an inline picture is not inert, a figure's inline
+SVG passes the limit, two files have one path, or there are more than `maxEntries` figures. -/
+def renderSite (entries : Array FigureEntry) (used : Array FigureUse) (opts : SiteOptions) :
     Except String SiteRender := do
   let opts ← opts.validate
   let byName : Std.HashMap String FigureEntry := entries.foldl (init := {}) fun m e =>
     m.insert e.decl e
-  let names := (used.foldl (init := ({} : Std.HashSet String)) (·.insert ·)).toArray.qsort (· < ·)
-  if names.size > maxEntries then throw s!"more than {maxEntries} figures"
+  let uses := mergeUses used
+  if uses.size > maxEntries then throw s!"more than {maxEntries} figures"
   let mut figures : Std.HashMap String SiteFigure := {}
   let mut files : Array BuiltFile := #[]
   let mut errors : Array String := #[]
   let mut warnings : Array String := #[]
-  for n in names do
+  for u in uses do
+    let n := u.decl
     match byName[n]? with
     | none => errors := errors.push s!"{n}: no figure of that name in the generator's table \
         (is its module imported, and is it marked @[figure]?)"
     | some e =>
       let mut fs : Array SiteFile := #[]
       for o in e.outputs () do
-        match renderSiteFile e o opts with
+        match renderSiteFile e o opts u with
         | .ok f => fs := fs.push f
         | .error msg => errors := errors.push msg
+      match useProblem? n u fs with
+      | some why => errors := errors.push why
+      | none => errors := errors ++ inlineProblems n u fs opts.inlineLimit
       for f in fs do
         for w in f.problems do warnings := warnings.push s!"{n}: {w}"
       figures := figures.insert n { source := e.toSourceData, files := fs }
@@ -169,6 +261,10 @@ def SiteRender.checkFolder (r : SiteRender) (dir : System.FilePath) : IO (Array 
 
 /-- The rendered site while a document is rendered; set by `withFigures`. -/
 initialize siteRef : IO.Ref (Option SiteRender) ← IO.mkRef none
+
+/-- The declarations the pages wanted to link with `--figure-lean-links site` and found no place
+of the site for, collected while the document is rendered; `withFigures` warns about them. -/
+initialize unlinkedRef : IO.Ref (Std.HashSet String) ← IO.mkRef {}
 
 /-! ### Picture sizes -/
 

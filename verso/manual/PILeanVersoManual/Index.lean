@@ -32,7 +32,8 @@ block_extension Block.figureList where
   traverse _ _ _ := pure none
   toHtml := some fun _goI _goB _id _json _contents => do
     let style ← (declStyleRef.get : IO DeclStyle)
-    pure (figureListHtmlWith style "pilean-math" (← HtmlT.state))
+    let site ← (siteRef.get : IO _)
+    (figureListHtmlWith style "pilean-math" (← HtmlT.state) site : IO Html)
   toTeX := some fun _ _ _ _ _ => pure (.text "The list of figures is in the HTML version.")
   extraCss := [figureCss]
 
@@ -62,15 +63,10 @@ inline_extension Inline.figref (label : String) where
   toHtml := some fun goI _id json contents => do
     let .str label := json
       | Verso.reportError "Malformed data of a figure reference"; pure .empty
-    let st ← HtmlT.state
-    let reg := Registry.get st
-    let some p := reg.placed.find? (·.data.label == some label)
-      | Verso.reportError s!"No figure has the label {label}"; pure .empty
-    let text ← if contents.isEmpty then pure (.text true s!"Figure {p.number}")
-      else .seq <$> contents.mapM goI
-    match st.resolveDomainObject figureDomain label with
-    | .ok link => pure {{<a class="pilean-figref" href={{link.link}}>{{text}}</a>}}
-    | .error e => Verso.reportError e; pure text
+    let body ← contents.mapM goI
+    match figrefHtml (← HtmlT.state) label body with
+    | .ok h => pure h
+    | .error e => Verso.reportError e; pure (.seq body)
   toTeX := some fun goI _id json contents => do
     let label := match json with
       | .str l => l

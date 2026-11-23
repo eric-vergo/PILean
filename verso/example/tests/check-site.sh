@@ -3,7 +3,10 @@
 # Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 #
 # Checks the example site end to end: it builds, its figures folder matches a fresh render and its
-# manifest, two builds write the same bytes, and the checks fail on damaged folders.
+# manifest, every inline picture is the body of a file the manifest lists, two builds write the
+# same bytes, the checks fail on damaged folders and pages, and the three link modes write the
+# links they promise. It leaves the sites the browser check reads in SCRATCH: a (the default
+# mode), site, none and sbs (side by side, links into the site).
 #
 #   tests/check-site.sh [SCRATCH]     (run from verso/example; LAKE names the lake to use)
 set -euo pipefail
@@ -46,10 +49,63 @@ desc="the page names the theorem"; check grep -q 'lean:decl/Example.cubicPlot_sp
 desc="the page has a dark picture"; check grep -q 'Example.cubicPlot-dark.svg' "$page"
 desc="the animation has its still frame for reduced motion"
 check grep -q 'prefers-reduced-motion: reduce' "$scratch/a/html-multi/Pictures-with-proofs/Motion/index.html"
-desc="the figures page lists seven figures"
-check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 7
+desc="the figures page lists ten figures"
+check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 10
 desc="no inline event handler and no script in the figures' markup"
 check python3 -I tests/markup_check.py "$scratch/a/html-multi"
+desc="every inline picture is the body of a file the manifest lists"
+check python3 -I tests/inline_check.py "$scratch/a/html-multi"
+
+# A page whose inline picture differs from its file.
+rm -rf "$scratch/page"; cp -R "$scratch/a/html-multi" "$scratch/page"
+explorers="$scratch/page/Pictures-with-proofs/Explorers/index.html"
+python3 -I - "$explorers" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+i = s.index('id="inline-svg"')
+j = s.index(' d="M', i)
+open(p, "w", encoding="utf-8").write(s[:j] + ' d="M1 1 L2 2' + s[j + 5:])
+PY
+desc="the inline check refuses a page whose picture was changed"
+check bash -c "python3 -I tests/inline_check.py '$scratch/page' | grep -q '#inline-svg: differs from'"
+rm -rf "$scratch/page"
+
+# The link modes.
+warns="$scratch/site-warnings.txt"
+desc="the site builds with links into the site"
+check bash -c "'$gen' --output '$scratch/site' --figure-lean-links site ${flags[*]} 2>'$warns' >/dev/null"
+got=$(sed -n 's/^figures: warning: \(.*\) has no place in the site.*/\1/p' "$warns" | LC_ALL=C sort | tr '\n' '|')
+want='Example.circleAnimation_spec|Example.collatzPlot_spec|Example.divisorGraph_spec|'
+want+='Example.«odd "name" <a href=x> & '"'"'more'"'"'»|'
+desc="it warns about exactly the declarations the site has no place for"; check test "$got" = "$want"
+# Whether the markup of some figure of the site $1 matches the regular expression $2.
+figures_have() {
+  python3 -I - "$1" "$2" <<'PY'
+import glob, re, sys
+part = re.compile(r'<figure[^>]*class="pilean-figure.*?</figure>', re.S)
+hits = [p for p in glob.glob(sys.argv[1] + "/**/index.html", recursive=True)
+        for f in part.findall(open(p, encoding="utf-8").read()) if re.search(sys.argv[2], f)]
+sys.exit(0 if hits else 1)
+PY
+}
+figures_lack() { ! figures_have "$@"; }
+desc="with links into the site, no figure has a lean: link"
+check figures_lack "$scratch/site/html-multi" 'href="lean:'
+desc="with links into the site, an inline element links to its Blueprint entry"
+check grep -q 'href="Pictures-with-proofs/A-function/#--informal-external-decl-[0-9]*-Example___cubic" class="pilean-decl-link"' "$scratch/site/html-multi/Pictures-with-proofs/Explorers/index.html"
+desc="the site builds without links"
+check "$gen" --output "$scratch/none" --figure-lean-links none "${flags[@]}"
+desc="without links, no figure links a declaration"
+check figures_lack "$scratch/none/html-multi" 'class="pilean-(decl|site|lean)-link"'
+desc="without links, the figures page links no declaration"
+check bash -c "! grep -qE 'class=\"pilean-(site|lean)-link\"' '$scratch/none/html-multi/Figures/index.html'"
+desc="in the default mode, figures have lean: links"
+check figures_have "$scratch/a/html-multi" 'href="lean:decl/Example\.cubic" class="pilean-decl-link"'
+desc="the side-by-side site builds with links into the site"
+check bash -c "'$gen' --output '$scratch/sbs' --side-by-side --figure-lean-links site ${flags[*]} >/dev/null 2>&1"
+desc="an unknown link mode is refused"
+check bash -c "! '$gen' --output '$scratch/c' --figure-lean-links web >/dev/null 2>&1"
 
 # Damaged copies.
 cp -R "$figs" "$scratch/damaged"
