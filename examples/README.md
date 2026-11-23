@@ -38,7 +38,7 @@ the vector canvas; colours by role from `Style.plane`, light and dark (`-dark`).
 
 | Figure | Light | Dark |
 |---|---|---|
-| **Two disks and a chord** — closed disks of radius `√(3 + φ)` about `±1`, the chord from `−E` to `E` (`E = ζ − ζ²`), `E` on the left circle and in its colour, `−E` on the right one and in its, the circles' crossings `±(ζ − ζ⁴)` as rings, a mark for a turn of 72° clockwise; every point exact in ℤ[ζ₅], and `disks_spec` says which item is which and proves each recorded incidence in ℚ(√5) (`plane-disks`) | ![](plane-disks.svg) | ![](plane-disks-dark.svg) |
+| **Two disks and a chord** — closed disks of radius `√(3 + φ)` about `±1`, the chord from `−E` to `E` (`E = ζ − ζ²`), `E` on the left circle and in its colour, `−E` on the right one and in its, the circles' crossings `±(ζ − ζ⁴)` as rings, a mark for a turn of 72° clockwise; every point exact in ℤ[ζ₅], and `disks_spec` says which item is which and checks each recorded incidence by exact arithmetic in ℚ(√5) (`plane-disks`) | ![](plane-disks.svg) | ![](plane-disks-dark.svg) |
 | **The elements** — a line and a ray clipped to the frame, a dashed circle, an arc with an arrowhead, a sector, a regular pentagon, a tinted triangle, a polyline, arrows, angle marks both ways, labels on four sides of a point (`plane-constructions`) | ![](plane-constructions.svg) | ![](plane-constructions-dark.svg) |
 | **Exact points of ℤ[ζ₅]** — the unit steps `ζʲ` and a window disk; the steps in the window are decided exactly in ℚ(√5), and `zetaSteps_spec` says where each point is drawn (`plane-exact`) | ![](plane-exact.svg) | ![](plane-exact-dark.svg) |
 

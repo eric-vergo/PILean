@@ -542,8 +542,8 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   every working precision divide by the part of the divisor's ball above `m`
   (`RatBall.invAbove`), so a low precision gives a wide ball, never a wrong one; they decide the
   sign under a square root the same way, and answer what the balls do not decide with `none` or
-  `Meeting.undecided` (tangency is decided only for exact data, where the deciding number is
-  exactly 0). The square root is `√(max x 0)`, total. Refinement says when it did not reach the
+  `Meeting.undecided` (tangency is decided only for data whose balls have radius 0, rationals and
+  integers, where the deciding number is exactly 0). The square root is `√(max x 0)`, total. Refinement says when it did not reach the
   radius asked (`refine`, `Enclosed.meetsPrecision`).
 * **Specifications that speak about the items.** A figure's theorem says which item is which
   exact object, in which colour, with which title and recorded incidences
@@ -569,7 +569,7 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   seen on it or off it unless they record their incidence relative to that element, colours of
   too little contrast against what they are drawn on (at their alpha; at a label's centre, a
   marker's, and along every stroke, over the page and the fills beneath), in both themes, numbers
-  that are not finite, roles the style does not name, and colours the inline dark theme would
+  that are not finite, degenerate polygons, polylines and segments, roles the style does not name, and colours the inline dark theme would
   restyle wrongly. A recorded incidence names its element by title (`Item.named`) and is held to
   it: a point recorded on an element but drawn away from it, or on the wrong side of a region, is
   itself a problem, and a record against one element does not excuse a point from another. A

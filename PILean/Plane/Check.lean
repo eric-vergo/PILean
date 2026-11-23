@@ -23,7 +23,10 @@ of `PILean.Graph.Check`), measured on the page, in pixels:
   that element (`Item.incident`, which names the element by its title; `Plane.Exact.pointNearDisk`
   decides it exactly and records it). A point at one of the element's defining points (the end of
   a segment, a vertex, the end of an arc) is not reported.
-* `unknownIncidenceTarget`: a point records an incidence relative to a title no element has.
+* `unknownIncidenceTarget`: a point records an incidence relative to a title no element has, or
+  one that several elements have.
+* `degenerate`: a polygon with fewer than three distinct vertices, a polyline with fewer than two,
+  or a segment or an arrow whose ends coincide: drawn as nothing or as a dot.
 * `wrongIncidence`: a recorded incidence the drawing contradicts: a point recorded `on` an element
   more than `onTolerance` from its strokes, or recorded `inside` or `outside` a closed element
   (a circle, a disk, a sector, a polygon, a region of disks) on the other side of its boundary
@@ -134,6 +137,8 @@ inductive ProblemKind where
   | unknownRole
   /-- An element's colour comes out wrong in the dark theme of an inline picture. -/
   | darkThemeClash
+  /-- A polygon, polyline, segment or arrow that encloses or spans nothing. -/
+  | degenerate
   deriving BEq, Inhabited, Repr
 
 /-- A problem: its kind, the positions of the elements involved (in `Figure.leaves`) and a
@@ -368,6 +373,16 @@ def problemsOf (fig : Figure) (o : CheckOptions := {}) : Array Problem := Id.run
     if !(lf.geom.finite && lf.look.finite) then
       out := out.push ⟨.nonFinite, #[i], s!"{lf.name i} has a number that is not finite and is \
         not drawn as given"⟩
+    let distinct := fun (vs : Array Point) =>
+      (vs.foldl (fun acc v => if acc.contains v then acc else acc.push v) #[]).size
+    let degenerate : Bool := match lf.geom with
+      | .polygon vs => distinct vs < 3
+      | .polyline vs => distinct vs < 2
+      | .segment a b | .arrow a b => a == b
+      | _ => false
+    if degenerate then
+      out := out.push ⟨.degenerate, #[i], s!"{lf.name i} has too few distinct points to be \
+        drawn as it is meant"⟩
     for r in lf.look.unknownRoles e.ps do
       out := out.push ⟨.unknownRole, #[i], s!"{lf.name i} is in the role “{r}”, which the style \
         does not name; it is drawn in the ink"⟩
@@ -429,7 +444,10 @@ def problemsOf (fig : Figure) (o : CheckOptions := {}) : Array Problem := Id.run
       if targets.isEmpty then
         out := out.push ⟨.unknownIncidenceTarget, #[i], s!"{leaves[i]!.name i} is recorded \
           {rel.text} “{what}”, but no element has that title (Item.named)"⟩
-      for j in targets do
+      if targets.length > 1 then
+        out := out.push ⟨.unknownIncidenceTarget, #[i] ++ targets.toArray, s!"{leaves[i]!.name i} \
+          is recorded {rel.text} “{what}”, but {targets.length} elements have that title"⟩
+      for j in (if targets.length == 1 then targets else []) do
         let d := distToSegments ci segs[j]!
         let lj := leaves[j]!
         let wrong : Option String := match rel with

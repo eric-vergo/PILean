@@ -251,6 +251,7 @@ def drawGeom (e : Env) (l : Look) : Geom → Array Shape
     let p := ((Path.empty.moveTo q).arcTo q r (-θ₀) (-θ₁)).close
     #[.path p (if l.filled then some (e.tint l) else none) (e.outlineOf l)]
   | .polygon vs =>
+    if vs.isEmpty then #[] else
     #[.path (Path.polyline (vs.map e.frame.toScreen)).close
       (if l.filled then some (e.tint l) else none) (e.outlineOf l)]
   | .polyline vs =>
@@ -258,6 +259,7 @@ def drawGeom (e : Env) (l : Look) : Geom → Array Shape
       let qs := vs.map e.frame.toScreen
       #[e.strokePath l (Path.polyline qs.pop)] ++
         e.arrowTo l (qs[qs.size - 2]!) (qs[qs.size - 1]!)
+    else if vs.isEmpty then #[]
     else #[e.strokePath l (Path.polyline (vs.map e.frame.toScreen))]
   | .angleMark c θ₀ θ₁ radius =>
     e.arcShapes l (e.frame.toScreen c) (radius.getD e.ps.angleRadius) θ₀ θ₁ true

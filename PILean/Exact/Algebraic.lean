@@ -351,11 +351,12 @@ def Enclosed.ofBalls (re im : Nat → RatBall) : Enclosed :=
     fun k => (refine re k).2 && (refine im k).2⟩
 
 /-- Where two curves meet, as far as the balls of their data decide it (at `signPrecisions`): in
-two points (in the order the construction states), in one point (tangency, decided only for exact
-data, where the deciding number is the exact 0), in none (`apart`), or `undecided` (the balls
-tried do not separate the deciding number from 0, as for curves too near tangency, a line through
-two points not decided to differ, or circles about centres not decided to differ unless their
-radii are decided to differ). -/
+two points (in the order the construction states), in one point (tangency, decided only for data
+whose balls have radius 0, rationals and integers, where the deciding number is the exact 0;
+irrational data such as `QSqrt d` reaches `undecided` instead), in none (`apart`), or
+`undecided` (the balls tried do not separate the deciding number from 0, as for curves too near
+tangency, a line through two points not decided to differ, or circles about centres not decided
+to differ unless their radii are decided to differ). -/
 inductive Meeting where
   /-- Two points. -/
   | two (first second : Enclosed)

@@ -191,7 +191,7 @@ tag := "plane-checks"
 name (a label centred on a line included), something beyond the page, markers that read as one,
 a point drawn too near an element for a reader to see whether it is on it, a colour of too
 little contrast against what it is drawn on (at its opacity, along every stroke, over the fills
-beneath), in both themes, a number that is not finite, a role the style does not name, and a
+beneath), in both themes, a number that is not finite, a polygon or segment with too few distinct points, a role the style does not name, and a
 colour the dark theme of an inline picture would get wrong. A point near an element records
 where it stands relative to it with {name}`PILean.Plane.Item.incident`, naming the element by
 its title ({name}`PILean.Plane.Item.named`); the check holds the record to that element, so a
@@ -263,7 +263,7 @@ the balls tried do not decide it.
 A figure's theorem can say which item is which exact object, in which colour, with which title
 and which recorded incidences ({name}`PILean.Plane.Exact.IsPoint`,
 {name}`PILean.Plane.Exact.IsDisk`, {name}`PILean.Plane.Exact.IsSegment`,
-{name}`PILean.Plane.Exact.IsRegion`), and prove the incidences by exact arithmetic, so that the
+{name}`PILean.Plane.Exact.IsRegion`), and check the incidences by exact arithmetic in the representation, so that the
 picture's facts are facts about its items.
 
 ```lean (name := algEx)

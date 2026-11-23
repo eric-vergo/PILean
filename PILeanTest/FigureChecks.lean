@@ -70,7 +70,11 @@ def incidenceChecks : Array (String × Bool) :=
     ("incidence: two records, one for each element, hold",
       (kinds (base #[circleNamed, circle ⟨2, 0⟩ 1 |>.named "the other circle",
         point ⟨1, 0⟩ |>.incident .on "the circle" |>.incident .on "the other circle",
-        far])).isEmpty)]
+        far])).isEmpty),
+    ("incidence: a record naming a title two elements share is reported, not guessed",
+      let ks := kinds (base #[circleNamed, circle ⟨5, 0⟩ 1 |>.named "the circle",
+        point ⟨1, 0⟩ |>.incident .on "the circle", far])
+      ks.contains .unknownIncidenceTarget && !ks.contains .wrongIncidence)]
 
 /-! ### Contrast, numbers, labels, roles and dark themes -/
 
@@ -116,6 +120,13 @@ def drawingChecks : Array (String × Bool) :=
     ("numbers: a region of a disk whose centre is not finite is reported and draws nothing",
       (kinds nanLens).contains .nonFinite &&
       (regionArcs .intersection ⟨nan, 0⟩ 1 ⟨1, 0⟩ 1).isEmpty && !has nanLens.toSvg "NaN"),
+    ("degenerate: empty and one-point polygons, an empty polyline and a zero-length segment are \
+      reported, and the SVG has no path that starts with a close",
+      let f := base #[polygon #[], polygon #[⟨0.5, 0.5⟩] |>.filled,
+        polygon #[⟨1, 1⟩, ⟨1, 1⟩, ⟨1, 1⟩], polyline #[], segment ⟨0, 1⟩ ⟨0, 1⟩, point ⟨0, 0⟩,
+        point ⟨2, 2⟩]
+      (f.problems.filter (·.kind == .degenerate)).size == 5 && !has f.toSvg "d=\"Z" &&
+        !has f.toSvg "d=\"\""),
     ("roles: a role the style does not name is reported",
       (kinds (base #[segment ⟨0, 0⟩ ⟨1, 0⟩ |>.role "missing"])).contains .unknownRole),
     ("dark theme: a fixed colour equal to a style colour is reported",
@@ -208,7 +219,8 @@ def plotKinds (fig : Plot.Figure) : Array Plot.ProblemKind := fig.problems.map (
 def plotChecks : Array (String × Bool) :=
   let one := #[Plot.Series.line "a" #[⟨0, 0⟩, ⟨1, 1⟩]]
   let two := one.push (.line "b" #[⟨0, 1⟩, ⟨1, 0⟩])
-  let unnamed := #[Plot.Series.line "" #[⟨0, 0⟩, ⟨1, 1⟩], .line "" #[⟨0, 1⟩, ⟨1, 0⟩]]
+  let unnamed :=
+    #[Plot.Series.line "" #[⟨0, 0⟩, ⟨1, 1⟩], .line "" #[⟨0, 1⟩, ⟨1, 0⟩]]
   let failing : Plot.Figure := { plot "" "y" one with checks := .fail }
   let warned := plot "" "y" one
   #[("plots: an axis without a label is reported",
@@ -219,7 +231,11 @@ def plotChecks : Array (String × Bool) :=
       (plotKinds (plot "x" "y" unnamed)).contains .unnamedSeries),
     ("plots: a legend, or a direct label for each series, names them",
       (plotKinds (plot "x" "y" two)).isEmpty &&
-      (plotKinds (plot "x" "y" two #[.text ⟨0, 0⟩ "a", .text ⟨1, 1⟩ "b"] (legend := false))).isEmpty),
+      (plotKinds (plot "x" "y" two #[.text ⟨0, 0⟩ "a", .text ⟨1, 1⟩ "b"]
+        (legend := false))).isEmpty),
+    ("plots: a direct label must name its series; an unrelated annotation names nothing",
+      (plotKinds (plot "x" "y" two #[.text ⟨0, 0⟩ "a", .text ⟨1, 1⟩ "unrelated"]
+        (legend := false))).contains .unnamedSeries),
     ("plots: the groups of a bar series count as series",
       (plotKinds (plot "x" "y" #[.bars #["p", "q"] #[("", #[1, 2]), ("", #[2, 1])]])).contains
         .unnamedSeries),

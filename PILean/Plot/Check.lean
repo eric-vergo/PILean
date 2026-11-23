@@ -15,7 +15,7 @@ panel at a time:
 * `unnamedSeries`: the panel has two or more series (each group of a bar series counts as one),
   and not every one of them is named by the legend (a figure's legend is drawn, and lists a
   series by its label, when the figure has more than one labelled series) or by a direct label
-  in the panel (an annotation `text` or `point` for each series).
+  in the panel (an annotation `text` or `point` whose text is the series' label).
 
 A panel that is bare on purpose (`Panel.bare`) is not checked; a figure's `checks` level
 (`CheckLevel`) says whether the problems are reported (`warn`, the default), stop its rendering
@@ -56,11 +56,11 @@ def Panel.seriesNames (p : Panel) : Array String :=
     | .line l .. | .scatter l .. | .step l .. | .area l .. | .band l .. | .histogram l ..
     | .function l .. | .errorBars l .. => #[l]
 
-/-- The number of direct labels in a panel: its `text` and `point` annotations. -/
-def Panel.directLabels (p : Panel) : Nat :=
-  (p.notes.filter fun a => match a with
-    | .text .. | .point .. => true
-    | _ => false).size
+/-- The texts of a panel's direct labels: its `text` and `point` annotations. -/
+def Panel.directLabels (p : Panel) : Array String :=
+  p.notes.filterMap fun a => match a with
+    | .text _ s _ | .point _ s => some s
+    | _ => none
 
 /-- How a panel is named in a message: its title, or its position. -/
 def Panel.name (p : Panel) (i : Nat) : String :=
@@ -81,9 +81,10 @@ def Figure.problems (fig : Figure) : Array Problem := Id.run do
         (Axis.label; Panel.bare for a panel bare on purpose)"⟩
     let names := p.seriesNames
     let named := legend && names.all (!·.isEmpty)
-    if names.size ≥ 2 && !named && p.directLabels < names.size then
+    let direct := names.all fun n => !n.isEmpty && p.directLabels.contains n
+    if names.size ≥ 2 && !named && !direct then
       out := out.push ⟨.unnamedSeries, i, s!"{p.name i}: {names.size} series, which neither \
-        the legend nor direct labels name (Figure.legend, Annotation.text)"⟩
+        the legend nor direct labels with their labels name (Figure.legend, Annotation.text)"⟩
   return out
 
 /-- The messages of the figure's labelling problems, unless its `checks` level is `ignore`. -/
