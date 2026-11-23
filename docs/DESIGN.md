@@ -873,7 +873,9 @@ compared with the object. The choices:
 * **Grids and lattices.** A grid's marked cells are tinted when they carry text and filled opaque
   when they do not (an Ulam spiral), the filled ones a twelfth of a unit inside their square and
   the tinted ones a sixteenth, so that marked neighbours stand apart and no stroke lies on a
-  fill. A lattice's coefficients are bounded
+  fill. A grid can ring one cell (the Ulam spiral rings `1`, its start) and write a legend below
+  its cells: a sample of the marked fill and what it means (the sieve: a prime; the table of
+  residues: a nonzero square mod `p`); both are decorations its `Faithful` accounts for. A lattice's coefficients are bounded
   from the window by Cramer's rule, rounded up; the core proves that the dots are the candidates
   in the window, and `pilean-mathlib` that the bound covers every lattice point of the window
   (inequalities over ℚ are Mathlib's). Points on the axes record that they are on them

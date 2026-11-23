@@ -18,8 +18,9 @@ Two kinds for number theory, drawn from the sequences and predicates themselves.
   exactly the builder's, and there is nothing else.
 * A `CellPlot` is a list of unit cells at integer positions, each marked or not, with a text: the
   numbers of an Ulam spiral marked where a predicate holds, or a table of residues.
-  `CellPlot.Faithful` accounts for every cell, its colour (accent 0 tinted exactly when marked)
-  and its text, the headings and nothing else.
+  It may ring one cell (the start of a spiral) and write a legend for its marked cells below
+  them. `CellPlot.Faithful` accounts for every cell, its colour (accent 0 tinted exactly when
+  marked) and its text, the headings, the ring and the legend, and nothing else.
 
 `ulamWalk count` lists the positions of `1, …, count` on the square spiral, `1` at the origin.
 
