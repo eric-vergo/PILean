@@ -52,7 +52,9 @@ def point (P : LatticePath) (k : Nat) : Int × Int :=
 
 /-- Point `k + 1` is point `k` plus step `k`. -/
 theorem point_succ (P : LatticePath) (k : Nat) (h : k < P.steps.length) :
-    P.point (k + 1) = ((P.point k).1 + P.steps[k].1, (P.point k).2 + P.steps[k].2) := by sorry
+    P.point (k + 1) = ((P.point k).1 + P.steps[k].1, (P.point k).2 + P.steps[k].2) := by
+  rw [point, List.take_add_one, List.getElem?_eq_getElem h, Option.toList_some, List.foldl_append]
+  rfl
 
 /-- The steps as the diagram draws them: `(k, point k, point (k + 1))` for each step `k`. -/
 def stepList (P : LatticePath) : List (Nat × QPoint × QPoint) :=
@@ -89,7 +91,9 @@ instance (P : LatticePath) (d : Diagram) : Decidable (P.Faithful d) :=
   inferInstanceAs (Decidable (_ = _))
 
 /-- The diagram of a path is faithful. -/
-theorem draw_faithful (P : LatticePath) : P.Faithful P.draw := by sorry
+theorem draw_faithful (P : LatticePath) : P.Faithful P.draw := by
+  simp [Faithful, Diagram.steps, draw, gridMarks, stepList, List.filterMap_append,
+    List.filterMap_map, Function.comp_def]
 
 /-- The figure: the diagram, or a note for more than `maxSteps` steps or a box wider or taller
 than `maxSteps` (the grid's lines). -/
@@ -100,7 +104,11 @@ def figure (P : LatticePath) : Diagram :=
 /-- A path the figure draws is drawn faithfully. -/
 theorem builder_faithful (P : LatticePath)
     (h : P.steps.length ≤ maxSteps ∧ P.steps.all (fun s => s.1.natAbs ≤ 4 ∧ s.2.natAbs ≤ 4)) :
-    P.Faithful P.figure := by sorry
+    P.Faithful P.figure := by
+  unfold figure
+  split
+  · exact P.draw_faithful
+  · contradiction
 
 /-- The north–east path of a word: `true` a step north `(0, 1)`, `false` a step east `(1, 0)`. -/
 def ofNorthEast (w : List Bool) : LatticePath :=
@@ -119,7 +127,10 @@ def isDyck (w : List Bool) : Bool :=
 /-- Step `k` of a Dyck path is drawn rising (from height `y` to `y + 1`) exactly when letter `k`
 of the word is an up step. -/
 theorem ofDyck_step_rises (w : List Bool) (k : Nat) (h : k < w.length) :
-    ((ofDyck w).point (k + 1)).2 = ((ofDyck w).point k).2 + 1 ↔ w[k] = true := by sorry
+    ((ofDyck w).point (k + 1)).2 = ((ofDyck w).point k).2 + 1 ↔ w[k] = true := by
+  rw [point_succ _ _ (by simpa [ofDyck] using h)]
+  simp only [ofDyck, List.getElem_map]
+  cases w[k] <;> simp <;> omega
 
 end LatticePath
 
@@ -153,7 +164,10 @@ instance (P : Polyomino) (d : Diagram) : Decidable (P.Faithful d) :=
   inferInstanceAs (Decidable (_ ∧ _))
 
 /-- The diagram of a polyomino is faithful. -/
-theorem draw_faithful (P : Polyomino) : P.Faithful P.draw := by sorry
+theorem draw_faithful (P : Polyomino) : P.Faithful P.draw := by
+  refine ⟨?_, ?_⟩
+  · simp [Diagram.cells, draw, List.filterMap_map, Function.comp_def]
+  · simp [draw]
 
 /-- The Ferrers board of the row lengths `λ`: row `i` (from the bottom) has the cells
 `(0, i), …, (λᵢ - 1, i)`. -/
@@ -164,6 +178,6 @@ end Polyomino
 
 /-- The hypotheses can be met: `UUDD` is a Dyck word whose path rises at step 0. -/
 example : LatticePath.isDyck [true, true, false, false] = true ∧
-    (LatticePath.ofDyck [true, true, false, false]).point 1 = (1, 1) := by sorry
+    (LatticePath.ofDyck [true, true, false, false]).point 1 = (1, 1) := by decide
 
 end PILean.Diagram

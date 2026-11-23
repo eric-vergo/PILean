@@ -176,12 +176,20 @@ instance (F : Forest) (L : Layout) (d : Diagram) : Decidable (F.Faithful L d) :=
   inferInstanceAs (Decidable (F.toFinGraph.Faithful L d))
 
 /-- The diagram of a forest is faithful at every layout. -/
-theorem draw_faithful (F : Forest) (L : Layout) : F.Faithful L (F.draw L) := by sorry
+theorem draw_faithful (F : Forest) (L : Layout) : F.Faithful L (F.draw L) :=
+  F.toFinGraph.draw_faithful L
 
 /-- A drawn edge is exactly a parent link: `(p, c)` with `c` a vertex whose parent is the vertex
 `p`. -/
 theorem mem_edges (F : Forest) (L : Layout) (p c : Nat) :
-    (p, c) ∈ (F.draw L).edges ↔ p < F.n ∧ c < F.n ∧ F.parentOf c = some p := by sorry
+    (p, c) ∈ (F.draw L).edges ↔ p < F.n ∧ c < F.n ∧ F.parentOf c = some p := by
+  rw [(F.draw_faithful L).1, FinGraph.mem_edgePairs]
+  simp only [toFinGraph, FinGraph.drawn, ite_true, beq_iff_eq]
+  constructor
+  · rintro ⟨hp, hc, h⟩
+    exact ⟨hp, hc, h⟩
+  · rintro ⟨hp, hc, h⟩
+    exact ⟨hp, hc, h⟩
 
 /-- The figure: the diagram at the tidy layout, or a note for more than `maxVertices`
 vertices. -/
@@ -190,7 +198,11 @@ def figure (F : Forest) : Diagram :=
   else { marks := [{ part := .note 0, shape := .text "too many vertices to draw" (0, 0) .center }] }
 
 /-- A forest the figure draws is drawn faithfully. -/
-theorem builder_faithful (F : Forest) (h : F.n ≤ maxVertices) : F.Faithful F.layout F.figure := by sorry
+theorem builder_faithful (F : Forest) (h : F.n ≤ maxVertices) : F.Faithful F.layout F.figure := by
+  unfold figure
+  split
+  · exact F.draw_faithful _
+  · contradiction
 
 end Forest
 
@@ -236,12 +248,16 @@ def figure (B : BinTree) : Diagram :=
 
 /-- A binary tree the figure draws is drawn faithfully, as the forest of its parent links. -/
 theorem builder_faithful (B : BinTree) (h : B.n ≤ Forest.maxVertices) :
-    B.toForest.Faithful B.layout B.figure := by sorry
+    B.toForest.Faithful B.layout B.figure := by
+  unfold figure
+  split
+  · exact B.toForest.draw_faithful _
+  · contradiction
 
 end BinTree
 
 /-- The hypotheses can be met: the path `0 → 1 → 2` is a forest whose only root is `0`. -/
 example : (Forest.mk 3 (fun c => if c = 0 then none else some (c - 1)) #[]).IsForest ∧
-    (Forest.mk 3 (fun c => if c = 0 then none else some (c - 1)) #[]).roots = [0] := by sorry
+    (Forest.mk 3 (fun c => if c = 0 then none else some (c - 1)) #[]).roots = [0] := by decide
 
 end PILean.Diagram

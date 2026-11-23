@@ -84,7 +84,17 @@ def inversions (σ : FinPerm) : List (Nat × Nat) :=
 
 /-- A pair is an inversion exactly when `i < j < n` and `σ i > σ j`. -/
 theorem mem_inversions (σ : FinPerm) (i j : Nat) :
-    (i, j) ∈ σ.inversions ↔ i < j ∧ j < σ.n ∧ σ.apply j < σ.apply i := by sorry
+    (i, j) ∈ σ.inversions ↔ i < j ∧ j < σ.n ∧ σ.apply j < σ.apply i := by
+  simp only [inversions, List.mem_flatMap, List.mem_range, List.mem_filterMap]
+  constructor
+  · rintro ⟨i', hi, j', hj, h⟩
+    split at h
+    · simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      omega
+    · simp at h
+  · rintro ⟨hij, hj, hv⟩
+    exact ⟨i, by omega, j, hj, by simp [hij, hv]⟩
 
 /-- The text of a number from the base. -/
 def text (σ : FinPerm) (k : Nat) : String := toString (k + σ.base)
@@ -106,7 +116,9 @@ instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulOneLine d) :=
   inferInstanceAs (Decidable (_ = _))
 
 /-- The one-line notation writes the values, in order. -/
-theorem oneLine_faithful (σ : FinPerm) : σ.FaithfulOneLine σ.oneLine := by sorry
+theorem oneLine_faithful (σ : FinPerm) : σ.FaithfulOneLine σ.oneLine := by
+  simp [FaithfulOneLine, Diagram.entries, oneLine, oneLineEntries, List.filterMap_map,
+    Function.comp_def]
 
 /-- The two-line notation: argument `i` at `(i, 1)` (entry `(0, i)`), its value `σ i` below it at
 `(i, 0)` (entry `(1, i)`), and a bar between the rows. -/
@@ -131,7 +143,9 @@ instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulTwoLine d) :=
   inferInstanceAs (Decidable (_ = _))
 
 /-- The two-line notation writes the arguments and their values. -/
-theorem twoLine_faithful (σ : FinPerm) : σ.FaithfulTwoLine σ.twoLine := by sorry
+theorem twoLine_faithful (σ : FinPerm) : σ.FaithfulTwoLine σ.twoLine := by
+  simp [FaithfulTwoLine, Diagram.entries, twoLine, twoLineEntries, List.filterMap_append,
+    List.filterMap_map, Function.comp_def]
 
 /-- The centre of cell `(i, j)` of the matrix, row 0 at the top. -/
 def matrixCentre (i j : Nat) : QPoint := ((j : Rat) + 1 / 2, -((i : Rat) + 1 / 2))
@@ -159,7 +173,11 @@ instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulMatrix d) :=
   inferInstanceAs (Decidable (_ ∧ _))
 
 /-- The permutation matrix marks exactly the cells `(i, σ i)`. -/
-theorem matrix_faithful (σ : FinPerm) : σ.FaithfulMatrix σ.matrix := by sorry
+theorem matrix_faithful (σ : FinPerm) : σ.FaithfulMatrix σ.matrix := by
+  refine ⟨?_, ?_⟩
+  · simp [Diagram.cells, matrix, List.filterMap_append, List.filterMap_map, List.filterMap_flatMap,
+      Function.comp_def]
+  · simp [matrix]
 
 /-- The order of the vertices round the circle: each cycle in turn, from its least element and
 then its images, the cycles in the order of their least elements (at most `n` steps a cycle, so
@@ -201,11 +219,19 @@ instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulCycles d) :=
   inferInstanceAs (Decidable (σ.toFinGraph.Faithful _ d))
 
 /-- The cycle diagram draws exactly the arrows `i → σ i`. -/
-theorem cycles_faithful (σ : FinPerm) : σ.FaithfulCycles σ.cycles := by sorry
+theorem cycles_faithful (σ : FinPerm) : σ.FaithfulCycles σ.cycles :=
+  σ.toFinGraph.draw_faithful _
 
 /-- A pair is an arrow of the cycle diagram exactly when `i < n` and `j = σ i < n`. -/
 theorem mem_cycles_edges (σ : FinPerm) (i j : Nat) :
-    (i, j) ∈ σ.cycles.edges ↔ i < σ.n ∧ j < σ.n ∧ σ.apply i = j := by sorry
+    (i, j) ∈ σ.cycles.edges ↔ i < σ.n ∧ j < σ.n ∧ σ.apply i = j := by
+  rw [(σ.cycles_faithful).1, FinGraph.mem_edgePairs]
+  simp [toFinGraph, FinGraph.drawn]
+  constructor
+  · rintro ⟨hj, hi, h⟩
+    exact ⟨hi, hj, h⟩
+  · rintro ⟨hi, hj, h⟩
+    exact ⟨hj, hi, h⟩
 
 /-- The strand of `i`: from `(i, 1)` to `(σ i, 0)`. -/
 def strand (σ : FinPerm) (i : Nat) : Nat × QPoint × QPoint :=
@@ -228,21 +254,26 @@ instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulWiring d) :=
   inferInstanceAs (Decidable (_ = _))
 
 /-- The wiring diagram draws the strands. -/
-theorem wiring_faithful (σ : FinPerm) : σ.FaithfulWiring σ.wiring := by sorry
+theorem wiring_faithful (σ : FinPerm) : σ.FaithfulWiring σ.wiring := by
+  simp [FaithfulWiring, Diagram.strands, wiring, strand, List.filterMap_map, Function.comp_def]
 
 /-- The pairs of strands of the wiring diagram that cross are exactly the inversions, in
 order. -/
-theorem wiring_crossings (σ : FinPerm) : crossingPairs σ.wiring.strands = σ.inversions := by sorry
+theorem wiring_crossings (σ : FinPerm) : crossingPairs σ.wiring.strands = σ.inversions := by
+  rw [σ.wiring_faithful]
+  simp only [crossingPairs, inversions, strand, List.flatMap_map, List.filterMap_map,
+    Function.comp_def, Rat.natCast_lt_natCast]
 
 /-- The wiring diagram has as many crossings as the permutation has inversions. -/
 theorem wiring_crossings_length (σ : FinPerm) :
-    (crossingPairs σ.wiring.strands).length = σ.inversions.length := by sorry
+    (crossingPairs σ.wiring.strands).length = σ.inversions.length := by
+  rw [σ.wiring_crossings]
 
 end FinPerm
 
 /-- The hypotheses can be met: `[2, 0, 1]` is a permutation with the inversions `(0, 1)` and
 `(0, 2)`. -/
 example : (FinPerm.mk [2, 0, 1] 1).IsPerm ∧
-    (FinPerm.mk [2, 0, 1] 1).inversions = [(0, 1), (0, 2)] := by sorry
+    (FinPerm.mk [2, 0, 1] 1).inversions = [(0, 1), (0, 2)] := by decide
 
 end PILean.Diagram

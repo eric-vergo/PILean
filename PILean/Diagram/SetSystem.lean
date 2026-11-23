@@ -96,13 +96,16 @@ def slotsOk : Bool :=
 
 /-- Every place of every region is inside exactly the circles of its region (decided by the
 kernel in exact arithmetic). -/
-theorem slots_correct : slotsOk = true := by sorry
+theorem slots_correct : slotsOk = true := by decide +kernel
 
 /-- Place `t < capOf mask` of the region `mask < 2 ^ k` of a diagram of `k ∈ {1, 2, 3}` sets is
 inside circle `s < k` exactly when bit `s` of `mask` is set. -/
 theorem inside_slot {k mask t s : Nat} (hk : k = 1 ∨ k = 2 ∨ k = 3) (hm : mask < 2 ^ k)
     (ht : t < capOf mask) (hs : s < k) :
-    inside ((vennCentres k).getD s (0, 0)) (slot k mask t) = mask.testBit s := by sorry
+    inside ((vennCentres k).getD s (0, 0)) (slot k mask t) = mask.testBit s := by
+  have h := slots_correct
+  simp only [slotsOk, List.all_eq_true, List.mem_cons, List.mem_range, beq_iff_eq] at h
+  exact h k (by omega) mask hm t ht s hs
 
 /-- A set system: the elements `0, …, n - 1` with their names, and the sets with theirs. -/
 structure SetSystem where
@@ -126,11 +129,25 @@ def mask (S : SetSystem) (x : Nat) : Nat :=
 
 /-- Bit `s < 3` of the region of `x` is set exactly when `x` belongs to set `s`. -/
 theorem testBit_mask (S : SetSystem) (x s : Nat) (hs : s < 3) :
-    (S.mask x).testBit s = S.mem x s := by sorry
+    (S.mask x).testBit s = S.mem x s := by
+  unfold mask
+  have : s = 0 ∨ s = 1 ∨ s = 2 := by omega
+  rcases this with rfl | rfl | rfl <;>
+    cases S.mem x 0 <;> cases S.mem x 1 <;> cases S.mem x 2 <;> decide
 
 /-- The region of `x` is below `2 ^ k` when `x` belongs to no set beyond the first `k`. -/
 theorem mask_lt (S : SetSystem) (x : Nat) (hk : S.sets.length ≤ 3) :
-    S.mask x < 2 ^ S.sets.length := by sorry
+    S.mask x < 2 ^ S.sets.length := by
+  have h : ∀ s, S.sets.length ≤ s → S.mem x s = false := fun s hs => by
+    simp [mem, List.getD_eq_getElem?_getD, List.getElem?_eq_none hs]
+  unfold mask
+  have : S.sets.length = 0 ∨ S.sets.length = 1 ∨ S.sets.length = 2 ∨ S.sets.length = 3 := by
+    omega
+  rcases this with h0 | h0 | h0 | h0 <;> rw [h0]
+  · rw [h 0 (by omega), h 1 (by omega), h 2 (by omega)]; decide
+  · rw [h 1 (by omega), h 2 (by omega)]; cases S.mem x 0 <;> decide
+  · rw [h 2 (by omega)]; cases S.mem x 0 <;> cases S.mem x 1 <;> decide
+  · cases S.mem x 0 <;> cases S.mem x 1 <;> cases S.mem x 2 <;> decide
 
 /-- The place of `x` in its region: the number of elements before it in the same region. -/
 def rank (S : SetSystem) (x : Nat) : Nat :=
@@ -173,7 +190,12 @@ instance (S : SetSystem) (d : Diagram) : Decidable (S.FaithfulVenn d) :=
   inferInstanceAs (Decidable (_ ∧ _))
 
 /-- The Venn diagram is faithful. -/
-theorem venn_faithful (S : SetSystem) : S.FaithfulVenn S.venn := by sorry
+theorem venn_faithful (S : SetSystem) : S.FaithfulVenn S.venn := by
+  refine ⟨?_, ?_⟩
+  · simp [Diagram.members, venn, List.filterMap_append, List.filterMap_map,
+      Function.comp_def, memberList]
+  · simp [venn, List.filterMap_append, List.filterMap_map,
+      Function.comp_def, memberList]
 
 /-- In the Venn diagram of one to three sets whose regions fit (`fits`), the name of every
 element `x` is written at a point inside the circle of set `s` exactly when `x` belongs to `s`,
@@ -181,7 +203,15 @@ for every set `s`. -/
 theorem venn_inside (S : SetSystem) (hk : 1 ≤ S.sets.length ∧ S.sets.length ≤ 3)
     (hfit : S.fits = true) {x k : Nat} {p : QPoint} (hx : (x, k, p) ∈ S.venn.members) {s : Nat}
     (hs : s < S.sets.length) :
-    inside ((vennCentres S.sets.length).getD s (0, 0)) p = S.mem x s := by sorry
+    inside ((vennCentres S.sets.length).getD s (0, 0)) p = S.mem x s := by
+  rw [(S.venn_faithful).1, memberList, List.mem_map] at hx
+  obtain ⟨y, hy, he⟩ := hx
+  simp only [Prod.mk.injEq] at he
+  obtain ⟨rfl, -, rfl⟩ := he
+  have hr : S.rank y < capOf (S.mask y) := by
+    simp only [fits, List.all_eq_true, decide_eq_true_eq] at hfit
+    exact hfit y hy
+  rw [inside_slot (by omega) (S.mask_lt y hk.2) hr hs, S.testBit_mask y s (by omega)]
 
 /-- The incidence graph: the elements `0, …, n - 1` and the sets `n, …, n + m - 1`, an edge
 `(x, n + s)` exactly when `x ∈ s`. -/
@@ -209,13 +239,23 @@ def incidence (S : SetSystem) : Diagram :=
 for a set `s`, and `x ∈ s`. -/
 theorem incidence_edges (S : SetSystem) (x y : Nat) :
     (x, y) ∈ S.incidence.edges ↔
-      x < S.n ∧ S.n ≤ y ∧ y < S.n + S.sets.length ∧ S.mem x (y - S.n) = true := by sorry
+      x < S.n ∧ S.n ≤ y ∧ y < S.n + S.sets.length ∧ S.mem x (y - S.n) = true := by
+  rw [incidence, show ({ S.toFinGraph.draw S.incidenceLayout with
+      width := min 560 (36 * (max S.n (2 * S.sets.length)).toFloat + 24) } : Diagram).edges =
+      (S.toFinGraph.draw S.incidenceLayout).edges from rfl,
+    (S.toFinGraph.draw_faithful _).1, FinGraph.mem_edgePairs]
+  simp only [toFinGraph, FinGraph.drawn, ite_true, Bool.and_eq_true, decide_eq_true_eq]
+  constructor
+  · rintro ⟨hx, hy, ⟨h1, h2⟩, h3⟩
+    exact ⟨h1, h2, hy, h3⟩
+  · rintro ⟨h1, h2, hy, h3⟩
+    exact ⟨by omega, hy, ⟨h1, h2⟩, h3⟩
 
 end SetSystem
 
 /-- The hypotheses can be met: two sets `{0, 1}` and `{1, 2}` of three elements fit, and element
 1 is in the middle region. -/
 example : (SetSystem.mk 3 [[0, 1], [1, 2]] #[] #[]).fits = true ∧
-    (SetSystem.mk 3 [[0, 1], [1, 2]] #[] #[]).mask 1 = 3 := by sorry
+    (SetSystem.mk 3 [[0, 1], [1, 2]] #[] #[]).mask 1 = 3 := by decide
 
 end PILean.Diagram
