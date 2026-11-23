@@ -316,10 +316,33 @@ horizontal and vertical segments in bundles of parallel lanes, as cables are lai
 * *Room.* The layout reserves the room the routes need: the dummy nodes of a bundled layout stand
   `laneGap` apart (in place of `edgeGap`), so the lanes of long edges beside each other are evenly
   spaced; a channel is `stemLength + radius` (at least `laneGap`) above its first track,
-  `laneGap` per track, and as much and an arrowhead below its last; nothing is squeezed. Before the routes, a
-  pass moves a run of a chain's dummy nodes onto the line of its neighbour in the chain when that
-  closes a jog narrower than a lane without opening another and every layer of the run has room
-  (`straightenLanes`, at most three passes linear in the dummy nodes).
+  `laneGap` per track, and as much and an arrowhead below its last; nothing is squeezed. A lane
+  keeps `clusterGap` (by default twice `laneGap`) from the side of a cluster it stays outside, and
+  the first track of a channel keeps as much from a cluster that ends above it.
+* *Lanes placed.* The coordinate phase keeps a long edge's dummy nodes in one column (the weights 1,
+  2 and 8 of Gansner et al.), but in the place the crossing reduction gave them in each layer, and
+  that place is often the end of the layer: the lane then runs round the outside of the drawing or
+  of a cluster, a long way from both of its ends. Before the routes, `placeLanes` moves every
+  chain's dummy nodes, long chains first, to places found by a shortest path over the chain's
+  layers: in each layer the candidates are the free places (at least the separation of the
+  coordinate phase from every node, dummy node and cluster side there, inside the cluster that holds
+  the chain's block and no deeper) nearest the stretch between the ports of the edge's two ends,
+  where a rectilinear route is no longer than the distance between its ends; a step between two
+  layers costs its length across, `4 × laneGap` when it moves across at all (a run and two corners)
+  and as much for every leg of another edge it crosses, and does not cross the side of a cluster
+  that reaches over both layers unless the old step did. The new places are kept when they save more
+  than `4 × laneGap`, cross no more legs of other edges and cross no more other edges twice than the
+  old ones. Only the part of a layer within `64 × laneGap` of the ends' stretch and of the old place
+  is looked at. Two such passes; a bound on the work (60 million steps: items of the layers, legs
+  compared, candidates) stops them on a graph too large for it. Then jogs narrower than a lane are
+  closed: a run of a chain's dummy nodes moves onto the line of its neighbour in the chain
+  (`straightenLanes`), and a real node moves by less than a lane onto the line of one of its edges'
+  next nodes (`alignPorts`), each when that closes a jog without opening another and its layer has
+  room (at most three passes each, linear in the dummy nodes or the ends of the edges times the
+  breadth of a layer). One column for the whole chain, the free one nearest its ends, was measured
+  first: on the blueprint of 67 nodes with the site's style it took off 0.5 thousand of the 18
+  thousand pixels by which the routes exceed the distances between their ends, where the shortest
+  paths take off 3.5 thousand, because a column free in every layer of a long chain is rare.
 * *Corners.* Corners of one turn whose centres can coincide (lanes `laneGap` apart turning onto
   tracks `laneGap` apart lie on one diagonal) form a bundle and are concentric quarter circles: the
   innermost of radius `radius`, the lane `k` places further out `radius + k × laneGap`. The rule
@@ -328,7 +351,10 @@ horizontal and vertical segments in bundles of parallel lanes, as cables are lai
   arrowhead); a bundle that does not fit keeps its corners concentric with a smaller innermost
   radius when one of at least zero is enough, and is scaled as a whole otherwise.
 
-Work: the legs of the routes are the sum of the spans of the edges; a channel of `k` runs costs
+Work: the legs of the routes are the sum of the spans of the edges; placing the lanes costs, per
+chain and pass, the breadth of each of its layers and, per step, the legs of other edges in that
+channel times the logarithm of the candidates and the candidates squared (at most 13 a layer),
+within its bound; a channel of `k` runs costs
 `O(k²)` (the nesting order and the tracks compare runs pairwise; at most `k` doglegs, each `O(k)`
 to find its column), up to `BundleStyle.maxRuns` (4000) runs; a channel with more gives each run
 a track of its own in `O(k log k)`, without the constraints between them: the promises tested
@@ -339,55 +365,67 @@ under CPU and memory bounds.
 *Proved* (`Graph/Channel`, `Graph/Bundle`): two runs in conflict never share a track
 (`tracksInOrder_ne`, for any symmetric conflict, and the conflict of `placeRuns` is symmetric:
 `RunPart.conflicts_comm`; that this conflict covers every pair that must not share a track is
-tested); every route, before its corners are rounded and its ends cut for stems and arrowheads,
-is a walk of horizontal and vertical moves that starts at
-its source's exit port and ends at its target's entry port (`routeWalk_head`, `routeWalk_last`,
-`routeWalk_axis`). *Tested* (`PILeanTest/GraphBundles.lean`, on every measured graph and graph
-file but the two largest, on hostile graphs: multi-edges, self-loops, cycles, a node with 200
-edges in or out, a chain with shortcuts, complete bipartite graphs, nested clusters, labels, an
-undirected graph; from the top down, left to right, both mirrored and packed; each checker with a
-planted fault): every route leaves at the exit port and enters at the entry port of the finished
-picture, its segments and the straight pieces of its path are horizontal or vertical, no two edges
-share a piece of a segment except the trunk of a port both use, no route passes within two pixels
-of a node it does not end at, parallel segments of two edges are at least `laneGap` apart, one
-arrowhead per entry port and none on an edge; crossings at most a fiftieth above the spline
-routes'; no more edges through a foreign cluster than the spline routes; in random channels two
-runs cross at most once, and not when their ends agree. The style space is tested at its
-defaults on the corpus and, by an independent check, from lanes 3 to 12 apart, radii 0 to 20,
-stems 0 to 30 and track gaps 4 to 24 on hostile and 500 random graphs. Two edges can still cross more than once
-in all when the layers' order swaps them in one channel and back in another (the measures count
-such pairs: up to 7 of 146 edges on blueprint A by chapter).
+tested); every route, before its corners are rounded and its ends cut for stems and arrowheads, is a
+walk of horizontal and vertical moves that starts at its source's exit port and ends at its target's
+entry port (`routeWalk_head`, `routeWalk_last`, `routeWalk_axis`). *Tested*
+(`PILeanTest/GraphBundles.lean`, on every measured graph and graph file but the two largest, on
+hostile graphs: multi-edges, self-loops, cycles, a node with 200 edges in or out, a chain with
+shortcuts, complete bipartite graphs, nested clusters, labels, an undirected graph; from the top
+down, left to right, both mirrored and packed; each checker with a planted fault): every route
+leaves at the exit port and enters at the entry port of the finished picture, its segments and the
+straight pieces of its path are horizontal or vertical, no two edges share a piece of a segment
+except the trunk of a port both use, no route passes within two pixels of a node it does not end at,
+parallel segments of two edges are at least `laneGap` apart, no route comes nearer than `clusterGap`
+to a cluster that holds neither of its ends, one arrowhead per entry port and none on an edge;
+crossings at most a fiftieth above the spline routes'; no more edges through a foreign cluster than
+the spline routes; in random channels two runs cross at most once, and not when their ends agree.
+The style space is tested at its defaults on the corpus and, by an independent check, from lanes 3
+to 12 apart, radii 0 to 20, stems 0 to 30 and track gaps 4 to 24 on hostile and 500 random graphs,
+and the hostile graphs also with lanes 8 apart, radius 10, stems 14 and track gap 16. Two edges can
+still cross more than once in all when the layers' order swaps them in one channel and back in
+another (the measures count such pairs: up to 6 of 793 edges on the neighbourhood of 290 nodes; with
+the site's style, 13 of 171 on blueprint 67 by chapter). Placing the lanes keeps a move only when
+the chain then crosses no more other edges twice; a step of the ordering that removed them would
+have to see the channels as the routes cross them, which the crossing reduction (two layers at a
+time, edges as straight segments) does not.
 
 *Measured* (`lake exe pilean-test --bundle-measures`, the default `BundleStyle`: lanes 6 pixels
-apart, innermost radius 6, stems 10, runs on one track 12 apart; the routes measured as
-polylines from port to port, the spline routes as flattened curves; `dot`'s numbers are the
-recorded ones of `PILeanTest/graphs/dot-recorded.tsv`, its area without cluster boxes, PILean's
-with them). The bundled routes follow the spline routes' orders, so their crossings are within a
-few of the spline routes' (and fewer than `dot`'s on the graphs with clusters); they are about 1.3
-to 1.7 times as long (a rectilinear route against a straight or curved one), and the drawings take
-up to about a tenth more area, as the channels grow with their tracks, except where one node has
-hundreds of edges: every edge has its own lane, so a node with 400 neighbours in the layer below
-needs 200 tracks on each side of its stem (seven times the spline drawing's area).
+apart, innermost radius 6, stems 10, runs on one track 12 apart; the routes measured as polylines
+from port to port, the spline routes as flattened curves; `dot`'s numbers are the recorded ones of
+`PILeanTest/graphs/dot-recorded.tsv`, its area without cluster boxes, PILean's with them; the
+longest route, the length by which the routes exceed the rectilinear distances between their ends,
+and the routes with a point outside the box around the nodes are the bundled routes'). The bundled
+routes follow the spline routes' orders, and placing the lanes only removes crossings, so their
+crossings are at most the spline routes' and up to 8 per cent fewer (and fewer than `dot`'s on the
+graphs with clusters); they are about 1.3 to 1.7 times as long (a rectilinear route against a
+straight or curved one), and the drawings take up to about a tenth more area, as the channels grow
+with their tracks, except where one node has hundreds of edges: every edge has its own lane, so a
+node with 400 neighbours in the layer below needs 200 tracks on each side of its stem (seven times
+the spline drawing's area). Drawing the runs that leave one stem in one direction on one shared
+track, which the edges leave one by one, would remove that cost, but the edges would then share
+horizontal segments outside the stems, and keeping the channel's constraints for such a track needs
+runs with several ends on it (the multi-terminal nets of channel routing), which `placeRuns` does
+not place; there is no such mode.
 
-| Graph | Crossings (spline / bundled / `dot`) | Edge length (spline / bundled / `dot`) | Area, Mpx² (spline / bundled; `dot` without clusters) | Bends per edge | Jogs narrower than a lane | Pairs crossing twice |
-|---|---|---|---|---|---|---|
-| blueprint-a | 254 / 254 / 252 | 59712 / 86109 / 71977 | 2.93 / 3.28; 3.29 | 2.99 | 3 | 0 |
-| blueprint-a-chapters | 264 / 261 / 310 | 76561 / 111013 / 84947 | 4.31 / 4.72; 3.77 | 3.62 | 5 | 7 |
-| blueprint-67 | 296 / 296 / 279 | 99094 / 130602 / 108473 | 5.08 / 5.14; 5.39 | 3.2 | 3 | 0 |
-| blueprint-67-chapters | 437 / 434 / 529 | 135787 / 178390 / 127946 | 7.97 / 8.09; 4.96 | 3.86 | 1 | 0 |
-| blueprint-b | 85 / 85 / 80 | 35348 / 47438 / 31074 | 2.9 / 2.76; 2.76 | 2.18 | 4 | 0 |
-| own-imports | 221 / 221 / 213 | 96236 / 125008 / 108109 | 4.38 / 4.47; 5.48 | 3.07 | 8 | 0 |
-| project-imports | 105 / 105 / 140 | 39959 / 57614 / 46426 | 2.77 / 2.94; 3.49 | 2.44 | 1 | 0 |
-| code-site-c-modules | 185 / 184 / 163 | 66847 / 91944 / 66155 | 6.74 / 6.99; 6.96 | 2.82 | 0 | 0 |
-| module-800 | 7594 / 7603 / 6190 | 966400 / 1317517 / 988805 | 40.73 / 46.91; 41.92 | 2.72 | 26 | 0 |
-| dense-dag | 751 / 753 / 713 | 74916 / 126237 / 109216 | 2.4 / 2.63; 7.18 | 3.16 | 6 | 2 |
-| sparse-dag | 249 / 249 / 270 | 54793 / 81071 / 50956 | 5.26 / 5.84; 8.93 | 1.66 | 1 | 0 |
-| neighbourhood-34 | 146 / 146 / 159 | 40869 / 56799 / 44034 | 1.78 / 1.96; 2.26 | 3.03 | 2 | 0 |
-| neighbourhood-150 | 2892 / 2889 / 3776 | 748520 / 1021786 / 1064583 | 26.89 / 27.83; 27.08 | 3.99 | 11 | 1 |
-| neighbourhood-290 | 6198 / 6192 / 7229 | 1197885 / 1702771 / 1534595 | 32.68 / 67.03; 26.80 | 3.39 | 3 | 6 |
-| tree | 0 / 0 / 0 | 11418 / 15333 / 9468 | 2.55 / 2.12; 2.12 | 1 | 0 | 0 |
-| neighbourhood-star-401 | 0 / 0 / 0 | 10670338 / 11194781 / 10594068 | 19.9 / 140.17; 12.84 | 2 | 0 | 0 |
-| code-site-c-largest-module | 16 / 16 / 1003 | 10766097 / 11317539 / 10901646 | 33.21 / 191.93; 13.22 | 1.97 | 0 | 0 |
+| Graph | Crossings (spline / bundled / `dot`) | Edge length (spline / bundled / `dot`) | Longest route | Length beyond the ends' distance | Area, Mpx² (spline / bundled; `dot` without clusters) | Bends per edge | Jogs narrower than a lane | Pairs crossing twice | Routes outside the nodes' box |
+|---|---|---|---|---|---|---|---|---|---|
+| blueprint-a | 254 / 238 / 252 | 59712 / 85728 / 71977 | 2908 | 7500 | 2.93 / 3.29; 3.29 | 2.95 | 1 | 0 | 1 |
+| blueprint-a-chapters | 264 / 250 / 310 | 76561 / 107325 / 84947 | 3634 | 9066 | 4.31 / 4.58; 3.77 | 3.41 | 2 | 0 | 2 |
+| blueprint-67 | 296 / 280 / 279 | 99094 / 126757 / 108473 | 3580 | 13960 | 5.08 / 5.14; 5.39 | 3.2 | 2 | 0 | 6 |
+| blueprint-67-chapters | 437 / 404 / 529 | 135787 / 175437 / 127946 | 3866 | 9318 | 7.97 / 7.97; 4.96 | 3.72 | 0 | 0 | 1 |
+| blueprint-b | 85 / 85 / 80 | 35348 / 47111 / 31074 | 1671 | 676 | 2.9 / 2.72; 2.76 | 2.14 | 2 | 0 | 0 |
+| own-imports | 221 / 220 / 213 | 96236 / 124412 / 108109 | 3098 | 10804 | 4.38 / 4.46; 5.48 | 3.01 | 8 | 0 | 2 |
+| project-imports | 105 / 105 / 140 | 39959 / 57290 / 46426 | 1356 | 1504 | 2.77 / 2.94; 3.49 | 2.43 | 1 | 0 | 0 |
+| code-site-c-modules | 185 / 184 / 163 | 66847 / 91566 / 66155 | 3474 | 9648 | 6.74 / 6.96; 6.96 | 2.81 | 0 | 0 | 0 |
+| module-800 | 7594 / 7563 / 6190 | 966400 / 1315173 / 988805 | 9904 | 36654 | 40.73 / 46.75; 41.92 | 2.65 | 22 | 0 | 1 |
+| dense-dag | 751 / 741 / 713 | 74916 / 125765 / 109216 | 1019 | 5288 | 2.4 / 2.51; 7.18 | 3.14 | 6 | 2 | 0 |
+| sparse-dag | 249 / 249 / 270 | 54793 / 81071 / 50956 | 1672 | 300 | 5.26 / 5.84; 8.93 | 1.66 | 1 | 0 | 0 |
+| neighbourhood-34 | 146 / 144 / 159 | 40869 / 56403 / 44034 | 2359 | 4706 | 1.78 / 1.98; 2.26 | 2.97 | 1 | 0 | 5 |
+| neighbourhood-150 | 2892 / 2743 / 3776 | 748520 / 1000350 / 1064583 | 12931 | 67214 | 26.89 / 27.94; 27.08 | 3.91 | 10 | 1 | 5 |
+| neighbourhood-290 | 6198 / 6192 / 7229 | 1197885 / 1702168 / 1534595 | 14194 | 90688 | 32.68 / 67.03; 26.80 | 3.38 | 2 | 6 | 0 |
+| tree | 0 / 0 / 0 | 11418 / 15333 / 9468 | 1547 | 0 | 2.55 / 2.12; 2.12 | 1 | 0 | 0 | 0 |
+| neighbourhood-star-401 | 0 / 0 / 0 | 10670338 / 11194781 / 10594068 | 54788 | 0 | 19.9 / 140.17; 12.84 | 2 | 0 | 0 | 0 |
+| code-site-c-largest-module | 16 / 16 / 1003 | 10766097 / 11317539 / 10901646 | 54788 | 0 | 33.21 / 191.93; 13.22 | 1.97 | 0 | 0 | 0 |
 
 
 Node boxes are whole even pixels from the label measured with the style's text engine (or, for a node with a `size`, that size made whole and even, for a caller that measures its labels itself), and each

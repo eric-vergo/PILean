@@ -128,12 +128,15 @@ leave it each on a track of its own; the edges that enter a node join one stem, 
 arrowhead. Between two layers lies a channel, as high as its tracks need: the horizontal runs get
 their tracks by the methods of channel routing ({name}`PILean.Graph.placeRuns`: vertical
 constraints, the nesting of runs that turn the same way so that two runs cross at most once,
-doglegs, the left-edge rule). A long edge runs as a straight vertical lane beside the nodes of the
-layers it crosses, and lanes that turn together turn with concentric corners. An edge against the
-layers, and a self-loop, keeps to the ports: it leaves downwards, turns up a corridor beside its
-source and comes down into its target. The look is `bundle`, a
-{name}`PILean.Graph.BundleStyle`: the distance between lanes, the radius of the innermost corner,
-the length of the stems and the least gap between two runs on one track.
+doglegs, the left-edge rule). A long edge runs as vertical lanes beside the nodes of the layers it
+crosses, in the free places nearest the stretch between its two ends
+({name}`PILean.Graph.placeLanes`), so that it goes round the drawing only where nothing nearer is
+free, and lanes that turn together turn with concentric corners. An edge against the layers, and
+a self-loop, keeps to the ports: it leaves downwards, turns up a corridor beside its source and
+comes down into its target. The look is `bundle`, a {name}`PILean.Graph.BundleStyle`: the
+distance between lanes, the radius of the innermost corner, the length of the stems, the least
+gap between two runs on one track, and the least distance between a lane and a cluster it does
+not enter.
 
 ```lean
 /-- The interpreter's modules with bundled routes. -/
@@ -224,7 +227,8 @@ is drawn directly from its source to its target. The real nodes are not capped. 
 horizontal runs of orthogonal routes compares each run with the runs placed before it in the same
 gap, so `k` runs in one gap cost `k²/2` comparisons, outside both budgets; bundled routes compare
 the runs of a channel pairwise too, up to `BundleStyle.maxRuns` runs (a channel with more gives
-each run a track of its own, without the constraints between them). The extra starts of the
+each run a track of its own, without the constraints between them), and the placing of their
+lanes has a budget of its own. The extra starts of the
 crossing reduction have a budget too, so a large graph gets none, and sifting is skipped above a
 number of node pairs. Packing components ({name}`PILean.Graph.layoutPacked`) cannot make a drawing
 narrower than its widest component.

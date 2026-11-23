@@ -22,10 +22,14 @@ lanes (`Routing.bundled`), in the manner of well laid cable trays:
   doglegs, the left-edge rule). A channel is as high as its tracks need, and the layout makes
   room for it: the tracks are `laneGap` apart, the first and last `stemLength` and a corner from
   the boxes (and the arrowhead below).
-* **Lanes.** A long edge runs through the layers between its ends as a straight vertical lane at
-  the place of its dummy node, beside the nodes of those layers (the dummy nodes of a bundled
-  layout stand `laneGap` apart, so the lanes of a bundle are parallel and evenly spaced); it
-  never passes through a node, and through a cluster box only as the spline routes do.
+* **Lanes.** A long edge runs through the layers between its ends as vertical lanes at the
+  places of its dummy nodes, beside the nodes of those layers (the dummy nodes of a bundled
+  layout stand `laneGap` apart, so the lanes of a bundle are parallel and evenly spaced). The
+  layout moves a chain's dummy nodes to the free places nearest the stretch between its ends
+  (`placeLanes`), so that a lane does not go round the drawing when there is room nearer, and
+  closes jogs narrower than a lane (`straightenLanes`, `alignPorts`). A lane never passes
+  through a node, through a cluster box only as the spline routes do, and keeps `clusterGap`
+  from the side of a cluster it does not enter.
 * **Edges against the layers and self-loops** keep the port rule: such an edge leaves its source
   downwards, turns back up a corridor beside the source (room the layout keeps on the node's
   right), runs up the lanes of its dummy nodes, passes up a corridor beside its target, and comes

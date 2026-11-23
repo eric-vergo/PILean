@@ -94,8 +94,9 @@ each phase.
 
 ## Main definitions
 
-* `Graph.layout`, `Skeleton`, `skeleton`, `strays`, `Plan`, `layoutPlan`, `straightenLanes`,
-  `routeOne`, `routeBundled`, `routeAllPorts`, `routeAll`.
+* `Graph.layout`, `Skeleton`, `skeleton`, `strays`, `Plan`, `layoutPlan`, `roomAt`,
+  `straightenLanes`, `alignPorts`, `legsCross`, `placeLanes`, `routeOne`, `routeBundled`,
+  `routeAllPorts`, `routeAll`.
 -/
 
 namespace PILean.Graph
@@ -318,19 +319,35 @@ def strays (tree : ClusterTree) (sk : Skeleton) : Array (Nat × Option Nat × Op
           if !out.contains entry then out := out.push entry
   return out
 
+/-- Whether the place `t` across its layer leaves `sep` to the nearest items on either hand of
+the node `v` among the others of its layer (`layer`), found by their positions in `xs`, `skip`
+not counted. Linear in the layer. -/
+def roomAt (layer : Array Nat) (xs : Array Float) (sep : Nat → Nat → Float) (v : Nat)
+    (t : Float) (skip : Nat → Bool := fun _ => false) : Bool := Id.run do
+  let here := xs.getD v 0
+  let mut left : Option Nat := none
+  let mut right : Option Nat := none
+  for u in layer do
+    if u == v || skip u then continue
+    let xu := xs.getD u 0
+    -- the nearest item at or left of the old place, and at or right of it (by number on a tie)
+    if xu < here || (xu == here && u < v) then
+      if left.all (fun l => xs.getD l 0 ≤ xu) then left := some u
+    else if right.all (fun r => xu < xs.getD r 0) then right := some u
+  let okLeft := left.all fun u => t - xs.getD u 0 ≥ sep u v - 0.01
+  let okRight := right.all fun u => xs.getD u 0 - t ≥ sep v u - 0.01
+  return okLeft && okRight
+
 /-- The coordinates with the lanes of long edges straightened (for bundled routes): a run of a
 chain's dummy nodes at one position is moved onto the line of the node before or after it in the
-chain (the port of a real node, `port`, or another run of dummy nodes) when that closes a jog
-narrower than `tol` without opening another, and every layer of the run has room for it
-(`sep u v`, the least distance between the centres of `u` left of `v`). At most `rounds` passes
-over the chains, each linear in the dummy nodes. -/
+chain (the port of a real node, its position less `off`, or another run of dummy nodes) when that
+closes a jog narrower than `tol` without opening another, and every layer of the run has room
+for it (`sep u v`, the least distance between the centres of `u` left of `v`, to the nearest
+items on either hand, by their positions). At most `rounds` passes over the chains, each linear
+in the dummy nodes times the breadth of their layers. -/
 def straightenLanes (n : Nat) (order : Array (Array Nat)) (chains : Array (Array Nat))
-    (x : Array Float) (port : Nat → Float) (sep : Nat → Nat → Float) (tol : Float)
-    (rounds : Nat := 3) : Array Float := Id.run do
-  let pos := positionsOf x.size order
-  let mut layerOf : Array Nat := Array.replicate x.size 0
-  for layer in order, l in [0:order.size] do
-    for v in layer do layerOf := layerOf.setIfInBounds v l
+    (layerAll : Array Nat) (x : Array Float) (off : Nat → Float) (sep : Nat → Nat → Float)
+    (tol : Float) (rounds : Nat := 3) : Array Float := Id.run do
   let mut xs := x
   let small := fun (d : Float) => d.abs > 0.01 && d.abs < tol
   for _ in [0:rounds] do
@@ -341,7 +358,8 @@ def straightenLanes (n : Nat) (order : Array (Array Nat)) (chains : Array (Array
       for _ in [0:c.size] do
         if i + 1 ≥ c.size then break
         -- the run of dummy nodes from `i` at one position
-        let at_ := fun (xs : Array Float) (v : Nat) => if v < n then port v else xs.getD v 0
+        let at_ := fun (xs : Array Float) (v : Nat) => if v < n then xs.getD v 0 - off v
+          else xs.getD v 0
         let here := at_ xs (c.getD i 0)
         let mut k := i
         while k + 2 < c.size && (at_ xs (c.getD (k + 1) 0) - here).abs ≤ 0.01 do k := k + 1
@@ -358,18 +376,352 @@ def straightenLanes (n : Nat) (order : Array (Array Nat)) (chains : Array (Array
           if after ≥ before then continue
           let fits := (Array.range (k + 1 - i)).all fun j =>
             let d := c.getD (i + j) 0
-            let layer := order.getD (layerOf.getD d 0) #[]
-            let p := pos.getD d 0
-            (p == 0 ||
-              t - xs.getD (layer.getD (p - 1) 0) 0 ≥ sep (layer.getD (p - 1) 0) d - 0.01) &&
-              (p + 1 ≥ layer.size ||
-                xs.getD (layer.getD (p + 1) 0) 0 - t ≥ sep d (layer.getD (p + 1) 0) - 0.01)
+            roomAt (order.getD (layerAll.getD d 0) #[]) xs sep d t
           if fits then
             for j in [i:k + 1] do xs := xs.setIfInBounds (c.getD j 0) t
             changed := true
             break
         i := k + 1
     if !changed then break
+  return xs
+
+/-- The coordinates with real nodes moved by less than `tol` onto the line of an edge's next
+node (for bundled routes): a node whose port (its position less `off`) stands less than `tol`
+beside the next node of one of its edges (a dummy node's lane or another node's port) is moved
+onto that line when that leaves fewer such narrow jogs among the edges at the node and its layer
+has room for it (`sep`, to the nearest items on either hand by their positions). At most
+`rounds` passes, each linear in the edges' ends times the breadth of a layer. -/
+def alignPorts (n : Nat) (order : Array (Array Nat)) (chains : Array (Array Nat))
+    (layerAll : Array Nat) (x : Array Float) (off : Nat → Float) (sep : Nat → Nat → Float)
+    (tol : Float) (rounds : Nat := 3) : Array Float := Id.run do
+  -- the next node of every edge at every real node
+  let mut next : Array (Array Nat) := Array.replicate n #[]
+  for c in chains do
+    if c.size < 2 then continue
+    let a := c.getD 0 0
+    let b := c.getD (c.size - 1) 0
+    if a == b then continue
+    next := next.modify a (·.push (c.getD 1 0))
+    next := next.modify b (·.push (c.getD (c.size - 2) 0))
+  let mut xs := x
+  let small := fun (d : Float) => d.abs > 0.01 && d.abs < tol
+  for _ in [0:rounds] do
+    let mut changed := false
+    for v in [0:n] do
+      let at_ := fun (xs : Array Float) (w : Nat) => if w < n then xs.getD w 0 - off w
+        else xs.getD w 0
+      let ws := next.getD v #[]
+      let port := at_ xs v
+      let narrow := fun (p : Float) => ws.foldl (fun k w =>
+        if w != v && small (at_ xs w - p) then k + 1 else k) 0
+      let now := narrow port
+      if now == 0 then continue
+      let mut best := port
+      let mut least := now
+      for w in ws do
+        let t := at_ xs w
+        if w == v || !small (t - port) then continue
+        let k := narrow t
+        if k < least then
+          best := t
+          least := k
+      if least < now then
+        let shifted := xs.getD v 0 + (best - port)
+        if roomAt (order.getD (layerAll.getD v 0) #[]) xs sep v shifted then
+          xs := xs.setIfInBounds v shifted
+          changed := true
+    if !changed then break
+  return xs
+
+/-- Two legs of a channel cross when their ends stand in opposite orders above and below it (ends
+at one place do not cross). -/
+def legsCross (a b : Float × Float) : Bool :=
+  (a.1 - b.1) * (a.2 - b.2) < 0
+
+/-- The lanes of long edges moved towards their ends (for bundled routes). A chain's dummy nodes
+take new places across their layers, found by a shortest path over the layers of the chain
+(dynamic programming). In every layer the candidates are the free places nearest the stretch
+between the ports of the edge's two ends (a real node's position less `off`), where a
+rectilinear route is no longer than the distance between its ends, and the places that the
+other layers' candidates take there. A step from one layer to the next costs its length
+across, `tol` when it moves across at all (a run in the channel, two corners) and `tol` for
+every leg of another edge it crosses. A place is free when it keeps `sep` from every other item
+of the layer (nodes, dummy nodes and the sides of clusters, at their positions in `x`) and lies
+inside the innermost cluster that holds the dummy node's block (`block`, `part`), and no
+deeper; a step does not cross the side of a cluster that reaches over both its layers unless
+the chain's old step crossed it there (`boxes`: every cluster with its first and last layer and
+the positions of its sides). The new places are kept when they cost less by more than `tol`,
+cross no more legs of other edges than before and cross no more other edges twice. Real nodes
+and cluster sides keep their coordinates; a dummy node can change its place among the others.
+Only the part of a layer within `16 × tol` of the ends' stretch and of the old place is looked
+at (a place further away costs more than a move can save). Long chains go first; at most
+`rounds` passes, and the work (the items of the layers, the legs compared and the candidates) is
+bounded by `work`. -/
+def placeLanes (n : Nat) (order : Array (Array Nat)) (chains : Array (Array Nat))
+    (layerAll : Array Nat) (block : Array (Option Nat)) (part : Array Part)
+    (boxes : Array (Nat × Nat × Nat × Float × Float)) (x : Array Float) (off : Nat → Float)
+    (sep : Nat → Nat → Float) (tol : Float) (rounds : Nat := 2) (work : Nat := 60000000) :
+    Array Float := Id.run do
+  let lay := fun (v : Nat) => layerAll.getD v 0
+  let mut xs := x
+  -- the legs of every channel (the channel `c` lies above layer `c`): chain and step
+  let mut legs : Array (Array (Nat × Nat)) := Array.replicate (order.size + 1) #[]
+  for c in chains, k in [0:chains.size] do
+    for j in [1:c.size] do
+      legs := legs.modify (lay (c.getD j 0)) (·.push (k, j))
+  let at_ := fun (xs : Array Float) (v : Nat) => if v < n then xs.getD v 0 - off v
+    else xs.getD v 0
+  -- long chains first, then by number
+  let ks := ((Array.range chains.size).filter fun k => (chains.getD k #[]).size ≥ 3).qsort
+    fun a b => (chains.getD a #[]).size > (chains.getD b #[]).size ||
+      ((chains.getD a #[]).size == (chains.getD b #[]).size && a < b)
+  let side := fun (xl xr p : Float) => if p < xl then 0 else if p > xr then 2 else (1 : Nat)
+  let far : Float := 1e9
+  let eps : Float := 0.01
+  let window := 16 * tol
+  -- every layer sorted by position, sorted again where a chain moves
+  let bySite := fun (xs : Array Float) (layer : Array Nat) =>
+    layer.qsort fun u v => xs.getD u 0 < xs.getD v 0 || (xs.getD u 0 == xs.getD v 0 && u < v)
+  -- the innermost cluster after every item of a sorted layer (the sides of clusters open and
+  -- close them)
+  let insideOf := fun (sorted : Array Nat) => Id.run do
+    let mut stack : Array Nat := #[]
+    let mut out : Array (Option Nat) := #[]
+    for v in sorted do
+      match part.getD v .node with
+      | .left cl => stack := stack.push cl
+      | .right _ => stack := stack.pop
+      | .node => pure ()
+      out := out.push stack.back?
+    return out
+  let mut sortedLayers := order.map (bySite xs)
+  let mut insideLayers := sortedLayers.map insideOf
+  let mut spent := 0
+  for _ in [0:rounds] do
+    let mut moved := false
+    for k in ks do
+      if spent > work then break
+      let c := chains.getD k #[]
+      let m := c.size - 2
+      let inner := c.extract 1 (c.size - 1)
+      if inner.any (· < n) then continue
+      let xa := at_ xs (c.getD 0 0)
+      let xb := at_ xs (c.getD (c.size - 1) 0)
+      let lo := min xa xb
+      let hi := max xa xb
+      let old := inner.map (xs.getD · 0)
+      -- the free places of every layer of the chain
+      let mut free : Array (Array (Float × Float)) := #[]
+      for d in inner do
+        -- only the stretch of the layer within `window` of the ends' stretch and the old place
+        -- matters: a place further away costs more than any move saves
+        let sorted := sortedLayers.getD (lay d) #[]
+        let inside := insideLayers.getD (lay d) #[]
+        let od := xs.getD d 0
+        let wlo := min lo od - window
+        let whi := max hi od + window
+        let firstAt := fun (t : Float) => Id.run do
+          let mut a := 0
+          let mut b := sorted.size
+          for _ in [0:64] do
+            if a ≥ b then break
+            let mid := (a + b) / 2
+            if xs.getD (sorted.getD mid 0) 0 < t then a := mid + 1 else b := mid
+          return a
+        let i0 := firstAt wlo
+        let i1 := firstAt (whi + eps)
+        -- from the item before the window to the first item after it
+        let a := if i0 == 0 then 0 else i0 - 1
+        let b := min sorted.size (i1 + 1)
+        let mut here : Array (Float × Float) := #[]
+        -- the gap before item `a`: open only at the start of the layer
+        let mut left : Float := if a == 0 then -far else far
+        let mut holder : Option Nat := none
+        for i in [a:b + 1] do
+          let v? := if i < b then sorted[i]? else none
+          if v? == some d then continue
+          let right : Float := match v? with
+            | some v => xs.getD v 0 - sep d v
+            | none => if b == sorted.size then far else -far
+          if holder == block.getD d none && left ≤ right then here := here.push (left, right)
+          if let some v := v? then
+            left := xs.getD v 0 + sep v d
+            holder := inside.getD i none
+        free := free.push here
+        spent := spent + (b - a)
+      -- whether `p` is free in layer `i` of the chain: the free stretches of a layer are apart
+      -- and in order, so the last one starting at or before `p` is found by bisection
+      let inFree := fun (i : Nat) (p : Float) => Id.run do
+        let fs := free.getD i #[]
+        let mut lo := 0
+        let mut hi := fs.size
+        for _ in [0:64] do
+          if lo ≥ hi then break
+          let mid := (lo + hi) / 2
+          if (fs.getD mid (0, 0)).1 - eps ≤ p then lo := mid + 1 else hi := mid
+        return lo > 0 && p ≤ (fs.getD (lo - 1) (0, 0)).2 + eps
+      -- the candidates: in every free stretch the place nearest the ends' stretch, an end's
+      -- place and the old place where they lie in it; then every candidate in every layer
+      -- where it is free, the nearest twelve to the ends' stretch, and the old place
+      let dist := fun (p : Float) => max 0 (lo - p) + max 0 (p - hi)
+      let mut pool : Array Float := #[]
+      for i in [0:m] do
+        -- the six free stretches of the layer nearest the ends' stretch
+        let near := ((free.getD i #[]).qsort fun (a, b) (a', b') =>
+          dist (max a (min b lo)) < dist (max a' (min b' lo))).extract 0 6
+        for (a, b) in near do
+          for p in #[lo, hi, xa, xb, old.getD i 0] do
+            let q := (max a (min b p)).round
+            if a - eps ≤ q && q ≤ b + eps then pool := pool.push q
+      pool := (pool.qsort (· < ·)).foldl (fun acc q =>
+        if acc.back? == some q then acc else acc.push q) #[]
+      let cands : Array (Array Float) := (Array.range m).map fun i =>
+        let ps := (pool.filter (inFree i)).qsort fun p q =>
+          dist p < dist q || (dist p == dist q && p < q)
+        let ps := ps.extract 0 12
+        if ps.contains (old.getD i 0) then ps else ps.push (old.getD i 0)
+      -- the legs of other edges in the channel of every step of the chain (the step `i` leads
+      -- into layer `i` of the chain, the step `m` into the lower end)
+      let others : Array (Array (Float × Float)) := (Array.range (m + 1)).map fun i =>
+        ((legs.getD (lay (c.getD (i + 1) 0)) #[]).filterMap fun (k', j') =>
+          if k' == k then none
+          else
+            let c' := chains.getD k' #[]
+            some (at_ xs (c'.getD (j' - 1) 0), at_ xs (c'.getD j' 0)))
+      -- the number of legs of `ls` that a leg from `p` to `q` crosses, for every `q` of `qs`:
+      -- a leg from `a < p` to `b` is crossed by the steps to every `q < b`, one from `a > p` to
+      -- `b` by those to every `q > b`; each leg is placed among the sorted `qs` by bisection
+      let crossings := fun (ls : Array (Float × Float)) (p : Float) (qs : Array Float) =>
+        Id.run do
+        let idx := (Array.range qs.size).qsort fun i j => qs.getD i 0 < qs.getD j 0
+        let sorted := idx.map (qs.getD · 0)
+        -- the number of sorted places below `b` (`strict`) or at most `b`
+        let count := fun (b : Float) (strict : Bool) => Id.run do
+          let mut lo := 0
+          let mut hi := sorted.size
+          for _ in [0:64] do
+            if lo ≥ hi then break
+            let mid := (lo + hi) / 2
+            let v := sorted.getD mid 0
+            if (if strict then v < b else v ≤ b) then lo := mid + 1 else hi := mid
+          return lo
+        -- `below i`: legs crossed by the steps to the first `i` sorted places; `above i`: by
+        -- those from the `i`-th on
+        let mut below : Array Nat := Array.replicate (sorted.size + 1) 0
+        let mut above : Array Nat := Array.replicate (sorted.size + 1) 0
+        for (a, b) in ls do
+          if a < p then below := below.modify (count b true) (· + 1)
+          else if a > p then above := above.modify (count b false) (· + 1)
+        -- prefix sums: a step to the sorted place `i` crosses the legs whose `below` index is
+        -- greater than `i` and those whose `above` index is at most `i`
+        let mut out : Array Nat := Array.replicate qs.size 0
+        let mut fromBelow := below.foldl (· + ·) 0
+        let mut fromAbove := 0
+        for i in [0:sorted.size] do
+          fromBelow := fromBelow - below.getD i 0
+          fromAbove := fromAbove + above.getD i 0
+          out := out.setIfInBounds (idx.getD i 0) (fromBelow + fromAbove)
+        return out
+      -- the cost of a step from `p` to the places `qs`: its length across, a run, and `tol` for
+      -- every leg of another edge it crosses; none across the side of a cluster that reaches
+      -- over both layers, unless the old step crossed it there
+      let stepCosts := fun (i : Nat) (p : Float) (qs : Array Float) =>
+        let ch := lay (c.getD (i + 1) 0)
+        let pOld := if i == 0 then xa else old.getD (i - 1) 0
+        let qOld := if i == m then xb else old.getD i 0
+        let cr := crossings (others.getD i #[]) p qs
+        (qs.zip cr).map fun (q, n) =>
+          let blocked := boxes.any fun (_, a, b, xl, xr) =>
+            a + 1 ≤ ch && ch ≤ b &&
+              let sp := side xl xr p
+              let sq := side xl xr q
+              sp != sq && (sp, sq) != (side xl xr pOld, side xl xr qOld)
+          if blocked then (far, 0)
+          else ((p - q).abs + (if (p - q).abs > eps then tol else 0) + tol * n.toFloat, n)
+      let legCost := fun (i : Nat) (p q : Float) => (stepCosts i p #[q]).getD 0 (far, 0)
+      spent := spent + (others.foldl (· + ·.size) 0)
+      -- the shortest path over the layers
+      let mut cost : Array Float := #[]
+      let mut cross : Array Nat := #[]
+      let mut back : Array (Array Nat) := #[]
+      for (w, cr) in stepCosts 0 xa (cands.getD 0 #[]) do
+        cost := cost.push w
+        cross := cross.push cr
+      for i in [1:m] do
+        let ps := cands.getD (i - 1) #[]
+        let qs := cands.getD i #[]
+        let table := ps.map fun p => stepCosts i p qs
+        let mut cost' : Array Float := #[]
+        let mut cross' : Array Nat := #[]
+        let mut from_ : Array Nat := #[]
+        for qi in [0:qs.size] do
+          let mut bw := far * 4
+          let mut bc := 0
+          let mut bi := 0
+          for pi in [0:ps.size] do
+            let (w, cr) := (table.getD pi #[]).getD qi (far, 0)
+            let t := cost.getD pi far + w
+            if t < bw then
+              bw := t
+              bc := cross.getD pi 0 + cr
+              bi := pi
+          cost' := cost'.push bw
+          cross' := cross'.push bc
+          from_ := from_.push bi
+        cost := cost'
+        cross := cross'
+        back := back.push from_
+        spent := spent + ps.size * ((others.getD i #[]).size + qs.size)
+      -- into the lower end
+      let last := cands.getD (m - 1) #[]
+      let mut bw := far * 4
+      let mut bc := 0
+      let mut bi := 0
+      for p in last, pi in [0:last.size] do
+        let (w, cr) := legCost m p xb
+        let t := cost.getD pi far + w
+        if t < bw then
+          bw := t
+          bc := cross.getD pi 0 + cr
+          bi := pi
+      -- the old places' cost and crossings
+      let mut oldCost : Float := 0
+      let mut oldCross := 0
+      for i in [0:m + 1] do
+        let p := if i == 0 then xa else old.getD (i - 1) 0
+        let q := if i == m then xb else old.getD i 0
+        let (w, cr) := legCost i p q
+        oldCost := oldCost + w
+        oldCross := oldCross + cr
+      if bw ≥ oldCost - tol || bc > oldCross then continue
+      -- the new places, from the last layer back
+      let mut idx := bi
+      let mut places : Array Float := Array.replicate m 0
+      for t in [0:m] do
+        let i := m - 1 - t
+        places := places.setIfInBounds i ((cands.getD i #[]).getD idx 0)
+        if i > 0 then idx := (back.getD (i - 1) #[]).getD idx 0
+      -- the other edges that the chain's legs cross more than once: no more than before
+      let twice := fun (ps : Array Float) => Id.run do
+        let mut seen : Std.HashMap Nat Nat := {}
+        for i in [0:m + 1] do
+          let p := if i == 0 then xa else ps.getD (i - 1) 0
+          let q := if i == m then xb else ps.getD i 0
+          for (k', j') in legs.getD (lay (c.getD (i + 1) 0)) #[] do
+            if k' == k then continue
+            let c' := chains.getD k' #[]
+            if legsCross (p, q) (at_ xs (c'.getD (j' - 1) 0), at_ xs (c'.getD j' 0)) then
+              seen := seen.insert k' (seen.getD k' 0 + 1)
+        return seen.fold (fun n _ v => if v > 1 then n + 1 else n) 0
+      if twice places > twice old then continue
+      for d in inner, p in places do
+        xs := xs.setIfInBounds d p
+      for d in inner do
+        let sorted := bySite xs (order.getD (lay d) #[])
+        sortedLayers := sortedLayers.setIfInBounds (lay d) sorted
+        insideLayers := insideLayers.setIfInBounds (lay d) (insideOf sorted)
+      moved := true
+    if !moved then break
   return xs
 
 /-- The phases one to four: the plan for routing the edges. -/
@@ -476,7 +828,16 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   -- phase 4
   let labelRoom := 12 + st.noteSize * 1.2
   let base := separation n bw o.nodeGap (if bundled then bst.laneGap else o.edgeGap) 0 #[]
-  let sep := borderSeparation bs base bw pad (pad + if lr then labelRoom else 0) 12 16
+  let sep0 := borderSeparation bs base bw pad (pad + if lr then labelRoom else 0) 12 16
+  -- bundled routes: a lane keeps `clusterGap` from the side of a cluster it stays outside
+  let sep := if !bundled then sep0 else fun u v =>
+    let lane := fun (w : Nat) => n ≤ w && w < size
+    match bs.part.getD u .node, bs.part.getD v .node with
+    | .right _, .node => if lane v then max (sep0 u v) (bst.clusterGap + bw.getD v 0 / 2)
+        else sep0 u v
+    | .node, .left _ => if lane u then max (sep0 u v) (bw.getD u 0 / 2 + bst.clusterGap)
+        else sep0 u v
+    | _, _ => sep0 u v
   let x0 := assignBreadth total n order bs.up bs.down sep bw
   let x1 := refineBreadth total n chains order bs.up bs.down sep bw x0 o.refine
   let toHalf := fun (f : Float) => Int.ofNat (f * 2).ceil.toUInt64.toNat
@@ -496,8 +857,16 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
       if a != b then some (a, b, 0, Int.ofNat o.compact) else none
   let x := simplexBreadth total n chains order sep bw x1 8 o.coordinateWork vars (extra ++ spans)
   let x := if !bundled then x else
-    straightenLanes n order chains (x.map Float.round)
-      (fun v => (x.getD v 0 - loopExtra.getD v 0 / 2).round) sep bst.laneGap
+    let off := fun v => (loopExtra.getD v 0 / 2).round
+    let x := straightenLanes n order chains bs.layerAll (x.map Float.round) off sep bst.laneGap
+    let boxes := (Array.range g.clusters.size).filterMap fun c =>
+      match bs.span.getD c none, bs.firstBorders.getD c none with
+      | some (a, b), some (lv, rv) => some (c, a, b, x.getD lv 0, x.getD rv 0)
+      | _, _ => none
+    let x := placeLanes n order chains bs.layerAll bs.block bs.part boxes x off sep
+      (4 * bst.laneGap)
+    let x := alignPorts n order chains bs.layerAll x off sep bst.laneGap
+    straightenLanes n order chains bs.layerAll x off sep bst.laneGap
   let gap := if hasLabels then o.layerGap / 2 else o.layerGap
   -- room above and below the nodes for the clusters' sides and titles (nested clusters that
   -- start or end in the same layer stack)
@@ -576,7 +945,11 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
       runs := runs.modify k fun r =>
         r.setIfInBounds j ((t.toFloat + 1) / (total.toFloat + 1))
   let across := (Array.range size).map fun v =>
-    if v < n then (x.getD v 0 - loopExtra.getD v 0 / 2).round else (x.getD v 0).round
+    if v < n then
+      -- bundled routes: the ports as the lanes were straightened against them
+      if bundled then x.getD v 0 - (loopExtra.getD v 0 / 2).round
+      else (x.getD v 0 - loopExtra.getD v 0 / 2).round
+    else (x.getD v 0).round
   -- bundled routes: the tracks of every channel, which decide its height
   let bundleIn : BundleInput :=
     { n, layers := order.size, layerAll, across, half := nb.map (· / 2), chains, reversed,
@@ -588,11 +961,15 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let arrowLen := o.arrowLength.getD Graph.arrowLength
   -- the room above the first track and below the last: a stem and a corner (and an arrowhead)
   -- (at least a lane from the boxes, whatever the style)
-  let marginAbove := max bst.laneGap (bst.stemLength + bst.radius)
+  let marginAbove0 := max bst.laneGap (bst.stemLength + bst.radius)
+  -- the first track of a channel keeps `clusterGap` from the clusters that end above it
+  let marginAbove := fun (c : Nat) =>
+    if c > 0 && bottomNeed.getD (c - 1) 0 > 0 then max marginAbove0 bst.clusterGap
+    else marginAbove0
   let marginBelow := max bst.laneGap (bst.stemLength + bst.radius) + arrowLen
   let channelHeight := fun (c : Nat) =>
     let d := depthOf c
-    if d == 0 then 0 else marginAbove + (d - 1).toFloat * bst.laneGap + marginBelow
+    if d == 0 then 0 else marginAbove c + (d - 1).toFloat * bst.laneGap + marginBelow
   let mut levels : Array Float := Array.replicate order.size 0
   let mut t : Float := 0
   let mut prev : Float := 0
@@ -721,7 +1098,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
                    ((tr.depth.getD 0 0).toFloat - 1) * bst.laneGap
                else
                  levels.getD (c - 1) 0 + thick.getD (c - 1) 0 / 2 + bottomNeed.getD (c - 1) 0 +
-                   marginAbove
+                   marginAbove c
              (bundleIn, tr, firstTrack) }
 
 /-- The vertices of the orthogonal route through the points: at each step across the layers a

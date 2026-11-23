@@ -272,6 +272,28 @@ def foreignClusterEntries (g : Graph) (l : Layout) : Nat := Id.run do
     if entered then count := count + 1
   return count
 
+/-- The routes that come nearer than `gap` to the box of a cluster that holds neither of their
+ends (the routes as polylines from port to port; half a pixel of tolerance). -/
+def clusterGapProblems (g : Graph) (l : Layout) (gap : Float) : Array String := Id.run do
+  let t := ClusterTree.of g
+  let mut out := #[]
+  for e in l.edges do
+    let cs := t.nodeCluster.getD e.src none
+    let cd := t.nodeCluster.getD e.dst none
+    for cb in l.clusters do
+      if t.holdsOpt cb.index cs || t.holdsOpt cb.index cd then continue
+      let b := cb.box
+      for i in [1:e.points.size] do
+        let p := e.points.getD (i - 1) ⟨0, 0⟩
+        let q := e.points.getD i ⟨0, 0⟩
+        let dx := max 0 (max (b.x0 - max p.x q.x) (min p.x q.x - b.x1))
+        let dy := max 0 (max (b.y0 - max p.y q.y) (min p.y q.y - b.y1))
+        let d := (dx * dx + dy * dy).sqrt
+        if d < gap - 0.5 then
+          out := out.push s!"edge {e.index} passes {d} from cluster {cb.index}"
+          break
+  return out
+
 /-- A graph of `n` nodes with the edges given. -/
 def ofEdges (n : Nat) (edges : List (Nat × Nat)) (labels : Bool := false) : Graph :=
   { nodes := (Array.range n).map fun v => { label := s!"n{v}" },
@@ -305,10 +327,12 @@ def hostile : Array (String × Graph) :=
     ("undirected", { ofEdges 6 [(0, 1), (1, 2), (2, 0), (3, 4), (0, 0)] with directed := false })]
 
 /-- Styles at the ends of their ranges: no radius and no stems (the channel still keeps a lane
-from the boxes), and wide lanes with large radii and long stems. -/
+from the boxes), and wide lanes with large radii and long stems; and a style between them with
+wide lanes and generous radii. -/
 def extremeStyles : Array BundleStyle :=
   #[{ radius := 0, stemLength := 0 }, { laneGap := 3, trackGap := 4 },
-    { laneGap := 12, radius := 20, stemLength := 30, trackGap := 24 }]
+    { laneGap := 12, radius := 20, stemLength := 30, trackGap := 24 },
+    { laneGap := 8, radius := 10, stemLength := 14, trackGap := 16 }]
 
 /-- Every problem of the bundled layouts of `g`: from the top down, from left to right, both
 mirrored, and packed. -/
@@ -319,7 +343,8 @@ def allProblems (g : Graph) (st : BundleStyle := {}) : Array String :=
   problems g tb false false st.laneGap ++ problems g lr true false st.laneGap ++
     problems g (tb.mirror true) false true st.laneGap ++
     problems g (lr.mirror false) true true st.laneGap ++
-    problems g (g.layoutPacked o) false false st.laneGap
+    problems g (g.layoutPacked o) false false st.laneGap ++
+    clusterGapProblems g tb st.clusterGap ++ clusterGapProblems g lr st.clusterGap
 
 /-- The checks of bundled routes (see the module docstring), on hostile graphs and with planted
 faults. -/
@@ -328,7 +353,8 @@ def checks : Array (String × Bool) := Id.run do
   for (name, g) in hostile do
     let ps := allProblems g
     out := out.push (s!"bundled {name}: ports, axes, no shared segment, no node passed, \
-      lanes apart, one arrowhead per entry port{if ps.isEmpty then "" else s!" ({ps[0]!})"}",
+      lanes apart, one arrowhead per entry port, lanes clear of the clusters they do not \
+      enter{if ps.isEmpty then "" else s!" ({ps[0]!})"}",
       ps.isEmpty)
     for st in extremeStyles do
       let qs := allProblems g st
@@ -364,6 +390,26 @@ def checks : Array (String × Bool) := Id.run do
     ("bundled checker: lanes too close are reported", !(spacingProblems near 6).isEmpty),
     ("bundled checker: an arrowhead on an edge is reported", !(headProblems g twoHeads).isEmpty),
     ("bundled checker: the unchanged layout has no problem", (problems g l false false 6).isEmpty)]
+  -- a lane moved next to a cluster it does not enter
+  let gc := GraphQuality.awkwardClusters
+  let lc := gc.layout (bundled {})
+  let t := ClusterTree.of gc
+  let gapFault : Option Layout := Id.run do
+    for e in lc.edges do
+      for cb in lc.clusters do
+        if t.holdsOpt cb.index (t.nodeCluster.getD e.src none) ||
+            t.holdsOpt cb.index (t.nodeCluster.getD e.dst none) then continue
+        let p : Point := ⟨cb.box.x1 + 4, (cb.box.y0 + cb.box.y1) / 2⟩
+        return some { lc with edges := lc.edges.map fun e' =>
+          if e'.index == e.index then
+            { e' with points := #[e'.points[0]!, ⟨p.x, e'.points[0]!.y⟩, p] }
+          else e' }
+    return none
+  out := out ++ #[
+    ("bundled checker: a lane beside a cluster it does not enter is reported",
+      gapFault.any fun l' => !(clusterGapProblems gc l' 12).isEmpty),
+    ("bundled checker: the unchanged clustered layout keeps its lanes clear of other clusters",
+      (clusterGapProblems gc lc 12).isEmpty)]
   -- the tracks of a channel: overlapping runs never share a track
   let runs : Array RunSpec := #[⟨⟨0, .up, some 0⟩, ⟨40, .down, some 1⟩⟩,
     ⟨⟨0, .up, some 0⟩, ⟨20, .down, some 3⟩⟩, ⟨⟨40, .up, some 2⟩, ⟨0, .down, some 5⟩⟩,
@@ -373,15 +419,55 @@ def checks : Array (String × Bool) := Id.run do
     depth ≥ 3 && placed.any (fun p => match p with | .jog _ _ _ => true | _ => false))
   return out
 
-/-- The measures of a layout's routes: crossings, total length (pixels), area (square pixels),
-the mean number of bends of an edge, the jogs narrower than a lane, the pairs of edges that cross
-more than once, and the edges that enter a cluster holding neither of their ends. For a spline
-layout the curves are measured, for a bundled one the routes. -/
+/-- The length of the longest route (as a polyline). -/
+def routeMax (l : Layout) : Float :=
+  l.edges.foldl (init := 0) fun acc e =>
+    max acc <| (Array.range (e.points.size - 1)).foldl (init := 0) fun s j =>
+      s + (e.points.getD j ⟨0, 0⟩).dist (e.points.getD (j + 1) ⟨0, 0⟩)
+
+/-- How much longer the routes are than the rectilinear distance between their ends, in all, and
+the number of routes that are more than 200 pixels longer. -/
+def routeDetour (l : Layout) : Float × Nat := Id.run do
+  let mut total : Float := 0
+  let mut count := 0
+  for e in l.edges do
+    if e.points.size < 2 then continue
+    let len := (Array.range (e.points.size - 1)).foldl (init := 0) fun s j =>
+      s + (e.points.getD j ⟨0, 0⟩).dist (e.points.getD (j + 1) ⟨0, 0⟩)
+    let a := e.points.getD 0 ⟨0, 0⟩
+    let b := e.points.getD (e.points.size - 1) ⟨0, 0⟩
+    let d := len - ((a.x - b.x).abs + (a.y - b.y).abs)
+    total := total + d
+    if d > 200 then count := count + 1
+  return (total, count)
+
+/-- The routes with a point outside the box around the nodes. -/
+def outsideRoutes (l : Layout) : Nat := Id.run do
+  let mut lo : Point := ⟨1e300, 1e300⟩
+  let mut hi : Point := ⟨-1e300, -1e300⟩
+  for nd in l.nodes do
+    lo := ⟨min lo.x nd.box.x0, min lo.y nd.box.y0⟩
+    hi := ⟨max hi.x nd.box.x1, max hi.y nd.box.y1⟩
+  return l.edges.foldl (init := 0) fun n e =>
+    if e.points.any (fun p => p.x < lo.x - 0.5 || p.x > hi.x + 0.5 || p.y < lo.y - 0.5 ||
+        p.y > hi.y + 0.5) then n + 1 else n
+
+/-- The measures of a layout's routes: crossings, total length (pixels), the longest route, the
+length beyond the rectilinear distance of the ends, area (square pixels), the mean number of
+bends of an edge, the jogs narrower than a lane, the pairs of edges that cross more than once,
+the routes outside the box around the nodes, and the edges that enter a cluster holding neither
+of their ends. For a spline layout the curves are measured, for a bundled one the routes. -/
 structure RouteMeasures where
   /-- Pairs of edges, not sharing a node, that cross. -/
   crossings : Nat
   /-- Total length. -/
   length : Float
+  /-- The length of the longest route. -/
+  longest : Float
+  /-- The length beyond the rectilinear distance between the ends, summed over the routes. -/
+  detour : Float
+  /-- Routes with a point outside the box around the nodes. -/
+  outside : Nat
   /-- The area of the box around everything. -/
   area : Float
   /-- The mean number of bends of an edge. -/
@@ -396,7 +482,8 @@ structure RouteMeasures where
 /-- The measures of a bundled layout. -/
 def measureBundled (g : Graph) (l : Layout) (laneGap : Float) (pairs : Bool := true) :
     RouteMeasures :=
-  { crossings := routeCrossings l, length := routeLength l, area := GraphQuality.area l,
+  { crossings := routeCrossings l, length := routeLength l, longest := routeMax l,
+    detour := (routeDetour l).1, outside := outsideRoutes l, area := GraphQuality.area l,
     bends := (l.edges.foldl (fun n e => n + bends e) 0).toFloat / max 1 l.edges.size.toFloat,
     narrowJogs := (shortRuns l laneGap).size,
     multiple := if pairs then multipleCrossings l else 0,
@@ -406,8 +493,8 @@ def measureBundled (g : Graph) (l : Layout) (laneGap : Float) (pairs : Bool := t
 graph files (with the style `st`), and the problems of the bundled ones. -/
 def printMeasures (st : BundleStyle := {}) (names : List String := []) : IO Unit := do
   let files ← GraphQuality.fileGraphs ("PILeanTest" / "graphs")
-  IO.println ("graph  ms(s/b)  crossings(s/b)  length(s/b)  area(s/b, Mpx2)  bends  narrow  " ++
-    "twice  foreign(s/b)  problems")
+  IO.println ("graph  ms(s/b)  crossings(s/b)  length(s/b)  longest  detour  area(s/b, Mpx2)  " ++
+    "bends  narrow  twice  outside  foreign(s/b)  problems")
   for (name, g) in GraphQuality.graphs ++ files do
     if (!names.isEmpty && !names.contains name) ||
         (names.isEmpty && GraphQuality.slowGraphs.contains name) then continue
@@ -422,9 +509,10 @@ def printMeasures (st : BundleStyle := {}) (names : List String := []) : IO Unit
     let foreignS := (clearanceProblems g ls).filter (Graphs.has · "enters cluster") |>.size
     IO.println s!"{name}  {(t1 - t0) / 1000000}/{(t2 - t1) / 1000000}  \
       {GraphQuality.crossingPairs ls}/{m.crossings}  \
-      {(GraphQuality.edgeLength ls).round}/{m.length.round}  \
+      {(GraphQuality.edgeLength ls).round}/{m.length.round}  {m.longest.round}  \
+      {m.detour.round}  \
       {fmtNum (GraphQuality.area ls / 1e6) 2}/{fmtNum (m.area / 1e6) 2}  {fmtNum m.bends 2}  \
-      {m.narrowJogs}  {m.multiple}  \
+      {m.narrowJogs}  {m.multiple}  {m.outside}  \
       {foreignS}/{m.foreign}  {ps.size}"
     for p in ps.extract 0 4 do IO.println s!"  {p}"
 
@@ -495,6 +583,9 @@ def ioChecks : IO (Array (String × Bool)) := do
     let cb := routeCrossings lb
     out := out.push (s!"bundled {name}: {cb} crossings, the spline routes' {cs} and a fiftieth",
       cb.toFloat ≤ cs.toFloat * 1.02 + 1)
+    let gs := clusterGapProblems g lb 12
+    out := out.push (s!"bundled {name}: no lane within 12 pixels of a cluster it does not \
+      enter{if gs.isEmpty then "" else s!" ({gs[0]!})"}", gs.isEmpty)
     let fs := ((clearanceProblems g ls).filter (Graphs.has · "enters cluster")).size
     let fb := foreignClusterEntries g lb
     out := out.push (s!"bundled {name}: {fb} edges enter a cluster that holds neither end, the \
