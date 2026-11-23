@@ -14,6 +14,7 @@ import PILeanMathlib.Examples.AlgebraFigures
 import PILeanMathlib.Combinatorics
 import PILeanMathlib.Examples.Combinatorics
 import PILeanMathlib.Examples.CombinatoricsFigures
+import PILeanMathlib.Examples.Explorers
 import PILeanMathlib.ExactPlot
 import PILeanMathlib.Examples.Sine
 import PILeanMathlib.Examples.SineFigure

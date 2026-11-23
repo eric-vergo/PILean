@@ -42,7 +42,7 @@ theorem cayleyExplorer_zmod :
   rw [(h n hn a ha).2.2]
   simp only [cayleyPairs, List.mem_filterMap, List.mem_range]
   have hz : ((2 * a : ℕ) : ZMod n) = 0 ↔ (2 * a) % n = 0 := by
-    rw [ZMod.natCast_eq_zero_iff_dvd, Nat.dvd_iff_mod_eq_zero]
+    rw [ZMod.natCast_eq_zero_iff, Nat.dvd_iff_mod_eq_zero]
   constructor
   · rintro ⟨g, hg, he⟩
     split at he
@@ -58,13 +58,14 @@ theorem cayleyExplorer_zmod :
       rw [← Nat.mod_eq_of_lt ht]
       exact (ZMod.natCast_eq_natCast_iff' t (s + a) n).1 (by push_cast; exact he)
     refine ⟨s, hs, ?_⟩
-    rw [if_neg]
-    · rw [htm]
-    · simp only [Bool.and_eq_true, beq_iff_eq, Bool.not_eq_eq_eq_not, Bool.not_true,
+    have hc : ¬((2 * a % n == 0 && !decide (s < (s + a) % n)) = true) := by
+      simp only [Bool.and_eq_true, beq_iff_eq, Bool.not_eq_eq_eq_not, Bool.not_true,
         decide_eq_false_iff_not, not_lt, not_and, not_le]
       intro h2
-      rw [← htm]
-      exact hinv (hz.2 h2)
+      have := hinv (hz.2 h2)
+      rw [htm] at this
+      exact this
+    simp only [hc, htm, Bool.false_eq_true, ite_false]
 
 figure_proves cayleyExplorer cayleyExplorer_zmod
 
@@ -81,11 +82,14 @@ theorem latticeExplorer_span :
       ((latticeDiagram x y).dots.map (·.2.1)).Nodup := by
   obtain ⟨hx, -, -, h⟩ := latticeExplorer_spec
   refine ⟨hx, fun x hxm y hym => ?_⟩
-  obtain ⟨hdet, hf, -⟩ := h x hxm y hym
+  obtain ⟨-, hdet, hf, -⟩ := h x hxm y hym
   refine ⟨fun p => ?_, (lattice x y).nodup_dots hdet hf⟩
   rw [(lattice x y).mem_dots_iff hdet hf]
-  simp only [PlaneLattice.inWindow, lattice, Bool.and_eq_true, decide_eq_true_eq]
+  simp only [PlaneLattice.inWindow, lattice, Bool.and_eq_true]
   norm_num [and_assoc]
+  exact fun _ => ⟨fun ⟨a, b, c, d⟩ => ⟨of_decide_eq_true a, of_decide_eq_true b,
+    of_decide_eq_true c, of_decide_eq_true d⟩, fun ⟨a, b, c, d⟩ => ⟨decide_eq_true a,
+    decide_eq_true b, decide_eq_true c, decide_eq_true d⟩⟩
 
 figure_proves latticeExplorer latticeExplorer_span
 
