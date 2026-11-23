@@ -352,6 +352,38 @@ runs cross at most once, and not when their ends agree. Two edges can still cros
 in all when the layers' order swaps them in one channel and back in another (the measures count
 such pairs: up to 7 of 146 edges on blueprint A by chapter).
 
+*Measured* (`lake exe pilean-test --bundle-measures`, the default `BundleStyle`: lanes 6 pixels
+apart, innermost radius 6, stems 10, runs on one track 12 apart; the routes measured as
+polylines from port to port, the spline routes as flattened curves; `dot`'s numbers are the
+recorded ones of `PILeanTest/graphs/dot-recorded.tsv`, its area without cluster boxes, PILean's
+with them). The bundled routes follow the spline routes' orders, so their crossings are within a
+few of the spline routes' (and fewer than `dot`'s on the graphs with clusters); they are about 1.3
+to 1.7 times as long (a rectilinear route against a straight or curved one), and the drawings take
+up to about a tenth more area, as the channels grow with their tracks, except where one node has
+hundreds of edges: every edge has its own lane, so a node with 400 neighbours in the layer below
+needs 200 tracks on each side of its stem (seven times the spline drawing's area).
+
+| Graph | Crossings (spline / bundled / `dot`) | Edge length (spline / bundled / `dot`) | Area, Mpx² (spline / bundled; `dot` without clusters) | Bends per edge | Jogs narrower than a lane | Pairs crossing twice |
+|---|---|---|---|---|---|---|
+| blueprint-a | 254 / 254 / 252 | 59712 / 86109 / 71977 | 2.93 / 3.28; 3.29 | 2.99 | 3 | 0 |
+| blueprint-a-chapters | 264 / 261 / 310 | 76561 / 111013 / 84947 | 4.31 / 4.72; 3.77 | 3.62 | 5 | 7 |
+| blueprint-67 | 296 / 296 / 279 | 99094 / 130602 / 108473 | 5.08 / 5.14; 5.39 | 3.2 | 3 | 0 |
+| blueprint-67-chapters | 437 / 434 / 529 | 135787 / 178390 / 127946 | 7.97 / 8.09; 4.96 | 3.86 | 1 | 0 |
+| blueprint-b | 85 / 85 / 80 | 35348 / 47438 / 31074 | 2.9 / 2.76; 2.76 | 2.18 | 4 | 0 |
+| own-imports | 221 / 221 / 213 | 96236 / 125008 / 108109 | 4.38 / 4.47; 5.48 | 3.07 | 8 | 0 |
+| project-imports | 105 / 105 / 140 | 39959 / 57614 / 46426 | 2.77 / 2.94; 3.49 | 2.44 | 1 | 0 |
+| code-site-c-modules | 185 / 184 / 163 | 66847 / 91944 / 66155 | 6.74 / 6.99; 6.96 | 2.82 | 0 | 0 |
+| module-800 | 7594 / 7603 / 6190 | 966400 / 1317517 / 988805 | 40.73 / 46.91; 41.92 | 2.72 | 26 | 0 |
+| dense-dag | 751 / 753 / 713 | 74916 / 126237 / 109216 | 2.4 / 2.63; 7.18 | 3.16 | 6 | 2 |
+| sparse-dag | 249 / 249 / 270 | 54793 / 81071 / 50956 | 5.26 / 5.84; 8.93 | 1.66 | 1 | 0 |
+| neighbourhood-34 | 146 / 146 / 159 | 40869 / 56799 / 44034 | 1.78 / 1.96; 2.26 | 3.03 | 2 | 0 |
+| neighbourhood-150 | 2892 / 2889 / 3776 | 748520 / 1021786 / 1064583 | 26.89 / 27.83; 27.08 | 3.99 | 11 | 1 |
+| neighbourhood-290 | 6198 / 6192 / 7229 | 1197885 / 1702771 / 1534595 | 32.68 / 67.03; 26.80 | 3.39 | 3 | 6 |
+| tree | 0 / 0 / 0 | 11418 / 15333 / 9468 | 2.55 / 2.12; 2.12 | 1 | 0 | 0 |
+| neighbourhood-star-401 | 0 / 0 / 0 | 10670338 / 11194781 / 10594068 | 19.9 / 140.17; 12.84 | 2 | 0 | 0 |
+| code-site-c-largest-module | 16 / 16 / 1003 | 10766097 / 11317539 / 10901646 | 33.21 / 191.93; 13.22 | 1.97 | 0 | 0 |
+
+
 Node boxes are whole even pixels from the label measured with the style's text engine (or, for a node with a `size`, that size made whole and even, for a caller that measures its labels itself), and each
 layer is as tall as its tallest box; outlines are one pixel on pixel centres. The result of every
 layout is a `Layout` of boxes and paths; the drawing is deterministic (every tie is decided by

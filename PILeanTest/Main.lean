@@ -46,6 +46,9 @@ the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the 
 `tools/compare-render.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the graph
 layout and its output on module graphs of 100, 800 and 3000 nodes;
 `--graph-compare-out DIR` writes the files of `tools/graph-compare.py`;
+`--bundle-measures [NAME…]` prints the measures of the spline and bundled routes of the measured
+graphs and graph files, `--bundle-checks` runs the checks of bundled routes alone, and
+`--bundle-out DIR [NAME…]` writes their drawings;
 `--graph-quality DIR width N` and `--graph-quality-files SRC DIR width N` measure the layouts with
 the layers no wider than `N` pixels (`LayeredOptions.maxLayerWidth`); `--specimen-out DIR` writes
 the lettering specimen sheet (`lettering-specimen.svg` and `.png`); `--anim-bench` times a
