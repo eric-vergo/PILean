@@ -60,40 +60,78 @@ def chordEnd : Exact.Zeta5 := Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2
 /-- `3 + φ`, the square of the disks' radius, in ℚ(√5). -/
 def threePlusPhi : Exact.QSqrt5 := ⟨7 / 2, 1 / 2⟩
 
+/-- The left centre `-1`. -/
+def leftCentre : Exact.Zeta5 := Exact.Zeta5.ofInt (-1)
+
+/-- The right centre `1`. -/
+def rightCentre : Exact.Zeta5 := Exact.Zeta5.ofInt 1
+
+/-- The radius `√(3 + φ)`. -/
+def radius : Exact.SqrtOf Exact.QSqrt5 := ⟨threePlusPhi⟩
+
+/-! The items of `planeDisks` that its specification names. -/
+
+/-- The closed disk of radius `√(3 + φ)` about `-1`, in accent 0, titled by its circle. -/
+def leftDisk : Plane.Item :=
+  Plane.Exact.disk leftCentre radius |>.accent 0 |>.named "the left circle"
+
+/-- The closed disk of radius `√(3 + φ)` about `1`, in accent 1, titled by its circle. -/
+def rightDisk : Plane.Item :=
+  Plane.Exact.disk rightCentre radius |>.accent 1 |>.named "the right circle"
+
+/-- The point `E`, on the left circle, in its colour. -/
+def pointE : Plane.Item :=
+  Plane.Exact.point chordEnd |>.accent 0 |>.incident .on "the left circle"
+
+/-- The point `-E`, on the right circle, in its colour. -/
+def pointNegE : Plane.Item :=
+  Plane.Exact.point (-chordEnd) |>.accent 1 |>.incident .on "the right circle"
+
 /-- The items of `planeDisks`: two closed disks of radius `√(3 + φ)` about `-1` (accent 0) and `1`
 (accent 1), the chord from `-E` to `E`, the step `ζ²` from `1`, and the radius from `-1` to `E`.
 `E` lies on the boundary of the left disk and takes its colour; `-E` lies on the right one's. -/
 def planeItems : Array Plane.Item :=
-  let r : Exact.SqrtOf Exact.QSqrt5 := ⟨threePlusPhi⟩
-  let left := Exact.Zeta5.ofInt (-1)
-  let right := Exact.Zeta5.ofInt 1
   let z2 := Exact.Zeta5.pow 2
-  #[Plane.Exact.disk left r |>.accent 0, Plane.Exact.disk right r |>.accent 1,
+  #[leftDisk, rightDisk,
     Plane.Exact.segment (-chordEnd) chordEnd |>.width 3,
-    Plane.Exact.arrow right (right + z2) |>.accent 2,
-    Plane.Exact.point chordEnd |>.accent 0 |>.incident .on "the left circle",
-    Plane.Exact.point (-chordEnd) |>.accent 1 |>.incident .on "the right circle",
-    Plane.Exact.point left, Plane.Exact.point right,
+    Plane.Exact.arrow rightCentre (rightCentre + z2) |>.accent 2,
+    pointE, pointNegE, Plane.Exact.point leftCentre, Plane.Exact.point rightCentre,
     Plane.Exact.label "$E$" chordEnd .auto |>.accent 0,
     Plane.Exact.label "$-E$" (-chordEnd) .auto |>.accent 1,
-    Plane.Exact.label "$\\zeta^2$" (right + z2) .auto |>.accent 2,
-    Plane.Exact.segment left chordEnd |>.faint |>.dashed,
-    Plane.Exact.labelBeside "$\\sqrt{3+\\varphi}$" left chordEnd |>.faint,
-    Plane.Exact.label "$-1$" left .auto, Plane.Exact.label "$+1$" right .auto]
+    Plane.Exact.label "$\\zeta^2$" (rightCentre + z2) .auto |>.accent 2,
+    Plane.Exact.segment leftCentre chordEnd |>.faint |>.dashed,
+    Plane.Exact.labelBeside "$\\sqrt{3+\\varphi}$" leftCentre chordEnd |>.faint,
+    Plane.Exact.label "$-1$" leftCentre .auto, Plane.Exact.label "$+1$" rightCentre .auto]
 
 /-- Two closed disks of radius `√(3 + φ)` about `±1`, their chord from `-E` to `E`, and the
 step `ζ²`, every label LaTeX: `$\zeta^2$`, `$-E$`, `$\sqrt{3+\varphi}$`. -/
 @[figure]
 def planeDisks : Plane.Figure := { width := 480, items := planeItems }
 
-/-- What `planeDisks` holds, and that its colours are right: `|E + 1|² = 3 + φ`, so `E` is on the
-boundary of the disk about `-1` (the left one, whose colour it takes), and `|-E - 1|² = 3 + φ`,
-so `-E` is on the boundary of the disk about `1`; decided exactly in ℚ(√5). -/
+/-- What `planeDisks` draws and why its colours and records are right: its items are
+`planeItems`; the left disk is the closed disk of radius `√(3 + φ)` about `-1` in accent 0,
+titled "the left circle", the right one about `1` in accent 1; the point `E` is in accent 0 and
+records being on the left circle, `-E` is in accent 1 and records being on the right one. The
+records hold, exactly in ℚ(√5): `|E + 1|² = 3 + φ` and `|E - 1|² < 3 + φ`, so `E` is on the left
+circle and inside the right disk, and the same for `-E` with the sides exchanged. -/
 theorem planeDisks_spec :
     planeDisks.items = planeItems ∧
-    (chordEnd + Exact.Zeta5.ofInt 1).normSq = threePlusPhi ∧
-    (-chordEnd - Exact.Zeta5.ofInt 1).normSq = threePlusPhi := by
-  refine ⟨rfl, ?_, ?_⟩ <;> decide +kernel
+    Plane.Exact.IsDisk leftDisk leftCentre radius (.accent 0) "the left circle" ∧
+    Plane.Exact.IsDisk rightDisk rightCentre radius (.accent 1) "the right circle" ∧
+    Plane.Exact.IsPoint pointE chordEnd (.accent 0) #[(.on, "the left circle")] ∧
+    Plane.Exact.IsPoint pointNegE (-chordEnd) (.accent 1) #[(.on, "the right circle")] ∧
+    (chordEnd - leftCentre).normSq = radius.radicand ∧
+    Exact.QSqrt.lt (chordEnd - rightCentre).normSq radius.radicand = true ∧
+    (-chordEnd - rightCentre).normSq = radius.radicand ∧
+    Exact.QSqrt.lt (-chordEnd - leftCentre).normSq radius.radicand = true := by
+  refine ⟨rfl, ?_⟩
+  repeat' apply And.intro
+  all_goals first
+    | decide +kernel
+    | simp [Plane.Exact.IsDisk, Plane.Exact.IsPoint, leftDisk, rightDisk, pointE, pointNegE,
+        Plane.Exact.disk, Plane.Exact.point, Plane.disk, Plane.point, Plane.Item.accent,
+        Plane.Item.tone, Plane.Item.named, Plane.Item.incident, Plane.Item.mapLook,
+        Plane.Item.mapInfo, and_assoc, exists_and_left, exists_eq_left']
 
 figure_proves planeDisks planeDisks_spec
 

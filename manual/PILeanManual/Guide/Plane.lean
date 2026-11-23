@@ -48,19 +48,22 @@ it follows its point. Modifiers change one aspect each: a colour role
 tint, an arrowhead, a size, and metadata.
 
 ```lean
-/-- Two closed disks about `±1`, the chord where their boundaries meet, and a clockwise turn of
-72° about the left centre. -/
+/-- Two closed disks of radius `1.9` about `±1`, the chord where their boundaries meet (at
+`(0, ±√(1.9² - 1))`), and a clockwise turn of 72° about the left centre. -/
 @[figure]
 def twoDisks : Plane.Figure where
   width := 480
   items :=
     let r := 1.9
     let e : Point := ⟨0, Float.sqrt (r * r - 1)⟩
-    #[disk ⟨-1, 0⟩ r |>.accent 0 |>.named "the left disk",
-      disk ⟨1, 0⟩ r |>.accent 1 |>.named "the right disk",
+    let onBoth := fun (it : Item) =>
+      it.incident .on "the left circle" |>.incident .on "the right circle"
+    #[disk ⟨-1, 0⟩ r |>.accent 0 |>.named "the left circle",
+      disk ⟨1, 0⟩ r |>.accent 1 |>.named "the right circle",
       segment e ⟨e.x, -e.y⟩ |>.width 3,
       angleMark ⟨-1, 0⟩ (deg 20) (deg 20 - deg 72) (some 44) |>.faint,
-      point ⟨-1, 0⟩, point ⟨1, 0⟩, point e |>.accent 2, point ⟨e.x, -e.y⟩ |>.accent 2,
+      point ⟨-1, 0⟩, point ⟨1, 0⟩, onBoth (point e |>.accent 2),
+      onBoth (point ⟨e.x, -e.y⟩ |>.accent 2),
       label "−1" ⟨-1, 0⟩ .left, label "+1" ⟨1, 0⟩ .right,
       label "E" e .above |>.accent 2, label "−E" ⟨e.x, -e.y⟩ .below |>.accent 2]
 ```
@@ -136,8 +139,8 @@ the SVG show the same tints; text is drawn as shapes by default, so every viewer
 lettering the layout measured.
 
 ```lean
-/-- The lens of two disks as its own region, a chord in two role colours with labels beside its
-pieces, and ticks where the pieces meet. -/
+/-- The lens of two disks as its own region, the chord between the circles' crossings in two role
+colours with labels beside its pieces, and a tick where the pieces meet. -/
 @[figure]
 def lensFigure : Plane.Figure where
   width := 480
@@ -147,14 +150,20 @@ def lensFigure : Plane.Figure where
       ⟨"a", ⟨29, 78, 216, 255⟩, ⟨143, 176, 252, 255⟩⟩,
       ⟨"b", ⟨13, 107, 99, 255⟩, ⟨94, 224, 200, 255⟩⟩] } }
   items :=
-    let p : Point := ⟨0, 1.3⟩
-    let q : Point := ⟨0, -1.3⟩
-    #[disk ⟨-0.8, 0⟩ 1.5 |>.noFill |>.width 1.5, disk ⟨0.8, 0⟩ 1.5 |>.noFill |>.width 1.5,
-      lens ⟨-0.8, 0⟩ 1.5 ⟨0.8, 0⟩ 1.5 |>.role "lens" |>.fillOpacity 0.14,
-      segment q ⟨0, 0.3⟩ |>.role "a" |>.width 5, segment ⟨0, 0.3⟩ p |>.role "b" |>.width 5,
-      labelBeside "S₁" q ⟨0, 0.3⟩ |>.role "a", labelBeside "S₂" ⟨0, 0.3⟩ p |>.role "b",
-      tickOn q p 0.62, point p |>.incident .on "both circles",
-      point q |>.incident .on "both circles"]
+    -- the circles of radius 1.5 about (±0.8, 0) cross at (0, ±√(1.5² - 0.8²)) = (0, ±√1.61)
+    let h := Float.sqrt (1.5 * 1.5 - 0.8 * 0.8)
+    let p : Point := ⟨0, h⟩
+    let q : Point := ⟨0, -h⟩
+    let m : Point := q.lerp p 0.62
+    let corner := fun (c : Point) =>
+      point c |>.incident .on "the left circle" |>.incident .on "the right circle"
+        |>.incident .on "the lens"
+    #[disk ⟨-0.8, 0⟩ 1.5 |>.noFill |>.width 1.5 |>.named "the left circle",
+      disk ⟨0.8, 0⟩ 1.5 |>.noFill |>.width 1.5 |>.named "the right circle",
+      lens ⟨-0.8, 0⟩ 1.5 ⟨0.8, 0⟩ 1.5 |>.role "lens" |>.fillOpacity 0.14 |>.named "the lens",
+      segment q m |>.role "a" |>.width 5, segment m p |>.role "b" |>.width 5,
+      labelBeside "S₁" q m |>.role "a", labelBeside "S₂" m p |>.role "b",
+      tickOn q p 0.62, corner p, corner q]
 ```
 
 :::figure PILeanManual.PlaneGuide.lensFigure (alt := "Two outlined circles overlapping; the lens between them is tinted orange with a strong outline; a vertical chord joins the circles' crossings, its lower piece blue and labelled S1, its upper piece green and labelled S2, with a tick where they meet.")
@@ -167,18 +176,26 @@ tag := "plane-checks"
 
 {name}`PILean.Plane.Figure.problems` reports what a reader objects to in a fitted figure
 ({api}`PILean.Plane.Check`): labels that overlap, a label over a line or marker it does not
-name, something beyond the page, markers that read as one, a point drawn too near a curve for a
-reader to see whether it is on it (unless the point records where it is,
-{name}`PILean.Plane.Item.incident`; {name}`PILean.Plane.Exact.pointNearDisk` decides it
-exactly), and a colour of too little contrast against what it is drawn on, in both themes. A
-figure's `checks` level makes `pilean-build` and the Verso blocks warn about them or fail.
-Labels placed `auto` (or beside a segment, {name}`PILean.Plane.labelBeside`) take the least
-offset and the first side at which they collide with nothing
+name (a label centred on a line included), something beyond the page, markers that read as one,
+a point drawn too near an element for a reader to see whether it is on it, a colour of too
+little contrast against what it is drawn on (at its opacity, along every stroke, over the fills
+beneath), in both themes, a number that is not finite, a role the style does not name, and a
+colour the dark theme of an inline picture would get wrong. A point near an element records
+where it stands relative to it with {name}`PILean.Plane.Item.incident`, naming the element by
+its title ({name}`PILean.Plane.Item.named`); the check holds the record to that element, so a
+point recorded on a circle but drawn off it is a problem too, and a record against one element
+does not excuse the point from another. {name}`PILean.Plane.Exact.pointNearDisk` decides the
+incidence exactly. A figure's `checks` level makes `pilean-build` and the Verso blocks warn
+about the problems or fail. Labels placed `auto` (or beside a segment,
+{name}`PILean.Plane.labelBeside`) take the least offset and the first side at which they collide
+with nothing, keeping a few pixels from strokes where they can
 ({name}`PILean.Plane.Figure.autoPlaced`).
 
 ```lean (name := checkEx)
 #eval (lensFigure.problems).size
 #eval (Plane.Figure.problems { items := #[point ⟨0, 0⟩, point ⟨0.001, 0⟩] }).map (·.kind)
+#eval (Plane.Figure.problems { items := #[circle ⟨0, 0⟩ 1 |>.named "c",
+  point ⟨1.2, 0⟩ |>.incident .on "c"] }).map (·.kind)
 ```
 
 ```leanResult checkEx
@@ -194,7 +211,10 @@ with a slider ({name}`PILean.Plane.slider`), a step sequence shown with previous
 ({name}`PILean.Plane.stepper`), or both ({name}`PILean.Explorer.grid`). Its files are its poster;
 a Verso page shows every frame inline with `:::figure_explorer`, with pan and zoom, and lists the
 frames when it cannot run the script. {name}`PILean.Explorer.toAnimation` plays a step sequence
-as an animation, and {name}`PILean.Plane.animation` does so for plane figures.
+as an animation, every step as long as the others, and {name}`PILean.Plane.animation` does so
+for plane figures, composited and lettered as the figures are. Every frame of an explorer is a
+file of its own with its fingerprint, so the pictures a page shows inline are in the manifest,
+and every frame keeps its figure's problems, which a build reports frame by frame.
 
 # Exact Points
 %%%
@@ -220,14 +240,25 @@ of its conversion ({name}`PILean.Plane.Exact.point_draw`,
 ```
 
 {api}`PILean.Exact.Algebraic` has numbers of ℚ(√d) ({name}`PILean.Exact.QSqrt`), the ring
-ℤ\[ζ₅\] as arrays of integer coefficients ({name}`PILean.Exact.Zeta5`), exact square roots
-({name}`PILean.Exact.SqrtOf`), and constructions whose results are certified enclosures
-({name}`PILean.Exact.circleCircle`, {name}`PILean.Exact.lineCircle`,
-{name}`PILean.Exact.foot`, {name}`PILean.Exact.midpoint`).
+ℤ\[ζ₅\] as arrays of integer coefficients ({name}`PILean.Exact.Zeta5`, compared by their
+normal form), exact square roots ({name}`PILean.Exact.SqrtOf`), and constructions whose results
+are enclosures ({name}`PILean.Exact.circleCircle`, {name}`PILean.Exact.lineCircle`,
+{name}`PILean.Exact.foot`, {name}`PILean.Exact.midpoint`). Nothing is made up: a division by a
+ball that holds 0 is `none` ({name}`PILean.Exact.RatBall.inv`), and a meeting of two curves is
+two points, a tangent point, none, or undecided ({name}`PILean.Exact.Meeting`), the last when
+the balls tried do not decide it.
+
+A figure's theorem can say which item is which exact object, in which colour, with which title
+and which recorded incidences ({name}`PILean.Plane.Exact.IsPoint`,
+{name}`PILean.Plane.Exact.IsDisk`, {name}`PILean.Plane.Exact.IsSegment`,
+{name}`PILean.Plane.Exact.IsRegion`), and prove the incidences by exact arithmetic, so that the
+picture's facts are facts about its items.
 
 ```lean (name := algEx)
 #eval (Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2 + Exact.Zeta5.ofInt 1).normSq
 #eval Exact.QSqrt5.phi * Exact.QSqrt5.phi
+#eval Exact.RatBall.inv ⟨0, 1⟩
+#eval (Exact.circleCircle ((0 : Rat), (0 : Rat)) ((2 : Rat), (0 : Rat)) (1 : Rat) (1 : Rat)).decided
 ```
 
 ```leanResult algEx

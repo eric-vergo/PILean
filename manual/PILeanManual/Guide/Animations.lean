@@ -103,7 +103,7 @@ def growing (t : Float) : Figure :=
   let k := 0.02 + 0.98 * (1 - (1 - p) ^ 3)
   { title := "Growing bars", width := 360, height := 240, legend := false,
     panels := #[{
-      y := { label := "count", domain := some (0, 20) },
+      x := { label := "day" }, y := { label := "count", domain := some (0, 20) },
       series := #[.bars #["Mon", "Tue", "Wed", "Thu", "Fri"]
         #[("north", #[12, 15, 9, 17, 14].map (· * k))]] }] }
 

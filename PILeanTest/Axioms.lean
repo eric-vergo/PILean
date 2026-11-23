@@ -20,6 +20,8 @@ import PILeanTest.GraphOrder
 import PILeanTest.GraphQuality
 import PILeanTest.GraphDot
 import PILeanTest.Exact
+import PILeanTest.Enclosures
+import PILeanTest.FigureChecks
 import PILeanTest.GraphRoutes
 import PILeanTest.Plane
 import PILeanTest.PlaneExact

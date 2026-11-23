@@ -411,8 +411,10 @@ def explorerChecks : Array (String × Bool) :=
     ("two", { items := #[point ⟨0, 0⟩, point ⟨2, 1⟩] })]
   #[("explorer: a slider of seven frames, well formed", x.valid && x.frames.size == 7 &&
       x.values == 7 && x.steps == 1),
-    ("explorer: an SVG and a PNG, the SVG carrying every frame",
-      outs.map (·.format.name) == #["svg", "png"] && fs.frames.size == 7 &&
+    ("explorer: the poster's SVG carrying every frame and its PNG, then an SVG per frame",
+      outs.map (·.format.name) == #["svg", "png"] ++ Array.replicate 7 "svg" &&
+      outs.map (·.name) == #["", ""] ++ (List.range 7).toArray.map (s!"-frame-{·}") &&
+      fs.frames.size == 7 &&
       fs.axisValues == x.axisValues && fs.axisName == "r"),
     ("explorer: every frame is inert", fs.frames.all fun f => Svg.isInert f.document),
     ("explorer: the slider's frames share one frame (scale and size)",

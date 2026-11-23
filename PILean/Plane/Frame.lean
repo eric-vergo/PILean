@@ -108,12 +108,13 @@ def largestScale (ok : Float → Bool) (sMax : Float) : Float := Id.run do
 
 /-- The reaches with their extents along each axis shrunk, about each reach's point, by the one
 factor that makes the widest span of extents (the largest right extent less the smallest left
-one, and the same down) fit the room the page leaves (`width - 2 pad`, and `height - 2 pad` when
-the height is given); the reaches themselves when their extents fit. -/
+one, and the same down) fit, a hair inside, the room the page leaves (`width - 2 pad`, and
+`height - 2 pad` when the height is given); the reaches themselves when their extents fit. -/
 def squeezeReaches (rs : Array Reach) (width : Float) (height : Option Float) (pad : Float) :
     Array Reach :=
+  -- a hair inside the room, so that rounding does not leave the span just too wide
   let factor := fun (room lo hi : Float) =>
-    if hi - lo > room && room > 0 then room / (hi - lo) else 1
+    if hi - lo > room && room > 0 then room * (1 - 1e-6) / (hi - lo) else 1
   let fx := factor (width - 2 * pad) (rs.foldl (fun m r => min m r.off.x0) 0)
     (rs.foldl (fun m r => max m r.off.x1) 0)
   let fy := match height with

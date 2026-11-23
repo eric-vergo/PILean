@@ -31,7 +31,8 @@ of `PILean.Graph.Check`), measured on the page, in pixels:
   nothing.
 * `lowContrast`: a colour an element uses, composited at its alpha over what it is drawn on, is
   below `textContrast` (labels) or `graphicContrast` (everything else) against that: the
-  background with the tints of the earlier elements (composited in sRGB) at the label's centre,
+  background with the fills of the earlier elements that enclose a region (a disk, a polygon, a
+  sector, a region of disks; composited in sRGB) at the label's centre,
   at the marker's (the page itself for a marker with a halo), and at points along every stroke
   (the least contrast along it), in the figure's style and, for a figure in the default light
   colours, in its dark twin (`Style.dark`'s background, `PlaneStyle.dark`, and the dark colours of
@@ -51,8 +52,9 @@ quarter pixel, so arcs, arrowheads and clipped lines are checked as drawn.
 
 `Figure.autoPlaced` uses the same geometry to place the labels whose placement is `auto` (the eight
 sides, `Placement.compass`) or `across` a line (either side of it): each in turn takes the least
-offset, and at it the first side, where its box stays on the page and meets no other label and
-nothing it is not attached to. `Figure.problems` checks the finished figure again.
+offset, and at it the first side, where its box stays on the page, meets no other label and keeps
+`labelClearance` pixels from everything it is not attached to (or, where no side gives that room,
+merely meets nothing). `Figure.problems` checks the finished figure again.
 
 ## Main definitions
 
@@ -99,6 +101,9 @@ structure CheckOptions where
   onTolerance : Float := 0.5
   /-- The most points along one stroke at which its contrast is measured. -/
   strokeSamples : Nat := 48
+  /-- The room an automatic label keeps from the strokes and markers it is not attached to, in
+  pixels, when a side and an offset give it that room (`chooseAutoPlacements`). -/
+  labelClearance : Float := 3
   /-- The least contrast of a label's colour against the background. -/
   textContrast : Float := 4.5
   /-- The least contrast of any other element's colour against the background. -/
@@ -282,11 +287,19 @@ def insidePolyline (q : Point) (pl : Polyline) : Bool := Id.run do
 def insidePolylines (q : Point) (pls : Array Polyline) : Bool :=
   pls.foldl (fun b pl => if insidePolyline q pl then !b else b) false
 
-/-- The tints an element lays on the page: each filled path of its drawing, flattened, with its
-colour. -/
+/-- Whether an element encloses a region whose inside and outside a point can be on: a circle, a
+disk, a sector, a polygon or a region of disks. -/
+def Geom.encloses : Geom → Bool
+  | .circle .. | .disk .. | .sector .. | .polygon .. | .disks .. => true
+  | _ => false
+
+/-- The fills an element that encloses a region (`Geom.encloses`) lays on the page: each filled
+path of its drawing, flattened, with its colour (translucent or not); none for other elements
+(markers, labels, arrowheads), which other elements are not drawn on. -/
 def tintsOf (e : Env) (lf : Leaf) : Array (Array Polyline × Rgba) :=
-  (drawGeom e lf.look lf.geom).filterMap fun s => match s with
-    | .path p (some (.solid c)) _ _ => if c.a < 255 then some (p.flatten 0.25, c) else none
+  if !lf.geom.encloses then #[]
+  else (drawGeom e lf.look lf.geom).filterMap fun s => match s with
+    | .path p (some (.solid c)) _ _ => some (p.flatten 0.25, c)
     | _ => none
 
 /-- What an element lies on at the page point `q`: the background with the tints `layers` (of the
@@ -314,12 +327,6 @@ def checkedStyles (st : Style) : Array (String × Style) :=
 def Look.finite (l : Look) : Bool :=
   l.width.all Float.isFinite && l.size.all Float.isFinite && l.fillOpacity.all Float.isFinite &&
     l.weight.all Float.isFinite && l.dash.all Float.isFinite
-
-/-- Whether an element encloses a region whose inside and outside a point can be on: a circle, a
-disk, a sector, a polygon or a region of disks. -/
-def Geom.encloses : Geom → Bool
-  | .circle .. | .disk .. | .sector .. | .polygon .. | .disks .. => true
-  | _ => false
 
 /-- The closed page polylines that bound an element's region (`Geom.encloses`): its drawn paths,
 flattened. -/
@@ -517,8 +524,9 @@ def autoReach : Nat := 12
 /-- The sides and offsets chosen for the automatic labels of `leaves` in the frame of `e`, in
 drawing order: for each label in turn, the least offset (from its own, in whole pixels up to
 `autoReach` more) and, at that offset, the first side (`Placement.candidates`) where its box stays
-on the page and meets no other label and nothing it is not attached to; the first side at its own
-offset when none clears. -/
+on the page and meets no other label, and keeps `labelClearance` pixels from everything it is not
+attached to; failing that, the same with no room asked; the first side at its own offset when
+none clears. -/
 def chooseAutoPlacements (e : Env) (leaves : Array Leaf) (o : CheckOptions := {}) :
     List (Placement × Float) := Id.run do
   let segs := leaves.map (strokeSegments e)
@@ -535,24 +543,26 @@ def chooseAutoPlacements (e : Env) (leaves : Array Leaf) (o : CheckOptions := {}
     if !lf.isAuto then continue
     let cands := pl.candidates
     let base := off.getD e.ps.labelOffset
-    let fits := fun (q : Placement) (d : Float) =>
+    let fits := fun (q : Placement) (d : Float) (room : Float) =>
       match labelOf e { lf with geom := .label s p q (some d) } with
       | none => false
       | some (b, at_) =>
+        let wide : Box := ⟨b.x0 - room, b.y0 - room, b.x1 + room, b.y1 + room⟩
         b.x0 ≥ page.x0 && b.y0 ≥ page.y0 && b.x1 ≤ page.x1 && b.y1 ≤ page.y1 &&
           boxes.all (fun c => !boxesOverlap b c o.labelTolerance) &&
           (List.range leaves.size).all fun j =>
-            (labelOf e leaves[j]!).isSome || !boxMeets b segs[j]! markers[j]! ||
+            (labelOf e leaves[j]!).isSome || !boxMeets wide segs[j]! markers[j]! ||
               attachedTo at_ markers[j]! o.attachTolerance
     let mut pick : Placement × Float := (cands[0]!, base)
     let mut found := false
-    for k in [0:autoReach + 1] do
-      if found then break
-      for q in cands do
-        if fits q (base + k.toFloat) then
-          pick := (q, base + k.toFloat)
-          found := true
-          break
+    for room in [o.labelClearance, 0] do
+      for k in [0:autoReach + 1] do
+        if found then break
+        for q in cands do
+          if fits q (base + k.toFloat) room then
+            pick := (q, base + k.toFloat)
+            found := true
+            break
     if let some (b, _) := labelOf e { lf with geom := .label s p pick.1 (some pick.2) } then
       boxes := boxes.push b
     chosen := chosen.push pick

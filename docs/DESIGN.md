@@ -478,6 +478,10 @@ outputs are written from that drawing.
   note; constants get an interval around them; huge values are clamped in the output (and
   labelled with powers of ten); a function's automatic range leaves out extreme tails (2 % each side)
   when they are more than twelve times the central spread away.
+* **Labelling checks** (`PILean.Plot.Check`). A panel whose axes have no label, or with several
+  series that neither the legend nor direct labels name, is reported in the scheme of the plane
+  checks (`Figure.checks`: `ignore`, `warn`, `fail`); a panel bare on purpose says so
+  (`Panel.bare`). Every plot of the gallery and of the manual is labelled.
 * **Style.** `Style` holds every visual constant; `Style.light` and `Style.dark`. The palette is
   Okabe and Ito's, ordered so that adjacent colours stay apart under colour-vision deficiencies;
   both palettes pass a palette validator's checks of lightness band, chroma, CVD and
@@ -498,8 +502,9 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   them (a marker's radius, half a stroke, an arrowhead, an angle mark's radius, a label's box).
   `Frame.fit` takes the largest scale at which every reach fits inside the padding across the
   page (bisection over the scale: when no label is wider than the page, the scales that fit form
-  an interval from 0), centres the drawing, and makes the page as tall as the reaches need, in
-  whole pixels. With `view`, a given world box is fitted instead. Lines and rays reach the two
+  an interval from 0; extents wider than the page are first shrunk until they fit, so a label
+  too wide for the page does not collapse the scale), centres the drawing, and makes the page as
+  tall as the reaches need, in whole pixels. With `view`, a given world box is fitted instead. Lines and rays reach the two
   points that define them and are drawn to the edge of the page (Liang and Barsky's clipping).
 * **Pixel sizes.** Stroke widths, marker radii, arrowheads, label sizes and offsets and angle
   marks are in pixels at every scale; only world lengths (radii of circles, disks, arcs) scale.
@@ -525,26 +530,58 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   instance; the laws that can be stated without them (radii between 0 and `2⁻ᵏ`) are the classes
   `LawfulRealValue` and `LawfulPlanePoint`. A representation that needs a context (a cyclotomic
   ring with its tables) gives the instance on a type that carries it. The tests have worked
-  instances for Gaussian rationals, ℚ(√5) and ℤ[ζ₅] (integer coefficient arrays), whose balls
-  are checked exactly by squaring rationals.
+  instances for Gaussian rationals, ℚ(√5) and ℤ[ζ₅] (integer coefficient arrays, compared by
+  their normal form), whose balls are checked exactly by squaring rationals.
+* **No made-up enclosures.** Ball arithmetic is exact rational arithmetic, so sums and products
+  of enclosures are enclosures; an operation that is not defined on every number of its input's
+  ball says so in its result: `RatBall.inv` and `RatBall.div` are `none` on a ball that holds 0
+  (a fallback ball there was the alternative, and is what let a construction report a point
+  outside a disk it lies in). The constructions (`foot`, `circleCircle`, `lineCircle`) decide,
+  from balls at 64 to 512 bits, that a divisor is at least some `m > 0` (`positiveBound?`) and at
+  every working precision divide by the part of the divisor's ball above `m`
+  (`RatBall.invAbove`), so a low precision gives a wide ball, never a wrong one; they decide the
+  sign under a square root the same way, and answer what the balls do not decide with `none` or
+  `Meeting.undecided` (tangency is decided only for exact data, where the deciding number is
+  exactly 0). The square root is `√(max x 0)`, total. Refinement says when it did not reach the
+  radius asked (`refine`, `Enclosed.meetsPrecision`).
+* **Specifications that speak about the items.** A figure's theorem says which item is which
+  exact object, in which colour, with which title and recorded incidences
+  (`Plane.Exact.IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`), so that the exact facts about the
+  points (that `E` is on the left circle) are facts about the items that draw them; the strict
+  figure link (`figure_proves`: the figure's constant occurs in the theorem) holds for each.
 * **Regions, fills, markers, ticks.** The intersection, union and difference of two disks are
   regions bounded by exact circular arcs of their circles (`regionArcs`, `Path.arcTo`); a shape's
   tint (colour, opacity) and outline are styled apart; markers are dots, rings, squares, diamonds
   or crosses on a halo; a tick crosses a line with a length in pixels, resolved at fitting.
 * **One colour space for tints.** The image of a plane figure is composited in sRGB, as browsers
   composite an SVG's `fill-opacity`, so a tint (and a tint over a tint) has the same colour in
-  the PNG and in the SVG shown by a browser. Plots and graphs keep the rasteriser's linear light
-  (their goldens are unchanged). The rule is tested by sampling the PNG inside a tint against
+  the PNG and in the SVG shown by a browser. Plots and graphs keep the rasteriser's linear light.
+  Animations and explorers made from plane figures (`Plane.animation`, `Plane.slider`,
+  `Plane.stepper`) keep the figure's sRGB and its text as shapes (`Animation.srgb`,
+  `Animation.textAsShapes`). The rule is tested by sampling the PNG inside a tint against
   the expected sRGB composite in both themes. Pre-blended opaque fills were the alternative; they
   would need the overlap regions of every pair of translucent shapes computed, and give the same
   colours.
 * **Checks** (`PILean.Plane.Check`): overlapping labels, labels over lines or markers they do not
-  name, things beyond the page, markers that read as one, points too near a curve to be seen on
-  it or off it unless their incidence is recorded (exactly, for exact points), colours of too
-  little contrast against what they are drawn on (the page and the tints beneath), in both
-  themes. A figure's `checks` level makes builds warn or fail. Automatic placement (`auto`, and
-  `across` a segment for a piece's label) takes the least offset and the first side that clears,
-  chosen twice (the second time in the frame the first placement gives).
+  name (a label is attached only to the marker at its point, so a label centred on a line is
+  reported), things beyond the page, markers that read as one, points too near an element to be
+  seen on it or off it unless they record their incidence relative to that element, colours of
+  too little contrast against what they are drawn on (at their alpha; at a label's centre, a
+  marker's, and along every stroke, over the page and the fills beneath), in both themes, numbers
+  that are not finite, roles the style does not name, and colours the inline dark theme would
+  restyle wrongly. A recorded incidence names its element by title (`Item.named`) and is held to
+  it: a point recorded on an element but drawn away from it, or on the wrong side of a region, is
+  itself a problem, and a record against one element does not excuse a point from another. A
+  figure's `checks` level makes builds warn or fail. Automatic placement (`auto`, and `across` a
+  segment for a piece's label) takes the least offset and the first side that clears, 3 pixels
+  from strokes and markers where it can, chosen twice (the second time in the frame the first
+  placement gives).
+* **Dark colours of inline pictures.** A page that shows a picture inline restyles it in its dark
+  theme by its light colour values (`Style.darkColourPairs`). Classes on every drawn shape, keyed
+  on its role, were the alternative; they would change the drawing that the proofs describe and
+  every file. The check `darkThemeClash` reports instead each element whose colour would come out
+  other than its dark twin's: a fixed colour equal to a style colour, or roles that share a light
+  colour with different dark ones.
 * **Text and small screens.** SVG text is drawn as shapes by default (`textAsShapes`), so every
   viewer shows the lettering the layout measured; `narrowWidth` renders the figure a second time
   at a narrower page with labels and markers at their full pixel size, for small screens. For
@@ -561,6 +598,12 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   example manual's explorers page (two explorers of 5 and 4 frames and one inline figure with its
   narrow rendition, 11 pictures) is 134,281 bytes of HTML; a plane frame of a few dozen elements is
   about 4 to 9 KB of inline SVG. Frames share no definitions (plane figures have none to share).
+* **Explorers as files.** Every frame of an `Explorer` is an output of its own (an SVG named
+  `-frame-k`), so every picture a page shows inline is a file in the manifest with its
+  fingerprint, the inline picture byte for byte the file before its source record; the poster's
+  SVG and PNG come first. Every frame keeps the problems of its figure's checks, which a build
+  reports frame by frame, or which stop the explorer when a frame's level is `fail`;
+  `Explorer.toAnimation` gives every step the same number of frames (`Explorer.stepTiming`).
 * **Arcs** (`Path.arc`): at most a quarter turn per cubic, control points on the tangents at
   `(4/3) tan(δ/4) r`, radial error at most `r (2/27) sin⁶(δ/4) / cos²(δ/4)` (Goldapp 1991), at most
   `2.73 × 10⁻⁴ r`; the tests sample the curves against this bound.

@@ -234,7 +234,7 @@ array of values per group, side by side.
 def groupedBars : Figure where
   title := "Grouped bars"
   panels := #[{
-    y := { label := "count" },
+    x := { label := "day" }, y := { label := "count" },
     series := #[.bars #["Mon", "Tue", "Wed", "Thu", "Fri"]
       #[("north", #[12, 15, 9, 17, 14]), ("south", #[8, 11, 13, 10, 16]),
         ("east", #[5, 7, 6, 9, 8])]] }]
@@ -256,7 +256,7 @@ With `stacked := true` the groups are stacked; negative values stack below the b
 def stackedBars : Figure where
   title := "Stacked bars"
   panels := #[{
-    y := { label := "balance" },
+    x := { label := "quarter" }, y := { label := "balance" },
     series := #[.bars #["Q1", "Q2", "Q3", "Q4"]
       #[("income", #[30, 34, 28, 40]), ("grants", #[10, 8, 12, 9]),
         ("costs", #[-22, -25, -20, -27])] (stacked := true)] }]
@@ -511,8 +511,8 @@ def equalAxes : Figure where
   height := 320
   panels := #[{
       equalAspect := true
-      x := { domain := some (-1.5, 1.5) }
-      y := { domain := some (-1.2, 1.2) }
+      x := { label := "x", domain := some (-1.5, 1.5) }
+      y := { label := "y", domain := some (-1.2, 1.2) }
       series := #[.line "unit circle" ((List.range 97).toArray.map fun i =>
         let a := 2 * pi * i.toFloat / 96
         ⟨a.cos, a.sin⟩)]
@@ -542,11 +542,39 @@ def awkward : Figure where
   columns := 2
   legend := false
   panels := #[
-    { title := "no data" },
-    { title := "a constant", series := #[.line "c" #[⟨0, 5⟩, ⟨1, 5⟩, ⟨2, 5⟩]] },
-    { title := "huge values", series := #[.line "h" #[⟨0, 1e15⟩, ⟨1, 3e15⟩, ⟨2, 2e15⟩]] },
-    { title := "a gap", series := #[.line "g" #[⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 0 / 0⟩, ⟨3, 2⟩, ⟨4, 3⟩]] }]
+    { title := "no data", x := { label := "x" }, y := { label := "y" } },
+    { title := "a constant", x := { label := "i" }, y := { label := "value" },
+      series := #[.line "c" #[⟨0, 5⟩, ⟨1, 5⟩, ⟨2, 5⟩]] },
+    { title := "huge values", x := { label := "i" }, y := { label := "value" },
+      series := #[.line "h" #[⟨0, 1e15⟩, ⟨1, 3e15⟩, ⟨2, 2e15⟩]] },
+    { title := "a gap", x := { label := "i" }, y := { label := "value" },
+      series := #[.line "g" #[⟨0, 1⟩, ⟨1, 2⟩, ⟨2, 0 / 0⟩, ⟨3, 2⟩, ⟨4, 3⟩]] }]
 ```
 
 :::figure PILeanManual.Plots.awkward (alt := "Four panels: 'no data' with axes from 0 to 1 and a note; 'a constant' with a flat line at 5; 'huge values' with ticks labelled as multiples of a power of ten; 'a gap' with a line broken where a value is not a number.")
 :::
+
+# Labels a Reader Needs
+%%%
+tag := "plot-checks"
+%%%
+
+A plot a reader cannot read without asking what its axes or its curves are is reported
+({api}`PILean.Plot.Check`): a panel whose horizontal or vertical axis has no label, and a panel
+with two or more series (each group of a bar series counts) that neither the legend nor direct
+labels (an annotation for each series) name. The figure's `checks` level, as for plane figures,
+makes `pilean-build` and the Verso blocks warn about the problems (the default), fail, or not
+look for them; a panel that is bare on purpose says so ({name}`PILean.Plot.Panel.bare`) and is
+not checked. Every plot on this page is labelled.
+
+```lean (name := plotCheckEx)
+#eval (Figure.problems { panels := #[{ series := #[.line "a" #[⟨0, 0⟩, ⟨1, 1⟩]] }] }).map (·.kind)
+#eval (Figure.problems { legend := false, panels := #[{ x := { label := "t" },
+  y := { label := "u" }, series := #[.line "a" #[⟨0, 0⟩, ⟨1, 1⟩], .line "b" #[⟨0, 1⟩, ⟨1, 0⟩]] }]
+  }).map (·.kind)
+#eval (Figure.problems { panels := #[{ bare := true, series := #[.line "" #[⟨0, 0⟩, ⟨1, 1⟩]] }]
+  }).size
+```
+
+```leanResult plotCheckEx
+```
