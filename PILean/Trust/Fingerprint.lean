@@ -31,6 +31,7 @@ source text; the specification is the `Output.spec` of the output.
 * `fingerprint`: the fingerprint of a specification and a source
 * `FigureEntry`: a declaration with its source data and a thunk producing its outputs
 * `FigureEntry.source`: the `Source` record of one output
+* `FigureEntry.standing`: the figure's standing (`Standing`), as `figures%` set it
 -/
 
 namespace PILean.Trust
@@ -81,13 +82,28 @@ structure FigureEntry extends SourceData where
   /-- The files the declaration is rendered to. -/
   outputs : Unit → Array Output
 
+/-- The standing of the entry's figure: the standing `figures%` set on its outputs (the first
+output's; every output of an entry `figures%` makes has the same), an unmarked illustration for an
+entry without outputs. -/
+def FigureEntry.standing (e : FigureEntry) : Standing :=
+  ((e.outputs ())[0]?.map (·.standing)).getD (.illustration false)
+
+/-- The standing and the theorems as a source record and a manifest write them: the word of
+`Standing.word`, and for a proved figure its theorems separated by single spaces. -/
+def Standing.fields (s : Standing) : Option String × Option String :=
+  (some s.word, if s.theorems.isEmpty then none else some (" ".intercalate s.theorems.toList))
+
 /-- The `Source` record written into the file of an output: the recorded source, the library
-version, the fingerprint of the output's specification, and the repository and commit if given. -/
+version, the fingerprint of the output's specification, the output's standing with its theorems
+(`Standing.fields`), and the repository and commit if given. The standing is not part of the
+fingerprint, which identifies the drawing and its declaration; it is part of the file, so its
+SHA-256 in the manifest covers it. -/
 def FigureEntry.source (e : FigureEntry) (o : Output) (repo commit : Option String := none) :
     Source :=
   { module := e.module, decl := e.decl, file := e.file, line := e.line, column := e.column,
     repo, commit, version := PILean.version,
     fingerprint := some (fingerprint o.spec e.toSourceData
-      (renderer := rendererWith o.textEngine)) }
+      (renderer := rendererWith o.textEngine)),
+    standing := o.standing.fields.1, proves := o.standing.fields.2 }
 
 end PILean.Trust

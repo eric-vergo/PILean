@@ -63,7 +63,8 @@ def gifMagic : String := "PILean source 1"
 
 /-- The keys of the fields, in the order they are written. -/
 def keys : Array String :=
-  #["module", "decl", "file", "line", "column", "repo", "commit", "version", "fingerprint"]
+  #["module", "decl", "file", "line", "column", "repo", "commit", "version", "fingerprint",
+    "standing", "proves"]
 
 /-- Where an image came from: the Lean declaration that built it. -/
 structure Source where
@@ -85,6 +86,11 @@ structure Source where
   version : String
   /-- A SHA-256 fingerprint, 64 lowercase hexadecimal digits. -/
   fingerprint : Option String := none
+  /-- The figure's standing as the build recorded it: `proved` or `illustration`
+  (`PILean.Trust.Standing.word`). -/
+  standing : Option String := none
+  /-- For a proved figure, the theorems linked to it, by full name, separated by single spaces. -/
+  proves : Option String := none
 deriving BEq, Repr, Inhabited
 
 /-- The fields in writing order as `(key, value)`; absent options are left out. -/
@@ -94,7 +100,20 @@ def Source.fields (s : Source) : Array (String × String) :=
   (match s.repo with | some r => #[("repo", r)] | none => #[]) ++
   (match s.commit with | some r => #[("commit", r)] | none => #[]) ++
   #[("version", s.version)] ++
-  (match s.fingerprint with | some r => #[("fingerprint", r)] | none => #[])
+  (match s.fingerprint with | some r => #[("fingerprint", r)] | none => #[]) ++
+  (match s.standing with | some r => #[("standing", r)] | none => #[]) ++
+  (match s.proves with | some r => #[("proves", r)] | none => #[])
+
+/-- Whether a recorded standing and list of theorems are well formed: no standing and no
+theorems, `illustration` without theorems, or `proved` with a non-empty list of names separated
+by single spaces, each name non-empty and without white space. -/
+def standingOk (standing proves : Option String) : Bool :=
+  match standing, proves with
+  | none, none => true
+  | some "illustration", none => true
+  | some "proved", some ts =>
+    !ts.isEmpty && (ts.splitOn " ").all fun t => !t.isEmpty && !t.any Char.isWhitespace
+  | _, _ => false
 
 /-- Whether `s` is 64 lowercase hexadecimal digits. -/
 def isFingerprint (s : String) : Bool :=
@@ -106,7 +125,8 @@ def validValue (v : String) : Bool :=
   v.utf8ByteSize ≤ maxField && v.all xmlChar
 
 /-- Checks that the record can be written to every format: valid values, a fingerprint of 64
-lowercase hexadecimal digits, a non-empty module, declaration and file. -/
+lowercase hexadecimal digits, a well-formed standing (`standingOk`), a non-empty module,
+declaration and file. -/
 def Source.validate (s : Source) : Except String Unit := do
   for (k, v) in s.fields do
     if !validValue v then throw s!"the value of {k} is too long or has a character XML cannot carry"
@@ -114,12 +134,15 @@ def Source.validate (s : Source) : Except String Unit := do
     throw "module, decl, file and version must not be empty"
   if let some f := s.fingerprint then
     if !isFingerprint f then throw "the fingerprint is not 64 lowercase hexadecimal digits"
+  if !standingOk s.standing s.proves then
+    throw "the standing is not proved with its theorems or illustration without any"
 
 /-- The record from a list of `(key, value)` pairs, as the readers collect them: unknown keys are
 ignored, a known key twice is an error, a value above `maxField` bytes or with a character XML
 cannot carry (so one the writers refuse) is an error, `line` and
 `column` are decimal numbers of at most nine digits, a fingerprint is 64 lowercase hexadecimal
-digits, and `module`, `decl`, `file`, `line`, `column` and `version` must be present. -/
+digits, the standing and its theorems are well formed (`standingOk`), and `module`, `decl`,
+`file`, `line`, `column` and `version` must be present. -/
 def Source.ofFields (kvs : Array (String × String)) : Except String Source := do
   let mut seen : Array String := #[]
   for (k, v) in kvs do
@@ -146,8 +169,11 @@ def Source.ofFields (kvs : Array (String × String)) : Except String Source := d
   let l ← num "line"
   let c ← num "column"
   let v ← req "version"
+  if !standingOk (find "standing") (find "proves") then
+    throw "the standing is not proved with its theorems or illustration without any"
   return { module := m, decl := d, file := f, line := l, column := c, repo := find "repo",
-           commit := find "commit", version := v, fingerprint := fp }
+           commit := find "commit", version := v, fingerprint := fp,
+           standing := find "standing", proves := find "proves" }
 
 /-- Whether `url` is safe to offer as a link: it starts with `http://` or `https://` (lowercase),
 has something after that, is at most `maxField` bytes, and consists of printable ASCII only

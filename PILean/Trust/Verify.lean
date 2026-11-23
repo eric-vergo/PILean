@@ -70,7 +70,17 @@ def Verdict.text : Verdict → String
 def ManifestEntry.matches (m : ManifestEntry) (s : Source) : Bool :=
   s.module == m.module && s.decl == m.decl && s.file == m.file && s.line == m.line &&
     s.column == m.column && s.version == m.version && s.repo == m.repo && s.commit == m.commit &&
-    s.fingerprint == some m.fingerprint
+    s.fingerprint == some m.fingerprint && s.standing == m.standing && s.proves == m.proves
+
+/-- What a line of `pilean-verify` adds after the path of a file that agrees with its manifest:
+the standing the file records, as recorded (` [recorded: proved by T₁ T₂]`,
+` [recorded: illustration]`), or nothing for a file that records none. It repeats what the file
+and the manifest say; `pilean-verify` checks no theorem. -/
+def recordedStanding (m : ManifestEntry) : String :=
+  match m.standing, m.proves with
+  | some "proved", some ts => s!" [recorded: proved by {ts}]"
+  | some w, _ => s!" [recorded: {w}]"
+  | none, _ => ""
 
 /-- The verdict on one listed file of the directory `root` (already resolved). -/
 def verifyFile (root : System.FilePath) (m : ManifestEntry) : IO Verdict := do
@@ -98,8 +108,10 @@ manifest itself; a symbolic link counts as a file and is not followed), sorted.
 Fails with a message if the directory cannot be resolved, if the manifest cannot be read (it
 must be a regular file, not a link, of at most `maxJsonInput` bytes) or is invalid, or if the
 directory cannot be listed completely (`listFiles`): a folder whose every file was not seen is
-never reported as agreeing with its manifest. -/
-def verifyDir (dir : System.FilePath) : IO (Except String (Array (String × Verdict))) := do
+never reported as agreeing with its manifest. Each verdict comes with the manifest entry of its
+file (none for an extra file). -/
+def verifyDirEntries (dir : System.FilePath) :
+    IO (Except String (Array (String × Verdict × Option ManifestEntry))) := do
   let root ← try pure (some (← IO.FS.realPath dir)) catch _ => pure none
   let some root := root | return .error s!"cannot read the directory {dir}"
   let mpath := root / manifestName
@@ -111,21 +123,27 @@ def verifyDir (dir : System.FilePath) : IO (Except String (Array (String × Verd
   | .ok entries =>
     let mut out := #[]
     for m in entries do
-      out := out.push (m.path, ← verifyFile root m)
+      out := out.push (m.path, ← verifyFile root m, some m)
     match ← listFiles root with
     | .error e => return .error s!"cannot verify {dir}: {e}"
     | .ok present =>
     -- a file is checked under the name the manifest gives it: on a file system that ignores
     -- case, `locateInside` also finds it under another spelling, which the listing shows
     let onDisk : Std.HashSet String := present.foldl (·.insert ·) {}
-    out := out.map fun (p, v) => if v == .ok && !onDisk.contains p then (p, .missing) else (p, v)
+    out := out.map fun (p, v, m) =>
+      if v == .ok && !onDisk.contains p then (p, .missing, m) else (p, v, m)
     let listed : Std.HashSet String :=
       entries.foldl (fun s m => s.insert m.path) (({} : Std.HashSet String).insert manifestName)
     for r in present do
-      if !listed.contains r then out := out.push (r, .extra)
+      if !listed.contains r then out := out.push (r, .extra, none)
     return .ok out
 
-/-- The `main` of `pilean-verify DIR`: one line `verdict: path` for each file; 0 if every file is
+/-- The verdicts of `verifyDirEntries`, without the manifest entries. -/
+def verifyDir (dir : System.FilePath) : IO (Except String (Array (String × Verdict))) := do
+  return (← verifyDirEntries dir).map (·.map fun (p, v, _) => (p, v))
+
+/-- The `main` of `pilean-verify DIR`: one line `verdict: path` for each file, an `ok` line followed
+by the standing the file records (`recordedStanding`); 0 if every file is
 `ok`, 1 if not, or if the manifest is invalid or the directory cannot be listed completely (a
 message goes to standard error and no verdict is printed), 2 on a wrong command line. -/
 def verifyMain (args : List String) : IO UInt32 := do
@@ -133,13 +151,17 @@ def verifyMain (args : List String) : IO UInt32 := do
     IO.eprintln "usage: pilean-verify DIR"
     return 2
   try
-    match ← verifyDir dir with
+    match ← verifyDirEntries dir with
     | .error e =>
       IO.eprintln s!"pilean-verify: {escapeControl e}"
       return 1
     | .ok vs =>
-      for (p, v) in vs do IO.println s!"{v.text}: {escapeControl p}"
-      return if vs.all (·.2 == .ok) then 0 else 1
+      for (p, v, m) in vs do
+        let tail := match v, m with
+          | .ok, some m => escapeControl (recordedStanding m)
+          | _, _ => ""
+        IO.println s!"{v.text}: {escapeControl p}{tail}"
+      return if vs.all (·.2.1 == .ok) then 0 else 1
   catch e =>
     IO.eprintln s!"pilean-verify: {escapeControl (toString e)}"
     return 1

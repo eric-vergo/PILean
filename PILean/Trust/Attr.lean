@@ -14,8 +14,13 @@ of its source text (taken from the file being elaborated). `figures%` is a term 
 module where it is used, becomes an `Array FigureEntry` of every registered declaration of the
 environment (imported modules included), sorted by module and then declaration name.
 
+`@[figure illustration]` registers the declaration the same way and marks it openly as an
+illustration: a figure that no theorem ties to its object.
+
 `figure_proves fig thm` links a theorem to a figure, after checking that it is proved from the
-standard axioms and that its statement names the figure itself.
+standard axioms and that its statement names the figure itself. `figures%` gives each figure its
+standing (`Standing`): `proved` with the linked theorems that pass that check again where
+`figures%` is elaborated, or `illustration`, marked or not.
 
 `#assert_standard_axioms A` checks the axioms of every declaration of the modules whose names
 start with `A`, by walking the modules rather than a list of names; `#assert_modules_imported A`
@@ -43,6 +48,8 @@ structure FigureRecord where
   column : Nat
   /-- The SHA-256 of the declaration's source text, in hexadecimal. -/
   sourceHash : String
+  /-- Whether the declaration is marked as an illustration (`@[figure illustration]`). -/
+  illustration : Bool := false
 deriving Inhabited
 
 /-- The file of a module, relative to the repository root: its name with `/` for `.`, and
@@ -63,11 +70,11 @@ def registeredFigures (env : Environment) : Array FigureRecord :=
 /-- The declarations the attribute was applied to whose source positions are not yet known: Lean
 records a declaration's range after the attributes are applied, so `figureCommand` completes the
 records when the command is done. -/
-initialize pendingExt : EnvExtension (Array Name) ← registerEnvExtension (pure #[])
+initialize pendingExt : EnvExtension (Array (Name × Bool)) ← registerEnvExtension (pure #[])
 
 /-- Records `decl`, whose range is known: the module, file, the start of the declaration's range,
-and the hash of its source text. -/
-def recordFigure (decl : Name) : Lean.Elab.Command.CommandElabM Unit := do
+the hash of its source text, and whether it is marked as an illustration (`illustration`). -/
+def recordFigure (decl : Name) (illustration : Bool) : Lean.Elab.Command.CommandElabM Unit := do
   let fm ← getFileMap
   match ← findDeclarationRanges? decl with
   | none => logError m!"@[figure]: no source position is known for {decl}"
@@ -77,7 +84,7 @@ def recordFigure (decl : Name) : Lean.Elab.Command.CommandElabM Unit := do
     modifyEnv fun env => figureExt.addEntry env
       { decl, module := env.mainModule, file := moduleFile env.mainModule,
         line := r.pos.line, column := r.pos.column,
-        sourceHash := Sha256.hex (Sha256.hashString src) }
+        sourceHash := Sha256.hex (Sha256.hashString src), illustration }
 
 /-- Records the queued declarations (after the command that declared them). -/
 def completeFigures : Lean.Elab.Command.CommandElabM Unit := do
@@ -85,11 +92,21 @@ def completeFigures : Lean.Elab.Command.CommandElabM Unit := do
   let pending := pendingExt.getState env
   if pending.isEmpty then return
   setEnv (pendingExt.setState env #[])
-  for decl in pending do
-    if (← getEnv).contains decl then recordFigure decl
+  for (decl, illustration) in pending do
+    if (← getEnv).contains decl then recordFigure decl illustration
 
-/-- Checks that the type of `decl` has a `ToOutputs` instance and queues the declaration. -/
-def queueFigure (decl : Name) : AttrM Unit := do
+/-- Whether the attribute's syntax marks the figure as an illustration: `figure` alone is not
+marked, `figure illustration` is, and any other argument is an error. -/
+def illustrationArg (stx : Syntax) : AttrM Bool := do
+  match stx[1].getOptional? with
+  | none => return false
+  | some a =>
+    if a.isIdent && a.getId == `illustration then return true
+    throwErrorAt a "@[figure] takes no argument other than `illustration`"
+
+/-- Checks that the type of `decl` has a `ToOutputs` instance and queues the declaration, marked
+as an illustration when `illustration`. -/
+def queueFigure (decl : Name) (illustration : Bool := false) : AttrM Unit := do
   let env ← getEnv
   let some info := env.find? decl | throwError "unknown declaration {decl}"
   let ok ← (do
@@ -98,14 +115,16 @@ def queueFigure (decl : Name) : AttrM Unit := do
   if isPrivateName decl then throwError "@[figure] needs a declaration that is not private"
   unless ok do
     throwError "@[figure] needs a type with a ToOutputs instance, but {decl} has type {info.type}"
-  modifyEnv fun env => pendingExt.modifyState env (·.push decl)
+  modifyEnv fun env => pendingExt.modifyState env (·.push (decl, illustration))
 
-/-- Registers a definition as a figure the build renders. -/
+/-- Registers a definition as a figure the build renders; `@[figure illustration]` also marks it
+openly as an illustration. -/
 initialize registerBuiltinAttribute {
   name := `figure
-  descr := "registers a definition as a figure for pilean-build"
+  descr := "registers a definition as a figure for pilean-build (`figure illustration`: marked \
+    as an illustration, a figure no theorem ties to its object)"
   applicationTime := .afterCompilation
-  add := fun decl _ _ => queueFigure decl }
+  add := fun decl stx _ => do queueFigure decl (← illustrationArg stx) }
 
 /-- The name of the (unregistered) option that is set while `withFigures` elaborates a command,
 so that it does not wrap its own call. -/
@@ -226,6 +245,9 @@ def elabFigureProves : Lean.Elab.Command.CommandElab := fun stx => do
     let figName ← realizeGlobalConstNoOverloadWithInfo fig
     unless (registeredFigures (← getEnv)).any (·.decl == figName) do
       throwErrorAt fig "{figName} does not have the attribute @[figure]"
+    if (registeredFigures (← getEnv)).any (fun r => r.decl == figName && r.illustration) then
+      throwErrorAt fig "{figName} is marked @[figure illustration]; a figure tied to its object \
+        by a theorem is not an illustration: remove the marking"
     let thmName ← realizeGlobalConstNoOverloadWithInfo thm
     if let some msg ← figureTheoremProblem? figName thmName then throwErrorAt thm msg
     return (figName, thmName)
@@ -330,8 +352,28 @@ def sortedFigures (env : Environment) : Array FigureRecord :=
     | some p => if p.module == r.module && p.decl == r.decl then out else out.push r
     | none => out.push r
 
+/-- The standing of a registered figure in the current environment: `proved` with the theorems
+linked to it by `figure_proves` (in the order of the links, each once) that pass
+`figureTheoremProblem?` again now, or, if none does, an illustration, marked as the record says. -/
+def figureStanding (r : FigureRecord) : CoreM Standing := do
+  let mut ok : Array String := #[]
+  for t in figureTheorems (← getEnv) r.decl do
+    if (← figureTheoremProblem? r.decl t).isNone && !ok.contains t.toString then
+      ok := ok.push t.toString
+  return if ok.isEmpty then .illustration r.illustration else .proved ok
+
+/-- The term that builds the standing `s`. -/
+def quoteStanding (s : Standing) : TermElabM Term :=
+  match s with
+  | .proved ts => do
+    let names := ts.map fun t => (quote t : Term)
+    `(PILean.Trust.Standing.proved #[$names,*])
+  | .illustration true => `(PILean.Trust.Standing.illustration true)
+  | .illustration false => `(PILean.Trust.Standing.illustration false)
+
 /-- `figures%` is the `Array PILean.Trust.FigureEntry` of every declaration with the attribute
-`figure` in the imported modules and the current one so far, sorted by module and then name. -/
+`figure` in the imported modules and the current one so far, sorted by module and then name, the
+outputs of each carrying its standing (`figureStanding`). -/
 syntax (name := figuresTerm) "figures%" : term
 
 /-- The elaborator of `figures%`. -/
@@ -342,10 +384,11 @@ def elabFigures : TermElab := fun _ expected? => do
     throwError "figures%: the declaration {(pendingExt.getState env)[0]!} has no source position"
   let entries ← (sortedFigures env).mapM fun r => do
     let outputs := mkCIdent ``ToOutputs.outputs
+    let standing ← quoteStanding (← figureStanding r)
     `(PILean.Trust.FigureEntry.mk
         (PILean.Trust.SourceData.mk $(quote r.module.toString) $(quote r.decl.toString)
           $(quote r.file) $(quote r.line) $(quote r.column) $(quote r.sourceHash))
-        (fun _ => $outputs $(mkCIdent r.decl)))
+        (fun _ => PILean.Trust.withStanding $standing ($outputs $(mkCIdent r.decl))))
   elabTerm (← `(show Array PILean.Trust.FigureEntry from #[$entries,*])) expected?
 
 end PILean.Trust

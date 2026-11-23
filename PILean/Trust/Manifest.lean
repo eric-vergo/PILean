@@ -92,6 +92,10 @@ structure ManifestEntry where
   darkColours : Array (String × String) := #[]
   /-- The tint opacities paired the same way. -/
   darkOpacities : Array (String × String) := #[]
+  /-- The figure's standing recorded in the file (`proved` or `illustration`), if it has one. -/
+  standing : Option String := none
+  /-- The theorems of a proved figure recorded in the file, separated by single spaces. -/
+  proves : Option String := none
 deriving BEq, Repr, Inhabited
 
 /-- A character a file name may have: a letter, a digit, `.`, `_`, `-`; all ASCII. -/
@@ -136,7 +140,8 @@ def ManifestEntry.render (m : ManifestEntry) : String :=
     s "sha256" m.sha256, s "fingerprint" m.fingerprint, s "module" m.module, s "decl" m.decl,
     s "file" m.file, n "line" m.line, n "column" m.column, s "version" m.version] ++
     opt "repo" m.repo ++ opt "commit" m.commit ++ pairs "darkColours" m.darkColours ++
-    pairs "darkOpacities" m.darkOpacities) ++ "}"
+    pairs "darkOpacities" m.darkOpacities ++ opt "standing" m.standing ++
+    opt "proves" m.proves) ++ "}"
 
 /-- The manifest text of a list of entries (in the given order). -/
 def Manifest.render (es : Array ManifestEntry) : String :=
@@ -144,9 +149,10 @@ def Manifest.render (es : Array ManifestEntry) : String :=
     (if es.isEmpty then "" else "\n  " ++ ",\n  ".intercalate (es.toList.map (·.render)) ++ "\n") ++
     "]}\n"
 
-/-- The entry a JSON object describes; every key but `repo` and `commit` must be there with a
-string or a number as its kind, the hashes in the form of `isFingerprint`, the format one of
-`svg`, `png`, `apng`, `gif` and the path `safePath`. -/
+/-- The entry a JSON object describes; every key but `repo`, `commit`, the colour pairs,
+`standing` and `proves` must be there with a string or a number as its kind, the hashes in the
+form of `isFingerprint`, the format one of `svg`, `png`, `apng`, `gif`, the path `safePath`, and
+the standing with its theorems well formed (`standingOk`). -/
 def ManifestEntry.ofJson (j : Json) : Except String ManifestEntry := do
   let str := fun (k : String) => do
     match j.get? k with
@@ -173,7 +179,10 @@ def ManifestEntry.ofJson (j : Json) : Except String ManifestEntry := do
     sha256 := ← str "sha256", fingerprint := ← str "fingerprint", module := ← str "module",
     decl := ← str "decl", file := ← str "file", line := ← num "line", column := ← num "column",
     version := ← str "version", repo := ← opt "repo", commit := ← opt "commit",
-    darkColours := ← pairs "darkColours", darkOpacities := ← pairs "darkOpacities" }
+    darkColours := ← pairs "darkColours", darkOpacities := ← pairs "darkOpacities",
+    standing := ← opt "standing", proves := ← opt "proves" }
+  if !standingOk m.standing m.proves then
+    throw "the standing is not proved with its theorems or illustration without any"
   if !safePath m.path then throw s!"the path {m.path} is not a safe relative path"
   if (Format.ofName? m.format).isNone then throw s!"the format {m.format} is unknown"
   if !isFingerprint m.sha256 || !isFingerprint m.fingerprint then

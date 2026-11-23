@@ -21,7 +21,9 @@ def main (args : List String) : IO UInt32 := PILean.Trust.buildMain figures% arg
 
 * `BuildOptions`, `renderAll`: the files and the manifest of a build, in memory
 * `build`: writes them, or with `check := true` compares them with the directory
-* `buildMain`: the command line `[--out DIR] [--repo URL] [--commit SHA] [--check]`
+* `buildMain`: the command line
+  `[--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]`
+* `unmarkedIllustrations`: the figures `--require-standing` refuses
 
 ## Implementation notes
 
@@ -41,6 +43,10 @@ structure BuildOptions where
   commit : Option String := none
   /-- Compare with the directory instead of writing to it. -/
   check : Bool := false
+  /-- Refuse to build or check when a figure is an illustration that its declaration does not
+  mark as one (`Standing.unmarked`): every figure must be tied to its object by a theorem
+  (`figure_proves`) or carry `@[figure illustration]`. -/
+  requireStanding : Bool := false
 
 /-- A file of a build: its manifest entry and its bytes. -/
 structure BuiltFile where
@@ -78,10 +84,18 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     path, format := o.format.name, bytes := bytes.size, sha256 := Sha256.hex (Sha256.hash bytes),
     fingerprint := (src.fingerprint.getD ""), module := e.module, decl := e.decl, file := e.file,
     line := e.line, column := e.column, version := src.version, repo := opts.repo,
-    commit := opts.commit, darkColours := (o.theme ()).1, darkOpacities := (o.theme ()).2 }
+    commit := opts.commit, darkColours := (o.theme ()).1, darkOpacities := (o.theme ()).2,
+    standing := src.standing, proves := src.proves }
   return { entry := m, bytes }
 
-/-- Every file of a build, sorted by path. Fails with all the messages (one per line) if there
+/-- The declarations of the entries whose figure is an illustration not marked as one
+(`Standing.unmarked`), in the entries' order. -/
+def unmarkedIllustrations (entries : Array FigureEntry) : Array String :=
+  entries.filterMap fun e => if e.standing.unmarked then some e.decl else none
+
+/-- Every file of a build, sorted by path. With `opts.requireStanding`, fails first, before
+anything is rendered, with one message for each figure of `unmarkedIllustrations`. Fails with all
+the messages (one per line) if there
 are more than `maxEntries` entries or more than `maxManifestFiles` outputs in all (checked
 before anything is rendered), a figure cannot be rendered, a file is too large or not of its
 format, or two files have the same path. -/
@@ -89,6 +103,12 @@ def renderAll (entries : Array FigureEntry) (opts : BuildOptions := {}) :
     IO (Except String (Array BuiltFile)) := do
   if entries.size > maxEntries then
     return .error s!"more than {maxEntries} figures"
+  if opts.requireStanding then
+    let bad := unmarkedIllustrations entries
+    if !bad.isEmpty then
+      return .error ("\n".intercalate (bad.toList.map fun d => s!"{d} is an illustration without \
+        the marking @[figure illustration]: link a theorem about it with figure_proves, or mark \
+        it"))
   if entries.foldl (fun n e => n + (e.outputs ()).size) 0 > maxManifestFiles then
     return .error s!"more than {maxManifestFiles} files, more than a manifest may list"
   let mut files : Array BuiltFile := #[]
@@ -176,14 +196,15 @@ def build (entries : Array FigureEntry) (outDir : System.FilePath) (opts : Build
 
 /-- The usage text of `pilean-build`. -/
 def buildUsage : String :=
-  "usage: pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check]"
+  "usage: pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]"
 
 /-- Whether the string is 4 to 64 lowercase hexadecimal digits, as a commit is. -/
 def isCommit (s : String) : Bool :=
   4 ≤ s.length && s.length ≤ 64 && s.all fun c => c.isDigit || ('a' ≤ c && c ≤ 'f')
 
 /-- The options of a command line, or a message: `--out DIR` (default `figures`), `--repo URL`
-(`http` or `https`, see `safeLink?`), `--commit SHA` (`isCommit`), `--check`. -/
+(`http` or `https`, see `safeLink?`), `--commit SHA` (`isCommit`), `--check`,
+`--require-standing`. -/
 def parseArgs (args : List String) :
     Except String (System.FilePath × BuildOptions) := do
   let mut out : System.FilePath := "figures"
@@ -193,6 +214,7 @@ def parseArgs (args : List String) :
     match rest with
     | [] => break
     | "--check" :: r => opts := { opts with check := true }; rest := r
+    | "--require-standing" :: r => opts := { opts with requireStanding := true }; rest := r
     | "--out" :: d :: r => out := d; rest := r
     | "--repo" :: u :: r =>
       if (safeLink? u).isNone then throw s!"the repository {u} is not an http or https link"

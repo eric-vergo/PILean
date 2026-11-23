@@ -7,6 +7,7 @@ import PILean.Plane
 import PILean.Explorer
 import PILean.Graph.Draw
 import PILean.Anim.Animation
+import PILean.Diagram.Basic
 
 /-!
 # Renderable figures
@@ -24,9 +25,10 @@ It covers the values a function takes where the figure samples it, not the funct
 ## Main definitions
 
 * `Format`, `Output`, `ToOutputs`
+* `Standing`: whether a figure is tied to its object by a theorem or is an illustration
 * `InlineSvg`, `FrameSet`: pictures and families of frames a web page puts inline
-* instances for `Plot.Figure`, `Plane.Figure`, `Explorer`, `Graph`, `GraphFigure` and
-  `Animation`
+* instances for `Plot.Figure`, `Plane.Figure`, `Explorer`, `Graph`, `GraphFigure`,
+  `Animation` and `Diagram.Diagram`
 -/
 
 namespace PILean.Trust
@@ -64,6 +66,37 @@ def Format.ofName? : String → Option Format
   | "apng" => some .apng
   | "gif" => some .gif
   | _ => none
+
+/-- How a figure stands with respect to the object it shows. A figure is `proved` when at least
+one theorem is linked to it by `figure_proves` and passed that command's rule
+(`PILean.Trust.figureTheoremProblem?`) in the environment where the build's table of figures
+(`figures%`) was elaborated; otherwise it is an `illustration`, openly marked as one by
+`@[figure illustration]` or not. The standing says that such a theorem exists, not what it
+states: the statement is still its reader's to judge (`docs/PROOFS.md`). -/
+inductive Standing where
+  /-- The theorems linked to the figure by `figure_proves`, by full name, each of which passed
+  the rule when the table of figures was elaborated; never empty for a figure `figures%` makes. -/
+  | proved (theorems : Array String)
+  /-- No theorem is linked to the figure; `marked` says whether its declaration says so with
+  `@[figure illustration]`. -/
+  | illustration (marked : Bool)
+deriving BEq, Repr, Inhabited
+
+/-- The standing's word, as source records and manifests write it: `proved` or `illustration`. -/
+def Standing.word : Standing → String
+  | .proved _ => "proved"
+  | .illustration _ => "illustration"
+
+/-- The theorems of a proved standing, by full name; empty for an illustration. -/
+def Standing.theorems : Standing → Array String
+  | .proved ts => ts
+  | .illustration _ => #[]
+
+/-- Whether the standing is an illustration that its declaration does not mark as one: a figure
+`pilean-build --require-standing` refuses. -/
+def Standing.unmarked : Standing → Bool
+  | .illustration false => true
+  | _ => false
 
 /-- A picture a web page can put inline (as an `svg` element) instead of a file: its size in pixels
 and the SVG nodes of its body, as `Svg.document` writes them. -/
@@ -144,10 +177,18 @@ structure Output where
   /-- Problems of the figure's layout a build should report as warnings (on one output of a
   figure, so that they are reported once). -/
   problems : Unit → Array String := fun _ => #[]
+  /-- The standing of the figure the output belongs to. `ToOutputs` instances leave it at an
+  unmarked illustration; `figures%` sets it on every output of a figure from the links
+  `figure_proves` recorded and the figure's `@[figure illustration]` marking. -/
+  standing : Standing := .illustration false
 
 /-- An empty SVG output that cannot be rendered (for indexing arrays of outputs). -/
 instance : Inhabited Output :=
   ⟨{ name := "", format := .svg, bytes := fun _ => .error "no output", spec := .empty }⟩
+
+/-- The outputs with the standing `s` set on each (`figures%` applies it to a figure's outputs). -/
+def withStanding (s : Standing) (os : Array Output) : Array Output :=
+  os.map ({ · with standing := s })
 
 /-- Values that PILean can render to files. -/
 class ToOutputs (α : Type) where
@@ -246,6 +287,11 @@ instance : ToOutputs Explorer where
           | none => .error "the poster has no pixels",
         spec := (p.toSvg (outlines := true)).toUTF8, textEngine := p.style.text.id }] ++
       frameOutputs
+
+/-- Diagrams: the outputs of their plane figure (`Diagram.toPlane`), so the SVG and PNG, and at a
+narrow width the same with the suffix `-narrow`. -/
+instance : ToOutputs Diagram.Diagram where
+  outputs d := ToOutputs.outputs d.toPlane
 
 /-- A graph with how it is laid out and drawn. -/
 structure GraphFigure where
