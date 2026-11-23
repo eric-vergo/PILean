@@ -44,6 +44,9 @@ import PILean.Diagram.Perm
 import PILean.Diagram.Path
 import PILean.Diagram.Tree
 import PILean.Diagram.SetSystem
+import PILean.Diagram.CommDiagram
+import PILean.Diagram.Group
+import PILean.Diagram.Quiver
 import PILean.Graph.Fixed
 import PILean.Graph.Model
 import PILean.Graph.Layout

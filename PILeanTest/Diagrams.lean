@@ -547,7 +547,7 @@ def layoutChecks : Array (String × Bool) :=
   #[("hasse: every cover goes up the page (cube, divisors of 60, a chain, an antichain)",
       up bl && up (FinPoset.mk 12 (fun i j =>
         let ds := [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60]
-        ds.getD j.val 1 % ds.getD i.val 1 == 0) #[]) &&
+        ds.getD j.val 1 % ds.getD i.val 1 == 0) #[] #[]) &&
       up { n := 6, le := fun i j => decide (i ≤ j) } && up { n := 4, le := fun i j => i == j }),
     ("hasse: no two elements share a position", !samePos bl.layout 8),
     ("tree: siblings at least 1 apart, each parent centred over its first and last child",

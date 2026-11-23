@@ -68,6 +68,13 @@ inductive Part where
   | member (x mask : Nat)
   /-- Step `k` of a path. -/
   | step (k : Nat)
+  /-- Arrow `k` of a diagram, from object `i` to object `j` (several arrows may join the same two
+  objects, and an arrow may be a loop, `i = j`). -/
+  | arrow (k i j : Nat)
+  /-- The 2-cell `k` of a diagram: a double arrow between two arrows. -/
+  | twoCell (k : Nat)
+  /-- The heading of row `i` (`axis = 0`) or of column `i` (`axis = 1`) of a table. -/
+  | header (axis i : Nat)
   /-- An annotation (a title, an axis name): text that depicts no part of the object. -/
   | note (k : Nat)
   /-- A guide (grid lines, a frame): a drawing that depicts no part of the object. -/
@@ -86,6 +93,14 @@ inductive Side where
   | left
   /-- To the right. -/
   | right
+  /-- Above and to the left. -/
+  | aboveLeft
+  /-- Above and to the right. -/
+  | aboveRight
+  /-- Below and to the left. -/
+  | belowLeft
+  /-- Below and to the right. -/
+  | belowRight
   /-- On the side the plane figure's label placement chooses (`Placement.auto`). -/
   | auto
   deriving DecidableEq, Repr, Inhabited
@@ -97,7 +112,21 @@ def Side.toPlacement : Side → Placement
   | .below => .below
   | .left => .left
   | .right => .right
+  | .aboveLeft => .aboveLeft
+  | .aboveRight => .aboveRight
+  | .belowLeft => .belowLeft
+  | .belowRight => .belowRight
   | .auto => .auto
+
+/-- How the line of a `Shape.path` is drawn. -/
+inductive Stroke where
+  /-- A solid line. -/
+  | solid
+  /-- A dashed line. -/
+  | dashed
+  /-- Two parallel lines `gap` apart (world length), as for an equality in a diagram. -/
+  | double (gap : Rat)
+  deriving DecidableEq, Repr, Inhabited
 
 /-- An exact shape. -/
 inductive Shape where
@@ -117,6 +146,9 @@ inductive Shape where
   | circle (c : QPoint) (r : Rat)
   /-- The text `s` at `p`, on the side `side` of it. -/
   | text (s : String) (p : QPoint) (side : Side)
+  /-- The open polyline through the points, drawn with the stroke `stroke`: the body of an arrow
+  of a diagram (its tip and tail are other shapes of the same part). -/
+  | path (ps : List QPoint) (stroke : Stroke)
   deriving DecidableEq, Repr, Inhabited
 
 /-- How a mark is coloured, by the house style's roles (`Style.plane`). -/
@@ -129,7 +161,15 @@ inductive Ink where
   | accent (k : Nat)
   /-- Accent `k` with a tinted inside (a rectangle or circle). -/
   | tint (k : Nat)
+  /-- Colour `k` of the twelve series colours (`seriesRole`), with a tinted inside when
+  `tinted`: a colour per element of a group, per generator, per residue. -/
+  | series (k : Nat) (tinted : Bool)
   deriving DecidableEq, Repr, Inhabited
+
+/-- Whether an ink is one of the series colours. -/
+def Ink.isSeries : Ink → Bool
+  | .series .. => true
+  | _ => false
 
 /-- A mark: the part it depicts, its exact shape and its ink. -/
 structure Mark where
@@ -214,6 +254,17 @@ def decorations (d : Diagram) : List (Part × Shape) :=
     | .note _ => some (m.part, m.shape)
     | _ => none
 
+/-- The arrows the diagram draws: `(k, i, j)` for each mark of the part `arrow k i j` that is a
+path (the body of the arrow; its tips, tail and label are other marks of the same part), in
+order. -/
+def arrows (d : Diagram) : List (Nat × Nat × Nat) :=
+  d.marks.filterMap fun m => match m.part, m.shape with
+    | .arrow k i j, .path _ _ => some (k, i, j)
+    | _, _ => none
+
+/-- The marks of the diagram whose part satisfies `p`, in order. -/
+def marksWhere (d : Diagram) (p : Part → Bool) : List Mark := d.marks.filter fun m => p m.part
+
 /-- The texts the diagram writes: `(part, s, p)` for each mark that is the text `s` at `p`, in
 order. -/
 def texts (d : Diagram) : List (Part × String × QPoint) :=
@@ -233,6 +284,9 @@ def Part.title : Part → String
   | .set k => s!"set {k}"
   | .member x m => s!"element {x} in region {m}"
   | .step k => s!"step {k}"
+  | .arrow k i j => s!"arrow {k}: {i} → {j}"
+  | .twoCell k => s!"2-cell {k}"
+  | .header a i => if a = 0 then s!"row {i}" else s!"column {i}"
   | .note _ => ""
   | .guide => ""
 
@@ -246,6 +300,22 @@ def shortened (p q : QPoint) (gap : Float) : Point :=
   let len := Float.sqrt (dx * dx + dy * dy)
   if len ≤ 2 * gap then b else ⟨b.x - dx * gap / len, b.y - dy * gap / len⟩
 
+/-- The polyline through `ps` moved by `off` (in floating point), for a double stroke. -/
+def offsetPolyline (ps : List QPoint) (off : Point) : Item :=
+  Plane.polyline ((ps.map fun p => Exact.PlanePoint.toPoint p + off).toArray)
+
+/-- The item of a path: a polyline, dashed, or two polylines `gap` apart (moved each way by half
+the gap across the line from the first point to the last). -/
+def Stroke.toItem (ps : List QPoint) : Stroke → Item
+  | .solid => Exact.polyline ps
+  | .dashed => (Exact.polyline ps).dashed #[6, 4]
+  | .double gap =>
+    let a := Exact.PlanePoint.toPoint (ps.headD (0, 0))
+    let b := Exact.PlanePoint.toPoint (ps.getLastD (0, 0))
+    let n := unitOf ⟨a.y - b.y, b.x - a.x⟩
+    let h := Exact.toFloat gap / 2
+    Plane.group #[offsetPolyline ps (h * n), offsetPolyline ps ((-h) * n)]
+
 /-- The plane item of a shape, before its ink: the builders of `PILean.Exact.Plane` applied to
 the exact points (a rectangle as the polygon of its four corners, counterclockwise from `lo`). -/
 def Shape.toItem (gap : Float) : Shape → Item
@@ -256,6 +326,11 @@ def Shape.toItem (gap : Float) : Shape → Item
   | .rect lo hi => Exact.polygon [lo, (hi.1, lo.2), hi, (lo.1, hi.2)]
   | .circle c r => Exact.circle c r
   | .text s p side => Exact.label s p side.toPlacement
+  | .path ps st => st.toItem ps
+
+/-- The opacity of the inside of a cell tinted in a series colour (stronger than the house tint,
+so that a table's colours tell its elements apart). -/
+def seriesFillOpacity : Float := 0.3
 
 /-- The item with the ink's colour role: accents and the faint ink as tones, a tint as an accent
 with a tinted inside. -/
@@ -264,6 +339,21 @@ def Ink.apply : Ink → Item → Item
   | .faint, it => it.faint
   | .accent k, it => it.accent k
   | .tint k, it => (it.accent k).filled
+  | .series k false, it => it.role s!"series-{k % 12}"
+  | .series k true, it =>
+    ((it.role s!"series-{k % 12}").filled).fillOpacity seriesFillOpacity
+
+/-- Series colour `k` (of twelve): a hue of the OKLCH circle, the twelve hues `30°` apart and
+taken in steps of `150°` so that consecutive colours differ most, darker on light surfaces and
+lighter on dark ones. -/
+def seriesRole (k : Nat) : PlaneRole :=
+  let h := ((k % 12) * 5 % 12).toFloat * 30 + 15
+  { name := s!"series-{k % 12}", light := Rgba.ofOkLch ⟨0.5, 0.13, h⟩,
+    dark := Rgba.ofOkLch ⟨0.76, 0.12, h⟩ }
+
+/-- The style with the twelve series colours among its plane roles. -/
+def withSeriesRoles (st : Style) : Style :=
+  { st with plane := { st.plane with roles := st.plane.roles ++ (List.range 12).toArray.map seriesRole } }
 
 /-- The titles of the circles among `marks` that pass exactly through `p`
 (`(p - c)² = r²` in rational arithmetic), for the incidences a dot records. -/
@@ -296,7 +386,7 @@ diagram's width, style and title. -/
 def toPlane (d : Diagram) : Plane.Figure where
   items := (d.marks.map (Mark.toItemIn d.arrowGap d.marks)).toArray
   width := d.width
-  style := d.style
+  style := if d.marks.any (·.ink.isSeries) then withSeriesRoles d.style else d.style
   info := { title := d.title, description := d.description }
   narrowWidth := d.narrowWidth
 

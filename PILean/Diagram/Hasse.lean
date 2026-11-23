@@ -44,6 +44,8 @@ structure FinPoset where
   le : Fin n → Fin n → Bool
   /-- The elements' names. -/
   names : Array String := #[]
+  /-- The marked elements (`marked[i]`; none when empty), drawn in accent 1. -/
+  marked : Array Bool := #[]
 
 namespace FinPoset
 
@@ -126,6 +128,7 @@ def toFinGraph (P : FinPoset) : FinGraph where
   directed := true
   arrowheads := false
   names := P.names
+  marked := P.marked
 
 /-- The edges of the graph of the covering relation are the covering pairs. -/
 theorem toFinGraph_edgePairs (P : FinPoset) : P.toFinGraph.edgePairs = P.coverPairs := rfl
@@ -140,8 +143,8 @@ def draw (P : FinPoset) (L : Layout) : Diagram := P.toFinGraph.draw L
 
 /-- The diagram draws the order faithfully at `L`: it draws the graph of the covering relation
 faithfully (`FinGraph.Faithful`), so its edges are exactly `coverPairs` (`toFinGraph_edgePairs`),
-in order, its vertex dots `0, …, n - 1`, its texts the elements' names, every mark at `L`'s
-position for its part, and no decoration. -/
+in order, its vertex dots `0, …, n - 1` (in accent 1 exactly for the marked elements), its texts
+the elements' names, every mark at `L`'s position for its part, and no decoration. -/
 def Faithful (P : FinPoset) (L : Layout) (d : Diagram) : Prop := P.toFinGraph.Faithful L d
 
 instance (P : FinPoset) (L : Layout) (d : Diagram) : Decidable (P.Faithful L d) :=
@@ -244,8 +247,8 @@ end FinPoset
 
 /-- The hypotheses can be met: the chain `0 ≤ 1 ≤ 2` is a partial order whose covers are
 `(0, 1)` and `(1, 2)`. -/
-example : FinPoset.IsPartialOrder ⟨3, fun i j => decide (i ≤ j), #[]⟩ ∧
-    (FinPoset.mk 3 (fun i j => decide (i ≤ j)) #[]).coverPairs = [(0, 1), (1, 2)] := by
+example : FinPoset.IsPartialOrder ⟨3, fun i j => decide (i ≤ j), #[], #[]⟩ ∧
+    (FinPoset.mk 3 (fun i j => decide (i ≤ j)) #[] #[]).coverPairs = [(0, 1), (1, 2)] := by
   refine ⟨⟨fun i => by simp, fun i j h h' => ?_, fun i j k h h' => ?_⟩, by decide⟩
   · simp only [decide_eq_true_eq] at h h'
     exact Fin.le_antisymm h h'

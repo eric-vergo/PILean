@@ -50,6 +50,10 @@ structure FinGraph where
   arrowheads : Bool := true
   /-- The vertices' names. -/
   names : Array String := #[]
+  /-- The marked vertices (`marked[i]`; none when empty): a marked vertex's dot is drawn in
+  accent 1, so that a picture can single out the elements with a property (the normal subgroups
+  among the subgroups, say). -/
+  marked : Array Bool := #[]
 
 /-- The exact positions of the vertices: vertex `i` at `pos i`. -/
 structure Layout where
@@ -112,6 +116,9 @@ def maxVertices : Nat := 256
 /-- The name of vertex `i`: `names[i]`, or the number `i` when there is none. -/
 def label (g : FinGraph) (i : Nat) : String := g.names.getD i (toString i)
 
+/-- The ink of vertex `i`'s dot: accent 1 when it is marked, the ink otherwise. -/
+def dotInk (g : FinGraph) (i : Nat) : Ink := if g.marked.getD i false then .accent 1 else .ink
+
 /-- Whether the pair `(i, j)` is drawn as an edge: `adj i j` for a directed graph; for an
 undirected one, `i ≤ j` and `adj i j` or `adj j i`. -/
 def drawn (g : FinGraph) (i j : Fin g.n) : Bool :=
@@ -148,21 +155,23 @@ def edgeMark (g : FinGraph) (L : Layout) (e : Nat × Nat) : Mark :=
       else if g.directed && g.arrowheads then .arrow (L.pos e.1) (L.pos e.2)
       else .segment (L.pos e.1) (L.pos e.2) }
 
-/-- Whether a mark is placed where the layout puts its part: a vertex's dot at its position and
-its name there, an edge's shape as `edgeMark` makes it. A mark of any other part is refused. -/
+/-- Whether a mark is placed where the layout puts its part: a vertex's dot at its position in
+its ink (`dotInk`: accent 1 exactly for a marked vertex) and its name there, an edge's shape as
+`edgeMark` makes it. A mark of any other part is refused. -/
 def placed (g : FinGraph) (L : Layout) (m : Mark) : Bool :=
   match m.part, m.shape with
-  | .vertex i, .dot p => p == L.pos i
+  | .vertex i, .dot p => p == L.pos i && m.ink == g.dotInk i
   | .vertex i, .text s p _ => s == g.label i && p == L.pos i
   | .vertex _, _ => false
   | .edge i j, s => s == (g.edgeMark L (i, j)).shape
   | _, _ => false
 
 /-- The diagram of the graph at the layout `L`: the edges (`edgeMark`, in the order of
-`edgePairs`), then a dot for each vertex, then each vertex's name beside it. -/
+`edgePairs`), then a dot for each vertex (in accent 1 when marked), then each vertex's name beside
+it. -/
 def draw (g : FinGraph) (L : Layout) : Diagram where
   marks := g.edgePairs.map (g.edgeMark L) ++
-    (List.range g.n).map (fun i => { part := .vertex i, shape := .dot (L.pos i) }) ++
+    (List.range g.n).map (fun i => { part := .vertex i, shape := .dot (L.pos i), ink := g.dotInk i }) ++
     (List.range g.n).map (fun i =>
       { part := .vertex i, shape := .text (g.label i) (L.pos i) .auto })
 
@@ -173,13 +182,23 @@ def nameTexts (g : FinGraph) (L : Layout) : List (Part × String × QPoint) :=
 /-- The diagram draws the graph faithfully at the layout `L`: its edges are exactly `edgePairs`,
 in order; its vertex dots are `0, …, n - 1`, in order; its texts are exactly the vertices' names
 at their positions (`nameTexts`), in order; it has no decoration (`Diagram.decorations`); and
-every mark is placed where `L` puts its part (`placed`). -/
+every mark is placed where `L` puts its part (`placed`), a vertex's dot in accent 1 exactly when
+the vertex is marked. -/
 def Faithful (g : FinGraph) (L : Layout) (d : Diagram) : Prop :=
   d.edges = g.edgePairs ∧ d.vertices = List.range g.n ∧ d.marks.all (g.placed L) = true ∧
     d.texts = g.nameTexts L ∧ d.decorations = []
 
 instance (g : FinGraph) (L : Layout) (d : Diagram) : Decidable (g.Faithful L d) :=
   inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _))
+
+/-- In a faithful diagram every vertex dot is drawn in its vertex's ink: accent 1 exactly when
+the vertex is marked. -/
+theorem ink_of_faithful {g : FinGraph} {L : Layout} {d : Diagram} (h : g.Faithful L d)
+    {m : Mark} (hm : m ∈ d.marks) {i : Nat} {p : QPoint} (hp : m.part = .vertex i)
+    (hs : m.shape = .dot p) : m.ink = g.dotInk i := by
+  have := List.all_eq_true.1 h.2.2.1 m hm
+  simp only [placed, hp, hs, Bool.and_eq_true, beq_iff_eq] at this
+  exact this.2
 
 /-- The diagram of a graph is faithful at every layout. -/
 theorem draw_faithful (g : FinGraph) (L : Layout) : g.Faithful L (g.draw L) := by
@@ -239,7 +258,7 @@ end FinGraph
 
 /-- The hypotheses can be met: the directed 2-cycle on two vertices draws the edges `(0, 1)` and
 `(1, 0)`. -/
-example : (FinGraph.mk 2 (fun i j => i != j) true true #[]).edgePairs = [(0, 1), (1, 0)] := by
+example : (FinGraph.mk 2 (fun i j => i != j) true true #[] #[]).edgePairs = [(0, 1), (1, 0)] := by
   decide
 
 end PILean.Diagram

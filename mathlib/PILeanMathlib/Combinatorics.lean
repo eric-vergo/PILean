@@ -51,7 +51,7 @@ namespace FinGraph
 /-- The undirected graph of a simple graph on `Fin n` with decidable adjacency. -/
 def ofSimpleGraph {n : ℕ} (G : SimpleGraph (Fin n)) [DecidableRel G.Adj]
     (names : Array String := #[]) : FinGraph :=
-  ⟨n, fun i j => decide (G.Adj i j), false, true, names⟩
+  ⟨n, fun i j => decide (G.Adj i j), false, true, names, #[]⟩
 
 /-- The pairs drawn for a simple graph are exactly its edges, each once as `(a, b)` with
 `a < b`. -/
@@ -71,7 +71,7 @@ theorem ofSimpleGraph_mem_edgePairs {n : ℕ} (G : SimpleGraph (Fin n)) [Decidab
 /-- The directed graph of a digraph on `Fin n` with decidable adjacency. -/
 def ofDigraph {n : ℕ} (G : Digraph (Fin n)) [DecidableRel G.Adj] (names : Array String := #[]) :
     FinGraph :=
-  ⟨n, fun i j => decide (G.Adj i j), true, true, names⟩
+  ⟨n, fun i j => decide (G.Adj i j), true, true, names, #[]⟩
 
 /-- The pairs drawn for a digraph are exactly its arcs, loops included. -/
 theorem ofDigraph_mem_edgePairs {n : ℕ} (G : Digraph (Fin n)) [DecidableRel G.Adj]
@@ -90,7 +90,7 @@ variable {α : Type*} [PartialOrder α] [DecidableLE α] {n : ℕ}
 
 /-- The finite order of a partial order enumerated by `e`: element `i` is `e i`. -/
 def ofOrder (e : Fin n ≃ α) (names : Array String := #[]) : FinPoset :=
-  ⟨n, fun i j => decide (e i ≤ e j), names⟩
+  ⟨n, fun i j => decide (e i ≤ e j), names, #[]⟩
 
 /-- The strict relation of `ofOrder e` is `<` on the enumerated elements. -/
 theorem ofOrder_lt (e : Fin n ≃ α) (names : Array String) (i j : Fin n) :
