@@ -33,6 +33,7 @@ import PILeanManual.Api.PILean.Diagram.Sequence
 import PILeanManual.Api.PILean.Diagram.SetSystem
 import PILeanManual.Api.PILean.Diagram.Tree
 import PILeanManual.Api.PILean.Diagram.Young
+import PILeanManual.Api.PILean.Diagram.ZeroPole
 import PILeanManual.Api.PILean.Exact
 import PILeanManual.Api.PILean.Exact.Algebraic
 import PILeanManual.Api.PILean.Exact.Plane
@@ -95,6 +96,7 @@ import PILeanManual.Api.PILean.Png.Write
 import PILeanManual.Api.PILean.Raster.Blur
 import PILeanManual.Api.PILean.Raster.Canvas
 import PILeanManual.Api.PILean.Raster.Coverage
+import PILeanManual.Api.PILean.Raster.DomainColouring
 import PILeanManual.Api.PILean.Raster.Draw
 import PILeanManual.Api.PILean.Raster.Proofs
 import PILeanManual.Api.PILean.Raster.SrgbTables
@@ -182,7 +184,8 @@ The modules, by the folder they are in:
   {ref "api-PILean.Diagram.Sequence"}[`PILean.Diagram.Sequence`],
   {ref "api-PILean.Diagram.SetSystem"}[`PILean.Diagram.SetSystem`],
   {ref "api-PILean.Diagram.Tree"}[`PILean.Diagram.Tree`],
-  {ref "api-PILean.Diagram.Young"}[`PILean.Diagram.Young`]
+  {ref "api-PILean.Diagram.Young"}[`PILean.Diagram.Young`],
+  {ref "api-PILean.Diagram.ZeroPole"}[`PILean.Diagram.ZeroPole`]
 * *Exact*:
   {ref "api-PILean.Exact"}[`PILean.Exact`],
   {ref "api-PILean.Exact.Algebraic"}[`PILean.Exact.Algebraic`],
@@ -250,6 +253,7 @@ The modules, by the folder they are in:
   {ref "api-PILean.Raster.Blur"}[`PILean.Raster.Blur`],
   {ref "api-PILean.Raster.Canvas"}[`PILean.Raster.Canvas`],
   {ref "api-PILean.Raster.Coverage"}[`PILean.Raster.Coverage`],
+  {ref "api-PILean.Raster.DomainColouring"}[`PILean.Raster.DomainColouring`],
   {ref "api-PILean.Raster.Draw"}[`PILean.Raster.Draw`],
   {ref "api-PILean.Raster.Proofs"}[`PILean.Raster.Proofs`],
   {ref "api-PILean.Raster.SrgbTables"}[`PILean.Raster.SrgbTables`],
@@ -342,6 +346,8 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.Diagram.Tree}
 
 {include 1 PILeanManual.Api.PILean.Diagram.Young}
+
+{include 1 PILeanManual.Api.PILean.Diagram.ZeroPole}
 
 {include 1 PILeanManual.Api.PILean.Exact}
 
@@ -466,6 +472,8 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.Raster.Canvas}
 
 {include 1 PILeanManual.Api.PILean.Raster.Coverage}
+
+{include 1 PILeanManual.Api.PILean.Raster.DomainColouring}
 
 {include 1 PILeanManual.Api.PILean.Raster.Draw}
 
