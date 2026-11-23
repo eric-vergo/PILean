@@ -435,6 +435,20 @@ def long_word_checks(c, browser, base, shots):
     c.check("360 px: the figures page with a 240-letter word in its list stays within the page",
             got[0] <= 0 and got[1] <= 0, str(got))
     ctx.close()
+    for width in (360, 320):
+        ctx = browser.new_context(viewport={"width": width, "height": 800})
+        page = ctx.new_page()
+        goto(page, base + EXPLORERS)
+        got = page.evaluate("""w => { const a = document.querySelector(
+          'figure#radius .pilean-explorer-axis-name'); a.textContent = w;
+          const v = document.querySelector('figure#radius .pilean-explorer-value');
+          v.textContent = w; const r = document.querySelector(
+          'figure#radius .pilean-explorer-axis').getBoundingClientRect();
+          return [document.documentElement.scrollWidth - window.innerWidth,
+            r.right <= window.innerWidth]; }""", "n" * 36)
+        c.check(f"{width} px: an explorer's axis with a 36-character name and value stays "
+                "within the page", got[0] <= 0 and got[1], str(got))
+        ctx.close()
 
 
 def touch_checks(c, browser, base, shots):

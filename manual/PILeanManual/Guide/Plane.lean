@@ -193,7 +193,8 @@ a point drawn too near an element for a reader to see whether it is on it, a col
 little contrast against what it is drawn on (at its opacity, along every stroke, over the fills
 beneath), in both themes, a number that is not finite, a polygon or segment with too few
 distinct points, a circle, disk, arc, sector, region or angle mark whose radius is zero, negative
-or not finite (drawn as nothing), a role the style does not name, and a colour the dark theme of an inline picture would get wrong. A point near an element records
+or not finite (drawn as nothing), a role the style does not name, and a colour the dark theme of an
+inline picture would get wrong. A point near an element records
 where it stands relative to it with {name}`PILean.Plane.Item.incident`, naming the element by
 its title ({name}`PILean.Plane.Item.named`); the check holds the record to that element, so a
 point recorded on a circle but drawn off it is a problem too, and a record against one element

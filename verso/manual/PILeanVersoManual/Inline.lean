@@ -462,7 +462,10 @@ a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
 .pilean-explorer-axis input {
   width: 16rem; max-width: 100%; min-width: 5rem; flex: 1 1 auto; height: 2.75rem; margin: 0;
 }
-.pilean-explorer-value { font-variant-numeric: tabular-nums; min-width: 3ch; }
+.pilean-explorer-axis-name { min-width: 0; overflow-wrap: anywhere; }
+.pilean-explorer-value {
+  font-variant-numeric: tabular-nums; min-width: 3ch; overflow-wrap: anywhere;
+}
 .pilean-explorer-controls button {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 2.75rem; min-height: 2.75rem; padding: 0.2rem 0.6rem; border-radius: 6px;

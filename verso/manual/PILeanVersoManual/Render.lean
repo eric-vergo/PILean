@@ -214,7 +214,8 @@ def mergeUses (used : Array FigureUse) : Array FigureUse :=
 
 /-- Renders the figures `used` (repeated names count once) from the table `entries`, with all
 the messages (one per line) if a name has no entry, a figure cannot be rendered (then only
-that is reported for it) or cannot be shown as it is used (`useProblem?`), an SVG or an inline picture is not inert, a figure's inline
+that is reported for it) or cannot be shown as it is used (`useProblem?`), an SVG or an inline
+picture is not inert, a figure's inline
 SVG passes the limit, two files have one path, or there are more than `maxEntries` figures. -/
 def renderSite (entries : Array FigureEntry) (used : Array FigureUse) (opts : SiteOptions) :
     Except String SiteRender := do

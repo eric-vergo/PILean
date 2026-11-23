@@ -468,11 +468,13 @@ character for character, the rules the adapter derives from those recorded pairs
 picture's id, and the picture to have no other `style` element; it takes the page's additions
 away and compares the page's picture with the file element for element and attribute for
 attribute, and the file's SHA-256 with the manifest; a page whose picture or theme rules differ,
-that names no file, or names one the manifest does not list fails it. Together with
-`pilean-verify` on the figures folder, this ties each inline picture's elements and its theme
-rules to the manifest and its fingerprints. The rest of the page (its own CSS, its other
-elements, an `svg` without the class `pilean-inline-svg`) is not covered. Like the rest of this page, it establishes agreement between the
-page, the files and the manifest, not where they came from.
+that names no file, or names one the manifest does not list fails it. The site check
+ties a page's picture to its file and the page's theme rules to the pairs recorded in the
+manifest. The manifest's pairs are tied to the source only by `--check-figures`, which rebuilds
+the figures and reports a stale manifest; `pilean-verify` alone does not catch a page and a
+manifest edited together. The rest of the page (its own CSS, its other elements, an `svg` without
+the class `pilean-inline-svg`) is not covered. Like the rest of this page, it establishes
+agreement between the page, the files and the manifest, not where they came from.
 
 ## Use in CI
 

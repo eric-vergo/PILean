@@ -505,7 +505,8 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   page (bisection over the scale: when no label is wider than the page, the scales that fit form
   an interval from 0; extents wider than the page are first shrunk until they fit, so a label
   too wide for the page does not collapse the scale), centres the drawing, and makes the page as
-  tall as the reaches need, in whole pixels. With `view`, a given world box is fitted instead. Lines and rays reach the two
+  tall as the reaches need, in whole pixels. With `view`, a given world box is fitted instead. Lines
+  and rays reach the two
   points that define them and are drawn to the edge of the page (Liang and Barsky's clipping).
 * **Pixel sizes.** Stroke widths, marker radii, arrowheads, label sizes and offsets and angle
   marks are in pixels at every scale; only world lengths (radii of circles, disks, arcs) scale.
@@ -537,7 +538,8 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   of enclosures are enclosures; an operation that is not defined on every number of its input's
   ball says so in its result: `RatBall.inv` and `RatBall.div` are `none` on a ball that holds 0
   (a fallback ball there is the alternative rejected: it is not an enclosure, and a construction
-  built on it can report a point outside a disk it lies in). The constructions (`foot`, `circleCircle`, `lineCircle`) decide,
+  built on it can report a point outside a disk it lies in). The constructions (`foot`,
+  `circleCircle`, `lineCircle`) decide,
   from balls at 64 to 512 bits, that a divisor is at least some `m > 0` (`positiveBound?`) and at
   every working precision divide by the part of the divisor's ball above `m`
   (`RatBall.invAbove`), so a low precision gives a wide ball, never a wrong one; they decide the
@@ -556,8 +558,10 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   literally (each item as the builders and modifiers that make it: data, colour, title, marker,
   recorded incidences, labels with their text, point and placement), so that the exact facts
   about the data (that `E` is on the left circle) are facts about the items that draw them, and
-  any change to what the figure draws breaks the build; `lake test` makes such changes to copies
-  of the modules and requires each to fail in the specification (`PILeanTest/SpecMutations.lean`).
+  a change to the item list (an item, a label, a role or a recorded incidence) breaks the build;
+  the style's colour values, the width, the frame, the layout and the pixels are not pinned.
+  `lake test` makes such changes to copies of the modules and requires each to fail in the
+  specification (`PILeanTest/SpecMutations.lean`).
   Naming the items in the theorem with predicates such as `Plane.Exact.IsPoint` was the
   alternative rejected: the list itself was left to a definition `rfl` restated, so an item could
   be removed or a label moved without breaking any proof. The strict figure link (`figure_proves`:
@@ -587,7 +591,8 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   wrongly (also for plots). Direction controls and invisible characters in a label's text are
   dropped when it is drawn and measured (`labelText`); showing a visible mark for them was the
   alternative rejected, since the built-in lettering has no glyph for one and an SVG text label
-  would still be reordered by the control. A recorded incidence names its element by title (`Item.named`) and is held to
+  would still be reordered by the control. A recorded incidence names its element by title
+  (`Item.named`) and is held to
   it: a point recorded on an element but drawn away from it, or on the wrong side of a region, is
   itself a problem, and a record against one element does not excuse a point from another. A
   figure's `checks` level makes builds warn or fail. Automatic placement (`auto`, and `across` a
