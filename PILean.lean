@@ -40,6 +40,10 @@ import PILean.Diagram.Basic
 import PILean.Diagram.Graph
 import PILean.Diagram.Hasse
 import PILean.Diagram.Young
+import PILean.Diagram.Perm
+import PILean.Diagram.Path
+import PILean.Diagram.Tree
+import PILean.Diagram.SetSystem
 import PILean.Graph.Fixed
 import PILean.Graph.Model
 import PILean.Graph.Layout
