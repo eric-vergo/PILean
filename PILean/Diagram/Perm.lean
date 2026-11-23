@@ -264,6 +264,19 @@ theorem wiring_crossings (σ : FinPerm) : crossingPairs σ.wiring.strands = σ.i
   simp only [crossingPairs, inversions, strand, List.flatMap_map, List.filterMap_map,
     Function.comp_def, Rat.natCast_lt_natCast]
 
+/-- Whether the permutation is within the figures' cap (`maxSize`). -/
+def small (σ : FinPerm) : Bool := σ.values.length ≤ maxSize
+
+/-- The figure of one of the drawings `draw` (`oneLine`, `twoLine`, `matrix`, `cycles`, `wiring`),
+or a note for more than `maxSize` values (the matrix and the crossings take `n²` steps). -/
+def figure (σ : FinPerm) (draw : FinPerm → Diagram) : Diagram :=
+  Diagram.capped σ.small s!"{σ.n} values: too many to draw" (draw σ)
+
+/-- Within the cap, the figure is the drawing itself, so its faithfulness theorem applies. -/
+theorem figure_eq (σ : FinPerm) (draw : FinPerm → Diagram) (h : σ.small = true) :
+    σ.figure draw = draw σ :=
+  Diagram.capped_of h _ _
+
 /-- The wiring diagram has as many crossings as the permutation has inversions. -/
 theorem wiring_crossings_length (σ : FinPerm) :
     (crossingPairs σ.wiring.strands).length = σ.inversions.length := by

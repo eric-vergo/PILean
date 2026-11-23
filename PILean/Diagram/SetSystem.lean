@@ -213,6 +213,15 @@ theorem venn_inside (S : SetSystem) (hk : 1 ≤ S.sets.length ∧ S.sets.length 
     exact hfit y hy
   rw [inside_slot (by omega) (S.mask_lt y hk.2) hr hs, S.testBit_mask y s (by omega)]
 
+/-- The most elements a Venn figure places (finding each element's place takes `n²` steps). -/
+def maxVennElements : Nat := 64
+
+/-- The Venn figure: the Venn diagram of one to three sets of at most `maxVennElements` elements
+whose regions fit, or a note. -/
+def vennFigure (S : SetSystem) : Diagram :=
+  Diagram.capped (decide (1 ≤ S.sets.length ∧ S.sets.length ≤ 3 ∧ S.n ≤ maxVennElements) &&
+    S.fits) "a Venn diagram needs one to three sets and regions that fit" S.venn
+
 /-- The incidence graph: the elements `0, …, n - 1` and the sets `n, …, n + m - 1`, an edge
 `(x, n + s)` exactly when `x ∈ s`. -/
 def toFinGraph (S : SetSystem) : FinGraph where
@@ -234,6 +243,12 @@ def incidenceLayout (S : SetSystem) : Layout where
 def incidence (S : SetSystem) : Diagram :=
   { S.toFinGraph.draw S.incidenceLayout with
     width := min 560 (36 * (max S.n (2 * S.sets.length)).toFloat + 24) }
+
+/-- The incidence figure: the incidence drawing, or a note for more than `FinGraph.maxVertices`
+elements and sets together. -/
+def incidenceFigure (S : SetSystem) : Diagram :=
+  Diagram.capped (decide (S.n + S.sets.length ≤ FinGraph.maxVertices))
+    "too many elements and sets to draw" S.incidence
 
 /-- An edge `(x, y)` is drawn in the incidence drawing exactly when `x` is an element, `y = n + s`
 for a set `s`, and `x ∈ s`. -/
