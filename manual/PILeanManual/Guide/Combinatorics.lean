@@ -28,8 +28,9 @@ open PILean PILean.Diagram
 tag := "diagram-model"
 %%%
 
-{api}`PILean.Diagram` draws finite combinatorial objects (graphs, orders, Young diagrams and
-tableaux, permutations, trees, set systems, lattice paths) from the object itself. Each kind has
+The modules `PILean.Diagram.*` draw finite combinatorial objects (graphs, orders, Young
+diagrams and tableaux, permutations, trees, set systems, lattice paths) from the object itself.
+Each kind has
 plain data, the mathematical content: a relation on `Fin n` for a graph or an order, a list of row
 lengths for a Young diagram, the one-line notation of a permutation. A pure layout gives exact
 rational positions, and a builder draws a {name}`PILean.Diagram.Diagram`: a list of marks, each an
