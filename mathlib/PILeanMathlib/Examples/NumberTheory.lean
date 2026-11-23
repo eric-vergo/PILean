@@ -334,7 +334,30 @@ theorem latticeFigure_spec :
     latticeFigure.marksWhere (· == .note 0) =
       [{ part := .note 0, ink := .accent 0,
          shape := .polyline [(0, 0), (1, 0), (3 / 2, 7 / 8), (1 / 2, 7 / 8), (0, 0)] }] := by
-  sorry
+  have h : hexLattice.Faithful latticeFigure :=
+    PlaneLattice.faithful_of_marks (hexLattice.builder_faithful (by decide +kernel))
+      (by simp only [latticeFigure])
+  have hdet : hexLattice.det ≠ 0 := by decide +kernel
+  refine ⟨h, fun p => ?_, hexLattice.nodup_dots hdet h, fun i p col hm => ?_, ?_⟩
+  · rw [hexLattice.mem_dots_iff hdet h]
+    simp only [PlaneLattice.inWindow, hexLattice, Bool.and_eq_true]
+    norm_num [and_assoc]
+    exact fun _ => ⟨fun ⟨a, b, c, d⟩ => ⟨of_decide_eq_true a, of_decide_eq_true b,
+      of_decide_eq_true c, of_decide_eq_true d⟩, fun ⟨a, b, c, d⟩ => ⟨decide_eq_true a,
+      decide_eq_true b, decide_eq_true c, decide_eq_true d⟩⟩
+  · rw [h.1] at hm
+    obtain ⟨⟨⟨m, n⟩, j⟩, -, he⟩ := List.mem_map.1 hm
+    simp only [Prod.mk.injEq] at he
+    rw [← he.2.2]
+    rfl
+  · have e : latticeFigure.marksWhere (· == .note 0) =
+        (latticeFigure.marksWhere Part.isDecoration).filter (fun m => m.part == .note 0) := by
+      simp only [Diagram.marksWhere, List.filter_filter]
+      congr 1
+      funext m
+      cases m.part <;> simp [Part.isDecoration]
+    rw [e, h.2.2.1]
+    decide +kernel
 
 figure_proves latticeFigure latticeFigure_spec
 

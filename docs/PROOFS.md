@@ -323,6 +323,37 @@ exactly the builder's, shape, position and colour role included, and no mark of 
   centre); `lake test` compiles changed copies that must fail inside them and plants a fault in
   every class of mark.
 
+**Plots of sequences, grids of numbers and lattices** (`PILean/Diagram/Sequence.lean`,
+`Lattice.lean`; the gallery's figures with their specifications in
+`PILeanTest/NumberDiagrams.lean`)
+
+These kinds account for every mark by class as the diagrams of algebra do.
+
+* Plots of sequences: `SeqPlot.draw_faithful`, `SeqPlot.builder_faithful` (the points,
+  `Diagram.data`, are exactly `(k, n, point n (f n))` for every sequence `k` and every `n` of the
+  range, sequence by sequence; the curves are the polylines through their values at the indices;
+  the axes, ticks, tick labels, the legend's samples and names and the name of the index axis are
+  the builder's, colours included; nothing else is drawn), `SeqPlot.mem_data` (`(k, n, p)` is
+  drawn exactly when sequence `k` is `f`, `lo ≤ n ≤ hi` and `p` is the point of `n` and `f n`).
+* Grids of numbers: `CellPlot.draw_faithful`, `CellPlot.builder_faithful` (the cells and their
+  texts are the data's, cell by cell, at their positions, in the colour of their mark; the
+  headings are the plot's), `CellPlot.mem_marked`.
+* Lattices: `PlaneLattice.draw_faithful`, `PlaneLattice.builder_faithful` (the dots are exactly
+  the candidates `m ω₁ + n ω₂` in the window, each in the colour of its mark; the parallelogram
+  `0, ω₁, ω₁ + ω₂, ω₂` and the axes are the builder's), `PlaneLattice.mem_points`. That the
+  candidates include every lattice point of the window is proved in `pilean-mathlib`
+  (`PlaneLattice.natAbs_le_bound`), not in the core.
+* The gallery's four figures (the totient on `1, …, 100`, a sieve of `1, …, 100`, the Gaussian
+  primes with `|a|, |b| ≤ 4`, a skew lattice) each have a specification that writes out the
+  values, the marked numbers and points, or the lattice points, checked by the kernel; `lake test`
+  compiles changed copies that must fail inside them and plants a fault in every class of mark.
+* Not proved: that the pictures are good (the axes a tenth of a unit outside the points, ticks at
+  round indices, the points' radius shrinking with their number, the cells of an Ulam spiral
+  apart), which is tested. The layout checks of plane figures run on these figures with two
+  allowances for the points of a plot (`plotProblems`): two points may stand closer than markers
+  must in a geometric figure when their discs do not overlap, and a point may lie near a
+  comparison curve.
+
 ## Plots against the real numbers
 
 The core has no real numbers, so it cannot say that a curve is near `sin`. The optional package
@@ -415,6 +446,52 @@ the generators being those of `d4Name`; the edges are `⋖`; a dot is in colour 
 subgroup is `Normal`; the names the table writes are `d4Name` of the elements), a `CommSq` of
 reductions in `Type` (`commSqFigure_spec`) and the drawing of a short exact sequence
 (`shortExactFigure_spec`, for every short complex of a preadditive category with a zero object).
+
+## Number theory against Mathlib
+
+`PILeanMathlib/NumberTheory.lean`: `SeqPlot.data_iff` (the points of a faithful plot of one
+sequence that agrees with `g` are exactly `(n, g n)` on the range), `card_filter_range` (a count
+with a Boolean filter of `List.range n` is the `Finset` count), `isSquare_iff_any`,
+`prime_of_norm_prime`, `prime_of_unit_mul`, `not_prime_of_mul`, `not_prime_of_shown` (a factor
+witness found by `gaussianWitness` shows that a Gaussian integer is not prime), and
+`nodup_of_distinctInBox` (points of a box, no two at one place, checked in linear time by a bit
+mask). `PILeanMathlib/Lattice.lean`: `PlaneLattice.natAbs_le_bound`, `mem_points_iff`,
+`mem_dots_iff` (a faithful figure of a lattice of independent periods draws exactly the points of
+`Submodule.span ℤ {ω₁, ω₂}` in its window) and `nodup_dots` (each once).
+
+Its figures (`PILeanMathlib/Examples/NumberTheory.lean`). The figures compute with plain
+functions; `totient'_eq`, `divisorCount_eq`, `isPrime'_iff`, `primeCount_eq`, `harmonic'_eq`,
+`legendre'_eq` and `prime_of_gaussianPrime` prove them equal to Mathlib's for every argument, so
+the kernel evaluates only the caps, the layouts and the finite checks named below.
+
+* `totientFigure_spec`: the points are exactly `(n, Nat.totient n)` for `1 ≤ n ≤ 100`, under the
+  one name `φ(n)`, at positive scales.
+* `divisorFigure_spec`: the points are exactly `(n, σ 0 n)` for `1 ≤ n ≤ 100`.
+* `primeCountFigure_spec`: the points are exactly `(n, Nat.primeCounting n)` for `2 ≤ n ≤ 100`;
+  the one curve is the polyline through `(n, n / (harmonic n - 1))` at the same indices.
+* `ulamFigure_spec`: the cells are `1, …, 441`, `1` at the origin, each next to the one before,
+  no two at one place (decided by a bit mask); a cell is filled exactly when its number is
+  `Nat.Prime`.
+* `residueFigure_spec`: for each `p` of `3, 5, 7, 11, 13` (row `i`) and `a < p`, the cell of key
+  `100 p + a` stands in column `a` of row `i`, is marked exactly when `a` is a nonzero square in
+  `ZMod p` and shows `legendreSym p a` (`−1` with a minus sign); there are 39 cells, no two with
+  one key, so no others; the headings are written out.
+* `gaussianFigure_spec`: the dots are exactly the `a + b i` with `|a|, |b| ≤ 7`, at `(a, b)`, in
+  accent 1 exactly when `Prime (⟨a, b⟩ : GaussianInt)` and faint exactly when not. Both
+  directions are proved: a marked point is prime by Mathlib's theorems (a prime norm, or a unit
+  times a rational prime `≡ 3 (mod 4)`); an unmarked point is `0`, a unit, or a product of two
+  factors of norm greater than one found by a search, which the kernel checks for every point of
+  the window (`unmarked_shown`).
+* `latticeFigure_spec`: the dots are exactly the points of
+  `Submodule.span ℤ {(1, 0), (1/2, 7/8)}` in `[-3, 3] × [-2, 2]`, each once, all in the ink; the
+  parallelogram is `0, ω₁, ω₁ + ω₂, ω₂` in accent 0.
+
+`lake test` in `mathlib/` joins the figures' module and the theorems' module into one file,
+compiles copies with a datum changed (a value, a range, a name, the curve, a marking, a text, a
+heading, the window, a period, a colour) and requires each to fail inside the figure's theorem
+and nowhere in the figures (`PILeanMathlibTest/Mutations.lean`). Möbius sums are not drawn: no
+plain function is proved equal to `ArithmeticFunction.moebius`, and the kernel cannot evaluate
+Mathlib's in practice.
 
 ## What is tested, not proved
 

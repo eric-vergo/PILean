@@ -174,6 +174,28 @@ Mathlib) and their theorems (`PILeanMathlib/Examples/Combinatorics.lean`, linked
 | The Dyck word `UUDUUDDDUD` | the steps are the path of the `DyckWord`, rising exactly at its `U`s | ![](examples/dyck.svg) | ![](examples/dyck-dark.svg) |
 | Multiples of 2, 3, 5 up to 12 | each number is inside the circle of each `Finset` iff it belongs to it | ![](examples/venn.svg) | ![](examples/venn-dark.svg) |
 
+## Number theory and lattices
+
+`PILeanMathlib/NumberTheory.lean` and `PILeanMathlib/Lattice.lean` tie the plots of sequences,
+grids of numbers and lattices of the core to Mathlib. The figures compute with plain functions on
+the natural numbers and the integers, and lemmas prove those equal to Mathlib's for every argument
+(`totient'_eq`, `divisorCount_eq`, `isPrime'_iff`, `primeCount_eq`, `harmonic'_eq`,
+`legendre'_eq`), so no theorem rests on a long computation by the kernel. A figure of a lattice of
+independent periods draws exactly the points of `Submodule.span ℤ {ω₁, ω₂}` in its window, each
+once (`PlaneLattice.mem_dots_iff`, `nodup_dots`). `lake test` changes the figures' data in a copy
+of the two modules joined and requires each change to break the figure's theorem
+(`PILeanMathlibTest/Mutations.lean`).
+
+| Figure | Theorem | Light | Dark |
+|---|---|---|---|
+| Euler's totient, `1 ≤ n ≤ 100` | the points are exactly `(n, Nat.totient n)` | ![](examples/totient.svg) | ![](examples/totient-dark.svg) |
+| The number of divisors, `1 ≤ n ≤ 100` | the points are exactly `(n, σ 0 n)` | ![](examples/divisor-count.svg) | ![](examples/divisor-count-dark.svg) |
+| The prime-counting function, `2 ≤ n ≤ 100` | the points are exactly `(n, Nat.primeCounting n)`; the curve passes through `(n, n / (harmonic n - 1))` | ![](examples/prime-count.svg) | ![](examples/prime-count-dark.svg) |
+| The Ulam spiral of `1, …, 441` | the cells are `1, …, 441` on a spiral, each next to the one before, no two at one place; filled iff `Nat.Prime` | ![](examples/ulam.svg) | ![](examples/ulam-dark.svg) |
+| Quadratic residues modulo `3, 5, 7, 11, 13` | a cell is marked iff `a` is a nonzero square in `ZMod p` and shows `legendreSym p a`; no other cells | ![](examples/residues.svg) | ![](examples/residues-dark.svg) |
+| The Gaussian primes, `|a|, |b| ≤ 7` | the dots are exactly the `a + b i` of the window, in colour iff `Prime (⟨a, b⟩ : GaussianInt)` (both directions proved) | ![](examples/gaussian-primes.svg) | ![](examples/gaussian-primes-dark.svg) |
+| The lattice `ℤ(1, 0) + ℤ(1/2, 7/8)` | the dots are exactly the points of `Submodule.span ℤ {ω₁, ω₂}` in `[-3, 3] × [-2, 2]`, each once; the parallelogram `0, ω₁, ω₁ + ω₂, ω₂` | ![](examples/lattice.svg) | ![](examples/lattice-dark.svg) |
+
 ## Algebra and categories
 
 `PILeanMathlib/Category.lean` realises a commutative diagram of PILean in a category: an object

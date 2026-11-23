@@ -81,6 +81,21 @@ theorem of its kind that the drawn parts are exactly the parts of the data
 | **Dyck path** — UUDUUDDDUD (`diagram-dyck`) | ![](diagram-dyck.svg) | ![](diagram-dyck-dark.svg) |
 | **Ferrers board** — of (4, 3, 1) (`diagram-ferrers`) | ![](diagram-ferrers.svg) | ![](diagram-ferrers-dark.svg) |
 
+## Plots, grids and lattices
+
+Drawn from plain data by `PILean.Diagram` (`PILeanTest/NumberDiagrams.lean`); each has a
+specification that writes out its values, marked numbers or lattice points
+([`docs/PROOFS.md`](../docs/PROOFS.md), "Plots of sequences, grids of numbers and lattices").
+The package `pilean-mathlib` draws the same kinds tied to Mathlib's objects
+([`mathlib/README.md`](../mathlib/README.md)).
+
+| Figure | Light | Dark |
+|---|---|---|
+| **Euler's totient** — φ(n) for 1 ≤ n ≤ 100, the points exactly (n, φ(n)) (`diagram-totient`) | ![](diagram-totient.svg) | ![](diagram-totient-dark.svg) |
+| **A sieve** — 1, …, 100 in rows of ten, the 25 primes marked (`diagram-sieve`) | ![](diagram-sieve.svg) | ![](diagram-sieve-dark.svg) |
+| **Gaussian primes** — a + bi with \|a\|, \|b\| ≤ 4, the 32 primes in colour (`diagram-gaussian-primes`) | ![](diagram-gaussian-primes.svg) | ![](diagram-gaussian-primes-dark.svg) |
+| **A skew lattice** — ℤ(3/2, 1/2) + ℤ(1/2, 3/2) with its fundamental parallelogram (`diagram-skew-lattice`) | ![](diagram-skew-lattice.svg) | ![](diagram-skew-lattice-dark.svg) |
+
 ## Animations
 
 Each animation is written four ways from one `Animation` value: an animated SVG (declarative SMIL

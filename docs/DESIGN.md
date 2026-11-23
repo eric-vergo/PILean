@@ -804,6 +804,31 @@ compared with the object. The choices:
   are data (`paths`), decided for maps between finite sets in the core and stated for morphisms of
   a category in `pilean-mathlib`, where the realisation carries the morphisms with their types so
   that no cast is needed beyond the identity of an object to itself.
+* **Plots of sequences.** A plot is a diagram, not a `Plot.Figure`: its points are exact marks
+  tagged `datum k n`, so that the theorem says which values are drawn and where. The axes stand a
+  tenth of a unit outside the lowest value and the first tick, so that no point lies on an axis
+  (the alternative, axes through the origin, puts points of value `0` on the line, where the
+  plane checks rightly cannot tell incidence from nearness); the index axis starts at the multiple
+  of its tick step at or below `lo`, so the ticks fall on round indices. The points' radius is
+  `180 / count` pixels between `1.25` and `3`, so that consecutive indices never overlap at the
+  page width. The plane checks require markers of a geometric figure to keep a ring and a gap
+  apart; a plot of a hundred points cannot, and its abscissae already tell the indices apart, so
+  `plotProblems` accepts two points of a plot whose discs do not overlap, and a point near a
+  comparison curve (a point is read against the axes, not the curve). Everything else of the
+  checks applies.
+* **Grids and lattices.** A grid's marked cells are tinted when they carry text and filled opaque
+  when they do not (an Ulam spiral), the filled ones a twelfth of a unit inside their square so
+  that neighbours stand apart and no stroke lies on a fill. A lattice's coefficients are bounded
+  from the window by Cramer's rule, rounded up; the core proves that the dots are the candidates
+  in the window, and `pilean-mathlib` that the bound covers every lattice point of the window
+  (inequalities over ℚ are Mathlib's). Points on the axes record that they are on them
+  (`axesThrough`, an exact rational test), as points on circles do.
+* **Values computed or proved.** The figures of number theory compute with plain functions, and
+  `pilean-mathlib` proves each equal to Mathlib's function for every argument, so the theorems
+  stay quick to check; what the kernel evaluates is finite and small (the caps, the layouts, the
+  Ulam spiral's positions in linear time by a bit mask, and the factor witnesses of the Gaussian
+  integers of the window that are not prime). Kernel-evaluated loops are written by structural
+  recursion (`spiralFrom`), since the kernel cannot unfold `while`.
 * **Standing.** Whether a figure is proved is computed where the table of figures is elaborated,
   from the links `figure_proves` recorded, re-checked there, and carried on every `Output` so that
   the positional constructors of `FigureEntry` and `SourceData` that the Verso adapters use stay

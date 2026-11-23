@@ -10,6 +10,7 @@ import PILeanManual.Guide.Plane
 import PILeanManual.Guide.Graphs
 import PILeanManual.Guide.Combinatorics
 import PILeanManual.Guide.Algebra
+import PILeanManual.Guide.NumberTheory
 import PILeanManual.Guide.Animations
 import PILeanManual.Guide.Raster
 import PILeanManual.Guide.Text
@@ -40,6 +41,8 @@ writers and the readers with their bounds; text engines; and the optional packag
 {include 1 PILeanManual.Guide.Combinatorics}
 
 {include 1 PILeanManual.Guide.Algebra}
+
+{include 1 PILeanManual.Guide.NumberTheory}
 
 {include 1 PILeanManual.Guide.Animations}
 

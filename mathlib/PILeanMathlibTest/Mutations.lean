@@ -68,7 +68,7 @@ def checkJoined (lean : String) (scratch : System.FilePath) (text : String) (sta
   return .ok ()
 
 /-- The changes to the figures of number theory that their theorems must catch: a value, a
-range, a name, a curve, a marking, a text, a heading, a window or a colour changed. -/
+range, a name, a curve, a marking, a text, a heading, a window, a period or a colour changed. -/
 def numberTheoryMutations : Array SpecMutation :=
   let f : System.FilePath := "joined"
   #[{ file := f, what := "the totient counts the a ≤ n", anchor := "def totient' (n : Nat) : Nat :=",
@@ -106,7 +106,14 @@ def numberTheoryMutations : Array SpecMutation :=
       edits := [("hi := (7, 7)", "hi := (7, 6)")], spec := "gaussianFigure_spec" },
     { file := f, what := "the points that are not prime are drawn in the ink",
       anchor := "def gaussianLattice :",
-      edits := [("plainInk := .faint", "plainInk := .ink")], spec := "gaussianFigure_spec" }]
+      edits := [("plainInk := .faint", "plainInk := .ink")], spec := "gaussianFigure_spec" },
+    { file := f, what := "the lattice's second period is (1/2, 3/4)", anchor := "def hexLattice :",
+      edits := [("w2 := (1 / 2, 7 / 8)", "w2 := (1 / 2, 3 / 4)")], spec := "latticeFigure_spec" },
+    { file := f, what := "the lattice's window ends at height 1", anchor := "def hexLattice :",
+      edits := [("hi := (3, 2)", "hi := (3, 1)")], spec := "latticeFigure_spec" },
+    { file := f, what := "the lattice marks its origin", anchor := "def hexLattice :",
+      edits := [("hi := (3, 2) }", "hi := (3, 2), marked := fun m n => m == 0 && n == 0 }")],
+      spec := "latticeFigure_spec" }]
 
 /-- The most compilations run at once (each loads Mathlib). -/
 def parallel : Nat := 5

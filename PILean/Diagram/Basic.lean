@@ -36,6 +36,7 @@ rasteriser, colours and style) is the tested code of plane figures, and no theor
 * `Diagram.edges`, `Diagram.vertices`, `Diagram.cells`, `Diagram.entries`, `Diagram.steps`:
   read-backs
 * `Mark.toItem`, `Mark.toItemIn`, `Diagram.toPlane`: the drawing as a plane figure
+* `circlesThrough`, `axesThrough`: the incidences a dot records
 * `maxMarks`: the most marks a diagram is drawn with
 
 ## Main results
