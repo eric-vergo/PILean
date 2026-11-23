@@ -330,9 +330,15 @@ theorem ties to its object. `@[figure illustration]` marks a figure as one openl
   non-standard axioms whose statement names the figure. It says nothing about what the statement
   says; that is for its reader (`docs/PROOFS.md`). A figure whose theorem is in a module the
   build's driver does not import is an illustration to that build.
-* The Verso adapters build their own table of figures (`site_figures%`) and do not set the
-  standing yet; their outputs carry the default, an unmarked illustration, until they call
-  `figureStanding` for each figure and set it with `withStanding`, as `figures%` does.
+* The Verso adapters build their own table of figures (`site_figures%`), which sets the standing
+  as `figures%` does. Each figure of a site has a page that states it: "Tied to its object by the
+  theorem T" with T's statement and axioms, or "Illustration: not tied to a Lean object by a
+  theorem". The site's build fails when a caption names a theorem (`proves :=`) that the standing
+  does not record, and when a page's standing differs from the files the build wrote.
+
+A theorem tied to a figure is about the data the figure is drawn from, not about how it is drawn:
+it says nothing about the rendering of text, the colours, or the floating-point step that turns
+the data into the picture.
 
 ## The fingerprint
 

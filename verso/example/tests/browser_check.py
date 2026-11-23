@@ -120,7 +120,7 @@ document.addEventListener('securitypolicyviolation', e => {
   const t = e.target && e.target.closest ? e.target : null;
   window.__cspReports.push({directive: e.effectiveDirective, blocked: e.blockedURI,
     sample: e.sample, source: e.sourceFile,
-    inFigure: !!(t && t.closest('.pilean-figure, .pilean-figure-list'))});
+    inFigure: !!(t && t.closest('.pilean-figure, .pilean-figure-list, .pilean-figure-page'))});
 });
 """
 
@@ -414,6 +414,148 @@ def noscript_checks(c, browser, base, shots):
     ctx.close()
 
 
+PICTURE_PAGES = ["Figures/Example.cubicPlot/", "Figures/Example.circleAnimation/",
+                 "Figures/Example.radiusExplorer/", "Figures/Example.divisorHasse/",
+                 "Figures/Example.reductionSquare/", "Figures/Example.sketch/"]
+
+
+def odd_page(base, ctx):
+    """The address of the page of the figure whose name holds markup, from the figures page."""
+    page = ctx.new_page()
+    goto(page, base + "Figures/")
+    hrefs = page.locator("a.pilean-page-link").evaluate_all("as => as.map(a => a.href)")
+    page.close()
+    odd = [h for h in hrefs if "Example._hasse_" in h]
+    return odd[0].split("#")[0] if odd else None
+
+
+def figure_page_checks(c, browser, base, shots):
+    """The figures' pages: both themes at three widths, pictures and files, no request leaving
+    the site, no console error, every link served, the keyboard alone, no script, reduced motion,
+    hostile names."""
+    ctx0 = browser.new_context()
+    odd = odd_page(base, ctx0)
+    ctx0.close()
+    c.check("the figures page links the page of the name with markup", odd is not None)
+    urls = [base + p for p in PICTURE_PAGES] + ([odd] if odd else [])
+    for scheme in ["light", "dark"]:
+        for width in [360, 768, 1440]:
+            ctx, page = new_page(browser, color_scheme=scheme,
+                                 viewport={"width": width, "height": 900})
+            outside, errors = [], []
+            page.on("request", lambda r: None if r.url.startswith(base) else outside.append(r.url))
+            # the policy's own reports of Verso's inline handler outside the figures are counted
+            # by figure_reports, which keeps those inside a figure or a figure's page
+            page.on("console", lambda m: errors.append(m.text) if m.type == "error" and
+                    not m.text.startswith("Executing inline event handler violates") else None)
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            for url in urls:
+                goto(page, url)
+                name = url[len(base):]
+                imgs = page.evaluate("""() => [...document.querySelectorAll(
+                  '.pilean-page-picture img')].filter(i => i.offsetParent !== null)
+                  .map(i => [i.currentSrc || i.src, i.complete && i.naturalWidth > 0])""")
+                if "radiusExplorer" not in url:
+                    c.check(f"{scheme} {width}: {name} shows one picture of its theme, loaded",
+                            len(imgs) == 1 and imgs[0][1] and
+                            (imgs[0][0].endswith("-dark.svg") == (scheme == "dark")
+                             or "circleAnimation" in url), str(imgs))
+                wide = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
+                c.check(f"{scheme} {width}: {name} does not scroll sideways", wide <= 0,
+                        f"{wide} px")
+                reports = figure_reports(page)
+                c.check(f"{scheme} {width}: {name} has no content-policy report", not reports,
+                        str(reports))
+                if shots and url == base + "Figures/Example.cubicPlot/" and width in [360, 1440]:
+                    tag = f"{scheme}-{width}"
+                    page.screenshot(path=f"{shots}/page-top-{tag}.png")
+                    for part, sel in [("standing", ".pilean-page-standing"),
+                                      ("code", ".pilean-page-codes"),
+                                      ("provenance", ".pilean-page-provenance")]:
+                        page.locator(sel).first.scroll_into_view_if_needed()
+                        page.wait_for_timeout(300)
+                        page.screenshot(path=f"{shots}/page-{part}-{tag}.png")
+            c.check(f"{scheme} {width}: the pages ask nothing of another site", not outside,
+                    str(outside[:3]))
+            c.check(f"{scheme} {width}: the pages log no console error", not errors,
+                    str(errors[:3]))
+            ctx.close()
+    ctx, page = new_page(browser, viewport={"width": 1100, "height": 900})
+    bad = []
+    for url in urls:
+        goto(page, url)
+        hrefs = page.evaluate("""() => [...document.querySelectorAll(
+          '.pilean-figure-page a[href]')].map(a =>
+            new URL(a.getAttribute('href'), document.baseURI).href)""")
+        for h in sorted(set(hrefs)):
+            if h.startswith(base):
+                status = ctx.request.get(h.split("#")[0]).status
+                if status != 200:
+                    bad.append((h, status))
+    c.check("every link of the pages into the site is served", not bad, str(bad[:5]))
+    goto(page, base + "Figures/Example.cubicPlot/")
+    text = " ".join(page.locator(".pilean-page-standing").inner_text().split())
+    c.check("a proved figure's page says it is tied to its object and shows the statement",
+            "Tied to its object by the theorem Example.cubicPlot_spec" in text and
+            "cubicPlot.panels" in text.replace(" ", ""), text[:200])
+    goto(page, base + "Figures/Example.sketch/")
+    text = page.locator(".pilean-figure-page").inner_text()
+    c.check("an illustration's page says so and never that it is tied",
+            "Illustration: not tied to a Lean object by a theorem" in text and
+            "Tied to its object" not in text)
+    if odd:
+        goto(page, odd)
+        title = " ".join(page.locator("h1").all_inner_texts())
+        planted = page.evaluate("""() => [document.querySelectorAll(
+          '.pilean-figure-page script, .pilean-figure-page b').length, window.__alerts.length]""")
+        c.check("the page of a name with markup shows it as text, and nothing runs",
+                'Example.«hasse <b>"&\'»' in title and planted == [0, 0], f"{title} {planted}")
+    ctx.close()
+    # the keyboard alone: every download, the more-list and the source links can be reached
+    ctx, page = new_page(browser, viewport={"width": 1100, "height": 900})
+    goto(page, base + "Figures/Example.cubicPlot/")
+    want = page.evaluate("""() => new Set([...document.querySelectorAll(
+      '.pilean-figure-page a[href], .pilean-figure-page summary')]
+      .filter(e => e.getClientRects().length > 0)
+      .map(e => e.tagName + ':' + (e.getAttribute('href') || e.textContent).slice(0, 80))).size""")
+    reached = set()
+    for _ in range(400):
+        page.keyboard.press("Tab")
+        info = page.evaluate("""() => { const e = document.activeElement;
+          if (!e || !e.closest('.pilean-figure-page')) return null;
+          const r = e.getBoundingClientRect();
+          return [e.tagName + ':' + (e.getAttribute('href') || e.textContent).slice(0, 80),
+                  r.width > 0 && r.height > 0]; }""")
+        if info:
+            reached.add(info[0])
+            if not info[1]:
+                c.check("every element the keyboard reaches on a page is visible", False, info[0])
+                break
+    c.check("the keyboard alone reaches every link of a figure's page", len(reached) >= want,
+            f"{len(reached)} of {want}")
+    ctx.close()
+    # no script, and reduced motion
+    ctx = browser.new_context(java_script_enabled=False, viewport={"width": 1100, "height": 900})
+    page = ctx.new_page()
+    page.goto(base + "Figures/Example.cubicPlot/")
+    loaded = page.evaluate("""() => [...document.querySelectorAll('.pilean-page-picture img')]
+      .filter(i => i.offsetParent !== null).every(i => i.complete && i.naturalWidth > 0)""")
+    words = page.locator(".pilean-page-standing").inner_text()
+    c.check("without script a page shows its picture and its standing",
+            loaded and "Tied to its object" in words)
+    page.goto(base + "Figures/Example.radiusExplorer/")
+    c.check("without script an explorer's page lists its frames",
+            page.locator(".pilean-figure-page li.pilean-explorer-frame").count() == 5)
+    ctx.close()
+    ctx = browser.new_context(reduced_motion="reduce")
+    page = ctx.new_page()
+    goto(page, base + "Figures/Example.circleAnimation/")
+    src = page.locator(".pilean-page-picture img").first.evaluate("i => i.currentSrc")
+    c.check("reduced motion: an animation's page shows its still frame", src.endswith("-poster.png"),
+            src)
+    ctx.close()
+
+
 def long_word_checks(c, browser, base, shots):
     """At 360 px: a word of 240 letters in a caption and in the figures page's list wraps within
     the page."""
@@ -633,13 +775,15 @@ def link_checks(c, browser, sites):
         c.check(f"{mode}: no link inside another", nested == 0, str(nested))
         goto(page, base + EXPLORERS)
         hrefs = page.evaluate("""() => [...document.querySelectorAll('figure a')]
-          .filter(a => !a.classList.contains('pilean-repo-link'))
+          .filter(a => !a.classList.contains('pilean-repo-link') &&
+                       !a.classList.contains('pilean-page-link'))
           .map(a => a.getAttribute('href'))""")
         if mode == "site":
             c.check("site: no lean: link in a figure",
                     bool(hrefs) and not any(h.startswith("lean:") for h in hrefs), str(hrefs[:3]))
         if mode == "none":
-            c.check("none: no link in a figure but the repository's", hrefs == [], str(hrefs[:3]))
+            c.check("none: no link in a figure but the repository's and its page's", hrefs == [],
+                    str(hrefs[:3]))
             title = page.evaluate("""() => document.querySelector(
               'figure#inline svg g[data-lean-decl] title').textContent""")
             stops = page.evaluate("""() => [...document.querySelectorAll('figure#inline svg *')]
@@ -689,7 +833,10 @@ class Checks:
         try:
             fn(*args)
         except Exception as e:  # noqa: BLE001 - a check that cannot run is a failed check
-            self.check(f"{name} ran to its end", False, str(e).splitlines()[0])
+            import traceback
+            where = traceback.extract_tb(e.__traceback__)[-1]
+            self.check(f"{name} ran to its end", False,
+                       f"{str(e).splitlines()[0]} (line {where.lineno})")
 
     def check(self, name, ok, detail=""):
         self.count += 1
@@ -767,7 +914,7 @@ def main(argv):
         repo = fig.locator("a.pilean-repo-link").first.get_attribute("href") or ""
         c.check("the source links the repository at the commit",
                 re.fullmatch(r"https://github\.com/[^/]+/PILean/blob/[0-9a-f]{40}/"
-                             r"verso/example/Example/Figures\.lean#L\d+", repo) is not None, repo)
+                             r"verso/example/PictureExample/Figures\.lean#L\d+", repo) is not None, repo)
         fp = fig.locator(".pilean-fingerprint")
         full = fp.get_attribute("title") or ""
         c.check("the fingerprint is whole in the text and the tooltip",
@@ -784,7 +931,7 @@ def main(argv):
 
         page.goto(base + "Figures/")
         items = page.locator(".pilean-figure-index > li")
-        c.check("the figures page lists ten figures", items.count() == 10, str(items.count()))
+        c.check("the figures page lists fourteen figures", items.count() == 14, str(items.count()))
         thumbs = page.evaluate("""() => [...document.querySelectorAll('.pilean-index-thumb img')]
             .every(i => i.complete && i.naturalWidth > 0)""")
         c.check("the figures page's pictures load", thumbs)
@@ -811,7 +958,7 @@ def main(argv):
             ctx.close()
 
         for part in [theme_checks, control_checks, wheel_checks, size_checks, hostile_checks,
-                     noscript_checks, touch_checks, long_word_checks]:
+                     noscript_checks, touch_checks, long_word_checks, figure_page_checks]:
             c.section(part.__name__, part, c, browser, base, shots)
         c.section("strict styles", strict_style_checks, c, browser, site)
         c.section("centring", centring_checks, c, browser, base, "stacked", [1100, 360],

@@ -76,13 +76,14 @@ The options are `alt` (required: what a reader who cannot see the picture needs 
 (for `{figref "…"}[]`), `title`, `format` (`svg` by default, `png`, `apng` or `gif`), `width` (a
 CSS length), `backdrop` (a picture of the site the figure is drawn over) and `proves` (a theorem
 about the figure, accepted only under the rule of `figure_proves`, {ref "proofs-link"}[Linking a
-Theorem to a Picture]). An
-empty body takes the declaration's docstring as the caption. The generator wraps `manualMain`:
+Theorem to a Picture], and only when a `figure_proves` command links the two). An
+empty body takes the declaration's docstring as the caption. The generator wraps `manualMain`,
+and renders the document it is given, which has the figures' pages added:
 
 ```
 def main (args : List String) : IO UInt32 :=
-  PILeanVerso.Manual.withFigures (%doc MyManual) site_figures% args fun args =>
-    manualMain (%doc MyManual) (options := args)
+  PILeanVerso.Manual.withFigures (%doc MyManual) site_figures% args fun doc args =>
+    manualMain doc (options := args)
 ```
 
 When the manual is generated, every figure it uses is rendered by PILean, every SVG must pass
@@ -91,4 +92,17 @@ differs from this render fails the build (a leftover file is reported; `--strict
 fail too). Light and dark pictures are switched by the stylesheet alone, following the
 page's theme, with no script. Every figure of this manual is made this way: its caption ends with
 the declaration that made it, its file and line, the start of its fingerprint, and its theorem
-when it has one.
+when it has one, and a link to its page.
+
+Every figure has a page of its own, below the page that lists them: the picture at full size
+with its files to download; its number, caption and the places that show it; its standing,
+"Tied to its object by the theorem T" with the statement of T as Lean and the axioms it rests on,
+or "Illustration: not tied to a Lean object by a theorem", derived when the generator is built
+from the `figure_proves` links that pass their rule again there; the figure's declaration in
+full and the definitions of the manual's own code that its value and the theorems' statements
+use, highlighted with their hovers and linked to their source; the fingerprint, renderer, text
+engine and `pilean-verify` verdict of each file, the toolchain, the packages, the commit and the
+continuous-integration run; and the commands that build the files again and check them. After
+the site is written, the generator checks every page against the files, the manifest and
+`pilean-verify`, and fails when one differs. The Verso Blueprint adapter's `README.md` has the
+caps and the exact rules.

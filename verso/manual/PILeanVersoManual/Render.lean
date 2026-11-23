@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Trust.Build
 import PILean.Svg.Inert
+import PILeanVersoManual.PageData
 
 /-!
 # Rendering the figures of a site
@@ -16,7 +17,9 @@ folder as it checks one made by `pilean-build`. Every SVG output must be inert
 (`PILean.Svg.inertProblem?`): no script, no event handler, nothing loaded from elsewhere; so must
 every picture a page puts inline (`Output.inline`, every frame of an explorer, `Output.frames`).
 What a document asks of a figure (`FigureUse`: inline, or as an explorer) is checked against what
-the figure has, and the inline SVG of one figure, counted once over everything the pages put
+the figure has, a theorem a caption names (`proves :=`) must be one of the figure's standing
+(`FigureEntry.standing`: linked by `figure_proves` and checked again where `site_figures%` was
+elaborated), and the inline SVG of one figure, counted once over everything the pages put
 inline for it, may not pass `SiteOptions.inlineLimit` bytes.
 
 The rendered site is kept in `siteRef` while the document is rendered: the generator wrapper
@@ -89,6 +92,8 @@ structure FigureUse where
   inline : Bool := false
   /-- Whether a page shows it as an explorer. -/
   explorer : Bool := false
+  /-- The theorem the use's caption names (`proves :=`), by full name. -/
+  proves : Option String := none
 deriving Inhabited, Repr, BEq
 
 /-- A plain use of a figure, as a picture file. -/
@@ -110,6 +115,25 @@ def SiteOptions.validate (o : SiteOptions) : Except String SiteOptions := do
     throw s!"the source prefix {o.sourcePrefix} is not a relative folder ending in /"
   return o
 
+/-- What a figure's page says about the build that drew it. -/
+structure Provenance where
+  /-- The Lean version the generator was built with. -/
+  toolchain : String := ""
+  /-- PILean's library version (`PILean.version`). -/
+  pileanVersion : String := ""
+  /-- The revisions of the packages that draw the pictures (`pilean`, `leantex`), from the
+  workspace's `lake-manifest.json`: the name and the revision, or `a folder of the workspace`. -/
+  packages : Array (String × String) := #[]
+  /-- The commit the site is built from, when known. -/
+  commit : Option String := none
+  /-- The name of the site's generator. -/
+  generator : String := ""
+  /-- The figure options the site was built with, as on the command line. -/
+  flags : Array String := #[]
+  /-- The continuous-integration run that built the site, when it ran in one. -/
+  ciRun : Option String := none
+deriving Inhabited, Repr
+
 /-- One file of a figure: the output's name suffix and format, and the file PILean built. -/
 structure SiteFile where
   /-- The suffix of the output's name: `""`, `"-dark"`, `"-poster"`, `"-poster-dark"`. -/
@@ -126,6 +150,11 @@ structure SiteFile where
   frames : Option FrameSet := none
   /-- The layout warnings of the figure. -/
   problems : Array String := #[]
+  /-- The identity of the text engine the output was drawn with (`Output.textEngine`; empty for
+  the built-in lettering). -/
+  textEngine : String := ""
+  /-- The renderer recorded in the output's fingerprint (`rendererWith` of the text engine). -/
+  renderer : String := ""
 
 /-- The files of one figure declaration. -/
 structure SiteFigure where
@@ -133,6 +162,8 @@ structure SiteFigure where
   source : SourceData
   /-- Its files, in the order of its outputs. -/
   files : Array SiteFile
+  /-- Its standing, as `site_figures%` set it on its outputs. -/
+  standing : Standing := .illustration false
 
 /-- The figures of a site, rendered. -/
 structure SiteRender where
@@ -146,6 +177,10 @@ structure SiteRender where
   manifest : String := Manifest.render #[]
   /-- The layout warnings of the figures (`Output.problems`), one per line. -/
   warnings : Array String := #[]
+  /-- What each figure's page shows of the code, by declaration name (`site_figures%`). -/
+  pages : Std.HashMap String FigurePageData := {}
+  /-- What the figures' pages say about the build (`withFigures` fills it in). -/
+  provenance : Provenance := {}
 
 instance : Inhabited SiteRender := ⟨{}⟩
 
@@ -163,7 +198,8 @@ def renderSiteFile (e : FigureEntry) (o : Output) (opts : SiteOptions) (u : Figu
   let wanted := o.format == .svg && (u.inline || u.explorer)
   let inline := if wanted then o.inline () else none
   let frames := if wanted && u.explorer then o.frames () else none
-  return { name := o.name, format := o.format, built, inline, frames, problems := o.problems () }
+  return { name := o.name, format := o.format, built, inline, frames, problems := o.problems (),
+           textEngine := o.textEngine, renderer := rendererWith o.textEngine }
 
 /-- The pictures a page puts inline for a figure used as `u`, from its files: the picture and
 its narrow rendition (`inline := true`), or every frame (an explorer). -/
@@ -212,9 +248,19 @@ def mergeUses (used : Array FigureUse) : Array FigureUse :=
     | none => m.insert u.decl u
   m.toArray.map (·.2) |>.qsort (·.decl < ·.decl)
 
+/-- Why a caption's theorem cannot be shown under the figure `n` of standing `s`, if it cannot:
+the theorem a caption names must be one of those the standing records. -/
+def provesProblem? (n : String) (s : Standing) (thm : String) : Option String :=
+  if s.theorems.contains thm then none
+  else some s!"{n}: its caption names the theorem {thm}, which is not linked to it: the \
+    figure's standing is {s.word}{if s.theorems.isEmpty then "" else
+      " by " ++ " ".intercalate s.theorems.toList}; add `figure_proves {n} {thm}` after the \
+    theorem (in a module the generator imports), or remove `proves :=`"
+
 /-- Renders the figures `used` (repeated names count once) from the table `entries`, with all
 the messages (one per line) if a name has no entry, a figure cannot be rendered (then only
-that is reported for it) or cannot be shown as it is used (`useProblem?`), an SVG or an inline
+that is reported for it) or cannot be shown as it is used (`useProblem?`), a caption names a
+theorem the figure's standing does not record (`provesProblem?`), an SVG or an inline
 picture is not inert, a figure's inline
 SVG passes the limit, two files have one path, or there are more than `maxEntries` figures. -/
 def renderSite (entries : Array FigureEntry) (used : Array FigureUse) (opts : SiteOptions) :
@@ -248,7 +294,12 @@ def renderSite (entries : Array FigureEntry) (used : Array FigureUse) (opts : Si
         | none => errors := errors ++ inlineProblems n u fs opts.inlineLimit
       for f in fs do
         for w in f.problems do warnings := warnings.push s!"{n}: {w}"
-      figures := figures.insert n { source := e.toSourceData, files := fs }
+      for v in used do
+        if v.decl == n then
+          if let some t := v.proves then
+            if let some why := provesProblem? n e.standing t then
+              if !errors.contains why then errors := errors.push why
+      figures := figures.insert n { source := e.toSourceData, files := fs, standing := e.standing }
       files := files ++ fs.map (·.built)
   files := files.qsort (fun a b => a.entry.path < b.entry.path)
   for i in [1:files.size] do

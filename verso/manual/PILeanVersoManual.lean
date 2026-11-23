@@ -9,6 +9,11 @@ import PILeanVersoManual.Style
 import PILeanVersoManual.Common
 import PILeanVersoManual.Block
 import PILeanVersoManual.Index
+import PILeanVersoManual.PageData
+import PILeanVersoManual.PageMeta
+import PILeanVersoManual.Highlight
+import PILeanVersoManual.Page
+import PILeanVersoManual.Wrapper
 import PILeanVersoManual.Main
 
 /-!

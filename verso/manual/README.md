@@ -30,15 +30,17 @@ and `{figure_list}` in the document's root for a page that lists every figure. T
 
 ```lean
 def main (args : List String) : IO UInt32 :=
-  PILeanVerso.Manual.withFigures (%doc MyManual) site_figures% args fun args =>
-    manualMain (%doc MyManual) (options := args)
+  PILeanVerso.Manual.withFigures (%doc MyManual) site_figures% args fun doc args =>
+    manualMain doc (options := args)
 ```
+
+The generator is given the document with the figures' pages added (`doc`) and must render it.
 
 The directive's options: `alt` (required: the text alternative), `label`, `title`, `format` (`svg`
 by default, or `png`, `apng`, `gif`), `width` (a CSS length), `backdrop` (a picture of the site,
 with `{theme}` for `light` or `dark`, that the figure is drawn over: callouts over a screenshot)
 `inline := true` (the picture as an `svg` element of the page, one picture for both themes) and
-`proves` (a theorem). An empty body takes the declaration's doc string as the caption.
+`proves` (a theorem, which a `figure_proves` command must link to the figure). An empty body takes the declaration's doc string as the caption.
 `:::figure_explorer` shows a `PILean.Explorer` with its frames inline and its controls (the
 same options; on another type it is an error). `withFigures`'s `declStyle` sets how the source
 line shows a declaration and its file (by default the name as code and the file linked to the
@@ -52,6 +54,20 @@ each declaration it has no place for; `ideil` writes `lean:decl/<Name>` links fo
 Inline pictures, explorers, gestures, announcements, the behaviour without script and the
 content policy they need are as described in the [Verso Blueprint adapter's
 README](../README.md#what-a-reader-sees).
+
+## Figure pages
+
+Every figure the manual uses has a page of its own below the figures page (or below a part
+"Figures" added at the end of a manual without `{figure_list}`): the picture at full size and its
+files, its number, caption and uses, its standing ("Tied to its object by the theorem T" with T's
+statement and axioms, or "Illustration: not tied to a Lean object by a theorem"), its code (the
+declaration and the definitions of the manual's project it uses, highlighted with hovers and
+linked to their source), its provenance and how to reproduce it. The source line under the
+figure and the figures page link to it. What each section holds, the caps, how the standing is
+derived and checked and where the code comes from are in the [Verso Blueprint adapter's
+README](../README.md#figure-pages); the two adapters share the pages (`PILeanVersoManual.Page`,
+`PILeanVersoManual.Wrapper`). `--figure-code signatures` shows signatures instead of highlighted
+source and runs no `lake build`.
 
 ## What the build checks
 
@@ -70,6 +86,9 @@ README](../README.md#what-a-reader-sees).
   an inline picture, one figure's inline SVG may not pass `--figure-inline-limit`, and the
   figures folder the generator wrote
   (`<output>/html-multi/-verso-data/pilean-figures`) must hold exactly the files of this render.
+  A caption that names a theorem the figure's standing does not record fails the build; so does
+  a figure's page whose standing, files or `pilean-verify` verdicts differ from the render, the
+  written manifest or `pilean-verify` run on the written folder.
 * `--check-figures DIR` compares a folder with a fresh render without generating the manual.
 
 Two builds of the same sources write the same bytes. Light and dark files are switched by the
@@ -84,4 +103,7 @@ inline figure and the documentation of a declaration a picture links to;
 and checks the pages and files (inert SVG, numbers, text alternatives, light and dark pictures,
 the source line, the theorem, the backdrop, the figures page, the explorers' markup, the inline
 pictures' theme rules and files, the link modes, identical bytes, `--check-figures` on a damaged
-copy).
+copy), the figures' standing and page data from `site_figures%` (also for a figure whose theorem
+is not linked), the refusal of a caption naming an unlinked theorem, the pages' sentences against
+`docs/TRUST.md`, the pages' addresses, and the pages themselves: the theorem with its statement
+and axioms, the code, the files and verdicts, the commands, an illustration's words, no script.

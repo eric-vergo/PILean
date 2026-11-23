@@ -8,11 +8,13 @@ import VersoBlueprint
 import VersoBlueprint.Commands.Summary
 import PILeanVerso
 import ExampleBlueprint.Pictures
+import ExampleBlueprint.Diagrams
 
 /-!
 # The example Blueprint
 
-The document of the example: one chapter of pictures (`ExampleBlueprint.Pictures`) and the
+The document of the example: a chapter of pictures (`ExampleBlueprint.Pictures`), a chapter of
+diagrams (`ExampleBlueprint.Diagrams`) and the
 Blueprint's summary.
 -/
 
@@ -27,6 +29,8 @@ A small Blueprint whose pictures are drawn by PILean from Lean declarations, eac
 about what it shows.
 
 {include 0 ExampleBlueprint.Pictures}
+
+{include 0 ExampleBlueprint.Diagrams}
 
 {blueprint_summary}
 

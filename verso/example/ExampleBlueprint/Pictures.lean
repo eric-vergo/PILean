@@ -6,12 +6,12 @@ import Verso
 import VersoManual
 import VersoBlueprint
 import PILeanVerso
-import Example
+import PictureExample
 
 /-!
 # The chapter of pictures
 
-Four figures of `Example.Figures` in a Blueprint chapter, each linked to its declaration and to
+Four figures of `PictureExample.Figures` in a Blueprint chapter, each linked to its declaration and to
 the theorem about it.
 -/
 

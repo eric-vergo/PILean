@@ -3,7 +3,8 @@
 """Checks that the figures' markup in a built site has no script, no inline event handler and no
 script address: python3 -I markup_check.py SITE_DIR (the html-multi folder).
 
-The pages are parsed as HTML; inside each `figure.pilean-figure` and the figures page's list, an
+The pages are parsed as HTML; inside each `figure.pilean-figure`, the figures page's list and
+each figure's page (`div.pilean-figure-page`), an
 element named `script`, an attribute whose name starts with `on`, or an attribute value that
 starts with `javascript:` (ignoring case and white space) is reported. Text, such as a caption
 that spells out markup, is not markup and is not reported.
@@ -30,7 +31,7 @@ class Figures(html.parser.HTMLParser):
     def starts_part(tag, attrs):
         cls = (dict(attrs).get("class") or "").split()
         return (tag == "figure" and "pilean-figure" in cls) or \
-            (tag == "div" and "pilean-figure-list" in cls)
+            (tag == "div" and ("pilean-figure-list" in cls or "pilean-figure-page" in cls))
 
     def handle_starttag(self, tag, attrs):
         if not self.stack:

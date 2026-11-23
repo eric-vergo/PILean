@@ -30,7 +30,12 @@ import PILean.Trust.Attr
 def divisorGraph : PILean.Graph := Graph.ofRelation divisors24 covers toString
 
 theorem divisorGraph_spec : ... divisorGraph ... := ...
+
+figure_proves divisorGraph divisorGraph_spec
 ```
+
+`figure_proves` ties the theorem to the figure (PILean's `docs/TRUST.md`, "Standing"); a caption
+that names a theorem with `proves :=` needs that link, or the site's build fails.
 
 In a Blueprint chapter (after `import PILeanVerso` and `open PILeanVerso`):
 
@@ -47,10 +52,13 @@ wraps the one it has:
 
 ```lean
 def main (args : List String) : IO UInt32 :=
-  PILeanVerso.withFigures (%doc MyProject.Blueprint) site_figures% args fun args =>
-    Informal.PreviewManifest.blueprintMainWithPreviewData (%doc MyProject.Blueprint) args
+  PILeanVerso.withFigures (%doc MyProject.Blueprint) site_figures% args fun doc args =>
+    Informal.PreviewManifest.blueprintMainWithPreviewData doc args
       (extensionImpls := by exact extension_impls%)
 ```
+
+The generator is given the document with the figures' pages added (`doc`); it must render that
+document, not its own `%doc`.
 
 The directive's options: `label`, `alt` (the text alternative; the declaration's doc string by
 default), `title`, `format` (`svg` by default, or `png`, `apng`, `gif`), `width` (a CSS length),
@@ -129,8 +137,61 @@ A link is never put inside another.
   the file and line link to the repository at that commit. A viewer that sets `data-lean-links` on
   the page's root element (an editor showing the site next to the code) gets `lean:decl/<Name>`
   links instead of plain names, as Verso Blueprint's own Lean anchors.
-* The figures page: every figure with a small picture, its source, fingerprint, files and theorem,
-  and a link to the manifest.
+* The figures page: every figure with a small picture, its source, fingerprint, files, standing
+  and page, and a link to the manifest.
+* A page for every figure (see "Figure pages").
+
+## Figure pages
+
+Each figure the document uses has a page of its own below the figures page (a part the wrapper
+adds; a document without `{figure_list}` gets a "Figures" part at its end), at
+`Figures/<name>/`, where `<name>` is the declaration's name when it has only `[A-Za-z0-9._-]`, and
+otherwise the name with every other character replaced by `_`, cut to 100 characters and followed
+by `-` and the first 12 digits of the name's SHA-256. The source line under the figure ("Page")
+and its entry on the figures page link to it. From top to bottom:
+
+1. The picture at full size: the light and the dark files, following the page's theme; an
+   animation's still frame for readers who ask for reduced motion; an explorer embedded as it is
+   where it is used. Then every file of the figure, to download, with its size in bytes.
+2. Its number, its caption, and a link to every place the document shows it.
+3. **Standing**, as `site_figures%` derived it with PILean's `figureStanding`, which checks each
+   `figure_proves` link again by its rule in the generator's environment: "Tied to its object by
+   the theorem T", with each theorem's statement as Lean (from its source, highlighted; Lean's
+   printing of it when the source is not available), the axioms it rests on, and two sentences
+   of `docs/TRUST.md` on what such a theorem does and does not cover; or "Illustration: not tied
+   to a Lean object by a theorem", with whether the declaration marks it as one
+   (`@[figure illustration]`).
+4. **Code**: the figure's declaration in full; then the declarations of the project that its value
+   and its theorems' statements use, and those that these use, to depth 2, nearest first, at
+   most 16 in full (each at most 200 lines) and up to 200 more by name; a declaration is of the
+   project when its module's first component is the figure module's, a theorem is followed by
+   its statement and not its proof, and constructors, recursors and projections count as their
+   type. Declarations of other packages that the value or a statement names directly are listed
+   by name (at most 60; instances and Lean's `Init` left out), linked to the Lean and Mathlib
+   documentation for `Init`, `Std`, `Lean`, `Lake`, `Mathlib` and `Batteries`. Each declaration is
+   highlighted with the hovers of the genre's Lean code and linked to its source at the build's
+   commit (`--figure-repo`, `--figure-commit`, `--figure-source-prefix`), over its lines.
+5. **Provenance**: for each file its fingerprint, SHA-256, renderer and text engine, and what
+   `pilean-verify` says of it against the site's manifest, with the standing the file records;
+   the Lean version, PILean's version, the revisions of `pilean` and `leantex` in the
+   workspace's `lake-manifest.json`, the commit, and the continuous-integration run that built
+   the site (in GitHub Actions, from `GITHUB_SERVER_URL`, `GITHUB_REPOSITORY` and
+   `GITHUB_RUN_ID`, when all three are well formed, as Verso Blueprint's Comparator pages find
+   it).
+6. **How to reproduce**: the commands that build the site again from the commit, check the
+   figures folder against its manifest with `pilean-verify`, and check that it holds exactly what
+   the build draws now (`--check-figures`).
+
+The code is read from SubVerso's `highlighted` module facet: the wrapper runs one `lake build
++M:highlighted …` for the modules the pages show, with the `lake` in the variable `LAKE` (which
+`lake exe` sets), and reads `.lake/build/highlighted/<Module>.json` (a regular file of at most
+64 MiB, for module names whose components are plain). Without `LAKE`, with
+`--figure-code signatures`, or when that build fails, the pages show each declaration's signature
+as Lean prints it and say so, and the build prints a warning.
+
+Everything a page shows of the project (names, captions, code, paths) is text that the HTML
+writer escapes; the pictures are the site's inert files. A page adds no script: an explorer uses
+the script it uses where it is shown, and the code the hovers of the genre's Lean code.
 
 ## What the build checks
 
@@ -154,6 +215,13 @@ A link is never put inside another.
   (`<output>/html-multi/-verso-data/pilean-figures`) must hold exactly the files of this render: a
   missing or different file fails the build, a file left from an earlier build is reported
   (`--strict-figures` fails on it too).
+* When the site is generated: a caption that names a theorem (`proves :=`) the figure's standing
+  does not record fails the build, as does a table whose page data does not hold exactly the
+  standing's theorems. After the site is written, each figure must have its page, the page's
+  file must carry its standing, and what the page states (the standing, the files with their
+  sizes and SHA-256, every `pilean-verify` verdict `ok`) must agree with the fresh render, with
+  the written manifest and with `pilean-verify` run on the written folder; otherwise the build
+  fails.
 * `--check-figures DIR` renders the figures and compares them with a folder (a published copy, a
   committed one) without building the site, as `pilean-build --check` does.
 * `lake exe pilean-verify <output>/html-multi/-verso-data/pilean-figures` checks a folder against
@@ -176,8 +244,10 @@ commit, write the same bytes.
 
 ## The example
 
-`example/` is a small Blueprint with a function plot, a data plot, a graph of a relation and an
-animation, each with its theorem:
+`example/` is a small Blueprint with a function plot, a data plot, a graph of a relation, an
+animation, a Hasse diagram and a commutative square, each tied to its object by a theorem, and an
+illustration (the library `PictureExample`, the chapters `ExampleBlueprint.Pictures` and
+`ExampleBlueprint.Diagrams`):
 
 ```
 cd example
@@ -186,13 +256,19 @@ lake exe example-blueprint --output _out/site
 ```
 
 It also has explorers, inline pictures, a figure and an explorer inside a Blueprint entry, and
-captions, names and ids that a page must escape. `example/tests/` has the checks run on it:
+captions, names and ids that a page must escape (among them a figure whose declaration's name and
+caption hold markup). `example/tests/` has the checks run on it:
 
 * `check-site.sh SCRATCH`: the build, the folder check, the reproducibility of two builds,
   `--check-figures` on a damaged copy, `pilean-verify`, the figures' markup
   (`markup_check.py`), every inline picture against its file and the manifest
   (`inline_check.py`, also on a page whose picture was changed), the three link modes and their
-  warnings, `figure_explorer` on a plot. It leaves four sites in SCRATCH: `a` (the default
+  warnings, `figure_explorer` on a plot; every figure's page against the manifest
+  (`page_check.py`, also on pages whose standing, words or verdicts were changed), the page's
+  theorem statement, code, source links and commands, the escaped page of the markup name; and a
+  figure whose `figure_proves` line is taken out: with the caption still naming the theorem the
+  build fails, without it the page says it is an illustration; and a weakened theorem that no
+  longer names the figure, which `figure_proves` refuses. It leaves four sites in SCRATCH: `a` (the default
   links), `site`, `none` and `sbs` (side by side, links into the site).
 * `browser_check.py SCRATCH/a/html-multi [SHOTS] --site-links SCRATCH/site/html-multi --no-links
   SCRATCH/none/html-multi --side-by-side SCRATCH/sbs/html-multi`: the pages in a headless

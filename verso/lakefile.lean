@@ -26,7 +26,7 @@ require subverso from git "https://github.com/eric-vergo/subverso" @
 require verso from git "https://github.com/eric-vergo/verso" @
   "94cea086b880f61f5b3847d30151b8e5f80e1259"
 require VersoBlueprint from git "https://github.com/eric-vergo/verso-blueprint.git" @
-  "36f0881167fe5903edd7b0940b378c0233733f53"
+  "39675f22c94b397ca90f02131f8c39c5f11db543"
 require pilean from ".."
 require «pilean-verso-manual» from "manual"
 

@@ -28,5 +28,5 @@ def config : RenderConfig :=
 
 /-- Generates the example manual with its figures. -/
 def main (args : List String) : IO UInt32 :=
-  PILeanVerso.Manual.withFigures (%doc ManualExample) site_figures% args fun args =>
-    manualMain (%doc ManualExample) (options := args) (config := config)
+  PILeanVerso.Manual.withFigures (%doc ManualExample) site_figures% args fun doc args =>
+    manualMain doc (options := args) (config := config)

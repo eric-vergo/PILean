@@ -20,7 +20,8 @@ both themes as it is.
 
 * `Style.darkVariant?`: the dark counterpart of a style in the light colours
 * `SiteOutputs`: the files of a figure for a site, with instances for `Plot.Figure`,
-  `Plane.Figure`, `GraphFigure` and `Graph`, and a fallback through `ToOutputs`
+  `Plane.Figure`, `Diagram.Diagram`, `GraphFigure` and `Graph`, and a fallback through
+  `ToOutputs`
 -/
 
 namespace PILeanVerso
@@ -59,6 +60,15 @@ instance : SiteOutputs Plane.Figure where
     ToOutputs.outputs fig ++
       match Style.darkVariant? fig.style with
       | some d => darkOutputs (ToOutputs.outputs { fig with style := d })
+      | none => #[]
+
+/-- A diagram (a Hasse diagram, a commutative diagram, a Young diagram, …): its files, and the same
+in the dark style when it has the light colours. -/
+instance : SiteOutputs Diagram.Diagram where
+  siteOutputs d :=
+    ToOutputs.outputs d ++
+      match Style.darkVariant? d.style with
+      | some s => darkOutputs (ToOutputs.outputs { d with style := s })
       | none => #[]
 
 /-- A graph figure: its files, and the same in the dark style when it has the light colours. -/

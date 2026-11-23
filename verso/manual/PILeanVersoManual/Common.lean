@@ -26,7 +26,8 @@ add the numbering and the way a declaration's name is shown.
 * `DeclStyle`, `Links`: how a document shows declarations and where their links lead
 * `figureHtmlWith`, `figureListHtmlWith`, `figrefHtml`: the HTML of a figure, of the figures page
   and of a reference to a figure
-* `withFiguresFor`: the generator wrapper's work, given the figures a document uses
+* `pageSlug`, `traversePageWith`, `pageLink?`: the addresses of the figures' pages
+  (the pages themselves are `PILeanVersoManual.Page`, the wrapper `PILeanVersoManual.Wrapper`)
 -/
 
 namespace PILeanVerso
@@ -358,10 +359,22 @@ structure Placed where
   theoremHref : Option String := none
 deriving ToJson, FromJson, Inhabited, Repr
 
+/-- What the traversal records about one figure's page. -/
+structure PagePlaced where
+  /-- The figure's declaration. -/
+  decl : String
+  /-- The page block's internal id, as JSON text. -/
+  key : String
+  /-- The path of the page's file, as Verso's traversal gives it. -/
+  path : Array String
+deriving ToJson, FromJson, Inhabited, Repr
+
 /-- The figures placed so far and the counters, kept in the traversal state. -/
 structure Registry where
   /-- The placed figures, in document order. -/
   placed : Array Placed := #[]
+  /-- The figures' pages. -/
+  pages : Array PagePlaced := #[]
   /-- The last number given under each prefix. -/
   counters : Array (String × Nat) := #[]
 deriving ToJson, FromJson, Inhabited
@@ -441,6 +454,37 @@ def traverseFigureWith (prefix? : TraverseContext → FigureData → Option Stri
   let _ ← Verso.Genre.Manual.externalTag id ctxt.path (d.label.getD s!"figure-{d.decl}")
   if let some l := d.label then
     modify fun st => st.saveDomainObject figureDomain l id
+
+/-- The address of a figure's page in the site, from its declaration's name: the name with
+every character outside `[A-Za-z0-9._-]` replaced by `_` (and a leading `.` too), cut to 100
+characters, and, when that changed the name, `-` and the first 12 digits of the name's SHA-256
+after it, so that two names never share a page. -/
+def pageSlug (decl : String) : String :=
+  let clean := String.ofList (decl.toList.map fun c =>
+    if c.toNat < 128 && (c.isAlphanum || c == '.' || c == '_' || c == '-') then c else '_')
+  let cut := (clean.take 100).toString
+  let cut := if cut.startsWith "." then "_" ++ (cut.drop 1).toString else cut
+  if cut == decl then cut else s!"{cut}-{(Sha256.hex (Sha256.hash decl.toUTF8)).take 12}"
+
+/-- The traversal of a figure's page block: it gets its anchor (once) and is recorded with the
+path of its file. -/
+def traversePageWith (id : InternalId) (json : Lean.Json) :
+    ReaderT TraverseContext (StateT TraverseState (BuildLogT IO)) Unit := do
+  let .str decl := json | Verso.reportError "Malformed data of a figure's page"
+  let ctxt ← read
+  let key := (toJson id).compress
+  let reg := Registry.get (← get)
+  if !reg.pages.any (·.key == key) then
+    let reg := { reg with pages := reg.pages.push { decl, key, path := ctxt.path } }
+    modify fun st => st.set registryKey reg
+  let _ ← Verso.Genre.Manual.externalTag id ctxt.path s!"figure-page-{pageSlug decl}"
+
+/-- The link to the page of the figure `decl`, relative to the site's root, if it has one. -/
+def pageLink? (st : TraverseState) (decl : String) : Option String := do
+  let pp ← (Registry.get st).pages.find? (·.decl == decl)
+  let .ok (id : InternalId) := Lean.Json.parse pp.key >>= fromJson? | none
+  let link ← st.resolveId id
+  pure link.relativeLink
 
 /-! ### HTML -/
 
@@ -611,7 +655,7 @@ def declLinkHtml (s : DeclStyle) (l : Links) (n : String) (here : Option String 
 open Verso.Output.Html in
 /-- The source line under a figure's caption; the figure's own declaration gets no link to the
 figure itself (`here`). -/
-def sourceLineWith (s : DeclStyle) (l : Links) (p : Placed) (fp : String)
+def sourceLineWith (s : DeclStyle) (l : Links) (st : TraverseState) (p : Placed) (fp : String)
     (here : Option String := none) : IO Html := do
   let d := p.data
   let thm : Html ← match d.proves with
@@ -620,12 +664,17 @@ def sourceLineWith (s : DeclStyle) (l : Links) (p : Placed) (fp : String)
         {s.place t p.theoremHref}</span>}
     | none => pure .empty
   let src : DeclRef := { name := d.decl, module := d.module, file := d.file, line := d.line }
+  let pageItem : Html := match pageLink? st d.decl with
+    | some h => html%{<span class="pilean-source-item"><span class="pilean-source-key">{"Page"}</span>
+        <a class="pilean-page-link" href={h}>{"code, standing and provenance"}</a></span>}
+    | none => .empty
   pure html%{<span class="pilean-figure-source">
       <span class="pilean-source-item"><span class="pilean-source-key">{"Source"}</span>
         {← declLinkHtml s l d.decl here}{s.place src p.sourceHref}</span>
       <span class="pilean-source-item"><span class="pilean-source-key">{"Fingerprint"}</span>
         {fingerprintHtml fp}</span>
       {thm}
+      {pageItem}
     </span>}
 
 open Verso.Genre.Manual in
@@ -710,7 +759,7 @@ def figureHtmlWith (s : DeclStyle) (st : TraverseState) (p : Placed)
   let capId := s!"{figureDomId p idAttr}-caption"
   let cls := if d.explorer then cls ++ " pilean-figure-explorer" else cls
   let role := if d.explorer then #[("role", "group"), ("aria-labelledby", capId)] else #[]
-  let source ← sourceLineWith s l p (shownFingerprint p) (here := placedLink? st p)
+  let source ← sourceLineWith s l st p (shownFingerprint p) (here := placedLink? st p)
   pure <| .element "figure" (idAttr ++ #[("class", cls), ("data-lean-decl", d.decl)] ++ role)
     (.seq #[
       html%{<div class="pilean-figure-frame">{picture}</div>},
@@ -719,6 +768,33 @@ def figureHtmlWith (s : DeclStyle) (st : TraverseState) (p : Placed)
         captionBody, source])])
 
 /-! ### The figures page and references -/
+
+/-- The words of a figure's standing, as its page and the figures page say them first. -/
+def standingWords (s : Standing) : String :=
+  match s with
+  | .proved #[_] => "Tied to its object by the theorem"
+  | .proved _ => "Tied to its object by the theorems"
+  | .illustration _ => "Illustration: not tied to a Lean object by a theorem"
+
+open Verso.Output.Html in
+/-- The standing of the figure `decl` in the figures page's list: the words of `standingWords`
+and, for a proved figure, each theorem with its link and place. -/
+def standingSummaryHtml (s : DeclStyle) (l : Links) (site : Option SiteRender) (decl : String) :
+    IO Html := do
+  let some fig := site.bind (·.figures[decl]?)
+    | return html%{<dt>{"Standing"}</dt><dd>{"not rendered"}</dd>}
+  let page := site.bind (·.pages[decl]?)
+  let thms ← fig.standing.theorems.mapM fun t => do
+    let place : Html := match page.bind (·.theorems.find? (·.decl.name == t)) with
+      | some ti =>
+        let r : DeclRef := { name := t, module := ti.decl.module, file := ti.decl.file,
+                             line := ti.decl.line }
+        s.place r (site.bind fun x => repoHref x.options r.file r.line)
+      | none => .empty
+    pure html%{<span class="pilean-standing-theorem">{← declLinkHtml s l t}{place}</span>}
+  let cls := s!"pilean-standing pilean-standing-{fig.standing.word}"
+  pure html%{<dt>{"Standing"}</dt><dd class={cls}>{.text (standingWords fig.standing)}
+    {if thms.isEmpty then Html.empty else .seq (#[Html.text " "] ++ thms)}</dd>}
 
 /-- The label of a file in the list of files: its format and theme. -/
 def fileLabel (f : FileInfo) : String :=
@@ -737,7 +813,7 @@ def fileLabel (f : FileInfo) : String :=
 open Verso.Output.Html in
 /-- One entry of the figures page; `math` is the class of a run of TeX in the caption. -/
 def indexEntryWith (s : DeclStyle) (l : Links) (math : String) (st : TraverseState)
-    (p : Placed) : IO Html := do
+    (site : Option SiteRender) (p : Placed) : IO Html := do
   let d := p.data
   let href := (placedLink? st p).getD "#"
   let thumb := match pick? p.files "svg" "" <|> pick? p.files "png" "" with
@@ -754,10 +830,11 @@ def indexEntryWith (s : DeclStyle) (l : Links) (math : String) (st : TraverseSta
   let files := p.files.map fun f =>
     html%{<a href={fileUrl f.path} title={s!"{f.bytes} bytes, SHA-256 {f.sha256}"}>
       {.text (fileLabel f)}</a>}
-  let thm : Html ← match d.proves with
-    | some t =>
-      pure html%{<dt>{"Theorem"}</dt><dd>{← declLinkHtml s l t.name}{s.place t p.theoremHref}</dd>}
-    | none => pure html%{<dt>{"Theorem"}</dt><dd>{"none named"}</dd>}
+  let standing ← standingSummaryHtml s l site d.decl
+  let page : Html := match pageLink? st d.decl with
+    | some h => html%{<dt>{"Page"}</dt><dd><a class="pilean-page-link" href={h}>
+        {"code, standing and provenance"}</a></dd>}
+    | none => .empty
   let caption : Html := .seq <| d.caption.map fun (m, t) =>
     if m then html%{<code class={math}>{.text t}</code>} else .text t
   let src : DeclRef := { name := d.decl, module := d.module, file := d.file, line := d.line }
@@ -770,7 +847,8 @@ def indexEntryWith (s : DeclStyle) (l : Links) (math : String) (st : TraverseSta
           <dt>{"Source"}</dt><dd>{← declLinkHtml s l d.decl}{s.place src p.sourceHref}</dd>
           <dt>{"Fingerprint"}</dt><dd>{fingerprintHtml (shownFingerprint p)}</dd>
           <dt>{"Files"}</dt><dd class="pilean-index-files">{files}</dd>
-          {thm}
+          {standing}
+          {page}
         </dl>
       </div>
     </li>}
@@ -791,7 +869,7 @@ def figureListHtmlWith (s : DeclStyle) (math : String) (st : TraverseState)
   if placed.isEmpty then
     return html%{<div class="pilean-figure-list">{intro}
       <p>{"This document has no figures."}</p></div>}
-  let entries ← placed.mapM (indexEntryWith s l math st)
+  let entries ← placed.mapM (indexEntryWith s l math st site)
   return html%{<div class="pilean-figure-list">{intro}
     <ol class="pilean-figure-index">{entries}</ol></div>}
 
@@ -807,142 +885,5 @@ def figrefHtml (st : TraverseState) (label : String) (contents : Array Html) :
   match st.resolveDomainObject figureDomain label with
   | .ok link => pure html%{<a class="pilean-figref" href={link.link}>{text}</a>}
   | .error e => throw e
-
-/-! ### The generator wrapper -/
-
-open Verso.Genre (Manual) in
-/-- The figures the blocks of `b` use, appended to `acc`: the blocks whose name is in `names` and
-whose data is a `FigureData`. -/
-partial def blockFigures (names : Array Name) (acc : Array FigureUse) (b : Doc.Block Manual) :
-    Array FigureUse :=
-  match b with
-  | .other container contents =>
-    let acc := if names.contains container.name then
-        match (fromJson? container.data : Except String FigureData) with
-        | .ok d => acc.push { decl := d.decl, inline := d.inline, explorer := d.explorer }
-        | .error _ => acc
-      else acc
-    contents.foldl (blockFigures names) acc
-  | .ul items | .ol _ items =>
-    items.foldl (fun a i => i.contents.foldl (blockFigures names) a) acc
-  | .dl items => items.foldl (fun a i => i.desc.foldl (blockFigures names) a) acc
-  | .blockquote bs | .concat bs => bs.foldl (blockFigures names) acc
-  | .para _ | .code _ => acc
-
-open Verso.Genre (Manual) in
-/-- The figures the blocks named `names` of a document use, in document order (repeated as often
-as used). -/
-partial def partFigures (names : Array Name) (p : Part Manual) : Array FigureUse :=
-  p.subParts.foldl (fun acc s => acc ++ partFigures names s)
-    (p.content.foldl (blockFigures names) #[])
-
-/-- What a generator wrapper takes from the command line. -/
-structure WrapperArgs where
-  /-- The options of the site's figures. -/
-  options : SiteOptions
-  /-- `--check-figures DIR`. -/
-  checkDir : Option System.FilePath := none
-  /-- `--strict-figures`. -/
-  strict : Bool := false
-  /-- The arguments left for the generator. -/
-  rest : List String := []
-
-/-- Takes the wrapper's own options out of `args`, over the defaults `opts`. -/
-def parseWrapperArgs (opts : SiteOptions) (args : List String) : Except String WrapperArgs := do
-  let mut w : WrapperArgs := { options := opts }
-  let mut rest := args
-  let mut kept : Array String := #[]
-  for _ in [0:args.length + 1] do
-    match rest with
-    | [] => break
-    | "--figure-repo" :: u :: r => w := { w with options.repo := some u }; rest := r
-    | "--figure-commit" :: c :: r => w := { w with options.commit := some c }; rest := r
-    | "--figure-source-prefix" :: p :: r =>
-      w := { w with options.sourcePrefix := p }; rest := r
-    | "--check-figures" :: d :: r => w := { w with checkDir := some d }; rest := r
-    | "--strict-figures" :: r => w := { w with strict := true }; rest := r
-    | "--figure-inline-limit" :: n :: r =>
-      match n.toNat? with
-      | some k => w := { w with options.inlineLimit := k }; rest := r
-      | none => throw s!"--figure-inline-limit {n}: expected a number of bytes"
-    | "--figure-lean-links" :: m :: r =>
-      match LeanLinks.ofString? m with
-      | some k => w := { w with options.leanLinks := k }; rest := r
-      | none => throw s!"--figure-lean-links {m}: expected ideil, site or none"
-    | a@"--figure-repo" :: [] | a@"--figure-commit" :: [] | a@"--figure-source-prefix" :: []
-    | a@"--check-figures" :: [] | a@"--figure-inline-limit" :: []
-    | a@"--figure-lean-links" :: [] => throw s!"{a} needs a value"
-    | a :: r => kept := kept.push a; rest := r
-  return { w with rest := kept.toList }
-
-/-- The folder the generator writes with `args` (`--output DIR`, the last one; `_out` without). -/
-def outputDir (args : List String) : System.FilePath := Id.run do
-  let mut out : System.FilePath := "_out"
-  let mut rest := args
-  for _ in [0:args.length + 1] do
-    match rest with
-    | "--output" :: d :: r => out := d; rest := r
-    | _ :: r => rest := r
-    | [] => break
-  return out
-
-/-- The commit of the working directory's Git checkout, if it has one. -/
-def headCommit? : IO (Option String) := do
-  try
-    let out ← IO.Process.output { cmd := "git", args := #["rev-parse", "HEAD"] }
-    let c := out.stdout.trimAscii.toString
-    return if out.exitCode == 0 && isCommit c then some c else none
-  catch _ => return none
-
-/-- Renders the figures `used` from the table `figures`, runs the generator `generate` on the
-remaining arguments, and checks the figures folders it wrote: a file that differs from a fresh
-render or is missing fails, a file left from an earlier build is reported (and fails with
-`--strict-figures`). `options` are the defaults of the command-line options. With the link mode
-`site`, a declaration the pages name and the site has no place for is reported as a warning. -/
-def withFiguresFor (used : Array FigureUse) (figures : Array FigureEntry) (args : List String)
-    (generate : List String → IO UInt32) (options : SiteOptions := {}) : IO UInt32 := do
-  let w ← match parseWrapperArgs options args with
-    | .ok w => pure w
-    | .error e => IO.eprintln s!"figures: {escapeControl e}"; return 2
-  let opts ← if w.options.repo.isSome && w.options.commit.isNone then
-      pure { w.options with commit := ← headCommit? }
-    else pure w.options
-  let site ← match renderSite figures used opts with
-    | .ok s => pure s
-    | .error e =>
-      for l in e.splitOn "\n" do IO.eprintln s!"figures: {escapeControl l}"
-      return 1
-  for l in site.warnings do IO.eprintln s!"figures: warning: {escapeControl l}"
-  if let some dir := w.checkDir then
-    let lines ← site.checkFolder dir
-    for l in lines do IO.println (escapeControl l)
-    if lines.isEmpty then IO.println s!"ok: {site.files.size} figure files match"
-    return if lines.isEmpty then 0 else 1
-  siteRef.set (some site)
-  unlinkedRef.set {}
-  let code ← generate w.rest
-  siteRef.set none
-  let unlinked := (← unlinkedRef.get).toArray.qsort (· < ·)
-  unlinkedRef.set {}
-  for n in unlinked do
-    IO.eprintln s!"figures: warning: {escapeControl n} has no place in the site to link to; \
-      it is shown without a link (--figure-lean-links site)"
-  if code != 0 || site.files.isEmpty then return code
-  let out := outputDir w.rest
-  let mut failed := false
-  let mut seen := false
-  for flavour in ["html-multi", "html-single"] do
-    let dir := out / flavour / "-verso-data" / figureFolder
-    unless ← dir.pathExists do continue
-    seen := true
-    for l in ← site.checkFolder dir do
-      let extra := l.startsWith "extra: "
-      IO.eprintln s!"figures: {flavour}: {escapeControl l}{if extra then
-        " (not made by this build; remove the folder and build again)" else ""}"
-      if !extra || w.strict then failed := true
-  if !seen then
-    IO.eprintln s!"figures: no figures folder was written below {out}"
-    failed := true
-  return if failed then 1 else code
 
 end PILeanVerso

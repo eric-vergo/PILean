@@ -174,4 +174,56 @@ html[data-lean-links] .pilean-lean-text { display: none; }
 }
 "##
 
+/-- The stylesheet of a figure's page (`PILeanVersoManual.Page`). -/
+def pageCss : String := r##"
+.pilean-figure-page { max-width: 100%; overflow-wrap: anywhere; }
+.pilean-figure-page li, .pilean-figure-page summary {
+  font-family: var(--verso-text-font-family, inherit); line-height: 1.45;
+}
+.pilean-page-picture { margin: 1rem 0 0.5rem; }
+.pilean-page-picture .pilean-figure-img { max-width: 100%; height: auto; }
+.pilean-page-h { font-size: 1.15em; margin: 1.6rem 0 0.5rem; }
+.pilean-page-files, .pilean-page-uses, .pilean-page-more-list, .pilean-page-external-list,
+.pilean-page-prov-files {
+  margin: 0.3rem 0; padding-left: 1.2rem;
+}
+.pilean-page-files li, .pilean-page-uses li { margin: 0.15rem 0; }
+.pilean-page-download, .pilean-page-use { display: inline-block; min-height: 24px; }
+.pilean-page-number { font-weight: 600; margin: 1rem 0 0.2rem; }
+.pilean-page-caption-text { margin: 0 0 0.6rem; max-width: 44rem; }
+.pilean-page-standing { border-left: 3px solid var(--pilean-rule); padding-left: 0.9rem; }
+.pilean-standing-words { font-weight: 600; }
+.pilean-standing-scope, .pilean-page-note, .pilean-page-via, .pilean-page-axioms,
+.pilean-page-cut { color: var(--pilean-muted); font-size: 0.92em; max-width: 44rem; }
+.pilean-page-decl { margin: 0.9rem 0 1.2rem; min-width: 0; }
+.pilean-page-decl-title { font-size: 1em; margin: 0 0 0.35rem; font-weight: 600; }
+.pilean-page-decl-title .pilean-repo-link, .pilean-page-decl-title .pilean-place {
+  font-weight: normal; font-size: 0.88em; color: var(--pilean-muted);
+}
+.pilean-page-kind {
+  font-size: 0.78em; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--pilean-faint); font-weight: normal;
+}
+.pilean-page-code, .pilean-page-plain {
+  max-width: 100%; overflow-x: auto; border: 1px solid var(--pilean-rule);
+  border-radius: 6px; background: var(--pilean-surface); padding: 0.6rem 0.8rem; margin: 0;
+}
+.pilean-page-code pre, .pilean-page-code .hl.lean.block { margin: 0; white-space: pre; }
+.pilean-page-plain code { white-space: pre; }
+.pilean-page-module { color: var(--pilean-faint); font-size: 0.88em; }
+.pilean-page-more summary { cursor: pointer; min-height: 24px; }
+.pilean-page-facts {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.2rem 0.9rem;
+  margin: 0.4rem 0; font-size: 0.9em;
+}
+.pilean-page-facts dt { color: var(--pilean-faint); }
+.pilean-page-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.pilean-page-facts code { overflow-wrap: anywhere; word-break: break-all; }
+.pilean-page-prov-file { margin: 0.6rem 0; }
+@media (max-width: 600px) {
+  .pilean-page-facts { grid-template-columns: minmax(0, 1fr); }
+  .pilean-page-facts dd { margin-bottom: 0.3rem; }
+}
+"##
+
 end PILeanVerso

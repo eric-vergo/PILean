@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanVersoManual.Block
+import PILeanVersoManual.Page
 
 /-!
 # The figures page and references to figures, in the Manual genre
@@ -11,6 +12,9 @@ import PILeanVersoManual.Block
 picture, its number and caption, the declaration that made it with its file and line, the
 fingerprint, the files with their formats, the theorem when there is one, and a link to the
 manifest.
+
+Below it, each figure has a page of its own (`Block.figurePage`, `PILeanVersoManual.Page`): the
+picture, its files, its standing, its code and its provenance.
 
 `{figref "label"}[]` refers to the figure with that label: "Figure 2", linked to it; text in the
 brackets replaces the default.
@@ -36,6 +40,24 @@ block_extension Block.figureList where
     (figureListHtmlWith style "pilean-math" (← HtmlT.state) site : IO Html)
   toTeX := some fun _ _ _ _ _ => pure (.text "The list of figures is in the HTML version.")
   extraCss := [figureCss]
+
+-- The block of a figure's page; its data is the figure's declaration.
+block_extension Block.figurePage (decl : String) via withHighlighting where
+  data := .str decl
+  traverse id json _ := do
+    traversePageWith id json
+    pure none
+  toHtml := some fun _goI _goB _id json _contents => do
+    let .str decl := json
+      | Verso.reportError "Malformed data of a figure's page"; pure .empty
+    let some site ← (siteRef.get : IO _)
+      | Verso.reportError s!"The page of {decl} has no rendered site: the generator must run \
+          the document through PILeanVerso.Manual.withFigures"; pure .empty
+    let style ← (declStyleRef.get : IO DeclStyle)
+    figurePageHtmlWith style "pilean-math" (← HtmlT.state) site decl
+  toTeX := some fun _ _ _ _ _ => pure (.text "The figure's page is in the HTML version.")
+  extraCss := [figureCss, explorerCss, pageCss]
+  extraJsFiles := {explorerJsFile}
 
 open Verso Doc Elab Syntax in
 /-- The part `{figure_list}` adds: an unnumbered page "Figures". -/

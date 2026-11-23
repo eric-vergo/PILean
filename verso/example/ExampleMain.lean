@@ -17,6 +17,6 @@ open Verso.Genre Manual
 
 /-- Builds the site. -/
 def main (args : List String) : IO UInt32 :=
-  PILeanVerso.withFigures (%doc ExampleBlueprint) site_figures% args fun args =>
-    Informal.PreviewManifest.blueprintMainWithPreviewData (%doc ExampleBlueprint) args
+  PILeanVerso.withFigures (%doc ExampleBlueprint) site_figures% args fun doc args =>
+    Informal.PreviewManifest.blueprintMainWithPreviewData doc args
       (extensionImpls := by exact extension_impls%)

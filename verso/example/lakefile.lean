@@ -9,7 +9,7 @@ import Lake
 
 A small Blueprint project whose chapter shows four figures made by PILean, each the value of a
 Lean declaration with a theorem about it: a function plot, a data plot, a graph of a relation and
-an animation. `Example` holds the figures and theorems, `ExampleBlueprint` the document,
+an animation. `PictureExample` holds the figures and theorems, `ExampleBlueprint` the document,
 `example-blueprint` the site's generator.
 -/
 
@@ -22,7 +22,7 @@ package «pilean-verso-example» where
 
 /-- The figures and the theorems about them. -/
 @[default_target]
-lean_lib Example
+lean_lib PictureExample
 
 /-- The Blueprint document. -/
 lean_lib ExampleBlueprint where

@@ -52,8 +52,31 @@ def exampleConfig : RenderConfig :=
 
 /-- Generates the example manual with `args`. -/
 def generate (args : List String) : IO UInt32 :=
-  PILeanVerso.Manual.withFigures (%doc ManualExample) site_figures% args fun args =>
-    manualMain (%doc ManualExample) (options := args) (config := exampleConfig)
+  PILeanVerso.Manual.withFigures (%doc ManualExample) site_figures% args fun doc args =>
+    manualMain doc (options := args) (config := exampleConfig)
+
+/-- A figure whose theorem names it but is not linked to it by `figure_proves`. -/
+@[figure]
+def unlinked : Plot.Figure := ManualExample.trianglePlot
+
+/-- A statement that names `unlinked`; no `figure_proves` links the two. -/
+theorem unlinked_self : unlinked = ManualExample.trianglePlot := rfl
+
+-- `figure_proves` refuses a theorem whose statement does not name the figure, so a figure whose
+-- theorem was weakened that way stops building rather than keeps its standing.
+#guard_msgs in
+run_meta do
+  let some _ ← PILean.Trust.figureTheoremProblem? `unlinked ``ManualExample.two_mul_triangle
+    | throwError "a statement that does not name the figure was accepted"
+
+/-- The table of figures of this module's environment, with the page data. -/
+def table : SiteFigures := site_figures%
+
+/-- Whether `s`, its white space collapsed, contains `t` with its white space collapsed. -/
+def hasWords (s t : String) : Bool :=
+  let words := fun (x : String) => " ".intercalate ((x.split Char.isWhitespace).toList.map
+    (·.toString) |>.filter (!·.isEmpty))
+  ((words s).splitOn (words t)).length > 1
 
 /-- The files below `dir`, relative to it, sorted. -/
 partial def filesBelow (dir : System.FilePath) (rel : String := "") : IO (Array String) := do
@@ -65,6 +88,11 @@ partial def filesBelow (dir : System.FilePath) (rel : String := "") : IO (Array 
 
 /-- Whether `s` contains `t`. -/
 def has (s t : String) : Bool := (s.splitOn t).length > 1
+
+/-- Whether `t` has an attribute that looks like an inline event handler (` on…=`). -/
+def hasHandler (t : String) : Bool := ((t.splitOn " on").drop 1).any fun rest =>
+  let name := (rest.takeWhile Char.isAlpha).toString
+  !name.isEmpty && (rest.drop name.length).startsWith "="
 
 /-- Runs the checks; exit status 0 when every one holds. -/
 def main : IO UInt32 := do
@@ -95,6 +123,48 @@ def main : IO UInt32 := do
         !es.isEmpty && es.all (has · "is not inert") && !es.any (has · "not an explorer") &&
           !es.any (has · "no inline picture"))
       "a refused SVG is the only error of its figure, shown as an explorer or inline"
+    -- standing and page data
+    let standingOf := fun (n : String) => (table.entries.find? (·.decl == n)).map (·.standing)
+    check (standingOf "ManualExample.trianglePlot" ==
+        some (.proved #["ManualExample.trianglePoints_spec"]))
+      "a figure linked by figure_proves is proved by its theorem"
+    check (standingOf "unlinked" == some (.illustration false))
+      "a figure whose theorem is not linked is an unmarked illustration"
+    let pages := table.pages.toOption.getD {}
+    check ((pages["ManualExample.trianglePlot"]?.map (·.theorems.map (·.decl.name))) ==
+        some #["ManualExample.trianglePoints_spec"])
+      "the page data holds the theorem of the standing"
+    check ((pages["ManualExample.trianglePlot"]?.map (·.related.map (·.name))) ==
+        some #["ManualExample.trianglePoints", "ManualExample.triangle"])
+      "the page data holds the project's declarations the figure uses, nearest first"
+    check ((pages["ManualExample.trianglePlot"]?.bind (·.theorems[0]?)).map (·.axioms) ==
+        some #["Classical.choice", "Quot.sound", "propext"]) "the theorem's axioms are recorded"
+    let unlinkedEntry := table.entries.filter (·.decl == "unlinked")
+    let claim := renderSite unlinkedEntry #[{ decl := "unlinked", proves := some "unlinked_self" }] {}
+    check (match claim with
+        | .error e => has e "not linked to it" && has e "figure_proves unlinked unlinked_self"
+        | .ok _ => false)
+      "a caption naming a theorem the standing does not record fails the build"
+    check (!(standingWords (.illustration false)).startsWith "Tied" &&
+        (standingWords (.proved #["T"])).startsWith "Tied to its object by the theorem")
+      "only a proved standing is worded as tied to its object"
+    let trust ← IO.FS.readFile ("../../docs/TRUST.md" : System.FilePath)
+    check (hasWords trust theoremScopeText && hasWords trust theoremLinkText)
+      "the pages' sentences on what a theorem covers are those of docs/TRUST.md"
+    check (pageSlug "ManualExample.trianglePlot" == "ManualExample.trianglePlot" &&
+        pageSlug "a «b»" != pageSlug "a_b_" && (pageSlug "x/../<y>").all
+          (fun c => c.isAlphanum || c == '.' || c == '_' || c == '-') &&
+        !(pageSlug "..").startsWith ".")
+      "a page's address keeps a plain name and confines any other to safe characters"
+    check (ciRunHrefOf (some "https://github.com") (some "o/r") (some "42") ==
+        some "https://github.com/o/r/actions/runs/42" &&
+        ciRunHrefOf (some "https://github.com") (some "o/r") none == none &&
+        ciRunHrefOf (some "javascript:x") (some "o/r") (some "1") == none &&
+        ciRunHrefOf (some "https://h/x") (some "o/r") (some "1") == none &&
+        ciRunHrefOf (some "https://github.com") (some "o/../r") (some "1") == none &&
+        ciRunHrefOf (some "https://github.com") (some "o/r\"><b>") (some "1") == none &&
+        ciRunHrefOf (some "https://github.com") (some "o/r") (some "1;2") == none)
+      "the run's link is made only from well-formed GitHub Actions values"
     let tmp := System.FilePath.mk ".lake" / s!"pilean-verso-manual-test-{← IO.monoNanosNow}"
     let out1 := tmp / "a"
     let out2 := tmp / "b"
@@ -141,6 +211,42 @@ def main : IO UInt32 := do
     check (has list "pilean-figure-index" && has list "Figure 3") "the figures page lists them"
     check (has list "ManualExample.radiusSlider" && has list "ManualExample.wordSteps")
       "the figures page lists the explorers"
+    check ((list.splitOn "pilean-standing pilean-standing-proved").length - 1 == 2 &&
+        (list.splitOn "pilean-standing pilean-standing-illustration").length - 1 == 4)
+      "the figures page shows each figure's standing"
+    check ((list.splitOn "class=\"pilean-page-link\"").length - 1 == 6 &&
+        has numbers "class=\"pilean-page-link\"")
+      "the figures page and the source line link each figure's page"
+    -- the figures' pages
+    let pageOf := fun (d : String) => IO.FS.readFile (out1 / "html-multi" / "Figures" / d /
+      "index.html")
+    let tri ← pageOf "ManualExample.trianglePlot"
+    check (has tri "data-pilean-standing=\"proved\"" &&
+        has tri "Tied to its object by the theorem" &&
+        has tri "data-lean-decl=\"ManualExample.trianglePoints_spec\"" &&
+        has tri "Axioms: Classical.choice, Quot.sound, propext.")
+      "a proved figure's page names its theorem with its axioms"
+    check (has tri ">trianglePoints_spec</" && has tri "panels" && !has tri "two_mul_triangle n")
+      "the theorem's statement is shown, not its proof"
+    check (hasWords tri theoremScopeText && hasWords tri theoremLinkText)
+      "the page says what the theorem covers"
+    check (has tri "data-lean-decl=\"ManualExample.trianglePoints\"" &&
+        has tri "data-lean-decl=\"ManualExample.triangle\"" && has tri "hl lean")
+      "the page shows the declarations the figure is built from, highlighted"
+    check (has tri "ok [recorded: proved by ManualExample.trianglePoints_spec]" &&
+        has tri "pilean-figure-light" && has tri "pilean-figure-dark" &&
+        has tri " download " && has tri " bytes")
+      "the page has both pictures, its files to download and pilean-verify's verdicts"
+    check (has tri "lake exe pilean-verify _out/html-multi/-verso-data/pilean-figures")
+      "the page says how to reproduce"
+    let slider ← pageOf "ManualExample.radiusSlider"
+    check (has slider "data-pilean-standing=\"illustration\"" &&
+        has slider "Illustration: not tied to a Lean object by a theorem" &&
+        !has slider "Tied to its object" && has slider "pilean-explorer-frame")
+      "an illustration's page says so, and an explorer is embedded"
+    let triPage := (((tri.splitOn "class=\"pilean-figure-page").getD 1 "").splitOn "</main>").headD ""
+    check (!triPage.isEmpty && !has triPage "<script" && !hasHandler triPage)
+      "a figure's page adds no script and no event handler"
     -- explorers and inline pictures
     let ex ← IO.FS.readFile (out1 / "html-multi" / "Explorers" / "index.html")
     let frames := (ex.splitOn "<li class=\"pilean-explorer-frame").length - 1
@@ -179,7 +285,7 @@ def main : IO UInt32 := do
       "by default this genre's figures link no declaration"
     let exFigures := (ex.splitOn "<figure").drop 1 |>.map fun p => (p.splitOn "</figure>").headD ""
     let handler := fun (t : String) => ((t.splitOn " on").drop 1).any fun rest =>
-      let name := rest.takeWhile Char.isAlpha
+      let name := (rest.takeWhile Char.isAlpha).toString
       !name.isEmpty && (rest.drop name.length).startsWith "="
     check (exFigures.length == 3 && exFigures.all (!has · "<script") &&
       exFigures.all (!handler ·)) "the explorers' markup has no script and no event handler"

@@ -71,6 +71,8 @@ theorem cubicPlot_spec :
     Series.ofExact_size .., Series.ofExact_size ..,
     fun _ hp => (Exact.mem_samples ..).1 hp, fun _ hp => (Exact.mem_samples ..).1 hp⟩
 
+figure_proves cubicPlot cubicPlot_spec
+
 /-- The hypotheses are met: the grid's step is `1/8`. -/
 example : Exact.gridStep lo hi steps = 1 / 8 := by decide +kernel
 
@@ -111,6 +113,8 @@ theorem collatzPlot_spec :
   ⟨by simp [collatzPlot], Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
     Series.ofIntPairs_recover _⟩
 
+figure_proves collatzPlot collatzPlot_spec
+
 /-- The data are what they should be: 27 takes 111 steps, and 1, 2, 3 take 0, 1 and 7. -/
 example : collatzSteps 500 27 = 111 ∧ collatzData.take 3 = [(1, 0), (2, 1), (3, 7)] := by
   decide +kernel
@@ -146,6 +150,8 @@ theorem divisorGraph_spec (o : Graph.LayeredOptions) (st : Style) :
     exact Graph.ofRelation_node_labels divisors24 covers toString true
   · unfold divisorGraph
     exact Graph.ofRelation_layout_edges divisors24 covers toString true o st
+
+figure_proves divisorGraph divisorGraph_spec
 
 /-- The relation is not empty: 4 covers 2 (positions 1 and 3), and there are 10 covering pairs. -/
 example : (1, 3) ∈ Graph.relationPairs divisors24 covers ∧
@@ -185,6 +191,8 @@ theorem circleAnimation_spec (i : Nat) :
         ⟨255, 255, 255, 255⟩) :=
   ⟨Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
     fun h => Animation.frameSeq_getElem _ i h⟩
+
+figure_proves circleAnimation circleAnimation_spec
 
 /-- The hypotheses are met: frame 5 is at a third of a second. -/
 example : circleAnimation.exactTime 5 = 1 / 3 := by decide +kernel

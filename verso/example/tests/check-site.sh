@@ -13,6 +13,8 @@ set -euo pipefail
 here=$(cd "$(dirname "$0")/.." && pwd)
 cd "$here"
 lake=${LAKE:-lake}
+# the generator builds the highlighted source of the figures' pages with this lake
+export LAKE="$lake"
 scratch=${1:-$(mktemp -d)}
 mkdir -p "$scratch"
 repo=https://github.com/eric-vergo/PILean
@@ -43,18 +45,66 @@ check diff -r -q "$scratch/a" "$scratch/b"
 page="$scratch/a/html-multi/Pictures-with-proofs/A-function/index.html"
 desc="the page has the figure with its number"; check grep -q 'Figure 1.1.1' "$page"
 desc="the page links the source at the commit"
-check grep -q "$repo/blob/$commit/verso/example/Example/Figures.lean#L" "$page"
+check grep -q "$repo/blob/$commit/verso/example/PictureExample/Figures.lean#L" "$page"
 desc="the page has the lean: link of the declaration"; check grep -q 'href="lean:decl/Example.cubicPlot"' "$page"
 desc="the page names the theorem"; check grep -q 'lean:decl/Example.cubicPlot_spec' "$page"
 desc="the page has a dark picture"; check grep -q 'Example.cubicPlot-dark.svg' "$page"
 desc="the animation has its still frame for reduced motion"
 check grep -q 'prefers-reduced-motion: reduce' "$scratch/a/html-multi/Pictures-with-proofs/Motion/index.html"
-desc="the figures page lists ten figures"
-check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 10
+desc="the figures page lists fourteen figures"
+check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 14
 desc="no inline event handler and no script in the figures' markup"
 check python3 -I tests/markup_check.py "$scratch/a/html-multi"
 desc="every inline picture is the body of a file the manifest lists"
 check python3 -I tests/inline_check.py "$scratch/a/html-multi"
+
+# The figures' pages.
+pages="$scratch/a/html-multi/Figures"
+desc="every figure has a page"
+check test "$(grep -l 'data-pilean-page=' "$pages"/*/index.html | wc -l | tr -d ' ')" = 14
+desc="every figure's page agrees with the manifest (page_check.py)"
+check python3 -I tests/page_check.py "$scratch/a/html-multi"
+cubic="$pages/Example.cubicPlot/index.html"
+desc="a figure's source line links its page"
+check grep -q 'class="pilean-page-link" href="Figures/Example.cubicPlot/' "$page"
+desc="the figures page links each figure's page"
+check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 14
+desc="a proved figure's page shows its theorem's statement as highlighted Lean"
+check bash -c "grep -q 'class=\"pilean-page-decl pilean-page-theorem\" data-lean-decl=\"Example.cubicPlot_spec\"' '$cubic' && grep -q 'class=\"hl lean' '$cubic'"
+desc="the page shows the definitions the figure is built from"
+check bash -c "grep -q 'data-lean-decl=\"Example.cubicSeries\"' '$cubic' && grep -q 'data-lean-decl=\"Example.cubic\"' '$cubic'"
+desc="the page links each declaration's source at the commit, over its lines"
+check grep -q "$repo/blob/$commit/verso/example/PictureExample/Figures.lean#L[0-9]*-L[0-9]*" "$cubic"
+desc="the page says how to reproduce the files"
+check grep -q 'lake exe example-blueprint --check-figures _out/html-multi/-verso-data/pilean-figures --figure-repo' "$cubic"
+sketch="$pages/Example.sketch/index.html"
+desc="an illustration's page says so and never that it is tied to its object"
+check bash -c "grep -q 'Illustration: not tied to a Lean object by a theorem' '$sketch' && ! grep -q 'Tied to its object' '$sketch'"
+odd=$(ls -d "$pages"/Example._hasse_* | head -n 1)/index.html
+desc="a name with markup gets a page at an address of safe characters"
+check bash -c "basename \"\$(dirname '$odd')\" | grep -qE '^[A-Za-z0-9._-]+$'"
+desc="its page shows the name and the caption as text"
+check bash -c "grep -q '&lt;/figcaption&gt;&lt;script&gt;alert(1)&lt;/script&gt;' '$odd' && ! grep -q '<b>\"&' '$odd' && ! grep -q '</figcaption><script>' '$odd'"
+tamper_page() {
+  rm -rf "$scratch/page"; cp -R "$scratch/a/html-multi" "$scratch/page"
+  python3 -I - "$scratch/page/Figures/$1/index.html" "$2" "$3" <<'PY'
+import sys
+p, old, new = sys.argv[1:]
+s = open(p, encoding="utf-8").read()
+assert old in s
+open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+PY
+}
+tamper_page Example.sketch 'data-pilean-standing="illustration"' 'data-pilean-standing="proved"'
+desc="the page check refuses a page whose standing was changed"
+check bash -c "! python3 -I tests/page_check.py '$scratch/page' >/dev/null"
+tamper_page Example.sketch 'Illustration: not tied' 'Tied to its object by the theorem X. Illustration: not tied'
+desc="the page check refuses an illustration's page that says it is tied to its object"
+check bash -c "! python3 -I tests/page_check.py '$scratch/page' >/dev/null"
+tamper_page Example.cubicPlot 'data-verdict="ok"' 'data-verdict="changed"'
+desc="the page check refuses a page that shows another verdict"
+check bash -c "! python3 -I tests/page_check.py '$scratch/page' >/dev/null"
+rm -rf "$scratch/page"
 
 # A page whose inline picture differs from its file.
 rm -rf "$scratch/page"; cp -R "$scratch/a/html-multi" "$scratch/page"
@@ -104,6 +154,8 @@ desc="the site builds with links into the site"
 check bash -c "'$gen' --output '$scratch/site' --figure-lean-links site ${flags[*]} 2>'$warns' >/dev/null"
 got=$(sed -n 's/^figures: warning: \(.*\) has no place in the site.*/\1/p' "$warns" | LC_ALL=C sort | tr '\n' '|')
 want='Example.circleAnimation_spec|Example.collatzPlot_spec|Example.divisorGraph_spec|'
+want+='Example.divisorHasse_spec|Example.reductionSquare_spec|'
+want+='Example.«hasse <b>"&'"'"'_spec»|'
 want+='Example.«odd "name" <a href=x> & '"'"'more'"'"'»|'
 desc="it warns about exactly the declarations the site has no place for"; check test "$got" = "$want"
 # Whether the markup of some figure of the site $1 matches the regular expression $2.
@@ -131,6 +183,16 @@ desc="in the default mode, figures have lean: links"
 check figures_have "$scratch/a/html-multi" 'href="lean:decl/Example\.cubic" class="pilean-decl-link"'
 desc="the side-by-side site builds with links into the site"
 check bash -c "'$gen' --output '$scratch/sbs' --side-by-side --figure-lean-links site ${flags[*]} >/dev/null 2>&1"
+desc="built in GitHub Actions, the figures' pages link the run"
+check bash -c "GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=77 \
+  '$gen' --output '$scratch/ci' ${flags[*]} >/dev/null 2>&1 &&
+  grep -q 'href=\"https://github.com/o/r/actions/runs/77\" class=\"pilean-page-ci-link\"' \
+    '$scratch/ci/html-multi/Figures/Example.cubicPlot/index.html'"
+desc="a malformed run is not linked"
+check bash -c "GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID='77\"><b>' \
+  '$gen' --output '$scratch/ci' ${flags[*]} >/dev/null 2>&1 &&
+  ! grep -q 'pilean-page-ci-link' '$scratch/ci/html-multi/Figures/Example.cubicPlot/index.html'"
+rm -rf "$scratch/ci"
 desc="an unknown link mode is refused"
 check bash -c "! '$gen' --output '$scratch/c' --figure-lean-links web >/dev/null 2>&1"
 
@@ -138,7 +200,7 @@ check bash -c "! '$gen' --output '$scratch/c' --figure-lean-links web >/dev/null
 cat > "$scratch/Misuse.lean" <<'LEAN'
 import VersoManual
 import PILeanVerso
-import Example
+import PictureExample
 open Verso.Genre Manual PILeanVerso
 #doc (Manual) "A plot shown as an explorer" =>
 :::figure_explorer Example.cubicPlot
@@ -177,5 +239,40 @@ check bash -c "! '$gen' --output '$scratch/a' --strict-figures ${flags[*]} >/dev
 rm "$figs/left-over.svg"
 desc="a bad repository is refused"
 check bash -c "! '$gen' --output '$scratch/c' --figure-repo 'javascript:x' >/dev/null 2>&1"
+
+# A figure whose link to its theorem is taken away: the build refuses a caption that still names
+# the theorem, and without it the figure's page says it is an illustration.
+figsrc=PictureExample/Diagrams.lean
+chapter=ExampleBlueprint/Diagrams.lean
+cp "$figsrc" "$scratch/Diagrams.lean.orig"; cp "$chapter" "$scratch/Chapter.lean.orig"
+restore() {
+  cp "$scratch/Diagrams.lean.orig" "$figsrc"; cp "$scratch/Chapter.lean.orig" "$chapter"
+}
+trap restore EXIT
+grep -v '^figure_proves divisorHasse divisorHasse_spec$' "$scratch/Diagrams.lean.orig" > "$figsrc"
+"$lake" build example-blueprint >/dev/null
+desc="without its link, a caption that names the theorem fails the build"
+check bash -c "! '$gen' --output '$scratch/m' ${flags[*]} >'$scratch/m.log' 2>&1 &&
+  grep -q 'figure_proves Example.divisorHasse Example.divisorHasse_spec' '$scratch/m.log'"
+sed 's/ (proves := Example.divisorHasse_spec)//' "$scratch/Chapter.lean.orig" > "$chapter"
+"$lake" build example-blueprint >/dev/null
+desc="without its link, the figure's page says it is an illustration"
+check bash -c "'$gen' --output '$scratch/m' ${flags[*]} >/dev/null 2>&1 &&
+  grep -q 'data-pilean-standing=\"illustration\"' '$scratch/m/html-multi/Figures/Example.divisorHasse/index.html' &&
+  ! grep -q 'Tied to its object' '$scratch/m/html-multi/Figures/Example.divisorHasse/index.html' &&
+  python3 -I tests/page_check.py '$scratch/m/html-multi'"
+restore; trap - EXIT
+"$lake" build example-blueprint >/dev/null
+rm -rf "$scratch/m" "$scratch/m.log" "$scratch/Diagrams.lean.orig" "$scratch/Chapter.lean.orig"
+
+# A theorem weakened so that it no longer names the figure cannot be linked to it.
+cat > "$scratch/Weakened.lean" <<'LEAN'
+import PictureExample
+theorem weakened : Example.divisibility.IsPartialOrder := ⟨by decide, by decide, by decide⟩
+figure_proves Example.divisorHasse weakened
+LEAN
+desc="figure_proves refuses a theorem whose statement does not name the figure"
+check bash -c "! '$lake' lean '$scratch/Weakened.lean' >'$scratch/weak.log' 2>&1 &&
+  grep -q 'does not mention the figure Example.divisorHasse' '$scratch/weak.log'"
 
 if [ "$fails" -eq 0 ]; then echo "check-site: all checks hold"; else echo "check-site: $fails failed"; exit 1; fi

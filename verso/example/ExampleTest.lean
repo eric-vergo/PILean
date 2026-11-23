@@ -3,7 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanVerso
-import Example
+import PictureExample
 
 /-!
 # Checks of the adapter
@@ -67,6 +67,15 @@ run_meta do
 /-- The figures of the example, rendered for a site. -/
 def table : Array FigureEntry := site_figures%
 
+/-- The figures of the example with what their pages show of the code. -/
+def siteTable : SiteFigures := site_figures%
+
+/-- The standing of a figure of the example, as `site_figures%` sets it. -/
+def standingOf (n : String) : Option Standing := (table.find? (·.decl == n)).map (·.standing)
+
+/-- The page data of a figure of the example. -/
+def pageOf (n : String) : Option FigurePageData := (siteTable.pages.toOption.getD {})[n]?
+
 /-- The plot rendered with a repository and a commit: its files and the manifest. -/
 def plotSite : Except String SiteRender :=
   renderSite table #["Example.cubicPlot", "Example.cubicPlot"]
@@ -74,8 +83,9 @@ def plotSite : Except String SiteRender :=
 
 /-- The paths of the plot's files. -/
 def plotPaths : Array String :=
-  #["Example/Figures/Example.cubicPlot-dark.png", "Example/Figures/Example.cubicPlot-dark.svg",
-    "Example/Figures/Example.cubicPlot.png", "Example/Figures/Example.cubicPlot.svg"]
+  #["PictureExample/Figures/Example.cubicPlot-dark.png",
+    "PictureExample/Figures/Example.cubicPlot-dark.svg",
+    "PictureExample/Figures/Example.cubicPlot.png", "PictureExample/Figures/Example.cubicPlot.svg"]
 
 /-- The bytes of inline SVG the inline figure puts in a page: its picture and its narrow
 rendition. -/
@@ -111,7 +121,29 @@ def checks : Array (String × Bool) := #[
     (Style.darkVariant? { Style.light with lineWidth := 3 }).map (·.lineWidth) == some 3),
   ("dark: the colours are the dark style's",
     (Style.darkVariant? Style.light).map (·.background) == some Style.dark.background),
-  ("table: ten figures", table.size == 10),
+  ("table: fourteen figures", table.size == 14),
+  ("standing: a figure linked by figure_proves is proved by its theorem",
+    standingOf "Example.divisorHasse" == some (.proved #["Example.divisorHasse_spec"]) &&
+    standingOf "Example.reductionSquare" == some (.proved #["Example.reductionSquare_spec"])),
+  ("standing: a figure marked as an illustration is one, marked",
+    standingOf "Example.sketch" == some (.illustration true)),
+  ("standing: an explorer without a theorem is an unmarked illustration",
+    standingOf "Example.radiusExplorer" == some (.illustration false)),
+  ("standing: a name with markup keeps its theorem",
+    standingOf "Example.«hasse <b>\"&'»" == some (.proved #["Example.«hasse <b>\"&'_spec»"])),
+  ("pages: the table has the page data of every figure",
+    table.all fun e => (pageOf e.decl).isSome),
+  ("pages: the square's page shows the definitions of its object and of its theorem's statement",
+    ((pageOf "Example.reductionSquare").map fun p => p.related.map (·.name)) ==
+      some #["Example.reductions", "Example.reductionMaps", "Example.reduction"]),
+  ("pages: nothing of other packages is shown in full, only named",
+    table.all fun e => match pageOf e.decl with
+      | some p => p.related.all (·.module.startsWith "PictureExample") &&
+          p.external.all (!·.module.startsWith "PictureExample")
+      | none => false),
+  ("pages: a caption that names a theorem the standing does not record fails the build",
+    failsWith #[{ decl := "Example.sketch", proves := some "Example.divisorHasse_spec" }] {}
+      "not linked to it"),
   ("render: an unknown name is refused",
     (renderSite table #["Example.nope"] {}).toOption.isNone),
   ("render: a script address as repository is refused",

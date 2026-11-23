@@ -53,6 +53,8 @@ theorem trianglePoints_spec :
   show (2 : Int) * (triangle n : Int) = (n : Int) * ((n : Int) + 1)
   exact_mod_cast two_mul_triangle n
 
+figure_proves trianglePlot trianglePoints_spec
+
 /-- The divisors of 12. -/
 def divisors12 : List Nat := [1, 2, 3, 4, 6, 12]
 
@@ -72,6 +74,8 @@ theorem covers_count :
         Graph.relationPairs divisors12 covers ∧
       (Graph.relationPairs divisors12 covers).length = 7 :=
   ⟨Graph.ofRelation_edge_pairs divisors12 covers toString true, by decide +kernel⟩
+
+figure_proves divisorGraph covers_count
 
 /-- Numbered marks to be drawn over a picture: the picture's size and the marks' centres. -/
 structure Marks where
