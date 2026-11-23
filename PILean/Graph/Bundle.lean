@@ -201,16 +201,16 @@ def corridorUses (n : Nat) (ends : Array (Nat × Nat)) (reversed : Array Bool) :
   return uses
 
 /-- The legs of every route, in the order of travel (see the module docstring for their
-shapes). Owners: the end below node `v` (real or dummy) belongs to `2 v`, the end above it to
+shapes). Pieces: the end below node `v` (real or dummy) belongs to `2 v`, the end above it to
 `2 v + 1`; the corridors take numbers from twice the number of real and dummy nodes on, two
 each, and a node's corridors are numbered in the order of the edges. -/
 def bundleLegs (b : BundleInput) : Array (Array Leg) := Id.run do
   let size := b.layerAll.size
   let lay := fun (v : Nat) => b.layerAll.getD v 0
   let xs := fun (v : Nat) => b.across.getD v 0
-  let below := fun (v : Nat) => ({ x := xs v, reach := .up, owner := some (2 * v) } : RunEnd)
+  let below := fun (v : Nat) => ({ x := xs v, reach := .up, piece := some (2 * v) } : RunEnd)
   let above := fun (v : Nat) =>
-    ({ x := xs v, reach := .down, owner := some (2 * v + 1) } : RunEnd)
+    ({ x := xs v, reach := .down, piece := some (2 * v + 1) } : RunEnd)
   let mut used : Array Nat := Array.replicate b.n 0
   let mut nextCorridor := 2 * size
   let mut out : Array (Array Leg) := #[]
@@ -220,8 +220,8 @@ def bundleLegs (b : BundleInput) : Array (Array Leg) := Id.run do
       let k := used.getD v 0
       let x := b.corridor v k
       ((used.modify v (· + 1)), nextCorridor + 2,
-        ({ x, reach := .up, owner := some nextCorridor } : RunEnd),
-        ({ x, reach := .down, owner := some (nextCorridor + 1) } : RunEnd))
+        ({ x, reach := .up, piece := some nextCorridor } : RunEnd),
+        ({ x, reach := .down, piece := some (nextCorridor + 1) } : RunEnd))
     if s == t then
       let (u', nc, cUp, cDown) := take used nextCorridor s
       used := u'; nextCorridor := nc
@@ -263,7 +263,7 @@ structure BundleTracks where
   depth : Array Nat
 
 /-- The legs of the routes and their tracks, channel by channel (`placeRuns`). A straight leg
-needs no run; another leg with the same two owners (an edge that repeats it) gets one, split at
+needs no run; another leg with the same two pieces (an edge that repeats it) gets one, split at
 a free column. -/
 def bundleTracks (b : BundleInput) : BundleTracks := Id.run do
   let legs := bundleLegs b
@@ -277,7 +277,7 @@ def bundleTracks (b : BundleInput) : BundleTracks := Id.run do
     for l in ls, j in [0:ls.size] do
       let c := min l.channel (channels - 1)
       if l.straight then
-        let key := (c, l.run.start.owner.getD 0, l.run.finish.owner.getD 0)
+        let key := (c, l.run.start.piece.getD 0, l.run.finish.piece.getD 0)
         if !seen.contains key then
           seen := seen.insert key
           blocked := blocked.modify c (·.push l.run.start.x)

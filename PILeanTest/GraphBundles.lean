@@ -453,7 +453,7 @@ def channelCrossOk (seed : Nat) : Bool := Id.run do
   let runs : Array RunSpec := (Array.range k).map fun i =>
     ⟨⟨(r.getD (2 * i) 0).toFloat * 40, .up, some (2 * i)⟩,
      ⟨(r.getD (2 * i + 1) 0).toFloat * 40 + 20, .down, some (2 * i + 1)⟩⟩
-  -- the same column twice above or below belongs to one owner: keep the first run of a column
+  -- the same column twice above or below belongs to one piece: keep the first run of a column
   let mut seenTop : Array Float := #[]
   let mut seenBottom : Array Float := #[]
   let mut keep : Array RunSpec := #[]

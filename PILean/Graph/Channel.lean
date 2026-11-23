@@ -70,17 +70,16 @@ inductive Reach where
   deriving BEq, Inhabited, Repr
 
 /-- One end of a run: its position across the layers, the side its vertical piece reaches, and
-the vertical piece it belongs to (`owner`: a node's exit or entry trunk, the lane of a long edge,
-a corridor beside a node; `none` for the end of a jog, whose column is free). Ends with one
-owner share their vertical piece; ends of two owners never stand at one column on the same
-side. -/
+the vertical piece it belongs to (`piece`, a number: a node's exit or entry trunk, the lane of a
+long edge, a corridor beside a node; `none` for the end of a jog, whose column is free). Ends
+with one piece share it; ends of two pieces never stand at one column on the same side. -/
 structure RunEnd where
   /-- The position across the layers. -/
   x : Float
   /-- The side the vertical piece reaches. -/
   reach : Reach
   /-- The vertical piece. -/
-  owner : Option Nat
+  piece : Option Nat
   deriving Inhabited, Repr
 
 /-- A run of a route through a channel: its ends in the order the route travels. -/
@@ -305,20 +304,20 @@ def RunPart.nestsBefore (gap : Float) (p q : RunPart) : Bool :=
   p.nested && q.nested && nestsAbove p.kind q.kind && overlaps gap p.nestSpan q.nestSpan
 
 /-- Whether two parts leave one trunk (or join one) on its two sides: an end of each with one
-owner, reaching the same side at one column, one part wholly on the left of that column and the
+piece, reaching the same side at one column, one part wholly on the left of that column and the
 other wholly on the right. Such parts may share a track: the trunk forks there. -/
 def RunPart.tee (p q : RunPart) : Bool :=
   [p.spec.start, p.spec.finish].any fun e => [q.spec.start, q.spec.finish].any fun f =>
-    e.owner.isSome && e.owner == f.owner && e.reach == f.reach && e.x == f.x &&
+    e.piece.isSome && e.piece == f.piece && e.reach == f.reach && e.x == f.x &&
       ((p.spec.span.2 ≤ e.x && e.x ≤ q.spec.span.1) ||
         (q.spec.span.2 ≤ e.x && e.x ≤ p.spec.span.1))
 
-/-- Whether an end of `p` reaching up and an end of `q` reaching down, of two owners, stand at
+/-- Whether an end of `p` reaching up and an end of `q` reaching down, of two pieces, stand at
 one column (closer than `laneGap`): then `p` must lie above `q`. -/
 def RunPart.stacked (laneGap : Float) (p q : RunPart) : Bool :=
   [p.spec.start, p.spec.finish].any fun e => [q.spec.start, q.spec.finish].any fun f =>
-    e.reach == .up && f.reach == .down && e.owner.isSome && f.owner.isSome &&
-      e.owner != f.owner && (e.x - f.x).abs < laneGap
+    e.reach == .up && f.reach == .down && e.piece.isSome && f.piece.isSome &&
+      e.piece != f.piece && (e.x - f.x).abs < laneGap
 
 /-- Whether two parts may not share a track: their stretches overlap or come closer than `gap`
 and they do not fork from one trunk (`RunPart.tee`), or one must lie above the other at a column
@@ -337,8 +336,8 @@ first and so above) and the part with the end that reaches down, each with its r
 run whose ends reach opposite sides. -/
 def splitAt (p : RunPart) (x : Float) : RunPart × RunPart :=
   let r := p.spec
-  let jogDown : RunEnd := { x, reach := .down, owner := none }
-  let jogUp : RunEnd := { x, reach := .up, owner := none }
+  let jogDown : RunEnd := { x, reach := .down, piece := none }
+  let jogUp : RunEnd := { x, reach := .up, piece := none }
   if r.start.reach == .up then
     ({ p with spec := ⟨r.start, jogDown⟩, role := 1 },
       { p with spec := ⟨jogUp, r.finish⟩, role := 2, nested := false })
@@ -406,22 +405,22 @@ def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array
       parts := parts.setIfInBounds i { second with nested := false }
       after := after.push #[i]
       parts := parts.push { first with nested := false }
-  -- owners of ends reaching up and down, with the parts that have such an end
+  -- pieces of ends reaching up and down, with the parts that have such an end
   let mut ups : Std.HashMap Nat (Float × Array Nat) := {}
   let mut downs : Std.HashMap Nat (Float × Array Nat) := {}
   for p in parts, k in [0:parts.size] do
     for e in [p.spec.start, p.spec.finish] do
-      if let some o := e.owner then
+      if let some o := e.piece then
         match e.reach with
         | .up => ups := ups.insert o ((ups.getD o (e.x, #[])).1, (ups.getD o (e.x, #[])).2.push k)
         | .down =>
           downs := downs.insert o ((downs.getD o (e.x, #[])).1, (downs.getD o (e.x, #[])).2.push k)
-  -- a hub for every owner reaching up near an owner reaching down
+  -- a hub for every piece reaching up near an piece reaching down
   let upSorted := (ups.toArray.map fun (o, (x, _)) => (x, o)).qsort fun a b =>
     a.1 < b.1 || (a.1 == b.1 && a.2 < b.2)
   let mut hubs : Array (Nat × Nat) := #[]
   for (d, (xd, _)) in downs.toArray.qsort (fun a b => a.1 < b.1) do
-    -- the first owner reaching up at or after `xd - laneGap`, by bisection
+    -- the first piece reaching up at or after `xd - laneGap`, by bisection
     let mut lo := 0
     let mut hi := upSorted.size
     for _ in [0:64] do
@@ -516,7 +515,7 @@ def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array
     let mut woken : Array Nat := #[]
     -- the hubs of its ends reaching up
     for e in [p.spec.start, p.spec.finish] do
-      if let (some o, .up) := (e.owner, e.reach) then
+      if let (some o, .up) := (e.piece, e.reach) then
         for h in hubsOf.getD o #[] do
           hubLeft := hubLeft.modify h (· - 1)
           if hubLeft.getD h 1 == 0 then
@@ -560,7 +559,7 @@ def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array
     | none, some a, some b =>
       -- the jog's column is where the two parts meet
       let pa := parts.getD a default
-      let x := if pa.spec.start.owner.isNone then pa.spec.start.x else pa.spec.finish.x
+      let x := if pa.spec.start.piece.isNone then pa.spec.start.x else pa.spec.finish.x
       Placed.jog (trackOf.getD a 0) x (trackOf.getD b 0)
     | _, _, _ => Placed.track 0
   return (out, depth)
