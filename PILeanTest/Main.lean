@@ -55,6 +55,10 @@ to check.
 
 open PILeanTest
 
+/-- The test modules this driver imports, directly or not, read from its imported environment
+when it is compiled. -/
+def driverModules : Array Lean.Name := test_modules%
+
 /-- Runs the checks; exit status 1 if any fails. -/
 def main (args : List String) : IO UInt32 := do
   let mut failed := 0
@@ -106,7 +110,8 @@ def main (args : List String) : IO UInt32 := do
     (← GraphQuality.ioChecks) ++ GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
-    (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks)
+    (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
+    Axioms.coverageChecks driverModules
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
   IO.println s!"checks: {checks.size - failed} of {checks.size} hold"

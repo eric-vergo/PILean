@@ -20,6 +20,7 @@ import PILeanTest.GraphOrder
 import PILeanTest.GraphQuality
 import PILeanTest.GraphDot
 import PILeanTest.Exact
+import PILeanTest.GraphRoutes
 import PILeanTest.Trust
 import PILeanTest.TrustBuild
 import PILeanTest.Inert
@@ -30,15 +31,18 @@ import PILeanTest.Tools
 # The axioms of the library, checked by the build
 
 `#assert_standard_axioms PILean PILeanTest` goes through every declaration (theorems,
-definitions and opaque constants alike) of every imported module whose name starts with one of
-the given prefixes and fails, and with it the build of the tests, if one of them depends on an
-axiom other than `propext`, `Classical.choice` and `Quot.sound`. A `sorry` (`sorryAx`), a
+definitions, opaque constants, inductive types with their constructors and recursors alike) of
+every imported module whose name starts with one of the given prefixes and fails, and with it
+the build of the tests, if one of them depends on an axiom other than `propext`,
+`Classical.choice` and `Quot.sound`. A `sorry` (`sorryAx`), a
 `native_decide` or a `bv_decide` (`Lean.ofReduceBool`, `Lean.trustCompiler`) in the library
 would be such an axiom. The check does not rely on a list of theorem names, so a theorem added
 later is covered without anyone remembering to list it. It sees the modules this file imports:
 `PILean` (whose root file imports every module of the library but `PILean.Trust.Attr`, imported
-here), and the test modules listed above, which are those the test driver imports; a check below
-fails if a module of the library is missing.
+here), and the test modules listed above. A check below fails if a module of the library is
+missing, and `Axioms.coverageChecks`, which the test driver runs with the test modules of its own
+imported environment (`test_modules%`), fails if a test module the driver imports is not among
+those this file was compiled against.
 
 An `axiom` declared in one of those modules, or in this one, is reported too, whether anything
 uses it or not.
@@ -63,7 +67,8 @@ open Lean Elab Command PILean.Trust
 namespace PILeanTest
 
 -- An axiom declared in a checked module is reported even when nothing uses it, and so is a
--- theorem that uses one. The declarations are made and checked inside `withoutModifyingEnv`,
+-- theorem that uses one, and an inductive type, its constructor and its recursor whose types
+-- mention one. The declarations are made and checked inside `withoutModifyingEnv`,
 -- so they are not part of this module.
 #guard_msgs in
 run_cmd do
@@ -73,10 +78,16 @@ run_cmd do
     elabCommand (← `(axiom $bare : Nat))
     elabCommand (← `(axiom $used : 1 = 2))
     elabCommand (← `(theorem $usesIt : 1 = 2 := $(mkIdent `PILeanTest.Planted.used)))
+    let (ty, ctorAx) := (mkIdent `_root_.PILeanTest.Planted.T, mkIdent `_root_.Planted.inCtor)
+    elabCommand (← `(axiom $ctorAx : Nat))
+    elabCommand (← `(inductive $ty where
+      | $(mkIdent `mk):ident : Fin $(mkIdent `Planted.inCtor) → $(mkIdent `PILeanTest.Planted.T)))
     liftCoreM (nonStandardAxioms (`PILeanTest).isPrefixOf)
   for p in [(`PILeanTest.Planted.bare, `PILeanTest.Planted.bare),
       (`PILeanTest.Planted.used, `PILeanTest.Planted.used),
-      (`PILeanTest.Planted.usesIt, `PILeanTest.Planted.used)] do
+      (`PILeanTest.Planted.usesIt, `PILeanTest.Planted.used),
+      (`PILeanTest.Planted.T, `Planted.inCtor), (`PILeanTest.Planted.T.mk, `Planted.inCtor),
+      (`PILeanTest.Planted.T.rec, `Planted.inCtor)] do
     unless bad.contains p do throwError "{p.2} was not reported for {p.1}"
 
 /-- `#assert_figure_links n` fails unless the imported modules link at least `n` theorems to
@@ -102,6 +113,30 @@ elab "checked_modules%" : term => do
 
 /-- The modules of `PILean` the checks of this file cover. -/
 def checkedModules : Array Name := checked_modules%
+
+/-- `test_modules%` is the `Array Name` of the modules of `PILeanTest` that the module it is
+written in imports, directly or not, read from its imported environment when it is compiled. -/
+elab "test_modules%" : term => do
+  let names := (← getEnv).header.moduleNames.filter (`PILeanTest).isPrefixOf
+  return toExpr names
+
+/-- The modules of `PILeanTest` the checks of this file cover. -/
+def checkedTestModules : Array Name := test_modules%
+
+/-- The modules of `driver` other than this one that are not in `checked`. -/
+def uncoveredModules (driver checked : Array Name) : Array Name :=
+  driver.filter fun m => m != `PILeanTest.Axioms && !checked.contains m
+
+/-- The checks that the axiom check covers every test module of the test driver, given the
+modules the driver imports (`test_modules%` written in the driver); and that a module missing
+from the check is reported. -/
+def Axioms.coverageChecks (driver : Array Name) : Array (String × Bool) :=
+  let missing := uncoveredModules driver checkedTestModules
+  #[(s!"axioms: every test module the test driver imports is covered by the axiom check \
+      (not covered: {missing})", missing.isEmpty && driver.contains `PILeanTest.Axioms &&
+      driver.size > 10),
+    ("axioms: a test module of the driver that the check does not import is reported",
+      uncoveredModules #[`X.A, `X.B, `PILeanTest.Axioms] #[`X.A] == #[`X.B])]
 
 /-- The modules a source file imports: the lines `import M` that follow its licence comment. -/
 def headerImports (src : String) : Array Name := Id.run do

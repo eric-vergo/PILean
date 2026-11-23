@@ -12,8 +12,9 @@ import PILeanMathlib.Polyline
 /-!
 # The axioms of the library, checked by the build
 
-`#assert_standard_axioms PILeanMathlib` goes through every declaration (theorems, definitions
-and opaque constants alike) of every module of this library and fails, and with it the build, if
+`#assert_standard_axioms PILeanMathlib` goes through every declaration (theorems, definitions,
+opaque constants, inductive types with their constructors and recursors alike) of every module
+of this library and fails, and with it the build, if
 one of them is an axiom or depends on an axiom other than `propext`, `Classical.choice` and
 `Quot.sound`. A `sorry`, a `native_decide` or a `bv_decide` in a proof would add such an axiom,
 and an `axiom` declared in one of the modules is reported whether anything uses it or not. The

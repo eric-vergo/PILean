@@ -242,8 +242,9 @@ def declModule (env : Environment) (n : Name) : Name :=
 
 /-- The declarations of the environment whose module (`declModule`, the current module
 included) satisfies `inScope`, paired with each axiom outside `allowedAxioms` that they declare
-or depend on: an `axiom` is reported with itself, whether anything uses it or not; a theorem,
-definition or opaque constant with each axiom it depends on. -/
+or depend on: an `axiom` is reported with itself, whether anything uses it or not; every other
+declaration (a theorem, definition or opaque constant, an inductive type, a constructor, a
+recursor, a quotient constant) with each axiom that `collectAxioms` finds it depends on. -/
 def nonStandardAxioms (inScope : Name → Bool) : CoreM (Array (Name × Name)) := do
   let env ← getEnv
   let decls := env.constants.fold (init := #[]) fun acc c info =>
@@ -253,10 +254,9 @@ def nonStandardAxioms (inScope : Name → Bool) : CoreM (Array (Name × Name)) :
     match info with
     | .axiomInfo _ =>
       unless allowedAxioms.contains c do bad := bad.push (c, c)
-    | .thmInfo _ | .defnInfo _ | .opaqueInfo _ =>
+    | _ =>
       for a in ← collectAxioms c do
         unless allowedAxioms.contains a do bad := bad.push (c, a)
-    | _ => pure ()
   return bad
 
 /-- `#assert_standard_axioms A B …` fails unless no declaration of the imported modules (and of
