@@ -39,8 +39,6 @@ type indexed by it (`def Cyc (F : CycField) := Array Int`, with an instance for 
 * Instances for `Rat`, `Int`, `Rat × Rat` and `Int × Int`.
 * The builders `Plane.Exact.point`, `segment`, `line`, `ray`, `arrow`, `circle`, `disk`, `arc`,
   `sector`, `polygon`, `polyline`, `angleMark`, `label`.
-* `Plane.Exact.IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`: which item of a figure is which exact
-  object, in which colour, with which title and which recorded incidences, for specifications.
 
 ## Main results
 
@@ -53,8 +51,6 @@ type indexed by it (`def Cyc (F : CycField) := Array Int`, with an instance for 
 * `Plane.Exact.point_draw`, `Plane.Exact.point_draw_default`, `Plane.Exact.segment_draw`,
   `Plane.Exact.points_draw`: the same for
   exact points: what is drawn is at `Frame.toScreen (PlanePoint.toPoint p)`.
-* `Plane.Exact.IsPoint.draw`: an item that is an exact point is drawn as a marker in its tone at
-  the frame's image of the point's conversion.
 * `Plane.Exact.figure_points_draw`: a figure whose items are exact points draws, after its
   background, exactly one marker at the frame's image of each point, in order;
   `Plane.Exact.DrawsExactPoints` and `drawsExactPoints` package it as a figure's specification.
@@ -455,59 +451,6 @@ theorem figure_points_draw (fig : Figure) (ps : List α)
       (ps.map fun p => fig.env.marker {}
         (fig.env.frame.toScreen (PlanePoint.toPoint p))).toArray.flatten)) := by
   rw [Figure.draw_eq, h, points_draw]
-
-/-! ### What an item is, in exact terms
-
-A figure's specification says which item is which exact object, in which colour, with which
-title and which recorded incidences, so that a theorem about the exact numbers (that a point is
-on a circle, say) is a theorem about the item that draws them. For an item built with the
-builders below and the modifiers, `simp` with the predicate, the builders and the modifiers used
-(and `Item.mapLook`, `Item.mapInfo`) proves it. -/
-
-/-- The item is the exact point `p` in the tone `t` with exactly the incidences `rels` recorded
-(`Item.incident`): a point item at the conversion of `p`. -/
-def IsPoint (it : Item) (p : α) (t : Tone) (rels : Array (Incidence × String)) : Prop :=
-  ∃ (l : Look) (i : ShapeInfo), it = .shape (.point (PlanePoint.toPoint p)) l i ∧ l.tone = t ∧
-    l.incidences = rels
-
-/-- The item is the closed disk with the exact centre `c` and radius `r`, in the tone `t`, with
-the title `title` (the name incidences refer to it by). -/
-def IsDisk (it : Item) (c : α) (r : β) (t : Tone) (title : String) : Prop :=
-  ∃ (l : Look) (i : ShapeInfo),
-    it = .shape (.disk (PlanePoint.toPoint c) (RealValue.toFloat r)) l i ∧ l.tone = t ∧
-      i.title = title
-
-/-- The item is the segment between the exact points `a` and `b`, in the tone `t`, with the title
-`title`. -/
-def IsSegment (it : Item) (a b : α) (t : Tone) (title : String) : Prop :=
-  ∃ (l : Look) (i : ShapeInfo),
-    it = .shape (.segment (PlanePoint.toPoint a) (PlanePoint.toPoint b)) l i ∧ l.tone = t ∧
-      i.title = title
-
-/-- The item is the region `op` of the closed disks `(c₁, r₁)` and `(c₂, r₂)` with exact centres
-and radii (a lens for `.intersection`), in the tone `t`, with the title `title`. -/
-def IsRegion (it : Item) (op : RegionOp) (c₁ c₂ : α) (r₁ r₂ : β) (t : Tone) (title : String) :
-    Prop :=
-  ∃ (l : Look) (i : ShapeInfo),
-    it = .shape (.disks op (PlanePoint.toPoint c₁) (RealValue.toFloat r₁) (PlanePoint.toPoint c₂)
-      (RealValue.toFloat r₂)) l i ∧ l.tone = t ∧ i.title = title
-
-/-- An item that is the exact point `p` in the tone `t` is drawn as a marker in that tone at the
-frame's image of the conversion of `p` (inside a group with its metadata when it has some). -/
-theorem IsPoint.draw {it : Item} {p : α} {t : Tone} {rels : Array (Incidence × String)}
-    (h : IsPoint it p t rels) (e : Env) :
-    ∃ (l : Look) (i : ShapeInfo), l.tone = t ∧ drawItem e it =
-      if i.isEmpty then e.marker l (e.frame.toScreen (PlanePoint.toPoint p))
-      else #[.tagged i (.group (e.marker l (e.frame.toScreen (PlanePoint.toPoint p))))] := by
-  obtain ⟨l, i, rfl, ht, _⟩ := h
-  exact ⟨l, i, ht, drawItem_point e _ l i⟩
-
-/-- The hypotheses can be met: the point `(1, 2)` in accent 0, recorded on the element titled
-`"c"`, is such an item. -/
-example : IsPoint ((point ((1, 2) : Int × Int)).accent 0 |>.incident .on "c") ((1, 2) : Int × Int)
-    (.accent 0) #[(.on, "c")] := by
-  simp [IsPoint, point, Plane.point, Item.incident, Item.accent, Item.tone, Item.mapLook,
-    Item.mapInfo]
 
 /-- The specification of a figure of exact points, ready to link with `figure_proves`: its items
 are exactly the points `ps` in their default look, and its drawing is its background followed by

@@ -568,12 +568,18 @@ look for them; a panel that is bare on purpose says so ({name}`PILean.Plot.Panel
 not checked. Every plot on this page is labelled.
 
 ```lean (name := plotCheckEx)
-#eval (Figure.problems { panels := #[{ series := #[.line "a" #[⟨0, 0⟩, ⟨1, 1⟩]] }] }).map (·.kind)
-#eval (Figure.problems { legend := false, panels := #[{ x := { label := "t" },
-  y := { label := "u" }, series := #[.line "a" #[⟨0, 0⟩, ⟨1, 1⟩], .line "b" #[⟨0, 1⟩, ⟨1, 0⟩]] }]
-  }).map (·.kind)
-#eval (Figure.problems { panels := #[{ bare := true, series := #[.line "" #[⟨0, 0⟩, ⟨1, 1⟩]] }]
-  }).size
+/-- One series, no axis labels. -/
+def unlabelled : Panel := { series := #[.line "a" #[⟨0, 0⟩, ⟨1, 1⟩]] }
+
+/-- Labelled axes, two series. -/
+def twoSeries : Panel :=
+  { x := { label := "t" }, y := { label := "u" },
+    series := #[.line "a" #[⟨0, 0⟩, ⟨1, 1⟩], .line "b" #[⟨0, 1⟩, ⟨1, 0⟩]] }
+
+#eval (Figure.problems { panels := #[unlabelled] }).map (·.kind)
+#eval (Figure.problems { panels := #[twoSeries], legend := false }).map (·.kind)
+#eval (Figure.problems { panels := #[twoSeries] }).size
+#eval (Figure.problems { panels := #[{ unlabelled with bare := true }] }).size
 ```
 
 ```leanResult plotCheckEx

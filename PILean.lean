@@ -33,6 +33,7 @@ import PILean.Plane.Render
 import PILean.Plane
 import PILean.Exact.Plane
 import PILean.Exact.Algebraic
+import PILean.Exact.Spec
 import PILean.Explorer
 import PILean.Plane.Graph
 import PILean.Graph.Fixed

@@ -156,7 +156,7 @@ not rational-valued.
 * `Animation.frameSeq_getElem`, `Animation.frameTrees_getElem`: frame `i` of the raster frame
   sequence (animated PNG, GIF) and of the animated SVG is the drawing at that time.
 
-**Plane figures** (`PILean/Exact/Plane.lean`, `PILean/Plane/Draw.lean`)
+**Plane figures** (`PILean/Exact/Plane.lean`, `PILean/Exact/Spec.lean`, `PILean/Plane/Draw.lean`)
 
 * `Exact.PlanePoint.re_ratPair`, `im_ratPair`, `toPoint_ratPair`, `toPoint_intPair`,
   `RealValue.toFloat_rat`: a rational (integer) point is its own ball, of radius 0, at every
