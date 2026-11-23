@@ -266,10 +266,11 @@ def darkTwin? (s : Style) : Option Style :=
       plane := s.plane.withColoursOf d.plane }
   else none
 
-/-- The colours of a light style paired with those of its dark twin, as `#rrggbb` text, each
-light colour once (the first pairing kept): what a page restyles an inline picture with in the
-dark theme. Empty for a style without a dark twin. -/
-def darkColourPairs (s : Style) : Array (String × String) :=
+/-- Every colour of a light style paired with the one of its dark twin, as `#rrggbb` text, in
+the order `darkColourPairs` reads them, a light colour as often as the style has it (the
+background and inks, the plot palette, the plane accents, the plane roles). Empty for a style
+without a dark twin. -/
+def darkColourSources (s : Style) : Array (String × String) :=
   match s.darkTwin? with
   | none => #[]
   | some d =>
@@ -281,8 +282,14 @@ def darkColourPairs (s : Style) : Array (String × String) :=
         (s.nodeStroke, d.nodeStroke), (s.edge, d.edge), (s.plane.ink, d.plane.ink),
         (s.plane.faint, d.plane.faint)] ++ s.palette.zip d.palette ++
         s.plane.accents.zip d.plane.accents ++ s.plane.roles.map (fun r => (r.light, r.dark))
-    pairs.foldl (init := #[]) fun acc (a, b) =>
-      if acc.any (·.1 == hex a) then acc else acc.push (hex a, hex b)
+    pairs.map fun (a, b) => (hex a, hex b)
+
+/-- The colours of a light style paired with those of its dark twin, as `#rrggbb` text, each
+light colour once (the first pairing kept): what a page restyles an inline picture with in the
+dark theme. Empty for a style without a dark twin. -/
+def darkColourPairs (s : Style) : Array (String × String) :=
+  s.darkColourSources.foldl (init := #[]) fun acc (a, b) =>
+    if acc.any (·.1 == a) then acc else acc.push (a, b)
 
 /-- The colour of series `i` (wrapping round the palette) and whether it is dashed (from the
 second round on). -/

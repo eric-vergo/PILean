@@ -14,7 +14,7 @@ Every picture here is the value of a Lean declaration. Five kinds have an exact 
 | Data plot | a list of integer (or exact rational) points | the plotted series has exactly the points of the list, in order, none added or dropped, each coordinate converted to a floating-point number |
 | Graph | a list of nodes and a relation on them (or an edge list) | the nodes are exactly the list and the edges exactly the related pairs, each once; the layout has one route for each edge, with that edge's two ends, and the picture draws those routes. Nothing is said about where a node is placed or how a route runs |
 | Animation | a drawing as a function of time, a frame rate | frame `i` is the drawing function applied to the exact rational time `i / fps` converted to a floating-point number. Nothing is said about the drawing function itself or about the number of frames |
-| Plane figure of exact points | points of a type with rational enclosures (`Exact.PlanePoint`: rationals, integers, or an algebraic representation such as ℤ[ζ₅] by integer coefficients) | each exact point is drawn as a marker centred at the frame's image of its conversion (the centre of its ball at 64 bits, converted by `Exact.toFloat`), a segment between the images of its ends; a figure of points draws one marker per point, in order. A figure's specification can also say which item is which exact point, disk, segment or region, in which colour, and which incidences each point records, with the incidences decided by exact arithmetic in the representation. A rational point is its own ball. That the ball of another representation holds its value is declared by its instance, not proved (the core has no real numbers); the frame's fitting is floating point |
+| Plane figure of exact points | points of a type with rational enclosures (`Exact.PlanePoint`: rationals, integers, or an algebraic representation such as ℤ[ζ₅] by integer coefficients) | each exact point is drawn as a marker centred at the frame's image of its conversion (the centre of its ball at 64 bits, converted by `Exact.toFloat`), a segment between the images of its ends; a figure of points draws one marker per point, in order. A figure's specification can also write out its items, labels included, with their colours, titles and recorded incidences, with the incidences decided by exact arithmetic in the representation. A rational point is its own ball. That the ball of another representation holds its value is declared by its instance, not proved (the core has no real numbers); the frame's fitting is floating point |
 
 **Floating point.** Every statement in this table is about exact numbers and lists. The picture
 is computed from them in floating-point arithmetic: the conversion of each exact number
@@ -173,34 +173,57 @@ not rational-valued.
   `drawsExactPoints` state this for a figure, ready for `figure_proves`.
 * `Plane.Figure.autoPlaced_of_noAuto`: a figure without automatically placed labels is drawn as
   it is (the outputs draw `autoPlaced`).
-* `Plane.Exact.IsPoint`, `IsDisk`, `IsSegment`, `IsRegion` say which item of a figure is which
-  exact object: an item is the point `p` (a point item at the conversion of `p`) in a given tone
+* `Plane.Exact.IsPoint`, `IsDisk`, `IsSegment`, `IsRegion` say what an item is, for lemmas
+  about items: an item is the point `p` (a point item at the conversion of `p`) in a given tone
   with exactly the given recorded incidences, or the disk, segment or region of disks of given
   exact data in a given tone with a given title (the name a recorded incidence refers to).
   `Plane.Exact.IsPoint.draw`: such a point is drawn as a marker in that tone at the frame's image
   of the conversion of `p`.
 * The gallery's two disks (`PILeanTest/Examples.lean`, `disks_spec`), the house-style reference
-  figure (`PILeanTest/PlaneExact.lean`, `reference_spec`) and the LeAnTeX example
-  (`leantex/PILeanLeAnTeX/Examples.lean`, `planeDisks_spec`) each state, about the items they
-  draw: which item is which disk, segment, region and point, in which tone, with which title, and
-  which incidences each point records; and, as equalities and comparisons in ℚ(√5) computed from
-  ℤ[ζ₅] (`Zeta5.normSq`, `QSqrt.lt`), that the records hold: for `E = ζ - ζ²`,
+  figure (`PILeanTest/PlaneExact.lean`, `reference_spec`), the gallery's `zetaSteps`
+  (`PILeanTest/PlaneExact.lean`, `zetaSteps_spec`) and the LeAnTeX example
+  (`leantex/PILeanLeAnTeX/Examples.lean`, `planeDisks_spec`) each write out the figure's item
+  list in drawing order, proved by `rfl`: every item as the builder and modifiers that make it,
+  so with its exact data, its colour (accent, role, `faint` or the ink), its title, its width,
+  marker, dash and fill where it sets them, the incidences it records, and every label with its
+  text, the point it is attached to, its placement and its colour; and the exact data
+  themselves (`E = ζ - ζ²`, the centres, the radius `√(3 + φ)`). `lake test` checks that this
+  pins the figure: for each of these figures it compiles copies of the module with one change to
+  the figure's definitions (an item removed, a point moved, a label moved or its text changed,
+  two colours swapped, a radius or a marker changed, a recorded incidence dropped, two items
+  reordered) and requires each copy to fail inside the specification and nowhere else
+  (`PILeanTest/SpecMutations.lean`, and the LeAnTeX driver for its figure). Each also states, as
+  equalities and comparisons in ℚ(√5) computed from ℤ[ζ₅] (`Zeta5.normSq`, `QSqrt.lt`), that the
+  records hold: for `E = ζ - ζ²`,
   `|E + 1|² = 3 + φ` and `|E - 1|² < 3 + φ` (`E` on the left circle, inside the right disk, so on
   the lens's boundary), the same for `-E` with the sides exchanged, `|ζ - ζ⁴ ± 1|² = 3 + φ` (the
   circles cross at `±(ζ - ζ⁴)`); the reference figure adds that `φ⁻¹ = ζ + ζ⁴` is real and
-  between 0 and 1, so the piece from `-φ⁻³ E` to `E` passes through `0`. These are statements
-  about the representation: that `Zeta5.normSq z` is `|z|²` for the complex number `z` denotes
-  (`ζ = e^{2πi/5}`) and that `QSqrt.lt` is the order of the real numbers are what the code
-  computes, checked in floating point by the tests (`PILeanTest/FigureChecks.lean`), not
-  theorems.
-* The gallery's `zetaSteps` (`PILeanTest/PlaneExact.lean`) has `zetaSteps_spec`: its items, each
-  point of ℤ[ζ₅] drawn at the frame's image of its conversion, and which steps `ζʲ` lie in the
-  window, decided exactly in ℚ(√5).
+  between 0 and 1, so the piece from `-φ⁻³ E` to `E` passes through `0`; `zetaSteps_spec` states
+  which steps `ζʲ` lie in the window (decided in ℚ(√5)), which is why they are in accent 0, and
+  what each point records (`diskIncidence?`). These are statements about the representation:
+  that `Zeta5.normSq z` is `|z|²` for the complex number `z` denotes (`ζ = e^{2πi/5}`) is what
+  the code computes, checked in floating point by the tests (`PILeanTest/FigureChecks.lean`),
+  not a theorem. `QSqrt.lt`, `le`, `nonneg` and the equality of `QSqrt d` compare the pairs
+  `(a, b)`; they are the order and the equality of the real numbers `a + b √d` exactly when
+  `√d` is irrational, that is when `d` is not the square of a natural number, and they require
+  that (`[QSqrt.NonSquare d]`, an instance for 2, 3 and 5, for another `d` by `decide +kernel`),
+  so for a square `d` (0, 1, 4, 9, …) they cannot be used, and `d` is a natural number, so it is
+  never negative. That this comparison of pairs is the real order for a non-square `d` is the
+  classical fact that `√d` is then irrational, used here, not proved in the core.
+* What the plane specifications do not pin: how the builders and modifiers draw (the library's
+  code; `Plane.drawItem_point`, `Plane.Exact.IsPoint.draw` and the theorems above for points and
+  segments), the figure's width, frame and style (the style's colour values), the layout, the
+  label placement for `auto`, the fonts and lettering (LeAnTeX's typesetting for its example),
+  the rendering to SVG and the pixels.
 * Not proved: the fitting of the frame, label placement, the layout checks (among them the
   numerical check of each recorded incidence against the element it names), arcs and regions,
   and the rasteriser (tested); that the balls of ℚ(√d), ℤ[ζ₅], square roots and the constructions
   of `PILean.Exact.Algebraic` hold their values (checked exactly by squaring, or against values
-  known in closed form, in the tests: `PILeanTest/Enclosures.lean`).
+  known in closed form, in the tests: `PILeanTest/Enclosures.lean`). The constructions read a
+  radius as given: a radius not decided to be positive is no circle (`Meeting.degenerate`,
+  `diskIncidence?` gives `none`), and a figure element with a radius that is zero, negative or
+  not finite is drawn as nothing and reported (`degenerate`); a negative radius is never read as
+  its absolute value.
 
 ## Plots against the real numbers
 

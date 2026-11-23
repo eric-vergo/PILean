@@ -543,13 +543,25 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   (`RatBall.invAbove`), so a low precision gives a wide ball, never a wrong one; they decide the
   sign under a square root the same way, and answer what the balls do not decide with `none` or
   `Meeting.undecided` (tangency is decided only for data whose balls have radius 0, rationals and
-  integers, where the deciding number is exactly 0). The square root is `√(max x 0)`, total. Refinement says when it did not reach the
-  radius asked (`refine`, `Enclosed.meetsPrecision`).
-* **Specifications that speak about the items.** A figure's theorem says which item is which
-  exact object, in which colour, with which title and recorded incidences
-  (`Plane.Exact.IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`), so that the exact facts about the
-  points (that `E` is on the left circle) are facts about the items that draw them; the strict
-  figure link (`figure_proves`: the figure's constant occurs in the theorem) holds for each.
+  integers, where the deciding number is exactly 0). The square root is `√(max x 0)`, total.
+  Refinement says when it did not reach the radius asked (`refine`, `Enclosed.meetsPrecision`).
+  A radius is taken as given, not through its square: a radius not decided to be positive is
+  `Meeting.degenerate` (and `diskIncidence?` is `none`), so `-r` is never read as `r`; reading
+  it as `|r|` was the alternative rejected, since a negative radius is a mistake in the data, not
+  a circle. The order and equality of `QSqrt d` require `[QSqrt.NonSquare d]`: for a square `d`
+  the pair `(a, b)` does not determine `a + b √d`, so comparing pairs would be wrong; computing
+  the rational value for a square `d` was the alternative rejected, since a square `d` is
+  ℚ written twice and only hides a mistake in the radicand.
+* **Specifications that write out the items.** A figure's theorem states its item list
+  literally (each item as the builders and modifiers that make it: data, colour, title, marker,
+  recorded incidences, labels with their text, point and placement), so that the exact facts
+  about the data (that `E` is on the left circle) are facts about the items that draw them, and
+  any change to what the figure draws breaks the build; `lake test` makes such changes to copies
+  of the modules and requires each to fail in the specification (`PILeanTest/SpecMutations.lean`).
+  Naming the items in the theorem with predicates such as `Plane.Exact.IsPoint` was the
+  alternative rejected: the list itself was left to a definition `rfl` restated, so an item could
+  be removed or a label moved without breaking any proof. The strict figure link (`figure_proves`:
+  the figure's constant occurs in the theorem) holds for each.
 * **Regions, fills, markers, ticks.** The intersection, union and difference of two disks are
   regions bounded by exact circular arcs of their circles (`regionArcs`, `Path.arcTo`); a shape's
   tint (colour, opacity) and outline are styled apart; markers are dots, rings, squares, diamonds
@@ -569,8 +581,13 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   seen on it or off it unless they record their incidence relative to that element, colours of
   too little contrast against what they are drawn on (at their alpha; at a label's centre, a
   marker's, and along every stroke, over the page and the fills beneath), in both themes, numbers
-  that are not finite, degenerate polygons, polylines and segments, roles the style does not name, and colours the inline dark theme would
-  restyle wrongly. A recorded incidence names its element by title (`Item.named`) and is held to
+  that are not finite, degenerate polygons, polylines and segments, circles, disks, arcs,
+  sectors, regions and angle marks with a radius that is zero, negative or not finite (drawn as
+  nothing), roles the style does not name, and colours the inline dark theme would restyle
+  wrongly (also for plots). Direction controls and invisible characters in a label's text are
+  dropped when it is drawn and measured (`labelText`); showing a visible mark for them was the
+  alternative rejected, since the built-in lettering has no glyph for one and an SVG text label
+  would still be reordered by the control. A recorded incidence names its element by title (`Item.named`) and is held to
   it: a point recorded on an element but drawn away from it, or on the wrong side of a region, is
   itself a problem, and a record against one element does not excuse a point from another. A
   figure's `checks` level makes builds warn or fail. Automatic placement (`auto`, and `across` a
@@ -580,9 +597,11 @@ frame maps them to the page with one scale for both axes, so circles stay round 
 * **Dark colours of inline pictures.** A page that shows a picture inline restyles it in its dark
   theme by its light colour values (`Style.darkColourPairs`). Classes on every drawn shape, keyed
   on its role, are the alternative rejected: they would change the drawing that the proofs
-  describe and every file. The check `darkThemeClash` reports instead each element whose colour would come out
-  other than its dark twin's: a fixed colour equal to a style colour, or roles that share a light
-  colour with different dark ones.
+  describe and every file. The check `darkThemeClash` reports instead each element whose colour
+  would come out other than its dark twin's: a fixed colour equal to a style colour, or roles
+  that share a light colour with different dark ones; for plots, a fixed colour of a series, a
+  bar group or a band equal to a style colour. Graphs are not put inline. The site check ties the
+  page's theme rules to the pairs the manifest records for the file.
 * **Text and small screens.** SVG text is drawn as shapes by default (`textAsShapes`), so every
   viewer shows the lettering the layout measured; `narrowWidth` renders the figure a second time
   at a narrower page with labels and markers at their full pixel size, for small screens. For

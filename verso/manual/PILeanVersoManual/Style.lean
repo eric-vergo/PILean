@@ -13,7 +13,10 @@ dark picture of a figure (and of its backdrop) is shown when the page's root has
 `data-theme="dark"`, or when the system prefers dark and the root does not have
 `data-theme="light"`: the rules the Blueprint's and Verso's dark themes follow, without a script.
 The `lean:` links are shown only when the root has `data-lean-links` (a viewer that handles them
-sets it); otherwise the declaration is plain code.
+sets it); otherwise the declaration is plain code. A caption and the figures page break a word
+too long for the column anywhere rather than widen the page, and a caption's text is isolated
+(`unicode-bidi: isolate`), so that direction controls the author wrote in it do not reorder the
+page around it.
 -/
 
 namespace PILeanVerso
@@ -71,6 +74,8 @@ html[data-theme="dark"] .pilean-figure-has-dark .pilean-figure-dark { display: b
   font-size: 0.95em;
   line-height: 1.5;
   text-align: center;
+  overflow-wrap: anywhere;
+  unicode-bidi: isolate;
 }
 .pilean-figure-caption p { display: inline; margin: 0; }
 .pilean-figure-number { font-weight: 600; margin-right: 0.45em; }
@@ -123,7 +128,9 @@ html[data-lean-links] .pilean-lean-text { display: none; }
   margin: 1.5rem 0;
   padding: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
+  overflow-wrap: anywhere;
 }
 .pilean-figure-index > li {
   display: grid;

@@ -86,15 +86,21 @@ that alpha). -/
 def tintOpacityText (a : Float) : String :=
   fmtNum ((max 0 (min 1 a) * 255).round / 255) 3
 
+/-- The restyling of an inline picture in the dark theme of a page, for a picture in the style
+`st`: its light colours paired with its dark twin's (`Style.darkColourPairs`) and its tint
+opacity paired with the twin's when they differ; both empty without a twin. -/
+def InlineSvg.themeOf (st : Style) : Array (String × String) × Array (String × String) :=
+  (st.darkColourPairs, match st.darkTwin? with
+    | some d =>
+      if st.plane.fillOpacity == d.plane.fillOpacity then #[]
+      else #[(tintOpacityText st.plane.fillOpacity, tintOpacityText d.plane.fillOpacity)]
+    | none => #[])
+
 /-- An inline picture in a style: its nodes, and its dark colours and tint opacities when the
-style has a dark twin. -/
+style has a dark twin (`InlineSvg.themeOf`). -/
 def InlineSvg.ofStyle (w h : Float) (nodes : Array Svg.Node) (st : Style) : InlineSvg :=
-  { width := w, height := h, nodes, darkColours := st.darkColourPairs,
-    darkOpacities := match st.darkTwin? with
-      | some d =>
-        if st.plane.fillOpacity == d.plane.fillOpacity then #[]
-        else #[(tintOpacityText st.plane.fillOpacity, tintOpacityText d.plane.fillOpacity)]
-      | none => #[] }
+  let (darkColours, darkOpacities) := InlineSvg.themeOf st
+  { width := w, height := h, nodes, darkColours, darkOpacities }
 
 /-- The SVG document of an inline picture. -/
 def InlineSvg.document (i : InlineSvg) : String := Svg.document i.width i.height i.nodes
@@ -129,6 +135,10 @@ structure Output where
   textEngine : String := ""
   /-- For an SVG output: the same picture as nodes, for a page that puts it inline. -/
   inline : Unit → Option InlineSvg := fun _ => none
+  /-- For an SVG output a page can put inline: the restyling of its dark theme, the
+  `darkColours` and `darkOpacities` of `inline` (`InlineSvg.themeOf` of its style), which the
+  manifest records so that a site check can tie the page's theme rules to it. -/
+  theme : Unit → Array (String × String) × Array (String × String) := fun _ => (#[], #[])
   /-- For the poster of a family of frames: every frame, for a page that shows them inline. -/
   frames : Unit → Option FrameSet := fun _ => none
   /-- Problems of the figure's layout a build should report as warnings (on one output of a
@@ -150,9 +160,9 @@ def checkedBytes (fail : Bool) (problems : Unit → Array String)
   let ps := if fail then problems () else #[]
   if ps.isEmpty then bytes () else .error ("problems: " ++ "; ".intercalate ps.toList)
 
-/-- Figures: the SVG (with the labelling problems the figure's `checks` level reports as
-warnings) and the PNG when the figure has pixels. A figure whose `checks` level is `fail` and
-that has labelling problems (`PILean.Plot.Check`) cannot be rendered. -/
+/-- Figures: the SVG (with the problems of its checks, `PILean.Plot.Check`, which the figure's
+`checks` level reports as warnings) and the PNG when the figure has pixels. A figure whose
+`checks` level is `fail` and that has such problems cannot be rendered. -/
 instance : ToOutputs Plot.Figure where
   outputs fig :=
     let ok := checkedBytes (fig.checks == .fail) fun _ => fig.checkMessages
@@ -160,6 +170,7 @@ instance : ToOutputs Plot.Figure where
         spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
         inline := fun _ => some (InlineSvg.ofStyle fig.width fig.height
           (fig.draw.render (.forSvg fig.style.text fig.style.fontFamily)) fig.style),
+        theme := fun _ => InlineSvg.themeOf fig.style,
         problems := fun _ => if fig.checks == .warn then fig.checkMessages else #[] },
       { name := "", format := .png,
         bytes := fun _ => ok fun _ => match fig.toPng with
@@ -182,6 +193,7 @@ def planeOutputs (fig : Plane.Figure) (suffix : String) (warn : Bool) : Array Ou
       spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
       inline := fun _ => some
         (InlineSvg.ofStyle g.frame.width.round g.frame.height.round fig.svgNodes fig.style),
+      theme := fun _ => InlineSvg.themeOf fig.style,
       problems := fun _ => if warn && fig.checks == .warn then fig.checkMessages else #[] },
     { name := suffix, format := .png,
       bytes := fun _ => planeBytes fig fun _ => match fig.toPng with
@@ -218,10 +230,11 @@ instance : ToOutputs Explorer where
     let frameOutputs := x.frames.zipIdx.map fun (f, k) =>
       ({ name := s!"-frame-{k}", format := .svg, bytes := fun _ => ok fun _ => .ok f.toSvg.toUTF8,
          spec := f.toSvg.toUTF8, textEngine := f.style.text.id,
-         inline := fun _ => some f.inline } : Output)
+         inline := fun _ => some f.inline, theme := fun _ => InlineSvg.themeOf f.style } :
+        Output)
     #[{ name := "", format := .svg, bytes := fun _ => ok fun _ => .ok p.toSvg.toUTF8,
         spec := p.toSvg.toUTF8, textEngine := p.style.text.id,
-        inline := fun _ => some p.inline,
+        inline := fun _ => some p.inline, theme := fun _ => InlineSvg.themeOf p.style,
         frames := fun _ => some
           { axisName := x.axisName, axisValues := x.axisValues,
             stepCaptions := x.stepCaptions, frames := x.frames.map (·.inline),

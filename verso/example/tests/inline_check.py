@@ -6,11 +6,14 @@
 
 Each `svg.pilean-inline-svg` of a page must name its file of the figures folder
 (`data-pilean-file`); the file must be listed in `manifest.json` with the SHA-256 of its bytes;
-and the page's picture, once what the page adds is taken away (the theme `style` element, the
-prefix of its ids, the links around elements that name a declaration, the root's page
-attributes), must be the file's picture without its source record (the `title`, `desc` and
-`metadata` the build puts first), element for element and attribute for attribute. Exit status
-0 when every picture holds, 1 otherwise (each failure is printed).
+the page's theme `style` element must be, character for character, the rules the adapter derives
+from the dark colours and tint opacities the manifest records for that file and from the
+picture's id (none when the manifest records none); and the page's picture, once what the page
+adds is taken away (that `style` element, the prefix of its ids, the links around elements that
+name a declaration, the root's page attributes), must be the file's picture without its source
+record (the `title`, `desc` and `metadata` the build puts first), element for element and
+attribute for attribute. Other CSS of the page is not checked. Exit status 0 when every picture
+holds, 1 otherwise (each failure is printed).
 """
 
 import glob
@@ -106,6 +109,40 @@ def file_body(data):
     return body
 
 
+def dom_safe(s):
+    """The id as the adapter writes it (`domSafe`): ASCII letters, digits, `-` and `_` kept."""
+    return "".join(c if (c.isascii() and c.isalnum()) or c in "-_" else "_" for c in s)
+
+
+def theme_css(pid, pairs, opacities):
+    """The theme rules the adapter writes for a picture (`themeCss`), empty without any."""
+    if not pairs and not opacities:
+        return ""
+    pid = dom_safe(pid)
+    sel = f"#{pid}" if pid[:1].isalpha() else f'svg[id="{pid}"]'
+
+    def rules(pre):
+        out = "".join(f'{pre} {sel} [fill="{a}"]{{fill:{b}}}'
+                      f'{pre} {sel} [stroke="{a}"]{{stroke:{b}}}' for a, b in pairs)
+        return out + "".join(f'{pre} {sel} [fill-opacity="{a}"]{{fill-opacity:{b}}}'
+                             for a, b in opacities)
+    return (rules('html[data-theme="dark"]') + "@media (prefers-color-scheme: dark){" +
+            rules('html:not([data-theme="light"])') + "}")
+
+
+def page_theme(text):
+    """The text of the picture's theme `style` element, empty without one; an error if the
+    picture has another `style` element."""
+    root = ET.fromstring(text)
+    styles = [k for k in root.iter(SVG_NS + "style")]
+    kids = list(root)
+    first = kids[0] if kids and kids[0].tag == SVG_NS + "style" and \
+        kids[0].get("class") == "pilean-theme" else None
+    if any(st is not first for st in styles):
+        raise ValueError("a style element other than the theme's first one")
+    return root.get("id") or "", (first.text or "") if first is not None else ""
+
+
 def page_body(text):
     root = ET.fromstring(text)
     pfx = (root.get("id") or "") + "-"
@@ -150,7 +187,13 @@ def main(site):
                 failures.append(f"{name}: {path} does not have the manifest's SHA-256")
                 continue
             try:
-                why = same(page_body(svg), file_body(data))
+                pid_text, css = page_theme(svg)
+                want = theme_css(pid_text, entry.get("darkColours", []),
+                                 entry.get("darkOpacities", []))
+                if css != want:
+                    why = "its theme rules are not those the manifest records"
+                else:
+                    why = same(page_body(svg), file_body(data))
             except (ET.ParseError, ValueError) as e:
                 why = f"cannot be read ({e})"
             if why:

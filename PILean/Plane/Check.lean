@@ -25,8 +25,11 @@ of `PILean.Graph.Check`), measured on the page, in pixels:
   a segment, a vertex, the end of an arc) is not reported.
 * `unknownIncidenceTarget`: a point records an incidence relative to a title no element has, or
   one that several elements have.
-* `degenerate`: a polygon with fewer than three distinct vertices, a polyline with fewer than two,
-  or a segment or an arrow whose ends coincide: drawn as nothing or as a dot.
+* `degenerate`: a polygon with fewer than three distinct vertices (a regular polygon of a radius
+  that is not positive has none), a polyline with fewer than two, or a segment or an arrow whose
+  ends coincide: drawn as nothing or as a dot; and a circle, a disk, an arc, a sector, a region of
+  disks or an angle mark with a radius that is zero, negative or not finite (`Geom.radiiOk`):
+  drawn as nothing.
 * `wrongIncidence`: a recorded incidence the drawing contradicts: a point recorded `on` an element
   more than `onTolerance` from its strokes, or recorded `inside` or `outside` a closed element
   (a circle, a disk, a sector, a polygon, a region of disks) on the other side of its boundary
@@ -383,6 +386,9 @@ def problemsOf (fig : Figure) (o : CheckOptions := {}) : Array Problem := Id.run
     if degenerate then
       out := out.push ⟨.degenerate, #[i], s!"{lf.name i} has too few distinct points to be \
         drawn as it is meant"⟩
+    if !lf.geom.radiiOk then
+      out := out.push ⟨.degenerate, #[i], s!"{lf.name i} has a radius that is zero, negative \
+        or not finite, and is drawn as nothing"⟩
     for r in lf.look.unknownRoles e.ps do
       out := out.push ⟨.unknownRole, #[i], s!"{lf.name i} is in the role “{r}”, which the style \
         does not name; it is drawn in the ink"⟩

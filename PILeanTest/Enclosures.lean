@@ -157,6 +157,18 @@ def meetingChecks : Array (String × Bool) :=
         | .apart => true | _ => false) &&
       (match circleCircle o o one two with | .apart => true | _ => false) &&
       (match circleCircle o o one one with | .undecided => true | _ => false)),
+    ("radii: a zero or negative radius is degenerate for circles and lines, `-1` is not read as \
+      `1`, and a disk of such a radius records no incidence",
+      let deg := fun (m : Meeting) => match m with | .degenerate => true | _ => false
+      deg (circleCircle o (two, zero) (-1 : Rat) one) &&
+        deg (circleCircle o (two, zero) one zero) &&
+        deg (circleCircle o (two, zero) (SqrtOf.mk (-1 : Rat)) (SqrtOf.mk one)) &&
+        deg (lineCircle ((-2 : Rat), zero) (two, zero) o (-1 : Rat)) &&
+        deg (lineCircle ((-2 : Rat), zero) (two, zero) o zero) &&
+        !(circleCircle o (two, zero) (-1 : Rat) one).decided &&
+        diskIncidence? (one, zero) o (-1 : Rat) == none &&
+        diskIncidence? (zero, zero) o zero == none &&
+        diskIncidence? (one, zero) o one == some .on),
     ("lines: a line through the centre meets the unit circle at (±1, 0), in the line's order",
       match lineCircle ((-2 : Rat), zero) (two, zero) o one with
       | .two p q => (p.re 30).contains (-1) && (q.re 30).contains 1 &&
@@ -202,7 +214,52 @@ def zetaChecks : Array (String × Bool) :=
       (PlanePoint.toPoint (⟨#[0, 0, 0, 0, 1]⟩ : Zeta5)).x ==
         (PlanePoint.toPoint (Zeta5.pow 4)).x)]
 
+/-! ### The order and the equality of ℚ(√d)
+
+They are available for a `d` that is not a square and correct there (2 and 5 below); for a square
+`d` (0, 1, 4 and 9) and for a negative one they cannot be written, while sums, products and balls
+can, and the balls hold their numbers. -/
+
+#guard_msgs (drop info) in
+#check_failure (QSqrt.lt (⟨0, -1⟩ : QSqrt 0) ⟨0, 0⟩)
+#guard_msgs (drop info) in
+#check_failure (QSqrt.le (⟨0, 0⟩ : QSqrt 1) ⟨0, 0⟩)
+#guard_msgs (drop info) in
+#check_failure (decide ((⟨2, 0⟩ : QSqrt 4) = ⟨0, 1⟩))
+#guard_msgs (drop info) in
+#check_failure ((⟨3, 0⟩ : QSqrt 9) == ⟨0, 1⟩)
+#guard_msgs (drop info) in
+#check_failure (QSqrt.nonneg (⟨-1, 1⟩ : QSqrt 4))
+#guard_msgs (drop info) in
+#check_failure (QSqrt (-1))
+
+/-- 0, 1, 4 and 9 are squares, so none of them has the instance. -/
+example : ¬ QSqrt.NonSquare 0 ∧ ¬ QSqrt.NonSquare 1 ∧ ¬ QSqrt.NonSquare 4 ∧
+    ¬ QSqrt.NonSquare 9 :=
+  ⟨fun h => absurd h.not_square (by decide +kernel),
+    fun h => absurd h.not_square (by decide +kernel),
+    fun h => absurd h.not_square (by decide +kernel),
+    fun h => absurd h.not_square (by decide +kernel)⟩
+
+/-- The checks of ℚ(√d) for square and non-square `d`. -/
+def qsqrtChecks : Array (String × Bool) :=
+  #[("ℚ(√2): 1 < √2 < 3/2, √2 - 1 > 0, (1, 1) ≠ (2, 0), and order and equality agree",
+      QSqrt.lt (⟨1, 0⟩ : QSqrt 2) ⟨0, 1⟩ && QSqrt.lt (⟨0, 1⟩ : QSqrt 2) ⟨3 / 2, 0⟩ &&
+        QSqrt.nonneg (⟨-1, 1⟩ : QSqrt 2) && !QSqrt.nonneg (⟨-3 / 2, 1⟩ : QSqrt 2) &&
+        (⟨1, 1⟩ : QSqrt 2) != ⟨2, 0⟩ && QSqrt.le (⟨1, 1⟩ : QSqrt 2) ⟨1, 1⟩ &&
+        !QSqrt.lt (⟨1, 1⟩ : QSqrt 2) ⟨1, 1⟩),
+    ("ℚ(√5): 2 < √5 < 9/4, φ > 1.6, φ² = φ + 1",
+      QSqrt.lt (⟨2, 0⟩ : QSqrt5) ⟨0, 1⟩ && QSqrt.lt (⟨0, 1⟩ : QSqrt5) ⟨9 / 4, 0⟩ &&
+        QSqrt.lt (⟨8 / 5, 0⟩ : QSqrt5) QSqrt5.phi &&
+        QSqrt5.phi * QSqrt5.phi == QSqrt5.phi + ⟨1, 0⟩),
+    ("ℚ(√d) for squares d = 0, 1, 4, 9: the balls hold the numbers a + b n",
+      #[(0, 0), (1, 1), (4, 2), (9, 3)].all fun ((d : Nat), (n : Nat)) =>
+        [8, 30, 64].all fun k =>
+          (QSqrt.ball (⟨1 / 3, 2⟩ : QSqrt d) k).contains (1 / 3 + 2 * n) &&
+            (⟨1 / 3, 2⟩ : QSqrt d).certifies ⟨1 / 3 + 2 * n, 0⟩)]
+
 /-- The checks. -/
-def checks : Array (String × Bool) := ballChecks ++ refineChecks ++ meetingChecks ++ zetaChecks
+def checks : Array (String × Bool) :=
+  ballChecks ++ refineChecks ++ meetingChecks ++ zetaChecks ++ qsqrtChecks
 
 end PILeanTest.Enclosures

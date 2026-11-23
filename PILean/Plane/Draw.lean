@@ -30,7 +30,7 @@ offsets stay in pixels. Colours come from `Style.plane` by role (`Tone`), so the
 
 ## Main definitions
 
-* `Env`, `drawGeom`, `drawItem`, `labelBox`, `geomReaches`, `itemReaches`.
+* `Env`, `drawGeom`, `drawItem`, `labelText`, `labelBox`, `geomReaches`, `itemReaches`.
 * `Figure`, `Figure.frame`, `Figure.draw` (the outputs are in `PILean.Plane.Render`).
 -/
 
@@ -45,11 +45,25 @@ structure Env where
   /-- The style; plane figures use its `plane` colours and sizes, `background` and `text`. -/
   style : Style
 
+/-- Whether a character is a direction control or an invisible format character: the marks and
+embeddings, overrides and isolates of bidirectional text (U+061C, U+200E, U+200F,
+U+202A–U+202E, U+2066–U+2069), the zero-width characters (U+200B–U+200D, U+2060, U+FEFF), the
+invisible operators U+2061–U+2064 and the soft hyphen U+00AD. -/
+def invisibleChar (c : Char) : Bool :=
+  let n := c.toNat
+  n == 0x061C || n == 0x00AD || (0x200B ≤ n && n ≤ 0x200F) || (0x202A ≤ n && n ≤ 0x202E) ||
+    (0x2060 ≤ n && n ≤ 0x2064) || (0x2066 ≤ n && n ≤ 0x2069) || n == 0xFEFF
+
+/-- The text of a label as it is drawn and measured: without `invisibleChar` characters, which
+would otherwise reorder a label drawn as SVG text or show as a missing glyph's box. -/
+def labelText (s : String) : String := s.toList.filter (!invisibleChar ·) |> String.ofList
+
 /-- The box of a label relative to its point's page position (`y` down): `size` pixels high
-text whose width the style's text engine measures, `offset` pixels away in the direction of
-`place`; and the offset of the text's baseline middle from the point. -/
+text whose width the style's text engine measures (of `labelText s`, the text as drawn),
+`offset` pixels away in the direction of `place`; and the offset of the text's baseline middle
+from the point. -/
 def labelBox (st : Style) (s : String) (size offset : Float) (place : Placement) : Box × Point :=
-  let w := st.text.measure s size
+  let w := st.text.measure (labelText s) size
   let asc := size * st.text.ascent
   let desc := size * st.text.descent
   let d := place.screenDir
@@ -176,7 +190,8 @@ abbrev WorldArc := Point × Float × Float × Float
 
 /-- The arcs (world centre, radius and angles) bounding the region two disks make, one array for
 each closed boundary (see the module docstring); a reversed full circle bounds a hole. Nothing
-when a centre or a radius is not finite (`Figure.problems` reports such an element). The half
+when a centre or a radius is not finite or a radius is not positive (`Figure.problems` reports
+such an element). The half
 angles of the arcs come from `acos` of a cosine clamped to `[-1, 1]`, so that disks within rounding
 of touching, outside or inside, keep their arcs (of zero or full width). -/
 def regionArcs (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ : Point) (r₂ : Float) :
@@ -189,11 +204,7 @@ def regionArcs (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ : Point) (r�
   let clampedAcos := fun (x : Float) => Float.acos (max (-1) (min 1 x))
   if !(c₁.x.isFinite && c₁.y.isFinite && c₂.x.isFinite && c₂.y.isFinite && r₁.isFinite &&
       r₂.isFinite) then #[]
-  else if !(r₁ > 0) || !(r₂ > 0) then
-    match op with
-    | .intersection => #[]
-    | .union => (if r₁ > 0 then #[full c₁ r₁] else #[]) ++ (if r₂ > 0 then #[full c₂ r₂] else #[])
-    | .difference => if r₁ > 0 then #[full c₁ r₁] else #[]
+  else if !(r₁ > 0) || !(r₂ > 0) then #[]
   else if d ≥ r₁ + r₂ then
     match op with
     | .intersection => #[]
@@ -222,7 +233,8 @@ def regionPath (f : Frame) (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ :
       | none => p
     (arcs.foldl (fun p (c, r, θ₀, θ₁) => p.arcTo (f.toScreen c) (f.scale * r) (-θ₀) (-θ₁)) p).close
 
-/-- The shapes of an element with a look, drawn through the environment's frame. -/
+/-- The shapes of an element with a look, drawn through the environment's frame; nothing for an
+element with a radius that is zero, negative or not finite (`Geom.radiiOk`). -/
 def drawGeom (e : Env) (l : Look) : Geom → Array Shape
   | .point p => e.marker l (e.frame.toScreen p)
   | .segment a b =>
@@ -240,12 +252,18 @@ def drawGeom (e : Env) (l : Look) : Geom → Array Shape
       if l.arrowHead then e.arrowTo l p q else #[e.strokePath l (Path.polyline #[p, q])]
     | none => #[]
   | .arrow a b => e.arrowTo l (e.frame.toScreen a) (e.frame.toScreen b)
-  | .circle c r => #[e.strokePath l (Canvas.circle (e.frame.toScreen c) (e.frame.scale * r))]
+  | .circle c r =>
+    if !radiusOk r then #[] else
+    #[e.strokePath l (Canvas.circle (e.frame.toScreen c) (e.frame.scale * r))]
   | .disk c r =>
+    if !radiusOk r then #[] else
     #[.path (Canvas.circle (e.frame.toScreen c) (e.frame.scale * r))
       (if l.noFill then none else some (e.tint l)) (e.outlineOf l)]
-  | .arc c r θ₀ θ₁ => e.arcShapes l (e.frame.toScreen c) (e.frame.scale * r) θ₀ θ₁ l.arrowHead
+  | .arc c r θ₀ θ₁ =>
+    if !radiusOk r then #[] else
+    e.arcShapes l (e.frame.toScreen c) (e.frame.scale * r) θ₀ θ₁ l.arrowHead
   | .sector c r θ₀ θ₁ =>
+    if !radiusOk r then #[] else
     let q := e.frame.toScreen c
     let r := e.frame.scale * r
     let p := ((Path.empty.moveTo q).arcTo q r (-θ₀) (-θ₁)).close
@@ -262,13 +280,14 @@ def drawGeom (e : Env) (l : Look) : Geom → Array Shape
     else if vs.isEmpty then #[]
     else #[e.strokePath l (Path.polyline (vs.map e.frame.toScreen))]
   | .angleMark c θ₀ θ₁ radius =>
+    if !radius.all radiusOk then #[] else
     e.arcShapes l (e.frame.toScreen c) (radius.getD e.ps.angleRadius) θ₀ θ₁ true
   | .label s p place offset =>
     let size := l.size.getD e.ps.labelSize
     let (_, base) := labelBox e.style s size (offset.getD e.ps.labelOffset) place
     let q := e.frame.toScreen p
     let b := q + base
-    let txt := Shape.text s b size (e.ink l) .middle (l.weight.getD 1)
+    let txt := Shape.text (labelText s) b size (e.ink l) .middle (l.weight.getD 1)
     if l.italic then
       -- a slant of about 12°, about the baseline point
       #[.group #[txt] (((Affine.translate b.x b.y).comp { c := -0.21 }).comp
@@ -281,6 +300,7 @@ def drawGeom (e : Env) (l : Look) : Geom → Array Shape
     let h := len.getD e.ps.tickLength / 2
     #[e.strokePath { l with dash := #[] } (Path.polyline #[q - h * n, q + h * n])]
   | .disks op c₁ r₁ c₂ r₂ =>
+    if !(radiusOk r₁ && radiusOk r₂) then #[] else
     #[.path (regionPath e.frame op c₁ r₁ c₂ r₂) (if l.noFill then none else some (e.tint l))
       (e.outlineOf l)]
 

@@ -71,6 +71,33 @@ desc="the inline check refuses a page whose picture was changed"
 check bash -c "python3 -I tests/inline_check.py '$scratch/page' | grep -q '#inline-svg: differs from'"
 rm -rf "$scratch/page"
 
+# A page whose theme rules were changed: a dark colour swapped, a declaration added.
+tamper_theme() {
+  rm -rf "$scratch/page"; cp -R "$scratch/a/html-multi" "$scratch/page"
+  python3 -I - "$explorers" "$1" <<'PY'
+import re, sys
+p, how = sys.argv[1], sys.argv[2]
+s = open(p, encoding="utf-8").read()
+i = s.index('class="pilean-theme"', s.index('id="inline-svg"'))
+j = s.index("</style>", i)
+css = s[i:j]
+if how == "colour":
+    m = re.search(r"\{fill:(#[0-9a-f]{6})\}", css)
+    other = "#000000" if m.group(1) != "#000000" else "#ffffff"
+    css = css[:m.start(1)] + other + css[m.end(1):]
+else:
+    css += "svg path{opacity:0}"
+open(p, "w", encoding="utf-8").write(s[:i] + css + s[j:])
+PY
+}
+tamper_theme colour
+desc="the inline check refuses a page whose theme rules have another dark colour"
+check bash -c "python3 -I tests/inline_check.py '$scratch/page' | grep -q '#inline-svg: .*theme rules'"
+tamper_theme rule
+desc="the inline check refuses a page whose theme rules have a rule added"
+check bash -c "python3 -I tests/inline_check.py '$scratch/page' | grep -q '#inline-svg: .*theme rules'"
+rm -rf "$scratch/page"
+
 # The link modes.
 warns="$scratch/site-warnings.txt"
 desc="the site builds with links into the site"

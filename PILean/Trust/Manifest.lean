@@ -87,6 +87,11 @@ structure ManifestEntry where
   repo : Option String := none
   /-- The commit, if the build was given one. -/
   commit : Option String := none
+  /-- For an SVG file a page can put inline: the light colours (`#rrggbb`) paired with the dark
+  ones that the page's dark theme restyles them to (`Output.theme`); empty otherwise. -/
+  darkColours : Array (String × String) := #[]
+  /-- The tint opacities paired the same way. -/
+  darkOpacities : Array (String × String) := #[]
 deriving BEq, Repr, Inhabited
 
 /-- A character a file name may have: a letter, a digit, `.`, `_`, `-`; all ASCII. -/
@@ -123,10 +128,15 @@ def ManifestEntry.render (m : ManifestEntry) : String :=
   let n := fun (k : String) (v : Nat) => s!"\"{k}\":{v}"
   let opt := fun (k : String) (v : Option String) =>
     match v with | some v => [s k v] | none => []
+  let pairs := fun (k : String) (v : Array (String × String)) =>
+    if v.isEmpty then [] else
+      [s!"\"{k}\":[" ++ ",".intercalate (v.toList.map fun (a, b) =>
+        s!"[\"{Json.escape a}\",\"{Json.escape b}\"]") ++ "]"]
   "{" ++ ",".intercalate ([s "path" m.path, s "format" m.format, n "bytes" m.bytes,
     s "sha256" m.sha256, s "fingerprint" m.fingerprint, s "module" m.module, s "decl" m.decl,
     s "file" m.file, n "line" m.line, n "column" m.column, s "version" m.version] ++
-    opt "repo" m.repo ++ opt "commit" m.commit) ++ "}"
+    opt "repo" m.repo ++ opt "commit" m.commit ++ pairs "darkColours" m.darkColours ++
+    pairs "darkOpacities" m.darkOpacities) ++ "}"
 
 /-- The manifest text of a list of entries (in the given order). -/
 def Manifest.render (es : Array ManifestEntry) : String :=
@@ -151,11 +161,19 @@ def ManifestEntry.ofJson (j : Json) : Except String ManifestEntry := do
     | none => return none
     | some (.str s) => return some s
     | _ => throw s!"the key {k} must be a string"
+  let pairs := fun (k : String) => do
+    match j.get? k with
+    | none => return #[]
+    | some (.arr xs) => xs.mapM fun
+      | .arr #[.str a, .str b] => return (a, b)
+      | _ => throw s!"the key {k} must be a list of pairs of strings"
+    | _ => throw s!"the key {k} must be a list of pairs of strings"
   let m : ManifestEntry := {
     path := ← str "path", format := ← str "format", bytes := ← num "bytes",
     sha256 := ← str "sha256", fingerprint := ← str "fingerprint", module := ← str "module",
     decl := ← str "decl", file := ← str "file", line := ← num "line", column := ← num "column",
-    version := ← str "version", repo := ← opt "repo", commit := ← opt "commit" }
+    version := ← str "version", repo := ← opt "repo", commit := ← opt "commit",
+    darkColours := ← pairs "darkColours", darkOpacities := ← pairs "darkOpacities" }
   if !safePath m.path then throw s!"the path {m.path} is not a safe relative path"
   if (Format.ofName? m.format).isNone then throw s!"the format {m.format} is unknown"
   if !isFingerprint m.sha256 || !isFingerprint m.fingerprint then

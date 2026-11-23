@@ -250,8 +250,10 @@ theorem RealValue.toFloat_rat (q : Rat) : RealValue.toFloat q = Exact.toFloat q 
 /-- Where the point `p` stands relative to the closed disk with centre `c` and radius `r`, decided
 from balls of `|p - c|² - r²` at the precisions 16, 32, 64, … up to `maxPrecision`: `outside` once
 the ball lies above 0, `inside` once it lies below, `on` when it is exactly 0 (a ball of radius 0
-around 0, as for rational data); `none` when no precision tried separates it from 0 (a point on
-the boundary of an irrational disk, or one too near it). -/
+around 0, as for rational data), each only at a precision where the ball of `r` lies above 0;
+`none` when no precision tried separates it from 0 (a point on the boundary of an irrational
+disk, or one too near it), and when `r` is not decided to be positive (a zero or negative radius
+is no disk: `-r` is not read as `r`). -/
 def diskIncidence? {α γ β : Type} [PlanePoint α] [PlanePoint γ] [RealValue β] (p : α) (c : γ)
     (r : β) (maxPrecision : Nat := 512) : Option Plane.Incidence := Id.run do
   let mut k := 16
@@ -260,6 +262,10 @@ def diskIncidence? {α γ β : Type} [PlanePoint α] [PlanePoint γ] [RealValue 
     let dx := (PlanePoint.re p k).sub (PlanePoint.re c k)
     let dy := (PlanePoint.im p k).sub (PlanePoint.im c k)
     let rb := RealValue.ball r k
+    if rb.hi ≤ 0 then return none
+    if rb.lo ≤ 0 then
+      k := 2 * k
+      continue
     let v := ((dx.mul dx).add (dy.mul dy)).sub (rb.mul rb)
     if v.radius == 0 && v.centre == 0 then return some .on
     if v.lo > 0 then return some .outside

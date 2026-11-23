@@ -229,6 +229,19 @@ def Geom.finite : Geom → Bool
   | .tick p dir length => p.isFinite && dir.isFinite && length.all Float.isFinite
   | .disks _ c₁ r₁ c₂ r₂ => c₁.isFinite && r₁.isFinite && c₂.isFinite && r₂.isFinite
 
+/-- Whether a radius can be drawn: positive and finite. -/
+def radiusOk (r : Float) : Bool := r > 0 && r.isFinite
+
+/-- Whether every radius of an element can be drawn (`radiusOk`): a circle's, a disk's, an arc's,
+a sector's, both of a region of disks, and an angle mark's when it gives one. An element with a
+radius that is zero, negative or not finite is drawn as nothing, and `Figure.problems` reports
+it as `degenerate`. -/
+def Geom.radiiOk : Geom → Bool
+  | .circle _ r | .disk _ r | .arc _ r _ _ | .sector _ r _ _ => radiusOk r
+  | .angleMark _ _ _ radius => radius.all radiusOk
+  | .disks _ _ r₁ _ r₂ => radiusOk r₁ && radiusOk r₂
+  | _ => true
+
 /-- How an element is drawn. `none` takes the style's value. -/
 structure Look where
   /-- The colour. -/
@@ -310,12 +323,15 @@ def sector (c : Point) (r θ₀ θ₁ : Float) : Item :=
 def polygon (vs : Array Point) : Item := .shape (.polygon vs)
 
 /-- The vertices of the regular `n`-gon with centre `c` whose first vertex is at distance `r` in
-the direction `phase`, counterclockwise. -/
+the direction `phase`, counterclockwise; none when `r` is zero, negative or not finite
+(`radiusOk`). -/
 def regularVertices (c : Point) (r : Float) (n : Nat) (phase : Float := 0) : Array Point :=
+  if !radiusOk r then #[] else
   (List.range n).toArray.map fun k => c + polar r (phase + 2 * pi * k.toFloat / n.toFloat)
 
 /-- The regular `n`-gon with centre `c` and circumradius `r`, its first vertex in the direction
-`phase`. -/
+`phase`; a polygon without vertices, drawn as nothing and reported as `degenerate`, when `r` is
+zero, negative or not finite. -/
 def regularPolygon (c : Point) (r : Float) (n : Nat) (phase : Float := 0) : Item :=
   polygon (regularVertices c r n phase)
 

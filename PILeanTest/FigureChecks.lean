@@ -59,7 +59,7 @@ def incidenceChecks : Array (String × Bool) :=
       (kinds (base #[segment ⟨0, 0⟩ ⟨2, 0⟩ |>.named "the segment",
         point ⟨1, 0.5⟩ |>.incident .inside "the segment", far])).contains .wrongIncidence),
     ("incidence: a record naming no element is reported, and silences nothing",
-      -- the reviewer's case: the circle is unnamed, the record names something else
+      -- the circle is unnamed, and the record names something else
       let ks := kinds (base #[circle ⟨0, 0⟩ 1, point ⟨1.0001, 0⟩ |>.incident .inside
         "something else", far])
       ks.contains .unknownIncidenceTarget && ks.contains .undecidedIncidence),
@@ -127,6 +127,38 @@ def drawingChecks : Array (String × Bool) :=
         point ⟨2, 2⟩]
       (f.problems.filter (·.kind == .degenerate)).size == 5 && !has f.toSvg "d=\"Z" &&
         !has f.toSvg "d=\"\""),
+    ("degenerate: a radius that is zero, negative or not finite in a circle, a disk, an arc, a \
+      sector, each region of disks, an angle mark and a regular polygon is reported, and the \
+      element draws nothing; a radius of 1 is neither",
+      let shapes : Array (Float → Item) := #[circle ⟨0, 0⟩, disk ⟨0, 0⟩,
+        fun r => arc ⟨0, 0⟩ r 0 1, fun r => sector ⟨0, 0⟩ r 0 1,
+        fun r => lens ⟨0, 0⟩ r ⟨0.5, 0⟩ 1, fun r => diskUnion ⟨0, 0⟩ 1 ⟨0.5, 0⟩ r,
+        fun r => diskDifference ⟨0, 0⟩ r ⟨0.5, 0⟩ 1, fun r => angleMark ⟨0, 0⟩ 0 1 (some r),
+        fun r => regularPolygon ⟨0, 0⟩ r 5]
+      let reported := fun (it : Item) =>
+        let f := base #[it, point ⟨-1, -1⟩, point ⟨1, 1⟩]
+        (f.problems.any fun p => p.kind == .degenerate && p.items == #[0],
+          (drawItem f.env it).isEmpty)
+      (#[-1, 0, nan, inf].all fun r => shapes.all fun mk => reported (mk r) == (true, true)) &&
+        shapes.all fun mk => reported (mk 1) == (false, false)),
+    ("degenerate: the exact builders report a negative radius and the square root of a negative \
+      value, and do not draw them as their absolute values",
+      let o : Rat × Rat := (0, 0)
+      let neg := base #[Plane.Exact.disk o (-1 : Rat), point ⟨-2, -2⟩, point ⟨2, 2⟩]
+      let root := base #[Plane.Exact.lens o ((1 / 2 : Rat), (0 : Rat)) (SqrtOf.mk (-2 : Rat))
+        (SqrtOf.mk (1 : Rat)), point ⟨-2, -2⟩, point ⟨2, 2⟩]
+      (kinds neg).contains .degenerate && (kinds root).contains .degenerate &&
+        (drawItem neg.env (Plane.Exact.disk o (-1 : Rat))).isEmpty &&
+        (drawItem root.env (Plane.Exact.lens o ((1 / 2 : Rat), (0 : Rat))
+          (SqrtOf.mk (-2 : Rat)) (SqrtOf.mk (1 : Rat)))).isEmpty),
+    ("labels: direction controls and invisible characters are not drawn: a label with U+202E, \
+      U+2066, U+200B and U+FEFF draws as the label without them, as shapes and as SVG text",
+      let fig := fun (t : String) => base #[point ⟨0, 0⟩, point ⟨1, 1⟩, label t ⟨0.5, 0.5⟩ .above]
+      let hostile := fig "\u202eRTL\u2066 label\u200b\ufeff"
+      let plain := fig "RTL label"
+      hostile.toSvg == plain.toSvg && hostile.toSvg (outlines := false) ==
+        plain.toSvg (outlines := false) && !has (hostile.toSvg (outlines := false)) "\u202e" &&
+        labelText "a\u00adb\u061cc\u2061" == "abc"),
     ("roles: a role the style does not name is reported",
       (kinds (base #[segment ⟨0, 0⟩ ⟨1, 0⟩ |>.role "missing"])).contains .unknownRole),
     ("dark theme: a fixed colour equal to a style colour is reported",
@@ -152,8 +184,9 @@ def pathReaches (f : Frame) (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ 
   ((regionPath f op c₁ r₁ c₂ r₂).flatten 0.1).any fun pl =>
     pl.points.any fun p => (p - q).norm ≤ tol
 
-/-- The checks of regions of disks within rounding of touching (the reviewer's configuration,
-and a sweep over many), and of the shapes of unions and differences. -/
+/-- The checks of regions of disks within rounding of touching (radii `0.1137` and `1.491` with
+centres `(r₁ + r₂)(1 - 2.2e-16)` apart, and a sweep over many such configurations), and of the
+shapes of unions and differences. -/
 def regionChecks : Array (String × Bool) :=
   let r1 : Float := 0.1137
   let r2 : Float := 1.491
@@ -239,6 +272,17 @@ def plotChecks : Array (String × Bool) :=
     ("plots: the groups of a bar series count as series",
       (plotKinds (plot "x" "y" #[.bars #["p", "q"] #[("", #[1, 2]), ("", #[2, 1])]])).contains
         .unnamedSeries),
+    ("plots: a fixed colour equal to a colour of the style is reported for the inline dark \
+      theme, in a series and in a band; a colour the style does not have, or the style's own \
+      colours, are not",
+      let pal := Style.light.palette[0]!
+      (plotKinds (plot "x" "y" #[.line "a" #[⟨0, 0⟩, ⟨1, 1⟩] (some pal)])).contains
+        .darkThemeClash &&
+      (plotKinds (plot "x" "y" one #[.hband 0 1 "b" (some Style.light.inkPrimary)])).contains
+        .darkThemeClash &&
+      !(plotKinds (plot "x" "y" #[.line "a" #[⟨0, 0⟩, ⟨1, 1⟩] (some ⟨1, 2, 3, 255⟩)])).contains
+        .darkThemeClash &&
+      !(plotKinds (plot "x" "y" two)).contains .darkThemeClash),
     ("plots: a panel bare on purpose is not checked",
       (plotKinds (plot "" "" unnamed (bare := true))).isEmpty),
     ("plots: warn reports on the SVG, fail stops every output, ignore reports nothing",
@@ -247,10 +291,14 @@ def plotChecks : Array (String × Bool) :=
       (w[0]!.problems ()).size == 1 && (w[1]!.problems ()).isEmpty &&
       f.all (fun o => match o.bytes () with | .error _ => true | .ok _ => false) &&
       ({ warned with checks := .ignore } : Plot.Figure).checkMessages.isEmpty),
-    ("plots: the gallery's plots and the plots its animations are drawn from are labelled",
+    ("plots: the gallery's plots have no problem, and the plots its animations are drawn from \
+      are labelled (an animation is never put inline, so the dark theme of a page cannot \
+      restyle its colours)",
+      let labelled := fun (f : Plot.Figure) =>
+        (f.problems.filter (·.kind != .darkThemeClash)).isEmpty
       Examples.gallery.all (fun (_, f) => f.problems.isEmpty) &&
-      [0, 0.7, 1.9].all fun t => (Examples.Animations.waveFigure t).problems.isEmpty &&
-        (Examples.Animations.barsFigure t).problems.isEmpty)]
+      [0, 0.7, 1.9].all fun t => labelled (Examples.Animations.waveFigure t) &&
+        labelled (Examples.Animations.barsFigure t))]
 
 /-! ### Explorers and plane animations -/
 

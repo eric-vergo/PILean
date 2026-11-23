@@ -28,6 +28,7 @@ import PILeanTest.PlaneExact
 import PILeanTest.Trust
 import PILeanTest.TrustBuild
 import PILeanTest.Inert
+import PILeanTest.SpecMutations
 import PILeanTest.Bounds
 import PILeanTest.Tools
 

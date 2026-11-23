@@ -17,13 +17,21 @@ panel at a time:
   series by its label, when the figure has more than one labelled series) or by a direct label
   in the panel (an annotation `text` or `point` whose text is the series' label).
 
-A panel that is bare on purpose (`Panel.bare`) is not checked; a figure's `checks` level
+* `darkThemeClash`: a page that shows the plot inline in its dark theme restyles each colour by
+  its light value (`Style.darkColourPairs`, the first pairing of a light colour kept), so a fixed
+  colour (a series', a bar group's or a band's `color`) equal to a colour of the style comes out
+  as that colour's dark twin, as for the fixed colours of plane figures (`PILean.Plane.Check`).
+  (A style has a dark twin only when its colours are the default light ones, whose light values
+  each have one dark twin, so a plot's own colours do not clash.)
+
+A panel that is bare on purpose (`Panel.bare`) is not checked for labels; a figure's `checks` level
 (`CheckLevel`) says whether the problems are reported (`warn`, the default), stop its rendering
 (`fail`) or are not looked for (`ignore`), as for plane figures.
 
 ## Main definitions
 
-* `ProblemKind`, `Problem`, `Panel.seriesNames`, `Figure.problems`, `Figure.checkMessages`.
+* `ProblemKind`, `Problem`, `Panel.seriesNames`, `Panel.fixedColours`, `Figure.problems`,
+  `Figure.checkMessages`.
 -/
 
 namespace PILean.Plot
@@ -36,6 +44,9 @@ inductive ProblemKind where
   | noYLabel
   /-- Several series, not all of them named. -/
   | unnamedSeries
+  /-- A colour would come out other than its dark twin's in the dark theme of a page that shows
+  the plot inline. -/
+  | darkThemeClash
   deriving BEq, Inhabited, Repr
 
 /-- A problem: its kind, the panel's position in `Figure.panels` and a message. -/
@@ -62,6 +73,16 @@ def Panel.directLabels (p : Panel) : Array String :=
     | .text _ s _ | .point _ s => some s
     | _ => none
 
+/-- The colours a panel's series and bands fix (`color`, a bar series' `colors`), in order. -/
+def Panel.fixedColours (p : Panel) : Array Rgba :=
+  (p.series.flatMap fun s => match s with
+    | .bars _ _ _ cs => cs
+    | .line _ _ c .. | .scatter _ _ c .. | .step _ _ c .. | .area _ _ _ c | .band _ _ _ _ _ c
+    | .histogram _ _ _ _ c | .function _ _ _ _ c .. | .errorBars _ _ _ c => c.toArray) ++
+  p.notes.flatMap fun a => match a with
+    | .hband _ _ _ c | .vband _ _ _ c => c.toArray
+    | _ => #[]
+
 /-- How a panel is named in a message: its title, or its position. -/
 def Panel.name (p : Panel) (i : Nat) : String :=
   if p.title.isEmpty then s!"panel {i}" else s!"panel {i} (“{p.title}”)"
@@ -85,6 +106,15 @@ def Figure.problems (fig : Figure) : Array Problem := Id.run do
     if names.size ≥ 2 && !named && !direct then
       out := out.push ⟨.unnamedSeries, i, s!"{p.name i}: {names.size} series, which neither \
         the legend nor direct labels with their labels name (Figure.legend, Annotation.text)"⟩
+  -- colours the dark theme of an inline picture would restyle wrongly
+  let pairs := fig.style.darkColourPairs
+  for h : i in [0:fig.panels.size] do
+    for c in fig.panels[i].fixedColours do
+      if let some (_, shown) := pairs.find? (·.1 == c.rgbHex) then
+        if shown != c.rgbHex then
+          out := out.push ⟨.darkThemeClash, i, s!"{fig.panels[i].name i}: the fixed colour \
+            {c.rgbHex} equals a colour of the style and comes out {shown} in the dark theme of \
+            an inline picture; choose a colour the style does not have"⟩
   return out
 
 /-- The messages of the figure's labelling problems, unless its `checks` level is `ignore`. -/

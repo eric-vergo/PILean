@@ -78,7 +78,7 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     path, format := o.format.name, bytes := bytes.size, sha256 := Sha256.hex (Sha256.hash bytes),
     fingerprint := (src.fingerprint.getD ""), module := e.module, decl := e.decl, file := e.file,
     line := e.line, column := e.column, version := src.version, repo := opts.repo,
-    commit := opts.commit }
+    commit := opts.commit, darkColours := (o.theme ()).1, darkOpacities := (o.theme ()).2 }
   return { entry := m, bytes }
 
 /-- Every file of a build, sorted by path. Fails with all the messages (one per line) if there

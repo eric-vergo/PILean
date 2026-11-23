@@ -201,8 +201,10 @@ own, with its manifest entry, SHA-256 and fingerprint, so a site check can compa
 `svg` element of a page with the file it was made from (after taking off what the page adds: the
 theme `style` element, the id prefix, declaration links and the page's root attributes) and that
 file with the manifest. The theme rules a page adds are keyed on the picture's light colours
-(`InlineSvg.darkColours`); a plane figure whose colours that keying would get wrong is reported by
-its checks (`darkThemeClash`).
+(`InlineSvg.darkColours`), which the manifest entry records with the dark ones
+(`ManifestEntry.darkColours`, `darkOpacities`, from `Output.theme`); a plane figure or a plot
+whose colours that keying would get wrong is reported by its checks (`darkThemeClash`), and so is
+every explorer frame drawn from one.
 
 ### The specification encoding
 
@@ -458,12 +460,18 @@ fingerprint like any other (an explorer's frame `k` is the output `-frame-k`), a
 fixed: a `style` element of class `pilean-theme` (the dark theme's colours), a prefix on every
 id and reference to an id, a link around each element that names a declaration, and the root's
 page attributes (class, id, role, accessible name, the view box the script starts from); the
-file's source record is not in the page. The example's site check (`verso/example/tests/
-inline_check.py`) takes those away and compares the page's picture with the file element for
-element and attribute for attribute, and the file's SHA-256 with the manifest; a page whose
-picture differs from its file, names no file, or names one the manifest does not list fails it.
-Together with `pilean-verify` on the figures folder, this ties what a reader sees inline to the
-manifest and its fingerprints. Like the rest of this page, it establishes agreement between the
+file's source record is not in the page. The manifest entry of a file a page can put inline
+records the theme's data: its light colours paired with the dark ones (`darkColours`) and its
+tint opacities likewise (`darkOpacities`), from the figure's style. The example's site check
+(`verso/example/tests/inline_check.py`) requires the page's `pilean-theme` element to be,
+character for character, the rules the adapter derives from those recorded pairs and the
+picture's id, and the picture to have no other `style` element; it takes the page's additions
+away and compares the page's picture with the file element for element and attribute for
+attribute, and the file's SHA-256 with the manifest; a page whose picture or theme rules differ,
+that names no file, or names one the manifest does not list fails it. Together with
+`pilean-verify` on the figures folder, this ties each inline picture's elements and its theme
+rules to the manifest and its fingerprints. The rest of the page (its own CSS, its other
+elements, an `svg` without the class `pilean-inline-svg`) is not covered. Like the rest of this page, it establishes agreement between the
 page, the files and the manifest, not where they came from.
 
 ## Use in CI

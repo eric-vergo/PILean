@@ -213,8 +213,8 @@ def mergeUses (used : Array FigureUse) : Array FigureUse :=
   m.toArray.map (·.2) |>.qsort (·.decl < ·.decl)
 
 /-- Renders the figures `used` (repeated names count once) from the table `entries`, with all
-the messages (one per line) if a name has no entry, a figure cannot be rendered or cannot be
-shown as it is used (`useProblem?`), an SVG or an inline picture is not inert, a figure's inline
+the messages (one per line) if a name has no entry, a figure cannot be rendered (then only
+that is reported for it) or cannot be shown as it is used (`useProblem?`), an SVG or an inline picture is not inert, a figure's inline
 SVG passes the limit, two files have one path, or there are more than `maxEntries` figures. -/
 def renderSite (entries : Array FigureEntry) (used : Array FigureUse) (opts : SiteOptions) :
     Except String SiteRender := do
@@ -234,13 +234,17 @@ def renderSite (entries : Array FigureEntry) (used : Array FigureUse) (opts : Si
         (is its module imported, and is it marked @[figure]?)"
     | some e =>
       let mut fs : Array SiteFile := #[]
+      let mut refused := false
       for o in e.outputs () do
         match renderSiteFile e o opts u with
         | .ok f => fs := fs.push f
-        | .error msg => errors := errors.push msg
-      match useProblem? n u fs with
-      | some why => errors := errors.push why
-      | none => errors := errors ++ inlineProblems n u fs opts.inlineLimit
+        | .error msg => errors := errors.push msg; refused := true
+      -- a figure with an output refused is reported for that alone: what its use needs from
+      -- the outputs that were not made is not known
+      if !refused then
+        match useProblem? n u fs with
+        | some why => errors := errors.push why
+        | none => errors := errors ++ inlineProblems n u fs opts.inlineLimit
       for f in fs do
         for w in f.problems do warnings := warnings.push s!"{n}: {w}"
       figures := figures.insert n { source := e.toSourceData, files := fs }

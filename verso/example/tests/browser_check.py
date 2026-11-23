@@ -25,8 +25,9 @@ grid cell in order and nothing is focusable; reduced motion has no play button; 
 narrow rendition is shown. The three link modes: `lean:` links, links into the site that a click
 follows to an existing anchor (also in the side-by-side layout), and no links. Everything a
 figure shows is centred in its container and stays within it: wide, in the narrow column of the
-side-by-side layout, and at 360 px. Hostile captions, names and ids show as text and run
-nothing.
+side-by-side layout, and at 360 px, also with a word of 240 letters in a caption and in the
+figures page's list; a caption's text is isolated from the page's direction. Hostile captions,
+names and ids show as text and run nothing.
 """
 
 import base64
@@ -387,7 +388,8 @@ def noscript_checks(c, browser, base, shots):
             all(q == [-1, None, None] for q in quiet), str(quiet))
     cells = page.evaluate("""() => [...document.querySelectorAll('figure#radius li')].map(li => {
       const r = li.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top),
-        Math.round(r.width), li.querySelector('.pilean-explorer-frame-label').offsetHeight > 0]; })""")
+        Math.round(r.width),
+        li.querySelector('.pilean-explorer-frame-label').offsetHeight > 0]; })""")
     in_order = all((b[1] > a[1] + 16) or (abs(b[1] - a[1]) <= 16 and b[0] > a[0])
                    for a, b in zip(cells, cells[1:]))
     c.check("without script the frames are a grid in order, as many columns as fit, equal "
@@ -410,6 +412,31 @@ def noscript_checks(c, browser, base, shots):
     goto(page, base + EXPLORERS)
     c.check("reduced motion: no play button",
             page.locator("figure#word [data-action=play]").is_hidden())
+    ctx.close()
+
+
+def long_word_checks(c, browser, base, shots):
+    """At 360 px: a word of 240 letters in a caption and in the figures page's list wraps within
+    the page, and a caption isolates its text's direction."""
+    ctx = browser.new_context(viewport={"width": 360, "height": 800})
+    page = ctx.new_page()
+    word = "W" * 240
+    goto(page, base + "Pictures-with-proofs/A-function/")
+    got = page.evaluate("""w => { const cap = document.querySelector('.pilean-figure-caption');
+      cap.append(' ' + w); return [document.documentElement.scrollWidth - window.innerWidth,
+        cap.getBoundingClientRect().right <= window.innerWidth,
+        getComputedStyle(cap).unicodeBidi]; }""", word)
+    c.check("360 px: a caption with a 240-letter word stays within the page",
+            got[0] <= 0 and got[1], str(got))
+    c.check("a caption's text is isolated from the page's direction", got[2] == "isolate", got[2])
+    goto(page, base + "Figures/")
+    got = page.evaluate("""w => { const t = document.querySelector('.pilean-figure-index li');
+      t.querySelector('.pilean-index-title').append(' ' + w);
+      const ol = document.querySelector('ol.pilean-figure-index');
+      return [document.documentElement.scrollWidth - window.innerWidth,
+        ol.scrollWidth - ol.clientWidth]; }""", word)
+    c.check("360 px: the figures page with a 240-letter word in its list stays within the page",
+            got[0] <= 0 and got[1] <= 0, str(got))
     ctx.close()
 
 
@@ -595,7 +622,8 @@ def link_checks(c, browser, sites):
         c.check(f"{mode}: no link inside another", nested == 0, str(nested))
         goto(page, base + EXPLORERS)
         hrefs = page.evaluate("""() => [...document.querySelectorAll('figure a')]
-          .filter(a => !a.classList.contains('pilean-repo-link')).map(a => a.getAttribute('href'))""")
+          .filter(a => !a.classList.contains('pilean-repo-link'))
+          .map(a => a.getAttribute('href'))""")
         if mode == "site":
             c.check("site: no lean: link in a figure",
                     bool(hrefs) and not any(h.startswith("lean:") for h in hrefs), str(hrefs[:3]))
@@ -772,7 +800,7 @@ def main(argv):
             ctx.close()
 
         for part in [theme_checks, control_checks, wheel_checks, size_checks, hostile_checks,
-                     noscript_checks, touch_checks]:
+                     noscript_checks, touch_checks, long_word_checks]:
             c.section(part.__name__, part, c, browser, base, shots)
         c.section("strict styles", strict_style_checks, c, browser, site)
         c.section("centring", centring_checks, c, browser, base, "stacked", [1100, 360],

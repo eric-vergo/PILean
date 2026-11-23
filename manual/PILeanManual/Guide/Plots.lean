@@ -562,8 +562,8 @@ tag := "plot-checks"
 A plot a reader cannot read without asking what its axes or its curves are is reported
 ({api}`PILean.Plot.Check`): a panel whose horizontal or vertical axis has no label, and a panel
 with two or more series (each group of a bar series counts) that neither the legend nor direct
-labels (an annotation whose text is the series' label) name. The figure's `checks` level, as for plane figures,
-makes `pilean-build` and the Verso blocks warn about the problems (the default), fail, or not
+labels (an annotation whose text is the series' label) name. The figure's `checks` level, as
+for plane figures, makes `pilean-build` and the Verso blocks warn about the problems (the default), fail, or not
 look for them; a panel that is bare on purpose says so ({name}`PILean.Plot.Panel.bare`) and is
 not checked. Every plot on this page is labelled.
 

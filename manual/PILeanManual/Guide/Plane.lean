@@ -191,8 +191,9 @@ tag := "plane-checks"
 name (a label centred on a line included), something beyond the page, markers that read as one,
 a point drawn too near an element for a reader to see whether it is on it, a colour of too
 little contrast against what it is drawn on (at its opacity, along every stroke, over the fills
-beneath), in both themes, a number that is not finite, a polygon or segment with too few distinct points, a role the style does not name, and a
-colour the dark theme of an inline picture would get wrong. A point near an element records
+beneath), in both themes, a number that is not finite, a polygon or segment with too few
+distinct points, a circle, disk, arc, sector, region or angle mark whose radius is zero, negative
+or not finite (drawn as nothing), a role the style does not name, and a colour the dark theme of an inline picture would get wrong. A point near an element records
 where it stands relative to it with {name}`PILean.Plane.Item.incident`, naming the element by
 its title ({name}`PILean.Plane.Item.named`); the check holds the record to that element, so a
 point recorded on a circle but drawn off it is a problem too, and a record against one element
@@ -258,13 +259,16 @@ are enclosures ({name}`PILean.Exact.circleCircle`, {name}`PILean.Exact.lineCircl
 {name}`PILean.Exact.foot`, {name}`PILean.Exact.midpoint`). Nothing is made up: a division by a
 ball that holds 0 is `none` ({name}`PILean.Exact.RatBall.inv`), and a meeting of two curves is
 two points, a tangent point, none, or undecided ({name}`PILean.Exact.Meeting`), the last when
-the balls tried do not decide it.
+the balls tried do not decide it; a radius not decided to be positive is no circle
+(`degenerate`), never read as its absolute value. The order and the equality of ℚ(√d) need
+`d` not to be a square ({name}`PILean.Exact.QSqrt.NonSquare`, given for 2, 3 and 5): for a square
+`d` the pairs `(a, b)` do not determine the number, and comparing them cannot be written.
 
-A figure's theorem can say which item is which exact object, in which colour, with which title
-and which recorded incidences ({name}`PILean.Plane.Exact.IsPoint`,
-{name}`PILean.Plane.Exact.IsDisk`, {name}`PILean.Plane.Exact.IsSegment`,
-{name}`PILean.Plane.Exact.IsRegion`), and check the incidences by exact arithmetic in the representation, so that the
-picture's facts are facts about its items.
+A figure's theorem writes out the figure's items in drawing order, each with its colour, title,
+labels and recorded incidences, so that a change to what the figure draws breaks the build, and
+checks the incidences by exact arithmetic in the representation, so that the picture's facts are
+facts about its items. {name}`PILean.Plane.Exact.IsPoint` and its companions say what an item
+is, for lemmas such as {name}`PILean.Plane.Exact.IsPoint.draw`.
 
 ```lean (name := algEx)
 #eval (Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2 + Exact.Zeta5.ofInt 1).normSq

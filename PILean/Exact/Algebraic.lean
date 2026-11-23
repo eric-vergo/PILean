@@ -11,10 +11,15 @@ Representations of exact numbers that plane figures often need, with the instanc
 `Exact.RealValue` and `Exact.PlanePoint` that turn them into rational balls, and constructions on
 exact points:
 
-* `QSqrt d`: the numbers `a + b √d` of the field ℚ(√d) (`d` a natural number that is not a square),
-  with sums, products, conjugates (`a - b √d`), norms (`a² - d b²`), exact signs and order, and
-  balls from `sqrtBall` (`QSqrt5`, with `QSqrt5.phi`, the golden ratio). That a ball holds its
-  number can be checked exactly by squaring (`QSqrt.certifies`).
+* `QSqrt d`: the numbers `a + b √d` (`d` a natural number), with sums, products, conjugates
+  (`a - b √d`), norms (`a² - d b²`) and balls from `sqrtBall` (`QSqrt5`, with `QSqrt5.phi`, the
+  golden ratio), for every `d`. That a ball holds its number can be checked exactly by squaring
+  (`QSqrt.certifies`). The exact sign, the order and the equality (`QSqrt.nonneg`, `le`, `lt`,
+  `DecidableEq`, `BEq`) compare the pairs `(a, b)`, which is the order and the equality of the
+  real numbers `a + b √d` only when `√d` is irrational: they need `[QSqrt.NonSquare d]`, `d` not
+  the square of a natural number (0 and 1 are squares), given for 2, 3 and 5 and by
+  `⟨by decide +kernel⟩` for another `d`. For a square `d` they cannot be used: `(2, 0)` and
+  `(0, 1)` are both 2 in `QSqrt 4`.
 * `Zeta5`: the ring ℤ[ζ₅] (`ζ₅ = e^{2πi/5}`) as four integer coefficients in the basis
   `1, ζ, ζ², ζ³`, with sums, products (reduced by `ζ⁴ = -1 - ζ - ζ² - ζ³`), the conjugate
   (`ζʲ ↦ ζ⁻ʲ`), the real part and `|z|²` in ℚ(√5), and balls for the real part (in ℚ(√5)) and the
@@ -120,7 +125,7 @@ structure QSqrt (d : Nat) where
   a : Rat
   /-- The coefficient of `√d`. -/
   b : Rat := 0
-  deriving BEq, DecidableEq, Repr, Inhabited
+  deriving Repr, Inhabited
 
 /-- The numbers of ℚ(√5). -/
 abbrev QSqrt5 := QSqrt 5
@@ -128,6 +133,32 @@ abbrev QSqrt5 := QSqrt 5
 namespace QSqrt
 
 variable {d : Nat}
+
+/-- Whether `d` is the square of a natural number. -/
+def isSquare (d : Nat) : Bool := Nat.sqrt d * Nat.sqrt d == d
+
+/-- `d` is not the square of a natural number, so that `√d` is irrational and `a + b √d`
+determines `a` and `b`: the condition under which comparing pairs is comparing numbers. -/
+class NonSquare (d : Nat) : Prop where
+  /-- `d` is not a square. -/
+  not_square : isSquare d = false
+
+instance : NonSquare 2 := ⟨by decide +kernel⟩
+instance : NonSquare 3 := ⟨by decide +kernel⟩
+instance : NonSquare 5 := ⟨by decide +kernel⟩
+
+/-- Equality of the pairs, decided. -/
+def decEq (x y : QSqrt d) : Decidable (x = y) :=
+  if h : x.a = y.a ∧ x.b = y.b then
+    isTrue (by cases x; cases y; simp only at h; rw [h.1, h.2])
+  else isFalse (by intro e; subst e; exact h ⟨rfl, rfl⟩)
+
+/-- Equality, decided, for a `d` that is not a square: then two pairs are equal exactly when the
+numbers are. -/
+instance [NonSquare d] : DecidableEq (QSqrt d) := decEq
+
+/-- Equality as a `Bool`, for a `d` that is not a square. -/
+instance [NonSquare d] : BEq (QSqrt d) := ⟨fun x y => x.a == y.a && x.b == y.b⟩
 
 /-- A rational as a number of ℚ(√d). -/
 def ofRat (q : Rat) : QSqrt d := ⟨q, 0⟩
@@ -155,19 +186,19 @@ instance : Sub (QSqrt d) := ⟨sub⟩
 instance : Neg (QSqrt d) := ⟨neg⟩
 instance : Mul (QSqrt d) := ⟨mul⟩
 
-/-- Whether `a + b √d ≥ 0`, decided exactly: by the signs of `a` and `b` and, when they differ, by
-comparing `a²` with `d b²`. -/
-def nonneg (x : QSqrt d) : Bool :=
+/-- Whether `a + b √d ≥ 0`, decided exactly for a `d` that is not a square: by the signs of `a`
+and `b` and, when they differ, by comparing `a²` with `d b²`. -/
+def nonneg [NonSquare d] (x : QSqrt d) : Bool :=
   if x.a ≥ 0 && x.b ≥ 0 then true
   else if x.a ≤ 0 && x.b ≤ 0 then x.a == 0 && x.b == 0
   else if x.a > 0 then x.a * x.a ≥ d * x.b * x.b
   else d * x.b * x.b ≥ x.a * x.a
 
-/-- Whether `x ≤ y`, exactly. -/
-def le (x y : QSqrt d) : Bool := nonneg (sub y x)
+/-- Whether `x ≤ y`, exactly, for a `d` that is not a square. -/
+def le [NonSquare d] (x y : QSqrt d) : Bool := nonneg (sub y x)
 
-/-- Whether `x < y`, exactly. -/
-def lt (x y : QSqrt d) : Bool := !le y x
+/-- Whether `x < y`, exactly, for a `d` that is not a square. -/
+def lt [NonSquare d] (x y : QSqrt d) : Bool := !le y x
 
 /-- The ball at precision `k`: `a + b · sqrtBall d k'` with `k'` large enough that `|b|` times
 the radius of the ball of `√d` is at most `2⁻ᵏ`. -/
@@ -366,9 +397,12 @@ inductive Meeting where
   | apart
   /-- Not decided. -/
   | undecided
+  /-- A radius is not decided to be positive (it is zero or negative, or its balls do not
+  separate it from 0): there is no circle to meet. -/
+  | degenerate
   deriving Inhabited
 
-/-- The points of a meeting: two, one, or none (for `apart` and `undecided`). -/
+/-- The points of a meeting: two, one, or none (for `apart`, `undecided` and `degenerate`). -/
 def Meeting.points : Meeting → Array Enclosed
   | .two p q => #[p, q]
   | .tangent p => #[p]
@@ -379,10 +413,16 @@ def Meeting.two? : Meeting → Option (Enclosed × Enclosed)
   | .two p q => some (p, q)
   | _ => none
 
-/-- Whether the meeting is decided (anything but `undecided`). -/
+/-- Whether the meeting is decided: two points, one or none (not `undecided`, not
+`degenerate`). -/
 def Meeting.decided : Meeting → Bool
-  | .undecided => false
+  | .undecided | .degenerate => false
   | _ => true
+
+/-- Whether a real value is decided to be positive: some ball of it at `signPrecisions` lies above
+0 (`positiveBound?`). A radius the constructions accept. -/
+def decidedPositive {γ : Type} [RealValue γ] (r : γ) : Bool :=
+  (positiveBound? fun k => RealValue.ball r k).isSome
 
 variable {α β : Type} [PlanePoint α] [PlanePoint β]
 
@@ -416,8 +456,10 @@ def foot (p : β) (a b : α) : Option Enclosed :=
 of the direction from `c₁` to `c₂` first, when `|c₂ - c₁|²` and the squared half chord are decided
 to be positive; `apart` when the squared half chord is decided negative, or the centres are
 exactly equal and the radii decided to differ; `tangent` when the squared half chord is exactly
-0. -/
+0; `degenerate` when a radius is not decided to be positive (`decidedPositive`: a radius `-r` is
+not the radius `r`). -/
 def circleCircle {γ : Type} [RealValue γ] (c₁ c₂ : α) (r₁ r₂ : γ) : Meeting :=
+  if !(decidedPositive r₁ && decidedPositive r₂) then .degenerate else
   let base := fun (k : Nat) =>
     let x1 := PlanePoint.re c₁ k
     let y1 := PlanePoint.im c₁ k
@@ -455,8 +497,10 @@ def circleCircle {γ : Type} [RealValue γ] (c₁ c₂ : α) (r₁ r₂ : γ) : 
 /-- Where the line through `a` and `b` meets the circle `(c, r)` (`Meeting`): two points in the
 order of the line's direction when `|b - a|²` and the discriminant are decided to be positive;
 `apart` when the discriminant is decided negative; `tangent` when it is exactly 0; `undecided`
-otherwise, and when `a` and `b` are not decided to differ. -/
+otherwise, and when `a` and `b` are not decided to differ; `degenerate` when the radius is not
+decided to be positive (`decidedPositive`). -/
 def lineCircle {γ : Type} [RealValue γ] (a b c : α) (r : γ) : Meeting :=
+  if !decidedPositive r then .degenerate else
   let parts := fun (k : Nat) =>
     let ax := PlanePoint.re a k
     let ay := PlanePoint.im a k
