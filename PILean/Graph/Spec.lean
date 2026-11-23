@@ -151,18 +151,24 @@ theorem layout_edge_endpoints (g : Graph) (o : LayeredOptions) (st : Style) :
       g.validEdges.map (fun (i, e) => (i, e.src, e.dst)) := by
   unfold layout
   rw [fit_ends]
-  unfold layoutRaw
-  simp only [routeAll]
-  apply Array.ext
-  · simp
-  · intro i h1 h2
-    simp [routeOne_index, (routeOne_ends _ _ _ _).1, (routeOne_ends _ _ _ _).2]
+  unfold layoutRaw routeAllPorts
+  simp only
+  split
+  · apply Array.ext
+    · simp [routeBundled]
+    · intro i h1 h2
+      simp [routeBundled]
+  · apply Array.ext
+    · simp
+    · intro i h1 h2
+      simp [routeOne_index, (routeOne_ends _ _ _ _).1, (routeOne_ends _ _ _ _).2]
 
-/-- The layout draws its edges as the shapes of its routes. -/
+/-- The layout draws its edges as the shapes of its routes (and a bundled layout the stems and
+arrowheads of its ports). -/
 theorem Layout.draw_edges (l : Layout) (st : Style) :
     l.draw st = .group (#[.path (Canvas.rect 0 0 l.width l.height) (some (.solid st.background))
       none] ++ l.clusters.map (·.draw st) ++ l.edges.map (·.draw st) ++
-      l.nodes.map (·.draw st)) := rfl
+      l.ports.map (·.draw st) ++ l.nodes.map (·.draw st)) := rfl
 
 /-- The picture of a graph is the drawing of its layered layout. -/
 theorem draw_eq (g : Graph) (o : LayeredOptions) (st : Style) :

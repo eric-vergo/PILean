@@ -13,14 +13,15 @@ written, so that both show the same picture. The craft follows the plots: one-pi
 pixel centres (boxes are on whole pixels), text measured by the style's text engine, nothing
 drawn in a series colour but the clusters (faint tints of the palette).
 
-Back to front: clusters, edges with their heads, labels on plates of the page colour, node
-boxes, node labels.
+Back to front: clusters, edges with their heads, labels on plates of the page colour, the
+stems and arrowheads of the ports (bundled routes), node boxes, node labels.
 
 ## Main definitions
 
 * `Layout.draw`, `Graph.draw`: the drawing.
 * `Graph.toSvg`, `Graph.toImage`, `Graph.toPng`: the written forms.
-* `roundRectPath`, `NodeBox.draw`, `RoutedEdge.draw`, `ClusterBox.draw`: the parts.
+* `roundRectPath`, `NodeBox.draw`, `RoutedEdge.draw`, `PortMark.draw`, `ClusterBox.draw`: the
+  parts.
 -/
 
 namespace PILean.Graph
@@ -74,6 +75,13 @@ def RoutedEdge.draw (st : Style) (e : RoutedEdge) : Shape :=
     | none => #[]
   .group (#[curve] ++ head ++ label)
 
+/-- The shape of what a port draws once for its edges: the stem, as an edge's curve, and the
+arrowhead. -/
+def PortMark.draw (st : Style) (p : PortMark) : Shape :=
+  let line : Line := { ink := st.edge, width := st.edgeWidth, cap := "round", join := "round" }
+  .group ((p.stem.map fun s => #[Shape.path s none (some line)]).getD #[] ++
+    (p.head.map fun h => #[Shape.path h (some (.solid st.edge)) (some { line with width := 0.5 })]).getD #[])
+
 /-- The shape of a cluster: a faint tint of a palette colour, a hairline, the title at the top
 left. -/
 def ClusterBox.draw (st : Style) (c : ClusterBox) : Shape :=
@@ -88,7 +96,8 @@ def ClusterBox.draw (st : Style) (c : ClusterBox) : Shape :=
 /-- The drawing of a layout on the page colour. -/
 def Layout.draw (l : Layout) (st : Style) : Shape :=
   .group (#[.path (rect 0 0 l.width l.height) (some (.solid st.background)) none] ++
-    l.clusters.map (·.draw st) ++ l.edges.map (·.draw st) ++ l.nodes.map (·.draw st))
+    l.clusters.map (·.draw st) ++ l.edges.map (·.draw st) ++ l.ports.map (·.draw st) ++
+    l.nodes.map (·.draw st))
 
 /-- The layered layout of the graph, drawn. -/
 def draw (g : Graph) (o : LayeredOptions := {}) (st : Style := {}) : Shape :=

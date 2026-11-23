@@ -138,6 +138,7 @@ def layoutPacked (g : Graph) (o : LayeredOptions := {}) (st : Style := {}) (gap 
   let mut nodes : Array NodeBox := g.nodes.mapIdx fun i nd => nodeBoxOf st i nd ⟨0, 0, 0, 0⟩
   let mut edges : Array RoutedEdge := #[]
   let mut clusters : Array ClusterBox := #[]
+  let mut ports : Array PortMark := #[]
   for (l, keep, origin) in parts, (dx, dy) in places do
     let m := l.translate dx dy
     for nb in m.nodes do
@@ -147,12 +148,14 @@ def layoutPacked (g : Graph) (o : LayeredOptions := {}) (st : Style := {}) (gap 
       edges := edges.push { e with index := origin.getD e.index 0, src := keep.getD e.src 0,
                                    dst := keep.getD e.dst 0 }
     clusters := clusters ++ m.clusters
+    ports := ports ++ m.ports.map fun p => { p with node := keep.getD p.node 0 }
   let sorted := edges.qsort fun a b => a.index < b.index
-  return ({ nodes, edges := sorted, clusters := clusters.qsort fun a b => a.index < b.index } :
+  return ({ nodes, edges := sorted, clusters := clusters.qsort fun a b => a.index < b.index,
+            ports := ports.qsort fun a b => a.node < b.node || (a.node == b.node && !a.entry && b.entry) } :
     Layout).fit st.margin
 
-/-- The layout mirrored: upside down (`vertical`), or left to right. Boxes, routes, arrowheads
-and label plates keep their sizes; the picture keeps its size. -/
+/-- The layout mirrored: upside down (`vertical`), or left to right. Boxes, routes, arrowheads,
+stems and label plates keep their sizes; the picture keeps its size. -/
 def Layout.mirror (l : Layout) (vertical : Bool) : Layout :=
   let m : Affine := if vertical then { d := -1, f := l.height } else { a := -1, e := l.width }
   let mb := fun (b : Box) =>
@@ -164,6 +167,9 @@ def Layout.mirror (l : Layout) (vertical : Bool) : Layout :=
       { e with path := e.path.transform m, head := e.head.map (·.transform m),
                label := e.label.map fun t => { t with box := mb t.box },
                points := e.points.map m.apply },
-    clusters := l.clusters.map fun c => { c with box := mb c.box } }
+    clusters := l.clusters.map fun c => { c with box := mb c.box },
+    ports := l.ports.map fun p =>
+      { p with stem := p.stem.map (·.transform m), head := p.head.map (·.transform m),
+               trunk := (m.apply p.trunk.1, m.apply p.trunk.2) } }
 
 end PILean.Graph

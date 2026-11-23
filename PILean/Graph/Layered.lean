@@ -10,6 +10,7 @@ import PILean.Graph.Simplex
 import PILean.Graph.Compound
 import PILean.Graph.Route
 import PILean.Graph.Nested
+import PILean.Graph.Bundle
 import PILean.Sort
 
 /-!
@@ -151,6 +152,9 @@ structure Plan where
   arrowLength : Float := Graph.arrowLength
   /-- The half-width of an arrowhead. -/
   arrowHalfWidth : Float := Graph.arrowHalfWidth
+  /-- For bundled routes: what they need of the layout, their legs and tracks, and the height of
+  the first track of every channel (the channel `c` lies above layer `c`). -/
+  bundle : Option (BundleInput × BundleTracks × Array Float) := none
 
 /-- The vertical offset of a node's boundary at the horizontal offset `off` from its centre
 (the half-height, less where an ellipse curves in). -/
@@ -382,6 +386,19 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let order := sk.order
   let bs := sk.bs
   let reversed : Array Bool := ve.map fun (_, e) => e.src != e.dst && !before pos e.src e.dst
+  let bundled := o.routing == .bundled
+  let bst := o.bundle
+  -- bundled routes keep a corridor beside a node for every self-loop at it and every end of an
+  -- edge against the layers, on its right, and room for a self-loop's label beyond them
+  let uses := corridorUses n (ve.map fun (_, e) => (e.src, e.dst)) reversed
+  if bundled then
+    let mut plate : Array Float := Array.replicate n 0
+    for (_, e) in ve do
+      if e.src == e.dst && !e.label.isEmpty then
+        plate := plate.modify e.src (max · ((plateFrame e.label).1 + 4))
+    loopExtra := (Array.range n).map fun v =>
+      let u := uses.getD v 0
+      if u == 0 then 0 else bst.laneGap * (u + 1).toFloat + plate.getD v 0
   let total := bs.layerAll.size
   -- sizes: nodes, label plates (border nodes have no width)
   let mut bw : Array Float := (Array.range total).map fun v =>
@@ -402,7 +419,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
         thick := thick.modify (layerAll.getD mid 0) (max · pt)
   -- phase 4
   let labelRoom := 12 + st.noteSize * 1.2
-  let base := separation n bw o.nodeGap o.edgeGap 0 #[]
+  let base := separation n bw o.nodeGap (if bundled then bst.laneGap else o.edgeGap) 0 #[]
   let sep := borderSeparation bs base bw pad (pad + if lr then labelRoom else 0) 12 16
   let x0 := assignBreadth total n order bs.up bs.down sep bw
   let x1 := refineBreadth total n chains order bs.up bs.down sep bw x0 o.refine
@@ -499,6 +516,23 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
       let (_, _, k, j) := segs.getD i (0, 0, 0, 0)
       runs := runs.modify k fun r =>
         r.setIfInBounds j ((t.toFloat + 1) / (total.toFloat + 1))
+  let across := (Array.range size).map fun v =>
+    if v < n then (x.getD v 0 - loopExtra.getD v 0 / 2).round else (x.getD v 0).round
+  -- bundled routes: the tracks of every channel, which decide its height
+  let bundleIn : BundleInput :=
+    { n, layers := order.size, layerAll, across, half := nb.map (· / 2), chains, reversed,
+      ends := ve.map (fun (_, e) => (e.src, e.dst)), style := bst }
+  let bundleTr : Option BundleTracks := if bundled then some (bundleTracks bundleIn) else none
+  let depthOf := fun (c : Nat) => match bundleTr with
+    | some tr => tr.depth.getD c 0
+    | none => 0
+  let arrowLen := o.arrowLength.getD Graph.arrowLength
+  -- the room above the first track and below the last: a stem and a corner (and an arrowhead)
+  let marginAbove := bst.stemLength + bst.radius
+  let marginBelow := bst.stemLength + bst.radius + arrowLen
+  let channelHeight := fun (c : Nat) =>
+    let d := depthOf c
+    if d == 0 then 0 else marginAbove + (d - 1).toFloat * bst.laneGap + marginBelow
   let mut levels : Array Float := Array.replicate order.size 0
   let mut t : Float := 0
   let mut prev : Float := 0
@@ -507,15 +541,14 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
     -- a gap grows (up to `sidewaysGap` times): with many runs of orthogonal routes, to keep
     -- them three pixels apart; with a curve that goes far sideways, so that it is not too flat
     let g := if l == 0 then gap
+      else if bundled then max gap (channelHeight l)
       else min (o.sidewaysGap * gap) (max gap (max (reach.getD (l - 1) 0 / o.flattest)
         ((tracks.getD (l - 1) 0 + 1).toFloat * 3 + 16)))
     let g := if l == 0 then g
-      else max g (bottomNeed.getD (l - 1) 0 + topNeed.getD l 0 + 20)
-    t := if l == 0 then th / 2 + topNeed.getD 0 0 else t + prev / 2 + g + th / 2
+      else max g (bottomNeed.getD (l - 1) 0 + topNeed.getD l 0 + max 20 (channelHeight l))
+    t := if l == 0 then th / 2 + topNeed.getD 0 0 + channelHeight 0 else t + prev / 2 + g + th / 2
     prev := th
     levels := levels.setIfInBounds l t.round
-  let across := (Array.range size).map fun v =>
-    if v < n then (x.getD v 0 - loopExtra.getD v 0 / 2).round else (x.getD v 0).round
   -- the room of every real and dummy node in its layer: `lanes` for the shortest routes (two
   -- neighbouring dummy nodes share the space between them half and half, so the routes of a
   -- bundle stay apart), `walls` for the curves (only boxes and cluster sides bound them)
@@ -618,7 +651,18 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
            startOffset := spread outs, endOffset := spread ins, plates, runs, band,
            clusterFrames, lanes, walls, sides, gates,
            arrowLength := o.arrowLength.getD Graph.arrowLength,
-           arrowHalfWidth := o.arrowHalfWidth.getD Graph.arrowHalfWidth }
+           arrowHalfWidth := o.arrowHalfWidth.getD Graph.arrowHalfWidth,
+           bundle := bundleTr.map fun tr =>
+             -- the height of the first track of every channel
+             let L := order.size
+             let firstTrack := (Array.range (L + 1)).map fun c =>
+               if c == 0 then
+                 levels.getD 0 0 - thick.getD 0 0 / 2 - topNeed.getD 0 0 - marginBelow -
+                   ((tr.depth.getD 0 0).toFloat - 1) * bst.laneGap
+               else
+                 levels.getD (c - 1) 0 + thick.getD (c - 1) 0 / 2 + bottomNeed.getD (c - 1) 0 +
+                   marginAbove
+             (bundleIn, tr, firstTrack) }
 
 /-- The vertices of the orthogonal route through the points: at each step across the layers a
 horizontal run at the given fraction of the way between the two levels. -/
@@ -704,14 +748,14 @@ def routeOne (pl : Plan) (k i : Nat) (e : Graph.Edge) : RoutedEdge :=
     -- the points of the route: the bends of the shortest route for a curve, the ends and the
     -- centres of the dummy nodes for an orthogonal route
     let pts : Array Point := match pl.routing with
-      | .spline => taut
+      | .spline | .bundled => taut
       | .orthogonal => #[⟨sx, sy⟩] ++ centres ++ #[⟨ex, ey⟩]
     let curve := fitPieces taut zones
     let (pieces, dir) : Array Piece × Point :=
       if !arrow then (curve, ⟨0, 1⟩)
       else if rev then shortenStart curve cut else shortenEnd curve cut
     let path : Path := match pl.routing with
-      | .spline => piecesPath (if rev then reversePieces pieces else pieces)
+      | .spline | .bundled => piecesPath (if rev then reversePieces pieces else pieces)
       | .orthogonal =>
         let vs := orthVertices (#[first] ++ centres ++ #[last]) (pl.runs.getD k #[])
         roundedPolyline (if rev then vs.reverse else vs) 8
@@ -720,7 +764,7 @@ def routeOne (pl : Plan) (k i : Nat) (e : Graph.Edge) : RoutedEdge :=
       else
         let tip : Point := if rev then ⟨sx, sy⟩ else ⟨ex, ey⟩
         let along : Point := if rev then ⟨0, -1⟩ else ⟨0, 1⟩
-        some (arrowPath tip (if pl.routing == .spline then dir else along) pl.arrowLength
+        some (arrowPath tip (if pl.routing != .orthogonal then dir else along) pl.arrowLength
           pl.arrowHalfWidth)
     let label : Option EdgeLabel :=
       if e.label.isEmpty then none
@@ -735,10 +779,58 @@ def routeOne (pl : Plan) (k i : Nat) (e : Graph.Edge) : RoutedEdge :=
       head := head.map (·.transform frame), label,
       points := (if rev then pts.reverse else pts).map frame.apply }
 
+/-- The bundled routes of all the valid edges `ve` (`PILean.Graph.Bundle`), with the stems and
+arrowheads of the ports, mapped to the picture. -/
+def routeBundled (pl : Plan) (ve : Array (Nat × Graph.Edge)) (b : BundleInput)
+    (tr : BundleTracks) (firstTrack : Array Float) : Array RoutedEdge × Array PortMark :=
+  let frame := pl.dir.frame
+  let geo : BundleGeometry :=
+    { trackY := fun c t => firstTrack.getD c 0 + t.toFloat * b.style.laneGap,
+      boxes := pl.frameBoxes, arrowLength := pl.arrowLength,
+      arrowHalfWidth := pl.arrowHalfWidth,
+      arrows := ve.map fun (_, e) => pl.directedGraph && e.directed }
+  let (routes, paths, ports) := bundleRoutes b tr geo
+  let uses := corridorUses b.n b.ends b.reversed
+  let edges := ve.mapIdx fun k (i, e) =>
+    let pts := routes.getD k #[]
+    let plate := pl.plates.getD k (0, 0)
+    let c := pl.chains.getD k #[]
+    let label : Option EdgeLabel :=
+      if e.label.isEmpty then none
+      else
+        let centre : Point :=
+          if e.src == e.dst then
+            let fb := pl.frameBoxes.getD e.src ⟨0, 0, 0, 0⟩
+            let room := b.style.laneGap * ((uses.getD e.src 1) + 1).toFloat
+            ⟨fb.x1 + room + 2 + plate.1 / 2, (fb.y0 + fb.y1) / 2⟩
+          else if c.size ≥ 3 then
+            let d := c.getD ((c.size - 1) / 2) 0
+            ⟨pl.across.getD d 0, pl.along.getD d 0⟩
+          else
+            let a := pts.getD 0 ⟨0, 0⟩
+            let z := pts.getD (pts.size - 1) ⟨0, 0⟩
+            ⟨(a.x + z.x) / 2, (a.y + z.y) / 2⟩
+        some { text := e.label, box := pl.dir.box (plateAt centre plate.1 plate.2) }
+    ({ index := i, src := e.src, dst := e.dst, reversed := pl.reversed.getD k false,
+       path := (paths.getD k {}).transform frame, head := none, label,
+       points := pts.map frame.apply } : RoutedEdge)
+  let marks := ports.map fun p =>
+    { p with stem := p.stem.map (·.transform frame), head := p.head.map (·.transform frame),
+             trunk := (frame.apply p.trunk.1, frame.apply p.trunk.2) }
+  (edges, marks)
+
+/-- The routes of all the valid edges `ve` (each with its position in the graph's `edges`), in
+order, with the stems and arrowheads of the ports of bundled routes (none otherwise). -/
+def routeAllPorts (pl : Plan) (ve : Array (Nat × Graph.Edge)) :
+    Array RoutedEdge × Array PortMark :=
+  match pl.bundle with
+  | some (b, tr, ft) => routeBundled pl ve b tr ft
+  | none => (ve.mapIdx fun k (i, e) => routeOne pl k i e, #[])
+
 /-- The routes of all the valid edges `ve` (each with its position in the graph's `edges`), in
 order. -/
 def routeAll (pl : Plan) (ve : Array (Nat × Graph.Edge)) : Array RoutedEdge :=
-  ve.mapIdx fun k (i, e) => routeOne pl k i e
+  (routeAllPorts pl ve).1
 
 /-- The layout before it is fitted to its margins (see `Graph.layout`). -/
 def layoutRaw (g : Graph) (o : LayeredOptions) (st : Style) : Layout :=
@@ -750,7 +842,8 @@ def layoutRaw (g : Graph) (o : LayeredOptions) (st : Style) : Layout :=
       ({ name := (g.clusters.getD c default).name, index := c, box := o.direction.box b } :
         ClusterBox)
     | none => clusterBoxes g nodes
-  { nodes, edges := routeAll pl g.validEdges, clusters }
+  let routes := routeAllPorts pl g.validEdges
+  { nodes, edges := routes.1, clusters, ports := routes.2 }
 
 /-- The layered layout of the graph: a box for every node, a route for every valid edge (in the
 order of `Graph.validEdges`), a box for every cluster with a member, and the size of the

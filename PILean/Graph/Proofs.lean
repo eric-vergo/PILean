@@ -280,13 +280,25 @@ theorem routeOne_index (pl : Plan) (k i : Nat) (e : Graph.Edge) :
   simp only [routeOne]
   split <;> rfl
 
+/-- The bundled routes carry the indices of the edges they were made for. -/
+theorem routeBundled_index (pl : Plan) (ve : Array (Nat × Graph.Edge)) (b : BundleInput)
+    (tr : BundleTracks) (ft : Array Float) :
+    (routeBundled pl ve b tr ft).1.map (·.index) = ve.map (·.1) := by
+  apply Array.ext
+  · simp [routeBundled]
+  · intro i h1 h2
+    simp [routeBundled]
+
 /-- The routes carry the indices of the edges they were made for. -/
 theorem routeAll_index (pl : Plan) (ve : Array (Nat × Graph.Edge)) :
     (routeAll pl ve).map (·.index) = ve.map (·.1) := by
-  apply Array.ext
-  · simp [routeAll]
-  · intro i h1 h2
-    simp [routeAll, routeOne_index]
+  unfold routeAll routeAllPorts
+  split
+  · exact routeBundled_index _ _ _ _ _
+  · apply Array.ext
+    · simp
+    · intro i h1 h2
+      simp [routeOne_index]
 
 /-- Fitting a layout to its margins keeps its edges' indices. -/
 theorem fit_indices (l : Layout) (margin : Float) :

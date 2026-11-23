@@ -19,7 +19,8 @@ arrowheads, the curve through points, rounded polylines, loops and clipping to n
 ## Main definitions
 
 * `LayeredOptions`, `Direction`, `Routing`.
-* `NodeBox`, `RoutedEdge`, `EdgeLabel`, `ClusterBox`, `Layout`.
+* `BundleStyle`: the look of bundled routes.
+* `NodeBox`, `RoutedEdge`, `EdgeLabel`, `PortMark`, `ClusterBox`, `Layout`.
 * `nodeSize`, `arrowPath`, `splinePath`, `roundedPolyline`, `loopGeometry`, `clipToNode`.
 -/
 
@@ -39,7 +40,25 @@ inductive Routing where
   | spline
   /-- Horizontal and vertical segments with rounded corners. -/
   | orthogonal
+  /-- Horizontal and vertical segments in bundles of parallel lanes, one entry and one exit port
+  per node, concentric corners (`PILean.Graph.Bundle`); its look is `LayeredOptions.bundle`. -/
+  | bundled
   deriving BEq, Inhabited, Repr
+
+/-- The look of bundled routes (`Routing.bundled`). Lengths are pixels. -/
+structure BundleStyle where
+  /-- The distance between two neighbouring parallel lanes: between the tracks of a channel and
+  between the vertical lanes of long edges beside each other in a layer. -/
+  laneGap : Float := 6
+  /-- The radius of the innermost corner of a bundle that turns; the lane `k` places further out
+  turns with `radius + k * laneGap`, about the same centre. -/
+  radius : Float := 6
+  /-- The straight length of a stem between a node's port and the first corner of an edge that
+  leaves it or the last corner of one that enters it (the arrowhead not counted). -/
+  stemLength : Float := 10
+  /-- The least distance between the ends of two runs on one track. -/
+  trackGap : Float := 12
+  deriving Inhabited, Repr
 
 /-- The options of the layouts. Lengths are pixels. -/
 structure LayeredOptions where
@@ -53,6 +72,8 @@ structure LayeredOptions where
   edgeGap : Float := 14
   /-- How edges are drawn. -/
   routing : Routing := .spline
+  /-- The look of bundled routes (`Routing.bundled`). -/
+  bundle : BundleStyle := {}
   /-- How many times taller than `layerGap` a gap may grow: for a curve that crosses it far
   sideways (see `flattest`), or to keep the horizontal runs of orthogonal routes three pixels
   apart. -/
@@ -158,6 +179,26 @@ structure RoutedEdge where
   points : Array Point
   deriving Inhabited
 
+/-- What a bundled layout (`Routing.bundled`) draws once at a node's port, for all the edges that
+use it: the stem (the vertical trunk the edges leave or join) and, at an entry port, the
+arrowhead. -/
+structure PortMark where
+  /-- The node. -/
+  node : Nat
+  /-- Whether this is the node's entry port (where edges arrive) rather than its exit port. -/
+  entry : Bool
+  /-- The stem, from the port to the last point where an edge leaves it (or from the first
+  point where an edge joins it to the arrowhead); `none` when one edge uses the port, whose own
+  path then reaches the port. -/
+  stem : Option Path := none
+  /-- The arrowhead (a closed path to fill), at an entry port that a directed edge reaches. -/
+  head : Option Path := none
+  /-- The trunk that the edges of the port share, as a segment from the port to the corner of
+  the edge that leaves it last or joins it first (the stem with those corners' roundings): no two
+  edges share a segment elsewhere. -/
+  trunk : Point × Point
+  deriving Inhabited
+
 /-- A cluster's box. -/
 structure ClusterBox where
   /-- The title. -/
@@ -180,6 +221,8 @@ structure Layout where
   edges : Array RoutedEdge := #[]
   /-- The cluster boxes. -/
   clusters : Array ClusterBox := #[]
+  /-- The stems and arrowheads drawn once per port (a bundled layout; empty otherwise). -/
+  ports : Array PortMark := #[]
   deriving Inhabited
 
 /-- The smallest even whole number at least `v`. -/
@@ -376,7 +419,9 @@ def bounds (l : Layout) : Option Box :=
   let boxes : Array Box := l.nodes.map (·.box) ++ l.clusters.map (·.box) ++
     l.edges.filterMap (fun e => e.path.controlBounds) ++
     l.edges.filterMap (fun e => e.head.bind (·.controlBounds)) ++
-    l.edges.filterMap (fun e => e.label.map (·.box))
+    l.edges.filterMap (fun e => e.label.map (·.box)) ++
+    l.ports.filterMap (fun p => p.stem.bind (·.controlBounds)) ++
+    l.ports.filterMap (fun p => p.head.bind (·.controlBounds))
   boxes.foldl (fun acc b => some (match acc with | none => b | some a => a.union b)) none
 
 /-- The layout moved by `(dx, dy)`. -/
@@ -389,7 +434,10 @@ def translate (l : Layout) (dx dy : Float) : Layout :=
       { e with path := e.path.transform m, head := e.head.map (·.transform m),
                label := e.label.map fun t => { t with box := mv t.box },
                points := e.points.map m.apply },
-    clusters := l.clusters.map fun c => { c with box := mv c.box } }
+    clusters := l.clusters.map fun c => { c with box := mv c.box },
+    ports := l.ports.map fun p =>
+      { p with stem := p.stem.map (·.transform m), head := p.head.map (·.transform m),
+               trunk := (m.apply p.trunk.1, m.apply p.trunk.2) } }
 
 /-- The layout moved so that its contents have `margin` pixels around them, on whole pixels,
 with `width` and `height` set to match. An empty layout is two margins in size. -/

@@ -23,8 +23,10 @@ The structure, back to front:
 
 * `g.graph` holds everything;
 * `g.cluster`: a `path` (the box) and a `text` (the title);
-* `g.edges` holds a `path.edge` (with the edge's classes) for every edge, its curve, and
-  `g.heads` a `path` for every arrowhead; the two groups carry the edges' colour;
+* `g.edges` holds a `path.edge` (with the edge's classes) for every edge, its curve (for
+  bundled routes the edge's own part, between the stems), then a `path.stem` for every stem
+  that several edges share, and `g.heads` a `path` for every arrowhead (for bundled routes one
+  per entry port); the two groups carry the edges' colour;
 * `g.node` (with the node's `id` and classes): a `title` (the node's name), a `desc` (its
   tooltip, when it has one), the outline (a `path`, or an `ellipse`) and one `text` per line.
 
@@ -164,6 +166,11 @@ def Layout.toWebSvg (l : Layout) (nodes : Array WebNode) (edges : Array WebEdge)
       (if w.width == 1 then #[] else #[("stroke-width", fmtNum w.width 2)]) ++ dashAttr w.dash)
   let headNodes := l.edges.filterMap fun e => e.head.map fun h =>
     Svg.el "path" #[("d", Svg.pathData h 1)]
+  -- a bundled layout's stems, each drawn once, and its arrowheads, one per entry port
+  let stemNodes := l.ports.filterMap fun p => p.stem.map fun s =>
+    Svg.el "path" #[("class", "stem"), ("d", Svg.pathData s 1)]
+  let portHeads := l.ports.filterMap fun p => p.head.map fun h =>
+    Svg.el "path" #[("d", Svg.pathData h 1)]
   let nodeNodes := l.nodes.map fun n =>
     let w := nodes.getD n.index {}
     let half := w.strokeWidth / 2
@@ -197,8 +204,9 @@ def Layout.toWebSvg (l : Layout) (nodes : Array WebNode) (edges : Array WebEdge)
         ("font-size", fmtNum o.fontSize 2), ("text-anchor", "middle")]
       (#[Svg.el "g" #[("class", "clusters"), ("text-anchor", "start")] clusterNodes,
          Svg.el "g" #[("class", "edges"), ("fill", "none"), ("stroke", o.edge),
-           ("stroke-width", "1")] edgeNodes,
-         Svg.el "g" #[("class", "heads"), ("fill", o.edge), ("stroke", "none")] headNodes,
+           ("stroke-width", "1")] (edgeNodes ++ stemNodes),
+         Svg.el "g" #[("class", "heads"), ("fill", o.edge), ("stroke", "none")]
+           (headNodes ++ portHeads),
          Svg.el "g" #[("class", "nodes")] nodeNodes])]
   Svg.render 0 root ++ "\n"
 
