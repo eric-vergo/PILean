@@ -503,6 +503,11 @@ the kernel evaluates only the caps, the layouts and the finite checks named belo
   `Submodule.span ℤ {(1, 0), (1/2, 7/8)}` in `[-3, 3] × [-2, 2]`, each once, all in the ink; the
   parallelogram is `0, ω₁, ω₁ + ω₂, ω₂` in accent 0.
 
+Every one of these theorems also pins the figure's title (its accessible name, which states the
+object and the range) and its style; the Ulam spiral's positions are `ulamWalk 441`, and the
+residue table's headings are written out with their positions. The colours a style gives the
+colour roles, and the page width and point radius, are not pinned (they are the layout).
+
 `lake test` in `mathlib/` joins the figures' module and the theorems' module into one file,
 compiles copies with a datum changed (a value, a range, a name, the curve, a marking, a text, a
 heading, the window, a period, a colour) and requires each to fail inside the figure's theorem

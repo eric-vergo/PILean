@@ -160,11 +160,13 @@ theorem gaussianPrime_iff {a b : ℤ} (ha : |a| ≤ 7) (hb : |b| ≤ 7) :
 /-- **Euler's totient.** The figure plots faithfully one sequence, named `φ(n)`, with no curve,
 at positive scales; its points are exactly `(n, Nat.totient n)` for `1 ≤ n ≤ 100`. -/
 theorem totientFigure_spec :
+    (totientFigure.title = "Euler's totient φ(n), 1 ≤ n ≤ 100" ∧ totientFigure.style = {}) ∧
     totientPlot.Faithful totientPlot.layout totientFigure ∧
     totientPlot.names = ["φ(n)"] ∧ totientPlot.curves.length = 0 ∧
     0 < totientPlot.layout.sx ∧ 0 < totientPlot.layout.sy ∧
     ∀ k n p, (k, n, p) ∈ totientFigure.data ↔
       k = 0 ∧ 1 ≤ n ∧ n ≤ 100 ∧ p = SeqPlot.point totientPlot.layout n (Nat.totient n) := by
+  refine ⟨⟨rfl, by unfold totientFigure SeqPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : totientPlot.Faithful totientPlot.layout totientFigure :=
     SeqPlot.faithful_of_marks (totientPlot.builder_faithful (by decide +kernel)) rfl
   exact ⟨h, rfl, rfl, by decide +kernel, by decide +kernel,
@@ -176,12 +178,14 @@ figure_proves totientFigure totientFigure_spec
 with no curve, at positive scales; its points are exactly `(n, σ 0 n)` for `1 ≤ n ≤ 100`, where
 `σ 0 n` is the number of divisors (`ArithmeticFunction.sigma_zero_apply`). -/
 theorem divisorFigure_spec :
+    (divisorFigure.title = "The number of divisors d(n), 1 ≤ n ≤ 100" ∧ divisorFigure.style = {}) ∧
     divisorPlot.Faithful divisorPlot.layout divisorFigure ∧
     divisorPlot.names = ["d(n) = σ₀(n)"] ∧ divisorPlot.curves.length = 0 ∧
     0 < divisorPlot.layout.sx ∧ 0 < divisorPlot.layout.sy ∧
     ∀ k n p, (k, n, p) ∈ divisorFigure.data ↔
       k = 0 ∧ 1 ≤ n ∧ n ≤ 100 ∧
         p = SeqPlot.point divisorPlot.layout n (ArithmeticFunction.sigma 0 n) := by
+  refine ⟨⟨rfl, by unfold divisorFigure SeqPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : divisorPlot.Faithful divisorPlot.layout divisorFigure :=
     SeqPlot.faithful_of_marks (divisorPlot.builder_faithful (by decide +kernel)) rfl
   exact ⟨h, rfl, rfl, by decide +kernel, by decide +kernel,
@@ -195,6 +199,7 @@ curve `n / (Hₙ − 1)`, at positive scales; its points are exactly `(n, Nat.pr
 `2 ≤ n ≤ 100`, and its one curve is the polyline through `(n, n / (harmonic n - 1))` for the same
 `n`, in the second colour. -/
 theorem primeCountFigure_spec :
+    (primeCountFigure.title = "π(n) and n / (Hₙ − 1), 2 ≤ n ≤ 100" ∧ primeCountFigure.style = {}) ∧
     primeCountPlot.Faithful primeCountPlot.layout primeCountFigure ∧
     primeCountPlot.names = ["π(n)", "n / (Hₙ − 1)"] ∧
     0 < primeCountPlot.layout.sx ∧ 0 < primeCountPlot.layout.sy ∧
@@ -205,6 +210,7 @@ theorem primeCountFigure_spec :
       [{ part := .curve 0, ink := .series 1 false,
          shape := .polyline ((List.range' 2 99).map fun n =>
            SeqPlot.point primeCountPlot.layout n ((n : ℚ) / (harmonic n - 1))) }] := by
+  refine ⟨⟨rfl, by unfold primeCountFigure SeqPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : primeCountPlot.Faithful primeCountPlot.layout primeCountFigure :=
     SeqPlot.faithful_of_marks (primeCountPlot.builder_faithful (by decide +kernel)) rfl
   refine ⟨h, rfl, by decide +kernel, by decide +kernel,
@@ -219,20 +225,23 @@ figure_proves primeCountFigure primeCountFigure_spec
 place, `1` at the origin (the centre of the spiral); a cell is marked (filled) exactly when its
 number is `Nat.Prime`; no cell has a text and there is no heading. -/
 theorem ulamFigure_spec :
+    (ulamFigure.title = "The primes up to 441 on the Ulam spiral" ∧ ulamFigure.style = {}) ∧
     ulamPlot.Faithful ulamFigure ∧ ulamPlot.solid = true ∧ ulamPlot.headings = [] ∧
     ulamPlot.cells.map (·.key) = List.range' 1 441 ∧
+    ulamPlot.cells.map (·.pos) = ulamWalk 441 ∧
     (ulamPlot.cells.map (·.pos)).head? = some (0, 0) ∧
     (ulamPlot.cells.zip ulamPlot.cells.tail).all (fun (c, c') =>
       (c.pos.1 - c'.pos.1).natAbs + (c.pos.2 - c'.pos.2).natAbs == 1) = true ∧
     (ulamPlot.cells.map (·.pos)).Nodup ∧
     (∀ c ∈ ulamPlot.cells, c.text = "") ∧
     ∀ c ∈ ulamPlot.cells, c.marked = true ↔ c.key.Prime := by
+  refine ⟨⟨rfl, by unfold ulamFigure CellPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : ulamPlot.Faithful ulamFigure :=
     CellPlot.faithful_of_marks (ulamPlot.builder_faithful (by decide +kernel))
       (by simp only [ulamFigure])
   have hc : ∀ c ∈ ulamPlot.cells, c.marked = isPrime' c.key ∧ c.text = "" := fun c h' => by
     simpa using mem_ulamCells h'
-  refine ⟨h, rfl, rfl, by decide +kernel, by decide +kernel, by decide +kernel,
+  refine ⟨h, rfl, rfl, by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel,
     (nodup_of_distinctInBox 10 _ 0 (by decide +kernel)).2, fun c h' => (hc c h').2,
     fun c h' => by rw [(hc c h').1, isPrime'_iff]⟩
 
@@ -244,15 +253,21 @@ row `i` and each `a < p` the cell of key `100 p + a` stands in column `a` of row
 exactly when `a` is a nonzero square in `ZMod p`, and shows the Legendre symbol `legendreSym p a`;
 its headings are the primes and the residues (written out). -/
 theorem residueFigure_spec :
+    (residueFigure.title = "Quadratic residues and Legendre symbols \
+      modulo 3, 5, 7, 11, 13" ∧ residueFigure.style = {}) ∧
     residuePlot.Faithful residueFigure ∧ residuePrimes = [3, 5, 7, 11, 13] ∧
     residuePlot.cells.length = 39 ∧ (residuePlot.cells.map (·.key)).Nodup ∧
     (∀ (i p : ℕ) (hp : p.Prime), residuePrimes[i]? = some p → ∀ a < p,
       ∃ c ∈ residuePlot.cells, c.key = 100 * p + a ∧ c.pos = ((a : ℤ), -(i : ℤ)) ∧
         (c.marked = true ↔ (a : ZMod p) ≠ 0 ∧ IsSquare (a : ZMod p)) ∧
         c.text = symbolText (@legendreSym p ⟨hp⟩ a)) ∧
-    residuePlot.headings.map (·.1) = ["p = 3", "p = 5", "p = 7", "p = 11", "p = 13", "a", "0", "1",
-      "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] ∧
+    residuePlot.headings = [("p = 3", (-1, 1/2)), ("p = 5", (-1, -1/2)), ("p = 7", (-1, -3/2)),
+      ("p = 11", (-1, -5/2)), ("p = 13", (-1, -7/2)), ("a", (-1, 3/2)), ("0", (1/2, 3/2)), ("1",
+      (3/2, 3/2)), ("2", (5/2, 3/2)), ("3", (7/2, 3/2)), ("4", (9/2, 3/2)), ("5", (11/2, 3/2)),
+      ("6", (13/2, 3/2)), ("7", (15/2, 3/2)), ("8", (17/2, 3/2)), ("9", (19/2, 3/2)), ("10", (21/2,
+      3/2)), ("11", (23/2, 3/2)), ("12", (25/2, 3/2))] ∧
     residuePlot.solid = false := by
+  refine ⟨⟨rfl, by unfold residueFigure CellPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : residuePlot.Faithful residueFigure :=
     CellPlot.faithful_of_marks (residuePlot.builder_faithful (by decide +kernel))
       (by simp only [residueFigure])
@@ -276,11 +291,14 @@ square; its dots are exactly the Gaussian integers `a + b i` with `|a|, |b| ≤ 
 `(a, b)`, drawn in accent 1 when `⟨a, b⟩` is prime in `GaussianInt` and in the faint ink when it
 is not. -/
 theorem gaussianFigure_spec :
+    (gaussianFigure.title = "The Gaussian primes a + bi with \
+      |a|, |b| ≤ 7" ∧ gaussianFigure.style = {}) ∧
     gaussianLattice.Faithful gaussianFigure ∧
     ∀ (p : QPoint) (col : Ink), (∃ i, (i, p, col) ∈ gaussianFigure.dots) ↔
       ∃ a b : ℤ, |a| ≤ 7 ∧ |b| ≤ 7 ∧ p = ((a : ℚ), (b : ℚ)) ∧
         (col = .accent 1 ∧ Prime (⟨a, b⟩ : GaussianInt) ∨
           col = .faint ∧ ¬ Prime (⟨a, b⟩ : GaussianInt)) := by
+  refine ⟨⟨rfl, by unfold gaussianFigure PlaneLattice.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : gaussianLattice.Faithful gaussianFigure :=
     PlaneLattice.faithful_of_marks (gaussianLattice.builder_faithful (by decide +kernel))
       (by simp only [gaussianFigure])
@@ -325,6 +343,8 @@ are exactly the points of `Submodule.span ℤ {(1, 0), (1/2, 7/8)}` in the windo
 `[-3, 3] × [-2, 2]`, each once, all in the ink; the fundamental parallelogram is the closed
 polyline `0, ω₁, ω₁ + ω₂, ω₂` in accent 0. -/
 theorem latticeFigure_spec :
+    (latticeFigure.title = "The lattice ℤ(1, 0) + ℤ(1/2, 7/8) and \
+      its fundamental domain" ∧ latticeFigure.style = {}) ∧
     hexLattice.Faithful latticeFigure ∧
     (∀ p : ℚ × ℚ, (∃ i col, (i, p, col) ∈ latticeFigure.dots) ↔
       p ∈ Submodule.span ℤ {((1 : ℚ), (0 : ℚ)), (1 / 2, 7 / 8)} ∧
@@ -334,6 +354,7 @@ theorem latticeFigure_spec :
     latticeFigure.marksWhere (· == .note 0) =
       [{ part := .note 0, ink := .accent 0,
          shape := .polyline [(0, 0), (1, 0), (3 / 2, 7 / 8), (1 / 2, 7 / 8), (0, 0)] }] := by
+  refine ⟨⟨rfl, by unfold latticeFigure PlaneLattice.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : hexLattice.Faithful latticeFigure :=
     PlaneLattice.faithful_of_marks (hexLattice.builder_faithful (by decide +kernel))
       (by simp only [latticeFigure])
