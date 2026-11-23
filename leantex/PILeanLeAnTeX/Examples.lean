@@ -7,9 +7,9 @@ import PILeanLeAnTeX.Engine
 /-!
 # Gallery figures with LaTeX labels
 
-Figures whose titles, axis labels, legend entries and node labels are LaTeX, typeset by
-LeAnTeX through `PILeanLeAnTeX.engine`. They are functions of the engine, which is read from
-font files at run time; `lake exe pilean-leantex-gallery` writes them to `examples/` and `lake
+Figures whose titles, axis labels, legend entries, node labels and plane-figure labels are
+LaTeX, typeset by LeAnTeX through `PILeanLeAnTeX.engine`. They are functions of the engine, which
+is read from font files at run time; `lake exe pilean-leantex-gallery` writes them to `examples/` and `lake
 test` compares them with those files.
 -/
 
@@ -53,6 +53,34 @@ def subgroups : Graph :=
       !(c != a && c != b && c % a == 0 && b % c == 0))
     fun d => if d == 12 then "$\\{0\\}$" else s!"$\\langle {d} \\rangle$"
 
+/-- `E = ζ - ζ²` with `ζ = e^{2πi/5}`. -/
+def chordEnd : Point := Plane.rootOfUnity 5 1 - Plane.rootOfUnity 5 2
+
+/-- Two closed disks of radius `√(3 + φ)` about `±1`, their chord from `-E` to `E`, and the
+step `ζ²`, every label LaTeX: `$\zeta^2$`, `$-E$`, `$\sqrt{3+\varphi}$`. -/
+def planeDisks : Plane.Figure :=
+  let r := Float.sqrt (3 + (1 + Float.sqrt 5) / 2)
+  let z2 := Plane.rootOfUnity 5 2
+  { width := 480
+    items := #[
+      Plane.disk ⟨-1, 0⟩ r |>.accent 0, Plane.disk ⟨1, 0⟩ r |>.accent 1,
+      Plane.segment ((-1 : Float) * chordEnd) chordEnd |>.width 3,
+      Plane.arrow ⟨1, 0⟩ (⟨1, 0⟩ + z2) |>.accent 2,
+      Plane.segment ⟨-1, 0⟩ (⟨-1, 0⟩ + Plane.polar r (Plane.deg 200)) |>.faint |>.dashed,
+      Plane.point ((-1 : Float) * chordEnd) |>.accent 0, Plane.point chordEnd |>.accent 1,
+      Plane.point ⟨-1, 0⟩, Plane.point ⟨1, 0⟩,
+      Plane.label "$-E$" ((-1 : Float) * chordEnd) .belowLeft |>.accent 0,
+      Plane.label "$E$" chordEnd .aboveRight |>.accent 1,
+      Plane.label "$\\zeta^2$" (⟨1, 0⟩ + z2) .aboveLeft |>.accent 2,
+      Plane.label "$\\sqrt{3+\\varphi}$" (⟨-1, 0⟩ + Plane.polar (r / 2) (Plane.deg 200)) .above
+        |>.faint,
+      Plane.label "$-1$" ⟨-1, 0⟩ .right, Plane.label "$+1$" ⟨1, 0⟩ .right] }
+
+/-- The plane figures with the engine, light and dark: file stem and figure. -/
+def planes (e : TextEngine) : Array (String × Plane.Figure) :=
+  #[("leantex-plane", { planeDisks with style := { Style.light with text := e } }),
+    ("leantex-plane-dark", { planeDisks with style := { Style.dark with text := e } })]
+
 /-- The figures with a style, each light and dark: file stem and figure. -/
 def figures (e : TextEngine) : Array (String × Figure) :=
   let named := #[("leantex-densities", densities), ("leantex-basel", basel)]
@@ -69,6 +97,11 @@ def graphs (e : TextEngine) : Array (String × Graph × Style) :=
 def files (e : TextEngine) : Array (String × Except String ByteArray) := Id.run do
   let mut out := #[]
   for (n, f) in figures e do
+    out := out.push (n ++ ".svg", .ok f.toSvg.toUTF8)
+    out := out.push (n ++ ".png", match f.toPng with
+      | some b => .ok b
+      | none => .error "no pixels")
+  for (n, f) in planes e do
     out := out.push (n ++ ".svg", .ok f.toSvg.toUTF8)
     out := out.push (n ++ ".png", match f.toPng with
       | some b => .ok b
