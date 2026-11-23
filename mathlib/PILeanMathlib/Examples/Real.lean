@@ -42,7 +42,8 @@ with 128 steps and the bound `1/1000`, as its title says; its one curve is the s
 samples of the Taylor polynomial of degree 15, converted one by one; and the polyline through the
 exact samples is vertically within `1/1000` of the graph of `Real.exp` over `[-2, 2]`. -/
 theorem expFigure_spec :
-    expFigure = expPlot.figure ∧ expPlot.name = "exp x" ∧
+    expFigure = expPlot.figure ∧ expPlot.curve = "Taylor polynomial of degree 15" ∧
+    expPlot.name = "exp x" ∧
     expPlot.lo = -2 ∧ expPlot.hi = 2 ∧ expPlot.steps = 128 ∧ expPlot.delta = 1 / 1000 ∧
     expFigure.title =
       "exp x on [−2, 2] from \
@@ -52,7 +53,7 @@ theorem expFigure_spec :
       ((Exact.samples expPlot.approx expPlot.lo expPlot.hi
         expPlot.steps).map Exact.toPoint).toArray ∧
     expPlot.Certifies Real.exp := by
-  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     by simp [expFigure, CertifiedPlot.figure], Series.ofExact_points .., ?_⟩
   have hlo : ((expPlot.lo : ℚ) : ℝ) = -2 := by norm_num [expPlot]
   have hhi : ((expPlot.hi : ℚ) : ℝ) = 2 := by norm_num [expPlot]
@@ -87,7 +88,8 @@ figure_proves expFigure expFigure_spec
 of the Taylor polynomial of degree 16, converted one by one; and the polyline through the exact
 samples is vertically within `1/2000` of the graph of `Real.cos` over `[-3, 3]`. -/
 theorem cosFigure_spec :
-    cosFigure = cosPlot.figure ∧ cosPlot.name = "cos x" ∧
+    cosFigure = cosPlot.figure ∧ cosPlot.curve = "Taylor polynomial of degree 16" ∧
+    cosPlot.name = "cos x" ∧
     cosPlot.lo = -3 ∧ cosPlot.hi = 3 ∧ cosPlot.steps = 96 ∧ cosPlot.delta = 1 / 2000 ∧
     cosFigure.title =
       "cos x on [−3, 3] from \
@@ -97,7 +99,7 @@ theorem cosFigure_spec :
       ((Exact.samples cosPlot.approx cosPlot.lo cosPlot.hi
         cosPlot.steps).map Exact.toPoint).toArray ∧
     cosPlot.Certifies Real.cos := by
-  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     by simp [cosFigure, CertifiedPlot.figure], Series.ofExact_points .., ?_⟩
   have hlo : ((cosPlot.lo : ℚ) : ℝ) = -3 := by norm_num [cosPlot]
   have hhi : ((cosPlot.hi : ℚ) : ℝ) = 3 := by norm_num [cosPlot]
@@ -127,7 +129,8 @@ of exact samples of 20 terms of the logarithm's series at `1`, converted one by 
 polyline through the exact samples is vertically within `1/8000` of the graph of `Real.log` over
 `[1/2, 3/2]`. -/
 theorem logFigure_spec :
-    logFigure = logPlot.figure ∧ logPlot.name = "log x" ∧
+    logFigure = logPlot.figure ∧ logPlot.curve = "20 terms of its series at 1" ∧
+    logPlot.name = "log x" ∧
     logPlot.lo = 1 / 2 ∧ logPlot.hi = 3 / 2 ∧ logPlot.steps = 64 ∧
     logPlot.delta = 1 / 8000 ∧
     logFigure.title =
@@ -138,7 +141,7 @@ theorem logFigure_spec :
       ((Exact.samples logPlot.approx logPlot.lo logPlot.hi
         logPlot.steps).map Exact.toPoint).toArray ∧
     logPlot.Certifies Real.log := by
-  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     by simp [logFigure, CertifiedPlot.figure], Series.ofExact_points .., ?_⟩
   have hlo : ((logPlot.lo : ℚ) : ℝ) = 1 / 2 := by norm_num [logPlot]
   have hhi : ((logPlot.hi : ℚ) : ℝ) = 3 / 2 := by norm_num [logPlot]
@@ -187,7 +190,8 @@ series of exact samples of 20 terms of the arctangent's series, converted one by
 polyline through the exact samples is vertically within `1/5000` of the graph of `Real.arctan`
 over `[-3/4, 3/4]`. -/
 theorem arctanFigure_spec :
-    arctanFigure = arctanPlot.figure ∧ arctanPlot.name = "arctan x" ∧
+    arctanFigure = arctanPlot.figure ∧ arctanPlot.curve = "20 terms of its series at 0" ∧
+    arctanPlot.name = "arctan x" ∧
     arctanPlot.lo = -3 / 4 ∧ arctanPlot.hi = 3 / 4 ∧ arctanPlot.steps = 48 ∧
     arctanPlot.delta = 1 / 5000 ∧
     arctanFigure.title =
@@ -198,7 +202,7 @@ theorem arctanFigure_spec :
       ((Exact.samples arctanPlot.approx arctanPlot.lo arctanPlot.hi
         arctanPlot.steps).map Exact.toPoint).toArray ∧
     arctanPlot.Certifies Real.arctan := by
-  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     by simp [arctanFigure, CertifiedPlot.figure], Series.ofExact_points .., ?_⟩
   have hlo : ((arctanPlot.lo : ℚ) : ℝ) = -3 / 4 := by norm_num [arctanPlot]
   have hhi : ((arctanPlot.hi : ℚ) : ℝ) = 3 / 4 := by norm_num [arctanPlot]
@@ -240,7 +244,8 @@ of exact samples of the square roots to 30 binary digits, converted one by one; 
 through the exact samples is vertically within `1/4000` of the graph of `Real.sqrt` over
 `[1/4, 4]`. -/
 theorem sqrtFigure_spec :
-    sqrtFigure = sqrtPlot.figure ∧ sqrtPlot.name = "√x" ∧
+    sqrtFigure = sqrtPlot.figure ∧ sqrtPlot.curve = "square roots to 30 binary digits" ∧
+    sqrtPlot.name = "√x" ∧
     sqrtPlot.lo = 1 / 4 ∧ sqrtPlot.hi = 4 ∧ sqrtPlot.steps = 120 ∧
     sqrtPlot.delta = 1 / 4000 ∧
     sqrtFigure.title =
@@ -251,7 +256,7 @@ theorem sqrtFigure_spec :
       ((Exact.samples sqrtPlot.approx sqrtPlot.lo sqrtPlot.hi
         sqrtPlot.steps).map Exact.toPoint).toArray ∧
     sqrtPlot.Certifies Real.sqrt := by
-  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     by simp [sqrtFigure, CertifiedPlot.figure], Series.ofExact_points .., ?_⟩
   have hlo : ((sqrtPlot.lo : ℚ) : ℝ) = 1 / 4 := by norm_num [sqrtPlot]
   have hhi : ((sqrtPlot.hi : ℚ) : ℝ) = 4 := by norm_num [sqrtPlot]
