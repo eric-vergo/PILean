@@ -232,8 +232,11 @@ specifications in `PILeanTest/Diagrams.lean`)
 A `Diagram` is a list of marks, each an exact shape (rational coordinates) tagged with the part
 of the object it depicts (`Part`: vertex, edge, cell, entry, strand, set, member, step). Each kind
 has a decidable predicate `Faithful` that reads the diagram back (`Diagram.edges`, `vertices`,
-`cells`, `entries`, `strands`, `steps`, `members`) and compares it with the data as full lists, and
-mark by mark with the layout; the theorems below say that the builders satisfy it for every
+`cells`, `entries`, `strands`, `steps`, `members`, `texts`, `decorations`) and compares it with
+the data as full lists, and mark by mark with the layout, and leaves no mark unaccounted for: a
+mark of a part the data does not call for, a text the data does not write, or a decoration (a
+`guide` or `note`) beyond the kind's own is refused. The colour role of a mark (`Ink`) is not
+compared: colours and style are not part of any theorem; the theorems below say that the builders satisfy it for every
 input within the kind's cap (`builder_faithful` takes the cap as its hypothesis; beyond it the
 figure is a note, and nothing is drawn).
 
