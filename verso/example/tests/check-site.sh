@@ -107,6 +107,22 @@ check bash -c "'$gen' --output '$scratch/sbs' --side-by-side --figure-lean-links
 desc="an unknown link mode is refused"
 check bash -c "! '$gen' --output '$scratch/c' --figure-lean-links web >/dev/null 2>&1"
 
+# A directive used on a declaration it cannot show.
+cat > "$scratch/Misuse.lean" <<'LEAN'
+import VersoManual
+import PILeanVerso
+import Example
+open Verso.Genre Manual PILeanVerso
+#doc (Manual) "A plot shown as an explorer" =>
+:::figure_explorer Example.cubicPlot
+A plot.
+:::
+LEAN
+desc="figure_explorer on a plot is an error that names its type and what to use"
+check bash -c "! '$lake' lean '$scratch/Misuse.lean' >'$scratch/misuse.log' 2>&1 &&
+  grep -q 'Example.cubicPlot has the type PILean.Plot.Figure, not PILean.Explorer' '$scratch/misuse.log' &&
+  grep -q 'use figure for a picture' '$scratch/misuse.log'"
+
 # Damaged copies.
 cp -R "$figs" "$scratch/damaged"
 svg=$(find "$scratch/damaged" -name '*.svg' | sort | head -n 1)

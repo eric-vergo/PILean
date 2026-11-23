@@ -37,14 +37,26 @@ def main (args : List String) : IO UInt32 :=
 The directive's options: `alt` (required: the text alternative), `label`, `title`, `format` (`svg`
 by default, or `png`, `apng`, `gif`), `width` (a CSS length), `backdrop` (a picture of the site,
 with `{theme}` for `light` or `dark`, that the figure is drawn over: callouts over a screenshot)
-and `proves` (a theorem). An empty body takes the declaration's doc string as the caption.
-`withFigures`'s `declStyle` sets how the source line shows a declaration and its file (by default
-the name as code and the file linked to the repository when the build names one with
-`--figure-repo` and `--figure-commit`).
+`inline := true` (the picture as an `svg` element of the page, one picture for both themes) and
+`proves` (a theorem). An empty body takes the declaration's doc string as the caption.
+`:::figure_explorer` shows a `PILean.Explorer` with its frames inline and its controls (the
+same options; on another type it is an error). `withFigures`'s `declStyle` sets how the source
+line shows a declaration and its file (by default the name as code and the file linked to the
+repository when the build names one with `--figure-repo` and `--figure-commit`).
+
+Where a declaration's name links is the site's link mode, `--figure-lean-links ideil|site|none`
+or `options := { leanLinks := … }` (`PILeanVerso.LeanLinks`): `none` by default in this genre
+(names are text, elements of a picture keep their hover text); `site` links to the declaration's
+documentation in the manual (`{docstring}`) or to the figure it draws, and the build warns about
+each declaration it has no place for; `ideil` writes `lean:decl/<Name>` links for an editor.
+Inline pictures, explorers, gestures, announcements, the behaviour without script and the
+content policy they need are as described in the [Verso Blueprint adapter's
+README](../README.md#what-a-reader-sees).
 
 ## What the build checks
 
-* When the chapter is elaborated: the declaration has `@[figure]`; the text alternative is given;
+* When the chapter is elaborated: the declaration has `@[figure]` (and is a `PILean.Explorer` for
+  `figure_explorer`); the text alternative is given;
   the theorem named by `proves` passes PILean's rule (`figure_proves`): it is a theorem, depends
   on no `sorry` and no axiom beyond `propext`, `Classical.choice` and `Quot.sound`, and its
   statement names the figure itself: the figure's constant occurs in the statement once its
@@ -53,18 +65,23 @@ the name as code and the file linked to the repository when the build names one 
   what the figure holds and applies it to those values). The rule is about names: the link is a
   pointer to a statement to read, not a certificate that the picture is correct;
   `format`, `width` and `backdrop` are valid.
-* When the manual is generated: every figure is rendered with PILean, every SVG must be inert
-  (`PILean.Svg.inertProblem?`), and the figures folder the generator wrote
+* When the manual is generated: every figure is rendered with PILean, every SVG and every picture
+  a page puts inline must be inert (`PILean.Svg.inertProblem?`), a figure shown inline must have
+  an inline picture, one figure's inline SVG may not pass `--figure-inline-limit`, and the
+  figures folder the generator wrote
   (`<output>/html-multi/-verso-data/pilean-figures`) must hold exactly the files of this render.
 * `--check-figures DIR` compares a folder with a fresh render without generating the manual.
 
-Two builds of the same sources write the same bytes. Light and dark pictures are switched by the
-stylesheet alone (the page's `data-theme`, or the reader's system setting), with no script.
+Two builds of the same sources write the same bytes. Light and dark files are switched by the
+stylesheet alone (the page's `data-theme`, or the reader's system setting), with no script; an
+inline picture is restyled by its own `style` element under the same rules.
 
 ## The example and the checks
 
-`ManualExample` is a small manual with a plot, a graph and marks over a picture;
+`ManualExample` is a small manual with a plot, a graph, marks over a picture, two explorers, an
+inline figure and the documentation of a declaration a picture links to;
 `lake exe pilean-verso-manual-example --output _out` generates it, and `lake test` generates it
-twice and checks the pages and files (inert SVG, numbers, text alternatives, light and dark
-pictures, the source line, the theorem, the backdrop, the figures page, identical bytes,
-`--check-figures` on a damaged copy).
+and checks the pages and files (inert SVG, numbers, text alternatives, light and dark pictures,
+the source line, the theorem, the backdrop, the figures page, the explorers' markup, the inline
+pictures' theme rules and files, the link modes, identical bytes, `--check-figures` on a damaged
+copy).

@@ -418,6 +418,24 @@ is what its manifest says. `pilean-build --check` checks that it is what the bui
 * The file checks are made with `lstat` before each open; a folder that another process changes
   during the check is outside what they defend against (`PILean/Trust/Files.lean`).
 
+### Pictures put inline in a page
+
+A Verso page can put a figure's picture inline (`inline := true`, and every frame of an
+explorer) instead of an `<img>` of its file. Such a picture is still a file of the figures
+folder: every inline picture is the body of an SVG output, listed in the manifest with its
+fingerprint like any other (an explorer's frame `k` is the output `-frame-k`), and the page's
+`svg` element names that file (`data-pilean-file`). What the page adds to the file's picture is
+fixed: a `style` element of class `pilean-theme` (the dark theme's colours), a prefix on every
+id and reference to an id, a link around each element that names a declaration, and the root's
+page attributes (class, id, role, accessible name, the view box the script starts from); the
+file's source record is not in the page. The example's site check (`verso/example/tests/
+inline_check.py`) takes those away and compares the page's picture with the file element for
+element and attribute for attribute, and the file's SHA-256 with the manifest; a page whose
+picture differs from its file, names no file, or names one the manifest does not list fails it.
+Together with `pilean-verify` on the figures folder, this ties what a reader sees inline to the
+manifest and its fingerprints. Like the rest of this page, it establishes agreement between the
+page, the files and the manifest, not where they came from.
+
 ## Use in CI
 
 Figures are never committed by hand. Either of two set-ups:

@@ -20,9 +20,9 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   `pilean-theme`) restyles its light colours to its dark twin's (`InlineSvg.darkColours`,
   `darkOpacities`) under the page's `data-theme="dark"`, or the system's dark scheme when the page
   does not say `light` (the selectors the `-dark` files use). Rules match the presentation
-  attributes the writer emits (`[fill="#…"]`, `[stroke="#…"]`, `[fill-opacity="…"]`) below an
-  attribute selector of the picture's id, so the files are unchanged and an id may start with a
-  digit. A content policy must allow these `style` elements (`style-src 'unsafe-inline'`, or the
+  attributes the writer emits (`[fill="#…"]`, `[stroke="#…"]`, `[fill-opacity="…"]`) below the
+  picture's id (an attribute selector for an id that starts with a digit), so the files are
+  unchanged. A content policy must allow these `style` elements (`style-src 'unsafe-inline'`, or the
   hash of each); nothing else of an inline picture needs inline style.
 * **Files.** Each inline picture names the file of the figures folder it is the body of
   (`data-pilean-file`), so a check of the published site can compare the two (the example's
@@ -92,11 +92,14 @@ partial def prefixNode (pfx : String) (href : String → Option String) (inLink 
 
 /-- The CSS that restyles an inline picture with the id `id` (`domSafe`) in the dark theme: each
 light colour of `pairs` to its dark one, as a fill and as a stroke, and each tint opacity of
-`opacities`. Empty when there is nothing to restyle. -/
+`opacities`, below the picture's id (`#id`, or `svg[id="…"]` for an id that does not start with
+a letter, which an id selector cannot name without an escape). Empty when there is nothing to
+restyle. -/
 def themeCss (id : String) (pairs opacities : Array (String × String)) : String :=
   if pairs.isEmpty && opacities.isEmpty then ""
   else
-    let sel := s!"svg[id=\"{domSafe id}\"]"
+    let id := domSafe id
+    let sel := if (id.front).isAlpha then s!"#{id}" else s!"svg[id=\"{id}\"]"
     let rules := fun (pre : String) =>
       String.join (pairs.toList.map fun (a, b) =>
         s!"{pre} {sel} [fill=\"{a}\"]\{fill:{b}}{pre} {sel} [stroke=\"{a}\"]\{stroke:{b}}") ++

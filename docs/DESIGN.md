@@ -554,13 +554,23 @@ frame maps them to the page with one scale for both axes, so circles stay round 
 * **Explorers and inline pictures on web pages** (`pilean-verso`, `pilean-verso-manual`). An
   `Explorer`'s frames are put inline in the page (`:::figure_explorer`), as a single figure can be
   (`:::figure … (inline := true)`): elements with a title show it on hover, elements that name a
-  declaration link to it, and one picture serves both themes through attribute selectors keyed
-  on its light colours (`Style.darkColourPairs`). A small script of the site, with no network and
-  no `eval`, shows one frame at a time and pans and zooms; without it every frame is listed. The
-  inline SVG of one figure is limited (`--figure-inline-limit`, 2,000,000 bytes by default). The
-  example manual's explorers page (two explorers of 5 and 4 frames and one inline figure with its
-  narrow rendition, 11 pictures) is 134,281 bytes of HTML; a plane frame of a few dozen elements is
-  about 4 to 9 KB of inline SVG. Frames share no definitions (plane figures have none to share).
+  declaration link to it in the site's link mode (`--figure-lean-links ideil|site|none`: `lean:`
+  links for an editor, links into the built site, or none), and one picture serves both themes
+  through attribute selectors keyed on its light colours (`Style.darkColourPairs`), in a `style`
+  element a content policy must allow. Each inline picture names its file in the figures folder,
+  and the example's site check compares the two against the manifest. A small script of the
+  site, with no network, no `eval` and no `innerHTML`, shows one frame at a time and pans and
+  zooms with cooperative gestures, as embedded maps do (the page keeps the wheel and one-finger
+  swipes; Ctrl or ⌘ with the wheel, and two fingers, zoom the picture); without it every frame is
+  shown in a grid. Alternatives rejected: the wheel always zooming (it traps the page's scrolling
+  under every explorer), one finger panning (the same on touch screens), and a view box shared
+  in pixels between frames of different sizes (it crops the smaller ones). The inline SVG of one
+  figure is limited (`--figure-inline-limit`, 2,000,000 bytes by default), counted once over all
+  the pages put inline for it. The example manual's explorers page (two explorers of 5 and 4
+  frames and one inline figure with its narrow rendition, 11 pictures) is about 200 KB of HTML, of
+  which 121 KB are the pictures: a plane frame of a few dozen elements is 10 to 14 KB of inline
+  SVG, about 4 KB of it its theme rules. Frames share no definitions (plane figures have none to
+  share).
 * **Arcs** (`Path.arc`): at most a quarter turn per cubic, control points on the tangents at
   `(4/3) tan(δ/4) r`, radial error at most `r (2/27) sin⁶(δ/4) / cos²(δ/4)` (Goldapp 1991), at most
   `2.73 × 10⁻⁴ r`; the tests sample the curves against this bound.

@@ -161,7 +161,10 @@ def checks : Array (String × Bool) := #[
     [some .ideil, some .site, some .none] && LeanLinks.ofString? "IDEiL" == none),
   ("dom: ids are kept to letters, digits, - and _",
     domSafe "3d-odd" == "3d-odd" && domSafe "a\"b <c>é" == "a_b__c__"),
-  ("theme: the dark rules select the picture by its id attribute",
+  ("theme: an id that starts with a letter is selected by id",
+    themeCss "f3" #[("#000000", "#ffffff")] #[] |>.startsWith
+      "html[data-theme=\"dark\"] #f3 [fill=\"#000000\"]{fill:#ffffff}"),
+  ("theme: an id that starts with a digit is selected by its id attribute",
     themeCss "3d" #[("#000000", "#ffffff")] #[] ==
       "html[data-theme=\"dark\"] svg[id=\"3d\"] [fill=\"#000000\"]{fill:#ffffff}" ++
       "html[data-theme=\"dark\"] svg[id=\"3d\"] [stroke=\"#000000\"]{stroke:#ffffff}" ++

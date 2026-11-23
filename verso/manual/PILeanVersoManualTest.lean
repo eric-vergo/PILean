@@ -138,8 +138,7 @@ def main : IO UInt32 := do
       "the explorer's script is a file of the site"
     check (← (out1 / "html-multi" / "-verso-data" / "pilean-explorer.js").pathExists)
       "the script file is written"
-    check (has ex
-      "html[data-theme=\"dark\"] svg[id=\"radius-x-f0\"] [fill=\"#ffffff\"]{fill:#16181c}" &&
+    check (has ex "html[data-theme=\"dark\"] #radius-x-f0 [fill=\"#ffffff\"]{fill:#16181c}" &&
       has ex "@media (prefers-color-scheme: dark){html:not([data-theme=\"light\"])")
       "inline pictures carry their dark theme rules"
     check (has ex "pilean-has-narrow" && has ex "pilean-inline-narrow")
