@@ -138,13 +138,14 @@ theorem mem_coverPairs (P : FinPoset) (i j : Nat) :
 /-- The diagram at the layout `L`. -/
 def draw (P : FinPoset) (L : Layout) : Diagram := P.toFinGraph.draw L
 
-/-- The diagram draws the order faithfully at `L`: its edges are exactly `coverPairs`, in order,
-its vertex dots `0, …, n - 1`, every mark at `L`'s position for its part. -/
-def Faithful (P : FinPoset) (L : Layout) (d : Diagram) : Prop :=
-  d.edges = P.coverPairs ∧ d.vertices = List.range P.n ∧ d.marks.all (P.toFinGraph.placed L) = true
+/-- The diagram draws the order faithfully at `L`: it draws the graph of the covering relation
+faithfully (`FinGraph.Faithful`), so its edges are exactly `coverPairs` (`toFinGraph_edgePairs`),
+in order, its vertex dots `0, …, n - 1`, its texts the elements' names, every mark at `L`'s
+position for its part, and no decoration. -/
+def Faithful (P : FinPoset) (L : Layout) (d : Diagram) : Prop := P.toFinGraph.Faithful L d
 
 instance (P : FinPoset) (L : Layout) (d : Diagram) : Decidable (P.Faithful L d) :=
-  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+  inferInstanceAs (Decidable (P.toFinGraph.Faithful L d))
 
 /-- The Hasse diagram is faithful at every layout. -/
 theorem draw_faithful (P : FinPoset) (L : Layout) : P.Faithful L (P.draw L) :=

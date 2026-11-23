@@ -92,14 +92,14 @@ def cellMark (c : Convention) (k : Ink) (e : Nat × Nat) : Mark :=
   { part := .cell e.1 e.2, shape := .rect (cellBox c e.1 e.2).1 (cellBox c e.1 e.2).2, ink := k }
 
 /-- Whether a mark is placed by the convention: a cell's rectangle is its unit square, an entry's
-text is at its cell's centre. Other marks are not constrained. -/
+text is at its cell's centre. A mark of any other part is refused. -/
 def placedCell (c : Convention) (m : Mark) : Bool :=
   match m.part, m.shape with
   | .cell i j, .rect lo hi => lo == (cellBox c i j).1 && hi == (cellBox c i j).2
   | .cell _ _, _ => false
   | .entry i j, .text _ p _ => p == cellCentre c i j
   | .entry _ _, _ => false
-  | _, _ => true
+  | _, _ => false
 
 /-- A Young diagram to draw: its row lengths and its convention. (Mathlib's `YoungDiagram`, a
 lower set of cells, is bound to it in the package `pilean-mathlib`.) -/

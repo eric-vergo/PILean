@@ -205,6 +205,22 @@ def steps (d : Diagram) : List (Nat × QPoint × QPoint) :=
     | .step k, .segment p q => some (k, p, q)
     | _, _ => none
 
+/-- The decorations the diagram draws: `(part, shape)` for each mark whose part is a `guide` or a
+`note` (a part that depicts nothing of the object), in order. A kind's `Faithful` requires them to
+be exactly the builder's, so that nothing is drawn under a decoration's part. -/
+def decorations (d : Diagram) : List (Part × Shape) :=
+  d.marks.filterMap fun m => match m.part with
+    | .guide => some (m.part, m.shape)
+    | .note _ => some (m.part, m.shape)
+    | _ => none
+
+/-- The texts the diagram writes: `(part, s, p)` for each mark that is the text `s` at `p`, in
+order. -/
+def texts (d : Diagram) : List (Part × String × QPoint) :=
+  d.marks.filterMap fun m => match m.shape with
+    | .text s p _ => some (m.part, s, p)
+    | _ => none
+
 end Diagram
 
 /-- The title a mark's item carries (its accessible name in SVG): the part in words. -/

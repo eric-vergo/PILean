@@ -481,6 +481,51 @@ def faultChecks : Array (String × Bool) :=
       !decide ((LatticePath.ofDyck dyckWord).Faithful (dropMark dyck s0))),
     ("path: a word that dips below the axis is not a Dyck word",
       !LatticePath.isDyck [true, false, false, true] && !LatticePath.isDyck [true, true]),
+    ("graph: an edge drawn under a guide's part is refused", !decide (pg.Faithful pl
+      (addMark petersen { part := .guide, shape := .segment (pl.pos 0) (pl.pos 1) }))),
+    ("graph: an edge drawn under a note's part is refused", !decide (pg.Faithful pl
+      (addMark petersen { part := .note 0, shape := .polyline [pl.pos 0, pl.pos 1] }))),
+    ("graph: a vertex's name removed is refused", !decide (pg.Faithful pl
+      (dropMark petersen (posOf petersen (.vertex 2) + 10)))),
+    ("graph: a vertex's name written twice is refused", !decide (pg.Faithful pl
+      (addMark petersen { part := .vertex 0, shape := .text "01" (pl.pos 0) .auto }))),
+    ("young: a rectangle under a guide's part is refused", !decide (shape5331.Faithful
+      (addMark young { part := .guide, shape := .rect (1, -3) (2, -2) }))),
+    ("tableau: a text under a guide's part is refused", !decide (ssyt.Faithful
+      (addMark tableau { part := .guide, shape := .text "8" (cellCentre .french 2 1) .center }))),
+    ("permutation: two one-line values swapped in place are refused",
+      let d := perm.oneLine
+      !decide (perm.FaithfulOneLine (changeMark (changeMark d 0 fun m =>
+        { m with shape := .text (perm.text (perm.apply 0)) (1, 0) .center }) 1 fun m =>
+          { m with shape := .text (perm.text (perm.apply 1)) (0, 0) .center }))),
+    ("permutation: a text added to the one-line notation is refused", !decide
+      (perm.FaithfulOneLine (addMark perm.oneLine
+        { part := .guide, shape := .text "6" (5, 0) .center }))),
+    ("permutation: the rows of the two-line notation exchanged are refused", !decide
+      (perm.FaithfulTwoLine { permTwoLine with marks := permTwoLine.marks.map fun m =>
+        match m.shape with
+        | .text s p side => { m with shape := .text s (p.1, 1 - p.2) side }
+        | _ => m })),
+    ("permutation: a dot under a guide's part in the matrix is refused", !decide
+      (perm.FaithfulMatrix (addMark permMatrix { part := .guide, shape := .dot (3 / 2, -3 / 2) }))),
+    ("permutation: a crossing line under a guide's part in the wiring is refused", !decide
+      (perm.FaithfulWiring (addMark permWiring
+        { part := .guide, shape := .segment (0, 2) (4, 0) }))),
+    ("permutation: the wiring's labels removed are refused", !decide (perm.FaithfulWiring
+      { permWiring with marks := permWiring.marks.filter fun m => !(m.shape matches .text ..) })),
+    ("venn: a member's name changed is refused", !decide (multiples.FaithfulVenn
+      (changeMark venn x0 fun m => match m.shape with
+        | .text _ p side => { m with shape := .text "x" p side }
+        | _ => m))),
+    ("venn: an extra text under a note's part is refused", !decide (multiples.FaithfulVenn
+      (addMark venn { part := .note 7, shape := .text "13" (0, 0) .center }))),
+    ("venn: an extra circle under a guide's part is refused", !decide (multiples.FaithfulVenn
+      (addMark venn { part := .guide, shape := .circle (0, 0) vennRadius }))),
+    ("path: an extra segment under a guide's part is refused", !decide
+      ((LatticePath.ofDyck dyckWord).Faithful
+        (addMark dyck { part := .guide, shape := .segment (0, 0) (1, 1) }))),
+    ("board: a rectangle under a guide's part is refused", !decide (board.Faithful
+      (addMark ferrers { part := .guide, shape := .rect (3, 1) (4, 2) }))),
     ("board: faithful", decide (board.Faithful ferrers)),
     ("board: a dropped cell is refused", !decide (board.Faithful (dropMark ferrers 0))),
     ("board: a moved cell is refused", !decide (board.Faithful

@@ -167,12 +167,14 @@ def checkLines (files : Array BuiltFile) (manifest : ByteArray) (outDir : System
 every file and `manifest.json` below it with `writeInside`, one line `path` for each. With
 `opts.check`: prints the lines of `checkLines`, or `ok` if there are none. The result is 1 if a
 figure cannot be rendered or a file cannot be written (a message goes to standard error) or if
-`check` printed a line, and 0 otherwise. -/
+`check` printed a line, and 0 otherwise; the messages of a build that fails go to standard error
+one per line. -/
 def build (entries : Array FigureEntry) (outDir : System.FilePath) (opts : BuildOptions := {}) :
     IO UInt32 := do
   match ← renderAll entries opts with
   | .error msg =>
-    IO.eprintln s!"pilean-build: {escapeControl msg}"
+    for line in msg.splitOn "\n" do
+      IO.eprintln s!"pilean-build: {escapeControl line}"
     return 1
   | .ok files =>
     let manifest := (Manifest.render (files.map (·.entry))).toUTF8

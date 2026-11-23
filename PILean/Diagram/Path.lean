@@ -83,16 +83,26 @@ def draw (P : LatticePath) : Diagram where
       { part := .step k, shape := .segment p q, ink := .accent 0 })
   width := min 520 (36 * ((P.box.2.2.1 - P.box.1).toNat.toFloat + 1) + 24)
 
-/-- The diagram draws the path faithfully: its steps are exactly `stepList`, in order. -/
-def Faithful (P : LatticePath) (d : Diagram) : Prop := d.steps = P.stepList
+/-- The diagram draws the path faithfully: its steps are exactly `stepList`, in order; its
+decorations are exactly the grid (`gridMarks`); and every mark is a step's segment or a guide. -/
+def Faithful (P : LatticePath) (d : Diagram) : Prop :=
+  d.steps = P.stepList ∧ d.decorations = P.gridMarks.map (fun m => (m.part, m.shape)) ∧
+    d.marks.all (fun m => match m.part, m.shape with
+      | .step _, .segment _ _ => true
+      | .guide, _ => true
+      | _, _ => false) = true
 
 instance (P : LatticePath) (d : Diagram) : Decidable (P.Faithful d) :=
-  inferInstanceAs (Decidable (_ = _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The diagram of a path is faithful. -/
 theorem draw_faithful (P : LatticePath) : P.Faithful P.draw := by
-  simp [Faithful, Diagram.steps, draw, gridMarks, stepList, List.filterMap_append,
-    List.filterMap_map, Function.comp_def]
+  refine ⟨?_, ?_, ?_⟩
+  · simp [Diagram.steps, draw, gridMarks, stepList, List.filterMap_append,
+      List.filterMap_map, Function.comp_def]
+  · simp [Diagram.decorations, draw, gridMarks, stepList, List.filterMap_append,
+      List.filterMap_map, Function.comp_def]
+  · simp [draw, gridMarks, stepList]
 
 /-- The figure: the diagram, or a note for more than `maxSteps` steps or a box wider or taller
 than `maxSteps` (the grid's lines). -/
@@ -152,12 +162,11 @@ def draw (P : Polyomino) : Diagram where
   width := min 520 (36 * ((P.cells.foldl (fun m c => max m c.1) 0) + 1).toFloat + 24)
 
 /-- The diagram draws the polyomino faithfully: its cells are exactly the polyomino's, in order,
-each its unit square. -/
+each its unit square, and it has no other mark. -/
 def Faithful (P : Polyomino) (d : Diagram) : Prop :=
   d.cells = P.cells ∧ d.marks.all (fun m => match m.part, m.shape with
     | .cell x y, .rect lo hi => lo == (square (x, y)).1 && hi == (square (x, y)).2
-    | .cell _ _, _ => false
-    | _, _ => true) = true
+    | _, _ => false) = true
 
 instance (P : Polyomino) (d : Diagram) : Decidable (P.Faithful d) :=
   inferInstanceAs (Decidable (_ ∧ _))

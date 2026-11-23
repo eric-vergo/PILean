@@ -186,25 +186,38 @@ def venn (S : SetSystem) : Diagram where
   width := 400
 
 /-- The Venn diagram is faithful: the elements it writes, with their regions and places, are
-exactly `memberList`, in order, and its circles are the sets' circles, in order. -/
+exactly `memberList`, in order; the text written for element `x` is its name; its circles are the
+sets' circles, in order; and besides these it has one decoration per set (the sets' names) and no
+other mark. -/
 def FaithfulVenn (S : SetSystem) (d : Diagram) : Prop :=
   d.members = S.memberList ∧
     (d.marks.filterMap fun m => match m.part, m.shape with
       | .set s, .circle c r => some (s, c, r)
       | _, _ => none) =
-    (List.range S.sets.length).map fun s =>
-      (s, (vennCentres S.sets.length).getD s (0, 0), vennRadius)
+    (List.range S.sets.length).map (fun s =>
+      (s, (vennCentres S.sets.length).getD s (0, 0), vennRadius)) ∧
+    (d.texts.filterMap fun (p, s, _) => match p with
+      | .member x _ => some (x, s)
+      | _ => none) = (List.range S.n).map (fun x => (x, S.name x)) ∧
+    d.decorations.length = S.sets.length ∧
+    d.marks.length = 2 * S.sets.length + S.n
 
 instance (S : SetSystem) (d : Diagram) : Decidable (S.FaithfulVenn d) :=
-  inferInstanceAs (Decidable (_ ∧ _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _))
 
 /-- The Venn diagram is faithful. -/
 theorem venn_faithful (S : SetSystem) : S.FaithfulVenn S.venn := by
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · simp [Diagram.members, venn, List.filterMap_append, List.filterMap_map,
       Function.comp_def, memberList]
   · simp [venn, List.filterMap_append, List.filterMap_map,
       Function.comp_def, memberList]
+  · simp [Diagram.texts, venn, List.filterMap_append, List.filterMap_map,
+      Function.comp_def, memberList]
+  · simp [Diagram.decorations, venn, List.filterMap_append, List.filterMap_map,
+      Function.comp_def, memberList]
+  · simp [venn, memberList]
+    omega
 
 /-- In the Venn diagram of one to three sets whose regions fit (`fits`), the name of every
 element `x` is written at a point inside the circle of set `s` exactly when `x` belongs to `s`,

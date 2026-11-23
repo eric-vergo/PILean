@@ -149,14 +149,14 @@ def edgeMark (g : FinGraph) (L : Layout) (e : Nat × Nat) : Mark :=
       else .segment (L.pos e.1) (L.pos e.2) }
 
 /-- Whether a mark is placed where the layout puts its part: a vertex's dot at its position and
-its name there, an edge's shape as `edgeMark` makes it. Other marks are not constrained. -/
+its name there, an edge's shape as `edgeMark` makes it. A mark of any other part is refused. -/
 def placed (g : FinGraph) (L : Layout) (m : Mark) : Bool :=
   match m.part, m.shape with
   | .vertex i, .dot p => p == L.pos i
   | .vertex i, .text s p _ => s == g.label i && p == L.pos i
   | .vertex _, _ => false
   | .edge i j, s => s == (g.edgeMark L (i, j)).shape
-  | _, _ => true
+  | _, _ => false
 
 /-- The diagram of the graph at the layout `L`: the edges (`edgeMark`, in the order of
 `edgePairs`), then a dot for each vertex, then each vertex's name beside it. -/
@@ -166,18 +166,24 @@ def draw (g : FinGraph) (L : Layout) : Diagram where
     (List.range g.n).map (fun i =>
       { part := .vertex i, shape := .text (g.label i) (L.pos i) .auto })
 
+/-- The names as the diagram writes them: vertex `i`'s name at its position, for each `i`. -/
+def nameTexts (g : FinGraph) (L : Layout) : List (Part × String × QPoint) :=
+  (List.range g.n).map fun i => (.vertex i, g.label i, L.pos i)
+
 /-- The diagram draws the graph faithfully at the layout `L`: its edges are exactly `edgePairs`,
-in order; its vertex dots are `0, …, n - 1`, in order; and every mark is placed where `L` puts its
-part (`placed`). -/
+in order; its vertex dots are `0, …, n - 1`, in order; its texts are exactly the vertices' names
+at their positions (`nameTexts`), in order; it has no decoration (`Diagram.decorations`); and
+every mark is placed where `L` puts its part (`placed`). -/
 def Faithful (g : FinGraph) (L : Layout) (d : Diagram) : Prop :=
-  d.edges = g.edgePairs ∧ d.vertices = List.range g.n ∧ d.marks.all (g.placed L) = true
+  d.edges = g.edgePairs ∧ d.vertices = List.range g.n ∧ d.marks.all (g.placed L) = true ∧
+    d.texts = g.nameTexts L ∧ d.decorations = []
 
 instance (g : FinGraph) (L : Layout) (d : Diagram) : Decidable (g.Faithful L d) :=
-  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _))
 
 /-- The diagram of a graph is faithful at every layout. -/
 theorem draw_faithful (g : FinGraph) (L : Layout) : g.Faithful L (g.draw L) := by
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · simp [Diagram.edges, draw, edgeMark, List.filterMap_append, List.filterMap_map,
       Function.comp_def]
   · simp [Diagram.vertices, draw, edgeMark, List.filterMap_append, List.filterMap_map,
@@ -185,6 +191,18 @@ theorem draw_faithful (g : FinGraph) (L : Layout) : g.Faithful L (g.draw L) := b
   · simp only [draw, List.all_append, List.all_map, Bool.and_eq_true, List.all_eq_true,
       Function.comp_apply]
     refine ⟨⟨fun e _ => ?_, fun i _ => ?_⟩, fun i _ => ?_⟩ <;> simp [placed, edgeMark]
+  · have h : ∀ e, (match (g.edgeMark L e).shape with
+        | .text s p _ => some ((g.edgeMark L e).part, s, p)
+        | _ => none) = none := fun e => by
+      unfold edgeMark
+      by_cases h1 : e.1 = e.2 <;> by_cases h2 : (g.directed && g.arrowheads) = true <;>
+        simp [h1, h2]
+    simp [Diagram.texts, draw, List.filterMap_append, List.filterMap_map, nameTexts,
+      Function.comp_def]
+    intro a b _
+    exact h (a, b)
+  · simp [Diagram.decorations, draw, edgeMark, List.filterMap_append, List.filterMap_map,
+      Function.comp_def]
 
 /-- The layout of `figure`: the vertices on the unit circle. -/
 def layout (g : FinGraph) : Layout := Layout.circular g.n

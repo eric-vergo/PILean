@@ -109,15 +109,20 @@ def oneLine (σ : FinPerm) : Diagram where
 def oneLineEntries (σ : FinPerm) : List ((Nat × Nat) × String) :=
   (List.range σ.n).map fun i => ((0, i), σ.text (σ.apply i))
 
-/-- The one-line diagram is faithful: its entries are the values, in order. -/
-def FaithfulOneLine (σ : FinPerm) (d : Diagram) : Prop := d.entries = σ.oneLineEntries
+/-- The one-line diagram is faithful: its entries are the values, in order; its texts are exactly
+those entries, value `σ i` at `(i, 0)`; and it has no other mark. -/
+def FaithfulOneLine (σ : FinPerm) (d : Diagram) : Prop :=
+  d.entries = σ.oneLineEntries ∧
+    d.texts = (List.range σ.n).map (fun i => (.entry 0 i, σ.text (σ.apply i), ((i : Rat), 0))) ∧
+    d.marks.length = σ.n
 
 instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulOneLine d) :=
-  inferInstanceAs (Decidable (_ = _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The one-line notation writes the values, in order. -/
 theorem oneLine_faithful (σ : FinPerm) : σ.FaithfulOneLine σ.oneLine := by
-  simp [FaithfulOneLine, Diagram.entries, oneLine, oneLineEntries, List.filterMap_map,
+  refine ⟨?_, ?_, ?_⟩ <;>
+  simp [Diagram.entries, Diagram.texts, oneLine, oneLineEntries, List.filterMap_map,
     Function.comp_def]
 
 /-- The two-line notation: argument `i` at `(i, 1)` (entry `(0, i)`), its value `σ i` below it at
@@ -136,16 +141,26 @@ def twoLineEntries (σ : FinPerm) : List ((Nat × Nat) × String) :=
   (List.range σ.n).map (fun i => ((0, i), σ.text i)) ++
     (List.range σ.n).map (fun i => ((1, i), σ.text (σ.apply i)))
 
-/-- The two-line diagram is faithful: its entries are the arguments and then their values. -/
-def FaithfulTwoLine (σ : FinPerm) (d : Diagram) : Prop := d.entries = σ.twoLineEntries
+/-- The two-line diagram is faithful: its entries are the arguments and then their values; its
+texts are exactly those, argument `i` at `(i, 1)` and `σ i` below it at `(i, 0)`; and it has one
+other mark, the bar. -/
+def FaithfulTwoLine (σ : FinPerm) (d : Diagram) : Prop :=
+  d.entries = σ.twoLineEntries ∧
+    d.texts = (List.range σ.n).map (fun i => (.entry 0 i, σ.text i, ((i : Rat), 1))) ++
+      (List.range σ.n).map (fun i => (.entry 1 i, σ.text (σ.apply i), ((i : Rat), 0))) ∧
+    d.marks.length = 2 * σ.n + 1
 
 instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulTwoLine d) :=
-  inferInstanceAs (Decidable (_ = _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The two-line notation writes the arguments and their values. -/
 theorem twoLine_faithful (σ : FinPerm) : σ.FaithfulTwoLine σ.twoLine := by
-  simp [FaithfulTwoLine, Diagram.entries, twoLine, twoLineEntries, List.filterMap_append,
-    List.filterMap_map, Function.comp_def]
+  refine ⟨?_, ?_, ?_⟩
+  · simp [Diagram.entries, twoLine, twoLineEntries, List.filterMap_append,
+      List.filterMap_map, Function.comp_def]
+  · simp [Diagram.texts, twoLine, List.filterMap_append, List.filterMap_map, Function.comp_def]
+  · simp [twoLine]
+    omega
 
 /-- The centre of cell `(i, j)` of the matrix, row 0 at the top. -/
 def matrixCentre (i j : Nat) : QPoint := ((j : Rat) + 1 / 2, -((i : Rat) + 1 / 2))
@@ -161,23 +176,27 @@ def matrix (σ : FinPerm) : Diagram where
   width := 28 * σ.n.toFloat + 24
 
 /-- The matrix is faithful: its marked cells are `(i, σ i)`, in order of `i`, each a dot at its
-cell's centre. -/
+cell's centre; every other mark is a guide rectangle; and there are `n²` of those (the grid). -/
 def FaithfulMatrix (σ : FinPerm) (d : Diagram) : Prop :=
   d.cells = (List.range σ.n).map (fun i => (i, σ.apply i)) ∧
     d.marks.all (fun m => match m.part, m.shape with
       | .cell i j, .dot p => p == matrixCentre i j
-      | .cell _ _, _ => false
-      | _, _ => true) = true
+      | .guide, .rect _ _ => true
+      | _, _ => false) = true ∧
+    d.decorations.length = σ.n * σ.n
 
 instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulMatrix d) :=
-  inferInstanceAs (Decidable (_ ∧ _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The permutation matrix marks exactly the cells `(i, σ i)`. -/
 theorem matrix_faithful (σ : FinPerm) : σ.FaithfulMatrix σ.matrix := by
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, ?_, ?_⟩
   · simp [Diagram.cells, matrix, List.filterMap_append, List.filterMap_map, List.filterMap_flatMap,
       Function.comp_def]
   · simp [matrix]
+  · simp [Diagram.decorations, matrix, List.filterMap_append, List.filterMap_map,
+      List.filterMap_flatMap, Function.comp_def, List.length_flatMap, List.map_const',
+      List.sum_replicate_nat]
 
 /-- The order of the vertices round the circle: each cycle in turn, from its least element and
 then its images, the cycles in the order of their least elements (at most `n` steps a cycle, so
@@ -253,22 +272,32 @@ def wiring (σ : FinPerm) : Diagram where
       { part := .entry 1 i, shape := .text (σ.text i) ((i : Rat), 0) .below })
   width := 40 * σ.n.toFloat + 24
 
-/-- The wiring diagram is faithful: its strands are `strand 0, …, strand (n - 1)`, in order. -/
+/-- The wiring diagram is faithful: its strands are `strand 0, …, strand (n - 1)`, in order; its
+texts are the positions `1, …, n` above the top line and below the bottom one; and it has two
+other marks, the lines. -/
 def FaithfulWiring (σ : FinPerm) (d : Diagram) : Prop :=
-  d.strands = (List.range σ.n).map σ.strand
+  d.strands = (List.range σ.n).map σ.strand ∧
+    d.texts = (List.range σ.n).map (fun i => (.entry 0 i, σ.text i, ((i : Rat), 2))) ++
+      (List.range σ.n).map (fun i => (.entry 1 i, σ.text i, ((i : Rat), 0))) ∧
+    d.marks.length = 3 * σ.n + 2
 
 instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulWiring d) :=
-  inferInstanceAs (Decidable (_ = _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The wiring diagram draws the strands. -/
 theorem wiring_faithful (σ : FinPerm) : σ.FaithfulWiring σ.wiring := by
-  simp [FaithfulWiring, Diagram.strands, wiring, strand, List.filterMap_map, List.filterMap_append,
-    Function.comp_def]
+  refine ⟨?_, ?_, ?_⟩
+  · simp [Diagram.strands, wiring, strand, List.filterMap_map, List.filterMap_append,
+      Function.comp_def]
+  · simp [Diagram.texts, wiring, strand, List.filterMap_map, List.filterMap_append,
+      Function.comp_def]
+  · simp [wiring]
+    omega
 
 /-- The pairs of strands of the wiring diagram that cross are exactly the inversions, in
 order. -/
 theorem wiring_crossings (σ : FinPerm) : crossingPairs σ.wiring.strands = σ.inversions := by
-  rw [σ.wiring_faithful]
+  rw [σ.wiring_faithful.1]
   simp only [crossingPairs, inversions, strand, List.flatMap_map, List.filterMap_map,
     Function.comp_def, Rat.natCast_lt_natCast]
 
