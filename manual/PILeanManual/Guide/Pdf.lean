@@ -32,6 +32,9 @@ core library, and needs nothing installed. A build (`pilean-build`, and the Vers
 a figure's PDF beside its SVG and PNG, with the same source record.
 
 ```lean
+/-- The integers from -3 to 3. -/
+def ns : List Int := [-3, -2, -1, 0, 1, 2, 3]
+
 /-- The squares and the cubes of the integers from -3 to 3. -/
 @[figure]
 def powers : Figure where
@@ -40,9 +43,8 @@ def powers : Figure where
   height := 300
   panels := #[{
     x := { label := "n" }, y := { label := "value" },
-    series := #[.ofIntPoints "n²" ((List.range 7).map fun k =>
-        let n : Int := (k : Int) - 3; (n, n ^ 2)),
-      .ofIntPoints "n³" ((List.range 7).map fun k => let n : Int := (k : Int) - 3; (n, n ^ 3))] }]
+    series := #[.ofIntPoints "n²" (ns.map fun n => (n, n ^ 2)),
+      .ofIntPoints "n³" (ns.map fun n => (n, n ^ 3))] }]
 ```
 
 ```lean (name := pdfEx)
