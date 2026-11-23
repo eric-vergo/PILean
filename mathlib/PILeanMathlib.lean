@@ -3,6 +3,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanMathlib.Axioms
+import PILeanMathlib.Category
+import PILeanMathlib.Group
+import PILeanMathlib.Examples.Algebra
+import PILeanMathlib.Examples.AlgebraFigures
 import PILeanMathlib.Combinatorics
 import PILeanMathlib.Examples.Combinatorics
 import PILeanMathlib.Examples.CombinatoricsFigures
@@ -27,5 +31,13 @@ import PILeanMathlib.Polyline
   combinatorial diagrams, with theorems that the drawn parts are those objects.
 * `PILeanMathlib.Examples.CombinatoricsFigures`, `PILeanMathlib.Examples.Combinatorics`: a figure
   for each and the theorem about it.
+* `PILeanMathlib.Category`: commutative diagrams realised in a category: composites of paths,
+  commutation, the marks of the arrows' styles (`Mono`, `Epi`, `IsIso`); a `CommSq`, a
+  commutative triangle and a short exact sequence drawn.
+* `PILeanMathlib.Group`: Cayley tables and graphs of a group, its centre and commutativity, and
+  Hasse diagrams of a partial order through an enumeration (lattices of subgroups).
+* `PILeanMathlib.Examples.AlgebraFigures`, `PILeanMathlib.Examples.Algebra`: the dihedral group of
+  order 8 (table, Cayley graph, subgroups), a commutative square of types and a short exact
+  sequence, with their theorems.
 * `PILeanMathlib.Axioms`: the axioms every theorem depends on, checked by the build.
 -/

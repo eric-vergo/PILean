@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="258" viewBox="0 0 320 258">
+  <g>
+    <title>The Cayley graph of S₃ for (1 2) and (1 2 3)</title>
+    <path d="M0 0 L320 0 L320 258 L0 258 Z" fill="#16181c"/>
+    <g>
+      <title>arrow 0: 0 → 1</title>
+      <path d="M160 37.4 L160 92.36" fill="none" stroke="#f39098" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 1: 2 → 5</title>
+      <path d="M85.14 208.86 L60.33 223.19" fill="none" stroke="#f39098" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 2: 3 → 4</title>
+      <path d="M234.86 208.86 L259.67 223.19" fill="none" stroke="#f39098" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 3: 0 → 4</title>
+      <path d="M170.58 37.4 L276.35 220.6" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 3: 0 → 4</title>
+      <path d="M269.3 208.39 L272.35 213.68" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M276.35 220.6 L267.46 214.19 L275.25 209.69 Z" fill="#5bc99e"/>
+    </g>
+    <g>
+      <title>arrow 4: 1 → 2</title>
+      <path d="M149.42 129 L122.98 174.8" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 4: 1 → 2</title>
+      <path d="M130.03 162.59 L126.98 167.87" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M122.98 174.8 L124.08 163.89 L131.88 168.39 Z" fill="#5bc99e"/>
+    </g>
+    <g>
+      <title>arrow 5: 2 → 3</title>
+      <path d="M147.21 193.12 L172.79 193.12" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 5: 2 → 3</title>
+      <path d="M160.58 193.12 L164.79 193.12" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M172.79 193.12 L162.79 197.62 L162.79 188.62 Z" fill="#5bc99e"/>
+    </g>
+    <g>
+      <title>arrow 6: 3 → 1</title>
+      <path d="M197.02 174.8 L170.58 129" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 6: 3 → 1</title>
+      <path d="M177.63 141.21 L174.58 135.93" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M170.58 129 L179.47 135.41 L171.68 139.91 Z" fill="#5bc99e"/>
+    </g>
+    <g>
+      <title>arrow 7: 4 → 5</title>
+      <path d="M243.57 238.93 L76.43 238.93" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 7: 4 → 5</title>
+      <path d="M88.64 238.93 L84.43 238.93" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M76.43 238.93 L86.43 234.43 L86.43 243.43 Z" fill="#5bc99e"/>
+    </g>
+    <g>
+      <title>arrow 8: 5 → 0</title>
+      <path d="M43.65 220.6 L149.42 37.4" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 8: 5 → 0</title>
+      <path d="M142.37 49.61 L145.42 44.32" fill="none" stroke="#5bc99e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M149.42 37.4 L148.32 48.31 L140.53 43.81 Z" fill="#5bc99e"/>
+    </g>
+    <g>
+      <title>vertex 0</title>
+      <path d="M156.768 19.3 L163.308 19.3 C163.308 17.655 162.168 16.247 160.606 15.961 C159.043 15.675 157.508 16.594 156.965 18.14 C156.422 19.686 157.028 21.413 158.403 22.235 C159.777 23.058 161.523 22.739 162.543 21.479" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 1</title>
+      <path d="M148.165 104.904 C147.163 106.223 146.566 108.379 146.566 110.679 C146.566 112.979 147.163 115.135 148.165 116.454 M152.425 107.229 L155.275 104.814 L155.275 114.144 M163.397 106.549 C163.776 105.503 164.723 104.772 165.827 104.675 C166.93 104.578 167.989 105.132 168.543 106.097 C169.097 107.061 169.045 108.26 168.41 109.172 L163.225 114.144 L169.075 114.144 M171.835 104.904 C172.837 106.223 173.434 108.379 173.434 110.679 C173.434 112.979 172.837 115.135 171.835 116.454" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 2</title>
+      <path d="M100.566 187.348 C99.564 188.667 98.967 190.823 98.967 193.123 C98.967 195.423 99.564 197.579 100.566 198.898 M103.498 188.993 C103.877 187.947 104.824 187.216 105.928 187.119 C107.031 187.022 108.09 187.576 108.644 188.541 C109.198 189.505 109.146 190.704 108.51 191.616 L103.326 196.588 L109.176 196.588 M116.151 188.316 C116.77 187.301 118.069 186.853 119.232 187.254 C120.395 187.655 121.086 188.788 120.871 189.942 C120.656 191.097 119.597 191.938 118.36 191.938 L118.36 191.908 C119.743 191.908 120.926 192.75 121.167 193.904 C121.407 195.058 120.634 196.192 119.335 196.592 C118.035 196.993 116.583 196.546 115.892 195.531 M124.236 187.348 C125.238 188.667 125.835 190.823 125.835 193.123 C125.835 195.423 125.238 197.579 124.236 198.898" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 3</title>
+      <path d="M195.764 187.348 C194.762 188.667 194.165 190.823 194.165 193.123 C194.165 195.423 194.762 197.579 195.764 198.898 M200.024 189.673 L202.874 187.258 L202.874 196.588 M211.35 188.316 C211.968 187.301 213.267 186.853 214.43 187.254 C215.593 187.655 216.284 188.788 216.069 189.942 C215.854 191.097 214.796 191.938 213.558 191.938 L213.558 191.908 C214.941 191.908 216.125 192.75 216.365 193.904 C216.605 195.058 215.832 196.192 214.533 196.592 C213.233 196.993 211.781 196.546 211.09 195.531 M219.434 187.348 C220.436 188.667 221.033 190.823 221.033 193.123 C221.033 195.423 220.436 197.579 219.434 198.898" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 4</title>
+      <path d="M268.946 233.15 C267.944 234.47 267.347 236.625 267.347 238.925 C267.347 241.226 267.944 243.381 268.946 244.7 M273.206 235.475 L276.056 233.06 L276.056 242.39 M284.178 234.795 C284.557 233.749 285.504 233.018 286.608 232.921 C287.711 232.824 288.77 233.379 289.324 234.343 C289.878 235.307 289.826 236.507 289.19 237.419 L284.006 242.39 L289.856 242.39 M296.831 234.118 C297.45 233.103 298.749 232.655 299.912 233.056 C301.075 233.457 301.766 234.591 301.551 235.745 C301.336 236.899 300.277 237.74 299.04 237.74 L299.04 237.71 C300.423 237.71 301.606 238.552 301.847 239.706 C302.087 240.86 301.314 241.994 300.015 242.395 C298.715 242.796 297.263 242.348 296.572 241.333 M304.916 233.15 C305.918 234.47 306.515 236.625 306.515 238.925 C306.515 241.226 305.918 243.381 304.916 244.7" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 5</title>
+      <path d="M15.084 233.15 C14.082 234.47 13.485 236.625 13.485 238.925 C13.485 241.226 14.082 243.381 15.084 244.7 M19.344 235.475 L22.194 233.06 L22.194 242.39 M30.67 234.118 C31.288 233.103 32.587 232.655 33.75 233.056 C34.913 233.457 35.604 234.591 35.389 235.745 C35.174 236.899 34.116 237.74 32.878 237.74 L32.878 237.71 C34.261 237.71 35.445 238.552 35.685 239.706 C35.925 240.86 35.152 241.994 33.853 242.395 C32.553 242.796 31.101 242.348 30.41 241.333 M42.616 234.795 C42.995 233.749 43.942 233.018 45.046 232.921 C46.149 232.824 47.208 233.379 47.762 234.343 C48.316 235.307 48.264 236.507 47.629 237.419 L42.444 242.39 L48.294 242.39 M51.054 233.15 C52.056 234.47 52.653 236.625 52.653 238.925 C52.653 241.226 52.056 243.381 51.054 244.7" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

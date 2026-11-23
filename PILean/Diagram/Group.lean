@@ -157,11 +157,20 @@ def tableDecorations (M : FinMagma) : List (Part × Shape) :=
   [(.guide, .segment (0, -1) ((M.n : Rat) + 1, -1)), (.guide, .segment (1, 0) (1, -((M.n : Rat) + 1))),
     (.note 0, .text "·" (1 / 2, -1 / 2) .center)]
 
-/-- The Cayley table: the cells, the entries, the headings, then the rules and the corner. -/
+/-- The width in pixels of a cell of the table: room for the longest name. -/
+def cellPixels (M : FinMagma) : Float :=
+  let longest := (List.range M.n).foldl (fun w i => max w (M.name i).length) 1
+  max 36 (9 * longest.toFloat + 14)
+
+/-- The marks of the table's decorations, in the faint ink. -/
+def decorationMarks (M : FinMagma) : List Mark :=
+  M.tableDecorations.map fun (p, s) => { part := p, shape := s, ink := .faint }
+
+/-- The Cayley table: the rules and the corner (under the cells), the cells, the entries, the
+headings. -/
 def table (M : FinMagma) : Diagram where
-  marks := M.cellMarks ++ M.entryMarks ++ M.headerMarks ++
-    M.tableDecorations.map fun (p, s) => { part := p, shape := s, ink := .faint }
-  width := 40 * (M.n.toFloat + 1) + 40
+  marks := M.decorationMarks ++ M.cellMarks ++ M.entryMarks ++ M.headerMarks
+  width := M.cellPixels * (M.n.toFloat + 1) + 40
 
 /-- The entries the table writes: the name of `i * j` in cell `(i, j)`, row by row. -/
 def entryTexts (M : FinMagma) : List ((Nat × Nat) × String) :=
@@ -181,25 +190,25 @@ def FaithfulTable (M : FinMagma) (d : Diagram) : Prop :=
 instance (M : FinMagma) (d : Diagram) : Decidable (M.FaithfulTable d) :=
   inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _))
 
-/-- The marks of the table's decorations. -/
-def decorationMarks (M : FinMagma) : List Mark :=
-  M.tableDecorations.map fun (p, s) => { part := p, shape := s, ink := .faint }
-
+/-- The marks of the table, class by class. -/
 theorem table_marks (M : FinMagma) :
-    M.table.marks = M.cellMarks ++ M.entryMarks ++ M.headerMarks ++ M.decorationMarks := rfl
+    M.table.marks = M.decorationMarks ++ M.cellMarks ++ M.entryMarks ++ M.headerMarks := rfl
 
+/-- Every mark of the cells is a cell's. -/
 theorem isCell_of_mem_cellMarks {M : FinMagma} {m : Mark} (h : m ∈ M.cellMarks) :
     ∃ i j, m.part = .cell i j := by
   simp only [cellMarks, List.mem_map] at h
   obtain ⟨⟨i, j⟩, -, rfl⟩ := h
   exact ⟨i, j, rfl⟩
 
+/-- Every mark of the entries is an entry's. -/
 theorem isEntry_of_mem_entryMarks {M : FinMagma} {m : Mark} (h : m ∈ M.entryMarks) :
     ∃ i j, m.part = .entry i j := by
   simp only [entryMarks, List.mem_map] at h
   obtain ⟨⟨i, j⟩, -, rfl⟩ := h
   exact ⟨i, j, rfl⟩
 
+/-- Every mark of the headings is a heading's. -/
 theorem isHeader_of_mem_headerMarks {M : FinMagma} {m : Mark} (h : m ∈ M.headerMarks) :
     ∃ a i, m.part = .header a i := by
   simp only [headerMarks, List.mem_append, List.mem_map] at h
@@ -207,6 +216,7 @@ theorem isHeader_of_mem_headerMarks {M : FinMagma} {m : Mark} (h : m ∈ M.heade
   · exact ⟨1, j, rfl⟩
   · exact ⟨0, i, rfl⟩
 
+/-- Every mark of the decorations is a guide or the note of the corner. -/
 theorem isDecoration_of_mem_decorationMarks {M : FinMagma} {m : Mark}
     (h : m ∈ M.decorationMarks) : m.part = .guide ∨ m.part = .note 0 := by
   simp only [decorationMarks, tableDecorations, List.map_cons, List.map_nil, List.mem_cons,
@@ -276,10 +286,10 @@ theorem table_faithful (M : FinMagma) : M.FaithfulTable M.table := by
     simp [decorationMarks, tableDecorations]
   · simp only [table_marks, List.all_append, Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true]
     refine ⟨⟨⟨fun m hm => ?_, fun m hm => ?_⟩, fun m hm => ?_⟩, fun m hm => ?_⟩
+    · rcases hD hm with h | h <;> simp [h, Part.isDecoration]
     · obtain ⟨a, i, h⟩ := hC hm; simp [h, Part.isCell]
     · obtain ⟨a, i, h⟩ := hE hm; simp [h, Part.isEntry]
     · obtain ⟨a, i, h⟩ := hH hm; simp [h, Part.isHeader]
-    · rcases hD hm with h | h <;> simp [h, Part.isDecoration]
 
 /-- The table, or a note for more than `maxElements` elements. -/
 def tableFigure (M : FinMagma) : Diagram :=

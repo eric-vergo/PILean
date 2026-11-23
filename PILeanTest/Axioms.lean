@@ -33,6 +33,7 @@ import PILeanTest.SpecMutations
 import PILeanTest.Bounds
 import PILeanTest.Tools
 import PILeanTest.Diagrams
+import PILeanTest.AlgebraDiagrams
 import PILeanTest.Standing
 
 /-!

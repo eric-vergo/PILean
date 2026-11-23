@@ -173,6 +173,29 @@ def diagramMutations : Array SpecMutation :=
     { file := f, what := "the board has the shape (4, 2, 1)", anchor := "def board : Polyomino",
       edits := [("[4, 3, 1]", "[4, 2, 1]")], spec := "ferrers_spec" }]
 
+/-- The changes to the data of the gallery's diagrams of algebra
+(`PILeanTest/AlgebraDiagrams.lean`) that their specifications must catch: a map, an arrow, a
+generator, a name or a loop changed. -/
+def algebraMutations : Array SpecMutation :=
+  let f : System.FilePath := "PILeanTest" / "AlgebraDiagrams.lean"
+  #[{ file := f, what := "the right map of the square reduces modulo 3",
+      anchor := "def reductionMaps : FinMaps where",
+      edits := [("reduction 6 2,", "reduction 6 3,")], spec := "square_spec" },
+    { file := f, what := "the doubling sends 1 to 0, so it is not injective",
+      anchor := "def exactMaps : FinMaps where",
+      edits := [("#[0, 2]", "#[0, 0]")], spec := "exact_spec" },
+    { file := f, what := "an edge of the cube joins ℤ/15 to ℤ/2",
+      anchor := "def reductionCube : CommDiagram where",
+      edits := [("{ src := 1, tgt := 4 }", "{ src := 1, tgt := 6 }")], spec := "cube_spec" },
+    { file := f, what := "the names of (1 2) and (2 3) are exchanged", anchor := "def s3 : FinMagma",
+      edits := [("\"(1 2)\", \"(2 3)\"", "\"(2 3)\", \"(1 2)\"")], spec := "cayleyTable_spec" },
+    { file := f, what := "the Cayley graph is drawn for (1 3 2) instead of (1 2 3)",
+      anchor := "def cayleyGraph : Diagram :=",
+      edits := [("⟨4, by decide +kernel⟩] s3Positions", "⟨5, by decide +kernel⟩] s3Positions")],
+      spec := "cayleyGraph_spec" },
+    { file := f, what := "the loop is at the first vertex", anchor := "def quiverData : FinQuiver",
+      edits := [("(2, 2, \"ℓ\")", "(0, 0, \"ℓ\")")], spec := "quiver_spec" }]
+
 /-- The changes to the core's figures with specifications (`PILeanTest.Examples` and
 `PILeanTest.PlaneExact`). -/
 def mutations : Array SpecMutation :=

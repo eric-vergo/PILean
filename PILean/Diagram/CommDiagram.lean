@@ -33,14 +33,16 @@ other part.
 That the diagram *commutes* is a statement about the object, not about the picture. For maps
 between finite sets given by their tables (`FinMaps`) it is the decidable `FinMaps.Commutes`: the
 maps fit the arrows (`FinMaps.WellTyped`) and the two paths of every claim compose to the same
-map. The package `pilean-mathlib` states it for morphisms of a category.
+map. `FinMaps.StylesHold` decides that the marks of the arrows' styles are true of the maps (an
+arrow drawn `↣` is injective, `↠` surjective, and so on). The package `pilean-mathlib` states both
+for morphisms of a category.
 
 ## Main definitions
 
 * `ArrowStyle`, `CDArrow`, `TwoCell`, `CommDiagram`, `CDLayout`, `CommDiagram.layout`
 * `CommDiagram.draw`, `CommDiagram.figure`, `CommDiagram.Faithful`, `CommDiagram.Valid`
 * `CommDiagram.pathEnd`: the object a path of arrows leads to
-* `FinMaps`, `FinMaps.WellTyped`, `FinMaps.apply`, `FinMaps.Commutes`
+* `FinMaps`, `FinMaps.WellTyped`, `FinMaps.apply`, `FinMaps.Commutes`, `FinMaps.StylesHold`
 
 ## Main results
 
@@ -686,6 +688,22 @@ def Commutes (R : FinMaps) (D : CommDiagram) : Bool :=
   R.WellTyped D && D.paths.all fun (i, p, q) =>
     (D.pathEnd p i).isSome && D.pathEnd p i == D.pathEnd q i &&
       (List.range (R.size i)).all fun x => R.apply p x == R.apply q x
+
+/-- The marks of the arrows' styles hold of the maps: an arrow drawn as a monomorphism (`↣`) or
+an inclusion (`↪`) is injective, one drawn as an epimorphism (`↠`) surjective, one drawn with `≅`
+bijective, and one drawn as `=` the identity of an object to an object of the same size. -/
+def StylesHold (R : FinMaps) (D : CommDiagram) : Bool :=
+  D.arrows.zipIdx.all fun (a, k) =>
+    let f := R.fn.getD k #[]
+    let inj := (List.range f.size).all fun x => (List.range f.size).all fun y =>
+      x == y || f.getD x 0 != f.getD y 0
+    let surj := (List.range (R.size a.tgt)).all fun y => f.contains y
+    match a.style with
+    | .mono | .inclusion => inj
+    | .epi => surj
+    | .iso => inj && surj
+    | .equality => R.size a.src == R.size a.tgt && (List.range f.size).all fun x => f.getD x 0 == x
+    | _ => true
 
 end FinMaps
 

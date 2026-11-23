@@ -20,7 +20,8 @@ the theorems do not cover:
 * **pixels**: one unit of the ordinate is 143.5 pixels at the gallery size, the number the
   documents use to state the bound in pixels;
 * **the pin**: `lakefile.lean` and `lake-manifest.json` name the same Mathlib revision;
-* **the combinatorial figures**: they pass the layout checks of plane figures in both themes;
+* **the diagrams**: the combinatorial figures and those of algebra pass the layout checks of
+  plane figures in both themes;
 * **the modules**: every file below `PILeanMathlib/` on disk is imported by
   `PILeanMathlib/Axioms.lean`, whose axiom check covers the modules it imports, so a new file is
   reported even when that module's build comes from the cache.
@@ -94,9 +95,10 @@ def moduleChecks : IO (Array (String × Bool)) := do
   return #[("modules: every file below PILeanMathlib/ is imported by the axiom check",
     !mods.isEmpty && missing.isEmpty)]
 
-/-- The combinatorial figures pass the layout checks of plane figures in both themes. -/
+/-- The diagrams (combinatorics, algebra) pass the layout checks of plane figures in both
+themes. -/
 def diagramChecks : Array (String × Bool) :=
-  PILeanMathlib.Examples.figures.flatMap fun (n, d) =>
+  diagrams.flatMap fun (n, d) =>
     #[(s!"layout checks: {n} has no problems", d.toPlane.checkMessages.isEmpty),
       (s!"layout checks: {n}-dark has no problems", d.dark.toPlane.checkMessages.isEmpty)]
 

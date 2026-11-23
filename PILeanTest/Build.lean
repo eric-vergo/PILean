@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanTest.Examples
 import PILeanTest.Diagrams
+import PILeanTest.AlgebraDiagrams
 import PILean.Trust.Build
 
 /-!
@@ -11,7 +12,8 @@ import PILean.Trust.Build
 
 `lake exe pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]`
 renders the gallery figures that have the attribute `figure` (see `PILean.Trust.Attr`), the
-combinatorial diagrams of `PILeanTest.Diagrams` among them, into a directory and writes
+combinatorial diagrams of `PILeanTest.Diagrams` and the diagrams of algebra of
+`PILeanTest.AlgebraDiagrams` among them, into a directory and writes
 the manifest, or checks a directory against what the build produces. Exit status 0, 1 if a file
 is stale, missing or extra or a figure cannot be rendered, 2 on a wrong command line.
 -/

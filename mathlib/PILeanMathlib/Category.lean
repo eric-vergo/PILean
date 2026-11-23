@@ -116,7 +116,6 @@ theorem square_commutes_iff (obs ls : Array String) {W X Y Z : C} (f : W ⟶ X) 
     by_cases hj : j = 3
     · subst hj
       simp only [Realisation.pathHom, squareRealisation] at h₁ h₂
-      simp at h₁ h₂
       replace h₁ : 𝟙 W ≫ f ≫ 𝟙 X ≫ h ≫ 𝟙 Z = k := Option.some.inj h₁
       replace h₂ : 𝟙 W ≫ g ≫ 𝟙 Y ≫ i ≫ 𝟙 Z = k := Option.some.inj h₂
       simp only [Category.id_comp, Category.comp_id] at h₁ h₂
@@ -126,11 +125,11 @@ theorem square_commutes_iff (obs ls : Array String) {W X Y Z : C} (f : W ⟶ X) 
     refine ⟨3, f ≫ h, ?_, ?_⟩
     · simp only [Realisation.pathHom, squareRealisation]
       simp only [List.getElem_cons_zero, List.getElem_cons_succ, dite_true, Option.map_some]
-      show some (𝟙 W ≫ f ≫ 𝟙 X ≫ h ≫ 𝟙 Z) = some (f ≫ h)
+      change some (𝟙 W ≫ f ≫ 𝟙 X ≫ h ≫ 𝟙 Z) = some (f ≫ h)
       simp
     · simp only [Realisation.pathHom, squareRealisation]
       simp only [List.getElem_cons_zero, List.getElem_cons_succ, dite_true, Option.map_some]
-      show some (𝟙 W ≫ g ≫ 𝟙 Y ≫ i ≫ 𝟙 Z) = some (f ≫ h)
+      change some (𝟙 W ≫ g ≫ 𝟙 Y ≫ i ≫ 𝟙 Z) = some (f ≫ h)
       simp [hsq.w]
 
 /-! ### A commutative triangle -/
@@ -164,7 +163,6 @@ theorem triangle_commutes_iff (obs ls : Array String) {X Y Z : C} (f : X ⟶ Y) 
     by_cases hj : j = 2
     · subst hj
       simp only [Realisation.pathHom, triangleRealisation] at h₁ h₂
-      simp at h₁ h₂
       replace h₁ : 𝟙 X ≫ f ≫ 𝟙 Y ≫ g ≫ 𝟙 Z = k := Option.some.inj h₁
       replace h₂ : 𝟙 X ≫ h ≫ 𝟙 Z = k := Option.some.inj h₂
       simp only [Category.id_comp, Category.comp_id] at h₁ h₂
@@ -174,11 +172,11 @@ theorem triangle_commutes_iff (obs ls : Array String) {X Y Z : C} (f : X ⟶ Y) 
     refine ⟨2, f ≫ g, ?_, ?_⟩
     · simp only [Realisation.pathHom, triangleRealisation]
       simp only [List.getElem_cons_zero, List.getElem_cons_succ, dite_true, Option.map_some]
-      show some (𝟙 X ≫ f ≫ 𝟙 Y ≫ g ≫ 𝟙 Z) = some (f ≫ g)
+      change some (𝟙 X ≫ f ≫ 𝟙 Y ≫ g ≫ 𝟙 Z) = some (f ≫ g)
       simp
     · simp only [Realisation.pathHom, triangleRealisation]
       simp only [List.getElem_cons_zero, List.getElem_cons_succ, dite_true, Option.map_some]
-      show some (𝟙 X ≫ h ≫ 𝟙 Z) = some (f ≫ g)
+      change some (𝟙 X ≫ h ≫ 𝟙 Z) = some (f ≫ g)
       simp [hfg]
 
 /-! ### A short exact sequence -/

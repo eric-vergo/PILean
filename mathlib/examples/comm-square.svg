@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="210" height="207" viewBox="0 0 210 207">
+  <g>
+    <title>A commutative square in the category of types</title>
+    <path d="M0 0 L210 0 L210 207 L0 207 Z" fill="#ffffff"/>
+    <g>
+      <title>arrow 0: 0 → 1</title>
+      <path d="M69.34 32.18 L145.65 32.18" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 0: 0 → 1</title>
+      <path d="M131.39 32.18 L137.65 32.18" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M145.65 32.18 L135.65 36.68 L135.65 27.68 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 0: 0 → 1</title>
+      <path d="M100.842 16.113 L108.192 16.113 M102.792 16.113 L102.792 22.593 M106.092 16.113 L106.092 21.378 C106.092 22.049 106.562 22.593 107.142 22.593 M110.589 22.586 L110.589 20.958 C110.589 20.018 111.052 19.156 111.791 18.722 C112.529 18.289 113.42 18.354 114.101 18.893 M112.356 20.763 C113.332 20.763 114.123 21.579 114.123 22.586 C114.123 23.592 113.332 24.408 112.356 24.408 C111.38 24.408 110.589 23.592 110.589 22.586 C110.589 21.579 111.38 20.763 112.356 20.763 Z" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 1: 0 → 2</title>
+      <path d="M33.68 53.57 L33.68 153.43" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 1: 0 → 2</title>
+      <path d="M33.68 139.16 L33.68 145.43" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M33.68 153.43 L29.18 143.43 L38.18 143.43 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 1: 0 → 2</title>
+      <path d="M13.185 100.485 L20.535 100.485 M15.135 100.485 L15.135 106.965 M18.435 100.485 L18.435 105.75 C18.435 106.421 18.905 106.965 19.485 106.965 M25.862 108.687 L25.862 102.903 L22.699 107.236 L26.698 107.236" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 2: 1 → 3</title>
+      <path d="M176.32 53.57 L176.32 153.43" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 2: 1 → 3</title>
+      <path d="M176.32 139.16 L176.32 145.43" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M176.32 153.43 L171.82 143.43 L180.82 143.43 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 2: 1 → 3</title>
+      <path d="M183.507 100.485 L190.857 100.485 M185.457 100.485 L185.457 106.965 M188.757 100.485 L188.757 105.75 C188.757 106.421 189.227 106.965 189.807 106.965 M193.314 103.978 C193.549 103.33 194.136 102.877 194.82 102.816 C195.505 102.756 196.161 103.1 196.505 103.698 C196.848 104.296 196.816 105.039 196.422 105.605 L193.208 108.687 L196.835 108.687" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 3: 2 → 3</title>
+      <path d="M64.35 174.82 L145.65 174.82" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 3: 2 → 3</title>
+      <path d="M131.39 174.82 L137.65 174.82" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M145.65 174.82 L135.65 179.32 L135.65 170.32 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 3: 2 → 3</title>
+      <path d="M98.346 184.857 L105.696 184.857 M100.296 184.857 L100.296 191.337 M103.596 184.857 L103.596 190.122 C103.596 190.793 104.066 191.337 104.646 191.337 M108.153 188.35 C108.388 187.702 108.975 187.249 109.659 187.188 C110.344 187.128 111 187.472 111.344 188.07 C111.687 188.668 111.655 189.411 111.261 189.977 L108.047 193.059 L111.674 193.059" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 0</title>
+      <path d="M19.143 26.313 L25.143 26.313 L19.143 35.643 L25.143 35.643 M19.143 32.148 L21.393 28.638 M27.288 36.228 L31.788 25.728 M35.448 28.728 L38.298 26.313 L38.298 35.643 M42.52 28.048 C42.899 27.002 43.846 26.271 44.95 26.174 C46.053 26.077 47.112 26.631 47.666 27.596 C48.22 28.56 48.168 29.759 47.533 30.671 L42.348 35.643 L48.198 35.643" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 1</title>
+      <path d="M165.987 26.313 L171.987 26.313 L165.987 35.643 L171.987 35.643 M165.987 32.148 L168.237 28.638 M174.132 36.228 L178.632 25.728 M180.867 32.853 L180.867 30.228 C180.867 28.712 181.614 27.322 182.805 26.622 C183.995 25.922 185.432 26.029 186.532 26.898 M183.717 29.913 C185.291 29.913 186.567 31.229 186.567 32.853 C186.567 34.477 185.291 35.793 183.717 35.793 C182.143 35.793 180.867 34.477 180.867 32.853 C180.867 31.229 182.143 29.913 183.717 29.913 Z" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 2</title>
+      <path d="M23.343 168.957 L29.343 168.957 L23.343 178.287 L29.343 178.287 M23.343 174.792 L25.593 171.282 M31.488 178.872 L35.988 168.372 M42.948 178.287 L42.948 168.957 L37.848 175.947 L44.298 175.947" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 3</title>
+      <path d="M165.987 168.957 L171.987 168.957 L165.987 178.287 L171.987 178.287 M165.987 174.792 L168.237 171.282 M174.132 178.872 L178.632 168.372 M180.964 170.692 C181.343 169.646 182.29 168.915 183.394 168.818 C184.497 168.721 185.556 169.275 186.11 170.24 C186.664 171.204 186.612 172.403 185.977 173.315 L180.792 178.287 L186.642 178.287" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

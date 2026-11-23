@@ -4,12 +4,14 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanMathlib.Examples.SineFigure
 import PILeanMathlib.Examples.CombinatoricsFigures
+import PILeanMathlib.Examples.AlgebraFigures
 
 /-!
 # The files of the gallery
 
-The pictures of `sineFigure` and of the combinatorial figures
-(`PILeanMathlib.Examples.CombinatoricsFigures`), light and dark, as SVG and PNG. This module and
+The pictures of `sineFigure`, of the combinatorial figures
+(`PILeanMathlib.Examples.CombinatoricsFigures`) and of the figures of algebra
+(`PILeanMathlib.Examples.AlgebraFigures`), light and dark, as SVG and PNG. This module and
 the programs built from it import nothing from Mathlib.
 -/
 
@@ -21,6 +23,10 @@ open PILean PILean.Plot PILeanMathlib.Examples
 def figures : Array (String × Figure) :=
   #[("sine-proved", sineFigure), ("sine-proved-dark", { sineFigure with style := Style.dark })]
 
+/-- The diagrams of the gallery: file stem and diagram. -/
+def diagrams : Array (String × PILean.Diagram.Diagram) :=
+  PILeanMathlib.Examples.figures ++ algebraFigures
+
 /-- Every file of the gallery: name and bytes, in a fixed order. -/
 def files : Array (String × Except String ByteArray) := Id.run do
   let mut out := #[]
@@ -29,7 +35,7 @@ def files : Array (String × Except String ByteArray) := Id.run do
     out := out.push (n ++ ".png", match f.toPng with
       | some b => .ok b
       | none => .error "no pixels")
-  for (n, d) in PILeanMathlib.Examples.figures do
+  for (n, d) in diagrams do
     for (suffix, fig) in [("", d.toPlane), ("-dark", d.dark.toPlane)] do
       out := out.push (n ++ suffix ++ ".svg", .ok fig.toSvg.toUTF8)
       out := out.push (n ++ suffix ++ ".png", match fig.toPng with

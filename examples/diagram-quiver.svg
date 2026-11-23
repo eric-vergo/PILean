@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="270" height="316" viewBox="0 0 270 316">
+  <g>
+    <title>A quiver with dimension vector (2, 3, 1)</title>
+    <path d="M0 0 L270 0 L270 316 L0 316 Z" fill="#ffffff"/>
+    <g>
+      <title>arrow 0: 0 → 1</title>
+      <path d="M39.17 32.27 L230.83 32.27" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 0: 0 → 1</title>
+      <path d="M214.99 32.27 L222.83 32.27" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M230.83 32.27 L220.83 36.77 L220.83 27.77 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 0: 0 → 1</title>
+      <path d="M132.638 18.305 C132.638 17.062 133.746 16.055 135.113 16.055 C136.479 16.055 137.588 17.062 137.588 18.305 L137.588 22.685 M137.588 18.905 L134.813 18.905 C133.28 18.905 132.038 19.785 132.038 20.87 C132.038 21.955 133.28 22.835 134.813 22.835 C136.345 22.835 137.588 21.955 137.588 20.87" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 1: 0 → 1</title>
+      <path d="M39.17 52.07 L230.83 52.07" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 1: 0 → 1</title>
+      <path d="M214.99 52.07 L222.83 52.07" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M230.83 52.07 L220.83 56.57 L220.83 47.57 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 1: 0 → 1</title>
+      <path d="M131.962 58.655 L131.962 68.585 M135.188 61.955 C136.969 61.955 138.413 63.473 138.413 65.345 C138.413 67.217 136.969 68.735 135.188 68.735 C133.406 68.735 131.962 67.217 131.962 65.345 C131.962 63.473 133.406 61.955 135.188 61.955 Z" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 2: 1 → 2</title>
+      <path d="M235.98 65.93 L152.82 176.81" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 2: 1 → 2</title>
+      <path d="M164.7 160.97 L157.62 170.41" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M152.82 176.81 L155.22 166.11 L162.42 171.51 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 2: 1 → 2</title>
+      <path d="M207.108 129.225 C206.232 128.134 204.798 127.731 203.518 128.219 C202.238 128.706 201.386 129.979 201.386 131.404 C201.386 132.83 202.238 134.103 203.518 134.59 C204.798 135.077 206.232 134.675 207.108 133.583" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 3: 2 → 0</title>
+      <path d="M117.18 176.81 L34.02 65.93" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 3: 2 → 0</title>
+      <path d="M45.9 81.77 L38.82 72.33" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M34.02 65.93 L43.62 71.23 L36.42 76.63 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 3: 2 → 0</title>
+      <path d="M68.534 125.009 L68.534 134.939 M65.309 128.309 C67.09 128.309 68.534 129.827 68.534 131.699 C68.534 133.571 67.09 135.089 65.309 135.089 C63.527 135.089 62.084 133.571 62.084 131.699 C62.084 129.827 63.527 128.309 65.309 128.309 Z" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 4: 2 → 2</title>
+      <path d="M123.66 225.98 L120.38 236.95 L118.5 246.77 L117.86 255.43 L118.29 262.94 L119.66 269.29 L121.8 274.49 L124.56 278.53 L127.78 281.42 L131.31 283.15 L135 283.73 L138.69 283.15 L142.22 281.42 L145.44 278.53 L148.2 274.49 L150.34 269.29 L151.71 262.94 L152.14 255.43 L151.5 246.77 L149.62 236.95 L146.34 225.98" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 4: 2 → 2</title>
+      <path d="M151.07 241.82 L148.63 233.65" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M146.34 225.98 L153.52 234.28 L144.89 236.85 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 4: 2 → 2</title>
+      <path d="M136.95 298.58 C136.95 299.5 136.077 300.245 135 300.245 C133.923 300.245 133.05 299.5 133.05 298.58 L134.7 291.23 C134.7 290.725 135.17 290.315 135.75 290.315 C136.33 290.315 136.8 290.725 136.8 291.23" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 0</title>
+      <path d="M13.447 38.04 C13.826 36.994 14.773 36.263 15.877 36.166 C16.98 36.069 18.039 36.623 18.593 37.588 C19.147 38.552 19.095 39.751 18.46 40.663 L13.275 45.635 L19.125 45.635" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 1</title>
+      <path d="M251.401 37.363 C252.019 36.348 253.318 35.9 254.481 36.301 C255.644 36.701 256.335 37.835 256.12 38.989 C255.905 40.144 254.846 40.985 253.609 40.985 L253.609 40.955 C254.992 40.955 256.175 41.796 256.416 42.951 C256.656 44.105 255.883 45.239 254.584 45.639 C253.284 46.04 251.832 45.592 251.141 44.578" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 2</title>
+      <path d="M133.575 197.12 L136.425 194.705 L136.425 204.035" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

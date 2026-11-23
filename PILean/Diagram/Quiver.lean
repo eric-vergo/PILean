@@ -54,11 +54,27 @@ at a vertex apart from the others (each one larger). -/
 def loopsBefore (Q : FinQuiver) (k v : Nat) : Nat :=
   ((Q.arrows.take k).filter fun (s, t, _) => s = v && t = v).length
 
-/-- The arrow of the diagram for arrow `k`: its ends and name, a loop bent by the number of
-loops before it at its vertex. -/
+/-- The number of arrows among the first `k` that join the same two different vertices as `a`
+(either way), and their number among all the arrows. -/
+def parallelIndex (Q : FinQuiver) (k : Nat) (a : Nat × Nat × String) : Nat × Nat :=
+  let same := fun (b : Nat × Nat × String) =>
+    (b.1 = a.1 && b.2.1 = a.2.1) || (b.1 = a.2.1 && b.2.1 = a.1)
+  ((Q.arrows.take k).countP same, Q.arrows.countP same)
+
+/-- Whether vertex `v` is below the mean height of the vertices (its loops then hang down). -/
+def isLow (Q : FinQuiver) (v : Nat) : Bool :=
+  let ys := Q.pos.toList.map (·.2)
+  decide ((Q.pos.getD v (0, 0)).2 * ys.length < ys.foldl (· + ·) 0)
+
+/-- The arrow of the diagram for arrow `k`: its ends and name; a loop bent by the number of
+loops before it at its vertex, downwards at a vertex below the mean height; of parallel arrows,
+the later half labelled on their right, so that the labels stand outside. -/
 def cdArrow (Q : FinQuiver) (k : Nat) (a : Nat × Nat × String) : CDArrow :=
+  let j := Q.loopsBefore k a.1
+  let (i, m) := Q.parallelIndex k a
   { src := a.1, tgt := a.2.1, label := a.2.2,
-    bend := if a.1 = a.2.1 then (Q.loopsBefore k a.1 : Int) else 0 }
+    bend := if a.1 = a.2.1 then (if Q.isLow a.1 then -1 - (j : Int) else (j : Int)) else 0,
+    swap := a.1 ≠ a.2.1 && 2 * i ≥ m && m > 1 }
 
 /-- The quiver as a diagram: its vertices (labelled by `vertexLabel`) and its arrows. -/
 def toCommDiagram (Q : FinQuiver) : CommDiagram where

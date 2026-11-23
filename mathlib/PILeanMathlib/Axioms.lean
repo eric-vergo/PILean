@@ -3,6 +3,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Trust.Attr
+import PILeanMathlib.Category
+import PILeanMathlib.Group
+import PILeanMathlib.Examples.Algebra
+import PILeanMathlib.Examples.AlgebraFigures
 import PILeanMathlib.Combinatorics
 import PILeanMathlib.Examples.Combinatorics
 import PILeanMathlib.Examples.CombinatoricsFigures

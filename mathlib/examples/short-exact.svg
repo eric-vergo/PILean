@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="570" height="52" viewBox="0 0 570 52">
+  <g>
+    <title>A short exact sequence</title>
+    <path d="M0 0 L570 0 L570 52 L0 52 Z" fill="#ffffff"/>
+    <g>
+      <title>arrow 0: 0 → 1</title>
+      <path d="M35.69 32.53 L131.11 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 0: 0 → 1</title>
+      <path d="M117.67 32.53 L123.11 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M131.11 32.53 L121.11 37.03 L121.11 28.03 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 1: 1 → 2</title>
+      <path d="M170.09 32.53 L265.51 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 1: 1 → 2</title>
+      <path d="M252.07 32.53 L257.51 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M265.51 32.53 L255.51 37.03 L255.51 28.03 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 1: 1 → 2</title>
+      <path d="M170.09 32.53 L175.53 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M183.53 32.53 L173.53 37.03 L173.53 28.03 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 1: 1 → 2</title>
+      <path d="M217.875 22.94 L217.875 15.125 C217.875 13.957 218.815 13.01 219.975 13.01 M215.925 16.46 L219.975 16.46" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 2: 2 → 3</title>
+      <path d="M304.49 32.53 L399.91 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 2: 2 → 3</title>
+      <path d="M386.47 32.53 L391.91 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M399.91 32.53 L389.91 37.03 L389.91 28.03 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 2: 2 → 3</title>
+      <path d="M373.03 32.53 L378.47 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M386.47 32.53 L376.47 37.03 L376.47 28.03 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>arrow 2: 2 → 3</title>
+      <path d="M355.237 16.46 L355.237 23.975 C355.237 24.896 354.187 25.694 352.711 25.893 C351.234 26.093 349.729 25.64 349.09 24.805 M352.013 16.31 C353.794 16.31 355.237 17.828 355.237 19.7 C355.237 21.572 353.794 23.09 352.013 23.09 C350.231 23.09 348.787 21.572 348.787 19.7 C348.787 17.828 350.231 16.31 352.013 16.31 Z" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 3: 3 → 4</title>
+      <path d="M438.89 32.53 L534.31 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>arrow 3: 3 → 4</title>
+      <path d="M520.87 32.53 L526.31 32.53" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M534.31 32.53 L524.31 37.03 L524.31 28.03 Z" fill="#18181b"/>
+    </g>
+    <g>
+      <title>vertex 0</title>
+      <path d="M16.2 26.51 C17.774 26.51 19.05 28.666 19.05 31.325 C19.05 33.984 17.774 36.14 16.2 36.14 C14.626 36.14 13.35 33.984 13.35 31.325 C13.35 28.666 14.626 26.51 16.2 26.51 Z" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 1</title>
+      <path d="M146.4 35.99 L150.6 26.66 L154.8 35.99 M147.6 33.35 L153.6 33.35" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 2</title>
+      <path d="M282.263 35.99 L282.263 26.66 L285.263 26.66 C286.505 26.66 287.513 27.701 287.513 28.985 C287.513 30.269 286.505 31.31 285.263 31.31 L282.263 31.31 M282.263 31.31 L285.488 31.31 C286.896 31.31 288.038 32.358 288.038 33.65 C288.038 34.942 286.896 35.99 285.488 35.99 L282.263 35.99" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 3</title>
+      <path d="M423.374 28.23 C422.158 26.679 420.165 26.108 418.387 26.8 C416.61 27.493 415.426 29.301 415.426 31.325 C415.426 33.349 416.61 35.157 418.387 35.85 C420.165 36.542 422.158 35.971 423.374 34.42" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>vertex 4</title>
+      <path d="M553.8 26.51 C555.374 26.51 556.65 28.666 556.65 31.325 C556.65 33.984 555.374 36.14 553.8 36.14 C552.226 36.14 550.95 33.984 550.95 31.325 C550.95 28.666 552.226 26.51 553.8 26.51 Z" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
