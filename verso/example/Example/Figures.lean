@@ -219,8 +219,9 @@ def wordAt (n : Nat) : Plane.Figure :=
   let pts := letters.foldl (fun acc l => acc.push (turn (if l then ⟨1, 0⟩ else ⟨-1, 0⟩) acc.back!))
     #[(⟨0, 0.3⟩ : Point)]
   { width := 360,
-    items := #[circle ⟨-1, 0⟩ 1.5 |>.accent 0, circle ⟨1, 0⟩ 1.5 |>.accent 1,
-      polyline pts |>.faint |>.dashed, point pts.back! |>.named "the point"] }
+    items := #[circle ⟨-1, 0⟩ 1.5 |>.accent 0, circle ⟨1, 0⟩ 1.5 |>.accent 1] ++
+      (if pts.size < 2 then #[] else #[polyline pts |>.faint |>.dashed]) ++
+      #[point pts.back! |>.named "the point"] }
 
 /-- The word `a b a` acting on a point, letter by letter: four steps. -/
 @[figure]
