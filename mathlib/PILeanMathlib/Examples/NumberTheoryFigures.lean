@@ -16,7 +16,8 @@ that each draws Mathlib's object: Euler's totient `Nat.totient` and the number o
 on `2, …, 100` against the comparison curve `n / (Hₙ - 1)` (`harmonic`), the primes
 (`Nat.Prime`) on an Ulam spiral of `1, …, 441`, the quadratic residues modulo the primes
 `3, 5, 7, 11, 13` with their Legendre symbols (`IsSquare`, `legendreSym`), and the Gaussian
-primes (`Prime` in `GaussianInt`) among the Gaussian integers `a + b i` with `|a|, |b| ≤ 7`.
+primes (`Prime` in `GaussianInt`) among the Gaussian integers `a + b i` with `|a|, |b| ≤ 7`, and
+the points of a lattice `ℤ ω₁ + ℤ ω₂` (`Submodule.span ℤ {ω₁, ω₂}`) in a window.
 -/
 
 namespace PILeanMathlib.Examples
@@ -125,9 +126,18 @@ def gaussianLattice : PlaneLattice :=
 def gaussianFigure : Diagram :=
   { gaussianLattice.figure with title := "The Gaussian primes a + bi with |a|, |b| ≤ 7" }
 
+/-- The lattice `ℤ (1, 0) + ℤ (1/2, 7/8)` (nearly the hexagonal lattice `ℤ + ℤ e^{iπ/3}`, whose
+second period `(1/2, √3/2)` is not rational) in the window `[-3, 3] × [-2, 2]`. -/
+def hexLattice : PlaneLattice := { w1 := (1, 0), w2 := (1 / 2, 7 / 8), lo := (-3, -2), hi := (3, 2) }
+
+/-- A lattice and its fundamental parallelogram. -/
+@[figure]
+def latticeFigure : Diagram :=
+  { hexLattice.figure with title := "The lattice ℤ(1, 0) + ℤ(1/2, 7/8) and its fundamental domain" }
+
 /-- The figures by file stem. -/
 def numberTheoryFigures : Array (String × Diagram) :=
   #[("totient", totientFigure), ("divisor-count", divisorFigure), ("prime-count", primeCountFigure),
-    ("ulam", ulamFigure), ("residues", residueFigure), ("gaussian-primes", gaussianFigure)]
+    ("ulam", ulamFigure), ("residues", residueFigure), ("gaussian-primes", gaussianFigure), ("lattice", latticeFigure)]
 
 end PILeanMathlib.Examples

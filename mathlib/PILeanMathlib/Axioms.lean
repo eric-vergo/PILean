@@ -14,6 +14,7 @@ import PILeanMathlib.ExactPlot
 import PILeanMathlib.Examples.Sine
 import PILeanMathlib.Examples.SineFigure
 import PILeanMathlib.Interpolation
+import PILeanMathlib.Lattice
 import PILeanMathlib.NumberTheory
 import PILeanMathlib.Examples.NumberTheory
 import PILeanMathlib.Examples.NumberTheoryFigures

@@ -7,6 +7,7 @@ import Mathlib.NumberTheory.ArithmeticFunction.Misc
 import Mathlib.NumberTheory.Harmonic.Defs
 import Mathlib.NumberTheory.LegendreSymbol.Basic
 import Mathlib.NumberTheory.PrimeCounting
+import PILeanMathlib.Lattice
 import PILeanMathlib.NumberTheory
 import PILeanMathlib.Examples.NumberTheoryFigures
 
@@ -32,6 +33,8 @@ that are not prime (`unmarked_shown`, by factor witnesses).
   row of `p` is marked exactly when `a` is a nonzero square in `ZMod p` and shows `legendreSym p a`.
 * `gaussianFigure_spec`: the dots are exactly the Gaussian integers `a + b i` with
   `|a|, |b| ≤ 7`, in accent 1 when `Prime (⟨a, b⟩ : GaussianInt)` and faint when not.
+* `latticeFigure_spec`: the dots are exactly the points of `Submodule.span ℤ {(1, 0), (1/2, 7/8)}`
+  in `[-3, 3] × [-2, 2]`, each once, and the parallelogram is `0, ω₁, ω₁ + ω₂, ω₂`.
 -/
 
 open PILean PILean.Diagram
@@ -316,5 +319,23 @@ theorem gaussianFigure_spec :
     · exact ((hink m n hm hn col).2 hc).symm
 
 figure_proves gaussianFigure gaussianFigure_spec
+
+/-- **A lattice and its fundamental domain.** The figure draws the lattice faithfully; its dots
+are exactly the points of `Submodule.span ℤ {(1, 0), (1/2, 7/8)}` in the window
+`[-3, 3] × [-2, 2]`, each once, all in the ink; the fundamental parallelogram is the closed
+polyline `0, ω₁, ω₁ + ω₂, ω₂` in accent 0. -/
+theorem latticeFigure_spec :
+    hexLattice.Faithful latticeFigure ∧
+    (∀ p : ℚ × ℚ, (∃ i col, (i, p, col) ∈ latticeFigure.dots) ↔
+      p ∈ Submodule.span ℤ {((1 : ℚ), (0 : ℚ)), (1 / 2, 7 / 8)} ∧
+        -3 ≤ p.1 ∧ p.1 ≤ 3 ∧ -2 ≤ p.2 ∧ p.2 ≤ 2) ∧
+    (latticeFigure.dots.map (·.2.1)).Nodup ∧
+    (∀ i p col, (i, p, col) ∈ latticeFigure.dots → col = .ink) ∧
+    latticeFigure.marksWhere (· == .note 0) =
+      [{ part := .note 0, ink := .accent 0,
+         shape := .polyline [(0, 0), (1, 0), (3 / 2, 7 / 8), (1 / 2, 7 / 8), (0, 0)] }] := by
+  sorry
+
+figure_proves latticeFigure latticeFigure_spec
 
 end PILeanMathlib.Examples

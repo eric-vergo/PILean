@@ -14,6 +14,7 @@ import PILeanMathlib.ExactPlot
 import PILeanMathlib.Examples.Sine
 import PILeanMathlib.Examples.SineFigure
 import PILeanMathlib.Interpolation
+import PILeanMathlib.Lattice
 import PILeanMathlib.NumberTheory
 import PILeanMathlib.Examples.NumberTheory
 import PILeanMathlib.Examples.NumberTheoryFigures
@@ -42,6 +43,8 @@ import PILeanMathlib.Polyline
 * `PILeanMathlib.Examples.AlgebraFigures`, `PILeanMathlib.Examples.Algebra`: the dihedral group of
   order 8 (table, Cayley graph, subgroups), a commutative square of types and a short exact
   sequence, with their theorems.
+* `PILeanMathlib.Lattice`: a figure of a lattice draws exactly the points of
+  `Submodule.span ℤ {ω₁, ω₂}` in its window, each once.
 * `PILeanMathlib.NumberTheory`: plots of sequences, grids of numbers and lattices bound to
   Mathlib (a plot's points as the values of a function, counting as `Finset` counting, squares
   in `ZMod p`, primes of `GaussianInt` decided in both directions).
