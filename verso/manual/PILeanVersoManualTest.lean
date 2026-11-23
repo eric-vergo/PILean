@@ -88,7 +88,8 @@ def main : IO UInt32 := do
     let files ← filesBelow figs
     check (files.contains "manifest.json") "the figures folder has its manifest"
     let svgs := files.filter (·.endsWith ".svg")
-    check (svgs.size == 12) s!"twelve SVG files, light, dark and narrow ({svgs.size})"
+    check (svgs.size == 21)
+      s!"twenty-one SVG files: light, dark and narrow, and the explorers' nine frames ({svgs.size})"
     for f in svgs do
       let t ← IO.FS.readFile (figs / f)
       check (Svg.isInert t) s!"{f} is inert"
