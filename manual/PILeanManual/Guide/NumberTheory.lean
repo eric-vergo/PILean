@@ -202,6 +202,33 @@ a unit, or the product of two Gaussian integers of norm greater than one, found 
 checked by the kernel. Möbius sums are not drawn: Mathlib's `ArithmeticFunction.moebius` is not
 practical to evaluate in the kernel and its equality with a plain function is not proved here.
 
+# Certified Plots of Real Functions
+%%%
+tag := "number-theory-certified"
+%%%
+
+The core has no real numbers; `pilean-mathlib` plots a real function `f` by an exact rational
+approximant and proves how near the drawing is. A `CertifiedPlot` holds the function's name, the
+approximant, the interval `[lo, hi]`, the number of steps and the bound `delta`, and its figure
+writes all four in its title. `CertifiedPlot.Certifies c f` says that the polyline through the
+exact samples is *vertically within* `delta` of the graph of `f` over `[lo, hi]`: it lies over
+the interval, has a point above every abscissa of it, and every point `(x, y)` of it has
+`|y - f x| ≤ delta`. The bound is proved as the approximant's error `ε` at the grid points plus
+`M h² / 8`, the error of joining samples `h` apart by segments where `|f''| ≤ M`.
+
+| Function | Interval, steps | Approximant | Bound (pixels at the gallery size) |
+|---|---|---|---|
+| `exp` | `[−2, 2]`, 128 | Taylor polynomial of degree 15 | `1/1000` (0.036) |
+| `cos` | `[−3, 3]`, 96 | Taylor polynomial of degree 16 | `1/2000` (0.072) |
+| `log` | `[1/2, 3/2]`, 64 | 20 terms of its series at 1 | `1/8000` (0.026) |
+| `arctan` | `[−3/4, 3/4]`, 48 | 20 terms of its series at 0 | `1/5000` (0.029) |
+| `√` | `[1/4, 4]`, 120 | square roots to 30 binary digits | `1/4000` (0.048) |
+| `sin` | `[−3, 3]`, 96 | Taylor polynomial of degree 15 | `1/2000` (0.072) |
+
+The bound is loose where `|f''|` is smaller than its maximum over the interval. The pixels are
+computed in floating point by the package's tests; the theorem is about the exact polyline, and
+the step from it to the pixels is tested, not proved.
+
 # What Is Proved and What Is Tested
 %%%
 tag := "number-theory-proved"

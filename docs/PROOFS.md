@@ -394,6 +394,23 @@ declare, used or not, and fails if a file of the package is left out of the chec
 (`PILeanMathlib/Axioms.lean`, with the commands of `PILean.Trust.Attr`); every `lake test` of the
 package checks that no file is left out.
 
+**Certified plots** (`PILeanMathlib/CertifiedPlot.lean`, `CertifiedPlotBound.lean`,
+`Examples/Real.lean`). The sine's theorem as a kind: `CertifiedPlot.Certifies c f` is
+`IsVerticallyWithin` of the polyline through the exact samples of the approximant and the graph
+of `f` over `[lo, hi]` at the bound `delta`, and `CertifiedPlot.certifies_of` proves it from an
+error at the grid points and a bound on `|f''|`. The figures' theorems name the function, the
+interval, the number of steps and the bound, pin the title (which states them) and the one curve,
+and prove the bound: `exp` on `[−2, 2]` within `1/1000` (Taylor, degree 15, `e² ≤ 15/2`), `cos`
+on `[−3, 3]` within `1/2000` (Taylor, degree 16), `log` on `[1/2, 3/2]` within `1/8000`
+(Mathlib's estimate of the logarithm's series), `arctan` on `[−3/4, 3/4]` within `1/5000` (the
+series' error by the mean value theorem, `abs_arctan_sub_arctanSumR_le`), `√` on `[1/4, 4]`
+within `1/4000` (`|r − √x| ≤ |r² − x| / √x` with the squares checked by the kernel at the grid
+points). The bounds are mostly the interpolation term `M h² / 8` with `M` the maximum of `|f''|`
+over the interval, loose where `|f''|` is smaller. `lake test` compiles changed copies (a bound,
+an interval, a number of steps, a name, a coefficient, a number of terms) that must fail inside
+the theorems, and checks in floating point that each bound is under a quarter of a pixel at the
+gallery size.
+
 ## Combinatorics against Mathlib
 
 The package `pilean-mathlib` binds the diagrams to Mathlib's objects

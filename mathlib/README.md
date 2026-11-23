@@ -75,6 +75,41 @@ until it is. `figure_proves sineFigure sineFigure_spec` checks, when the package
 the theorem is proved from the standard axioms and that its statement names the figure itself
 (a statement about `sineSeries` alone is refused); it does not judge what the statement says.
 
+**Certified plots of real functions** (`PILeanMathlib/CertifiedPlot.lean`,
+`PILeanMathlib/CertifiedPlotBound.lean`; figures in `PILeanMathlib/Examples/RealFigures.lean`,
+theorems in `PILeanMathlib/Examples/Real.lean`).
+
+The sine's theorem as a kind. A `CertifiedPlot` holds the function's name, the exact rational
+approximant drawn, the interval `[lo, hi]`, the number of steps and the bound `delta`; its figure
+writes the name, the interval, the number of samples and the bound in its title (this module
+needs PILean only). `CertifiedPlot.Certifies c f` is `IsVerticallyWithin` of the polyline through
+the exact samples and the graph of `f` over `[lo, hi]` at `delta`; `CertifiedPlot.certifies_of`
+proves it from an error `ε` at the grid points, `|f''| ≤ M` on the open interval and
+`ε + M h² / 8 ≤ delta`. Three tools bound `ε`: `abs_sub_taylor_le` (Taylor at `0` with the
+Lagrange remainder, for a function with derivatives of every order), `abs_arctan_sub_arctanSumR_le`
+(the arctangent's series to `n` terms is within `r²ⁿ |x|` for `|x| ≤ r`, by the mean value
+theorem) and `abs_sub_sqrt_le` (`|r - √x| ≤ |r² - x| / √x`, so squares checked by the kernel
+bound a square root); the logarithm uses Mathlib's `Real.abs_log_sub_add_sum_range_le`. Each
+figure's theorem names the function, the interval, the number of steps and the bound, pins the
+title and the one curve, and proves `Certifies`.
+
+| Figure | Approximant | Bound | Pixels at the gallery size | Light | Dark |
+|---|---|---|---|---|---|
+| `exp` on `[−2, 2]`, 128 steps | Taylor polynomial of degree 15 | `1/1000` | 0.036 | ![](examples/exp-proved.svg) | ![](examples/exp-proved-dark.svg) |
+| `cos` on `[−3, 3]`, 96 steps | Taylor polynomial of degree 16 | `1/2000` | 0.072 | ![](examples/cos-proved.svg) | ![](examples/cos-proved-dark.svg) |
+| `log` on `[1/2, 3/2]`, 64 steps | 20 terms of the series at 1 | `1/8000` | 0.026 | ![](examples/log-proved.svg) | ![](examples/log-proved-dark.svg) |
+| `arctan` on `[−3/4, 3/4]`, 48 steps | 20 terms of the series at 0 | `1/5000` | 0.029 | ![](examples/arctan-proved.svg) | ![](examples/arctan-proved-dark.svg) |
+| `√` on `[1/4, 4]`, 120 steps | square roots to 30 binary digits (squares checked by the kernel at the 121 grid points) | `1/4000` | 0.048 | ![](examples/sqrt-proved.svg) | ![](examples/sqrt-proved-dark.svg) |
+
+Each bound is the approximant's error at the grid points (at most about `10⁻⁵`, and `10⁻⁸` for
+the square root) plus `M h² / 8` with `M` the maximum of `|f''|` on the whole interval: that
+second term is nearly all of it, and it is loose where `|f''|` is smaller (the exponential near
+`−2`, the logarithm near `3/2`, the square root near `4`, the arctangent near `0`). The pixels
+are those of the ordinate at the gallery size, computed by `lake test` in floating point (tested,
+not proved). The intervals are where these approximants converge fast enough: the series of the
+logarithm at 1 and of the arctangent at 0 converge slowly near the ends of their discs, and a
+rational approximant cannot use the irrational constants (`log 2`, `π`) that would widen them.
+
 ## What is not proved
 
 * **From the exact numbers to the pixels.** The theorem is about the exact samples, which are
@@ -84,8 +119,8 @@ the theorem is proved from the standard axioms and that its statement names the 
   pixel of the sine"; it is "the exact polyline is within 1/2000 of the sine, and the picture is
   drawn from the exact polyline by tested floating-point code".
 * The curve drawn is a line of a certain width; nothing is said about its width or its ends.
-* Only the sine has an example. The general theorem needs, for each function, a rational
-  approximation with a proved error at the grid points and a bound on the second derivative.
+* Each function needs a rational approximation with a proved error at the grid points and a
+  bound on the second derivative; the sine and the five certified plots above have them.
 
 ## Axioms
 
