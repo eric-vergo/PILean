@@ -166,6 +166,18 @@ def lensFigure : Plane.Figure where
       tickOn q p 0.62, corner p, corner q]
 ```
 
+```lean -show
+-- The figures of this chapter have no layout problems, and the lens's corners are on both
+-- circles (and the chord's ends on both circles of the first figure).
+#guard twoDisks.problems.isEmpty && lensFigure.problems.isEmpty
+#guard
+  let p : Point := ⟨0, Float.sqrt (1.5 * 1.5 - 0.8 * 0.8)⟩
+  ((p - ⟨-0.8, 0⟩).norm - 1.5).abs < 1e-12 && ((p - ⟨0.8, 0⟩).norm - 1.5).abs < 1e-12
+#guard
+  let e : Point := ⟨0, Float.sqrt (1.9 * 1.9 - 1)⟩
+  ((e - ⟨-1, 0⟩).norm - 1.9).abs < 1e-12 && ((e - ⟨1, 0⟩).norm - 1.9).abs < 1e-12
+```
+
 :::figure PILeanManual.PlaneGuide.lensFigure (alt := "Two outlined circles overlapping; the lens between them is tinted orange with a strong outline; a vertical chord joins the circles' crossings, its lower piece blue and labelled S1, its upper piece green and labelled S2, with a tick where they meet.")
 :::
 

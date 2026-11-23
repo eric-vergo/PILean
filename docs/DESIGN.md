@@ -536,8 +536,8 @@ frame maps them to the page with one scale for both axes, so circles stay round 
 * **No made-up enclosures.** Ball arithmetic is exact rational arithmetic, so sums and products
   of enclosures are enclosures; an operation that is not defined on every number of its input's
   ball says so in its result: `RatBall.inv` and `RatBall.div` are `none` on a ball that holds 0
-  (a fallback ball there was the alternative, and is what let a construction report a point
-  outside a disk it lies in). The constructions (`foot`, `circleCircle`, `lineCircle`) decide,
+  (a fallback ball there is the alternative rejected: it is not an enclosure, and a construction
+  built on it can report a point outside a disk it lies in). The constructions (`foot`, `circleCircle`, `lineCircle`) decide,
   from balls at 64 to 512 bits, that a divisor is at least some `m > 0` (`positiveBound?`) and at
   every working precision divide by the part of the divisor's ball above `m`
   (`RatBall.invAbove`), so a low precision gives a wide ball, never a wrong one; they decide the
@@ -579,8 +579,8 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   placement gives).
 * **Dark colours of inline pictures.** A page that shows a picture inline restyles it in its dark
   theme by its light colour values (`Style.darkColourPairs`). Classes on every drawn shape, keyed
-  on its role, were the alternative; they would change the drawing that the proofs describe and
-  every file. The check `darkThemeClash` reports instead each element whose colour would come out
+  on its role, are the alternative rejected: they would change the drawing that the proofs
+  describe and every file. The check `darkThemeClash` reports instead each element whose colour would come out
   other than its dark twin's: a fixed colour equal to a style colour, or roles that share a light
   colour with different dark ones.
 * **Text and small screens.** SVG text is drawn as shapes by default (`textAsShapes`), so every
