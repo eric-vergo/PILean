@@ -365,10 +365,10 @@ theorem mem_cayleyArrows (M : FinMagma) (gens : List (Fin M.n)) (a : CDArrow) :
     subst hink hsrc htgt hl hb hsw
     split
     · rename_i hinv
-      simp only [hinv, if_true] at hst
+      simp only [hinv, ite_true] at hst
       simp [hst.1, hst.2]
     · rename_i hinv
-      simp only [hinv, Bool.false_eq_true, if_false] at hst
+      simp only [hinv, Bool.false_eq_true, ite_false] at hst
       simp [hst]
 
 end FinMagma
