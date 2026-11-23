@@ -15,7 +15,9 @@ def main : IO UInt32 := do
   let .ok e ← PILeanLeAnTeX.load
     | IO.eprintln "the New Computer Modern fonts are missing (run `lake build` first)"; return 1
   IO.FS.createDirAll "examples"
-  for (name, bytes) in PILeanLeAnTeX.Examples.files e do
+  let .ok sans ← PILeanLeAnTeX.loadSans
+    | IO.eprintln "the sans-serif math font is missing"; return 1
+  for (name, bytes) in PILeanLeAnTeX.Examples.files e sans do
     match bytes with
     | .ok b => IO.FS.writeBinFile ("examples" / name) b; IO.println s!"examples/{name}"
     | .error m => IO.eprintln s!"{name}: {m}"; return 1

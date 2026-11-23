@@ -97,10 +97,15 @@ theorem planeDisks_spec :
 
 figure_proves planeDisks planeDisks_spec
 
-/-- The plane figures with the engine, light and dark: file stem and figure. -/
-def planes (e : TextEngine) : Array (String × Plane.Figure) :=
+/-- The plane figures with the engine, light and dark, and, with the sans-serif engine
+(`PILeanLeAnTeX.loadSans`), in sans-serif mathematics: file stem and figure. -/
+def planes (e : TextEngine) (sans : Option TextEngine := none) : Array (String × Plane.Figure) :=
   #[("leantex-plane", { planeDisks with style := { Style.light with text := e } }),
-    ("leantex-plane-dark", { planeDisks with style := { Style.dark with text := e } })]
+    ("leantex-plane-dark", { planeDisks with style := { Style.dark with text := e } })] ++
+  match sans with
+  | some s => #[("leantex-plane-sans", { planeDisks with style := { Style.light with text := s } }),
+      ("leantex-plane-sans-dark", { planeDisks with style := { Style.dark with text := s } })]
+  | none => #[]
 
 /-- The figures with a style, each light and dark: file stem and figure. -/
 def figures (e : TextEngine) : Array (String × Figure) :=
@@ -115,14 +120,15 @@ def graphs (e : TextEngine) : Array (String × Graph × Style) :=
     ("leantex-subgroups-dark", subgroups, { Style.dark with text := e })]
 
 /-- Every file of the gallery: name and bytes, in a fixed order. -/
-def files (e : TextEngine) : Array (String × Except String ByteArray) := Id.run do
+def files (e : TextEngine) (sans : Option TextEngine := none) :
+    Array (String × Except String ByteArray) := Id.run do
   let mut out := #[]
   for (n, f) in figures e do
     out := out.push (n ++ ".svg", .ok f.toSvg.toUTF8)
     out := out.push (n ++ ".png", match f.toPng with
       | some b => .ok b
       | none => .error "no pixels")
-  for (n, f) in planes e do
+  for (n, f) in planes e sans do
     out := out.push (n ++ ".svg", .ok f.toSvg.toUTF8)
     out := out.push (n ++ ".png", match f.toPng with
       | some b => .ok b

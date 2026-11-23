@@ -92,10 +92,10 @@ def trustChecks (e : TextEngine) : Array (String × Bool) :=
       | none => false)]
 
 /-- Compares the gallery with `examples/` (or rewrites it with `update`). -/
-def goldenChecks (e : TextEngine) (update : Bool) : IO (Array (String × Bool)) := do
+def goldenChecks (e sans : TextEngine) (update : Bool) : IO (Array (String × Bool)) := do
   let mut r : Array (String × Bool) := #[]
-  let first := Examples.files e
-  let again := Examples.files e
+  let first := Examples.files e sans
+  let again := Examples.files e sans
   for i in [0:first.size] do
     let (name, bytes) := first[i]!
     let f := System.FilePath.mk "examples" / name
@@ -183,8 +183,15 @@ def main (args : List String) : IO UInt32 := do
     IO.eprintln s!"FAIL fonts: {missing}"
     return 1
   let .ok e ← load | IO.eprintln "FAIL engine"; return 1
-  let mut all := engineChecks e fonts ++ trustChecks e
-  all := all ++ (← goldenChecks e update) ++ (← pinChecks)
+  let .ok sans ← loadSans | IO.eprintln "FAIL sans engine"; return 1
+  let sansChecks : Array (String × Bool) :=
+    #[("sans: the identity covers the sans-serif math font",
+        has sans.id sansMathFile && sans.id != e.id),
+      ("sans: Greek letters are drawn from another font",
+        (sans.shape "$\\zeta\\varphi$" 20 1).fill != (e.shape "$\\zeta\\varphi$" 20 1).fill),
+      ("sans: plain Latin text keeps its measure", sans.measure "abc" 10 > 0)]
+  let mut all := engineChecks e fonts ++ trustChecks e ++ sansChecks
+  all := all ++ (← goldenChecks e sans update) ++ (← pinChecks)
   if !update then all := all ++ (← boundChecks)
   let mut failed := 0
   for (name, ok) in all do

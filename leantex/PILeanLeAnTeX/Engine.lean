@@ -28,7 +28,7 @@ through PILean's rasteriser.
 
 * `labelSettings`, `typesetLabel`, `Label`.
 * `leantexRevision`, `engineId`.
-* `engine`, `load`, `defaultFontDir`.
+* `engine`, `load`, `loadSans`, `defaultFontDir`.
 -/
 
 namespace PILeanLeAnTeX
@@ -126,5 +126,29 @@ def load (dir : System.FilePath := defaultFontDir) : IO (Except String TextEngin
   for n in fontFiles do
     bytes := bytes.push (n, ← IO.FS.readBinFile (dir / n))
   return .ok (engine fonts (engineId bytes.toList))
+
+/-- The sans-serif math font of New Computer Modern (GUST Font Licence, in LeAnTeX's copy of the
+fonts): sans-serif Latin and Greek letters, digits and operators for formulas. -/
+def sansMathFile : String := "NewCMSansMath-Regular.otf"
+
+/-- The fonts of `fonts` with the sans-serif math font for formulas and New Computer Modern Sans
+for the back ends' text faces. -/
+def sansFontSet (set : Backend.FontSet) : Backend.FontSet :=
+  { set with math := sansMathFile, mathBold := sansMathFile, text := "NewCMSans10-Book.otf",
+             italic := "NewCMSans10-BookOblique.otf", boldItalic := "NewCMSans10-BoldOblique.otf" }
+
+/-- The engine with sans-serif mathematics (`sansFontSet`): formulas in `$…$` set with New
+Computer Modern's sans-serif math font, so that Greek letters (`ζ`, `φ`) are sans-serif like the
+Latin ones; its identity covers that font as well. -/
+def loadSans (dir : System.FilePath := defaultFontDir) : IO (Except String TextEngine) := do
+  let (fonts, missing) ← Fonts.load dir
+  let (set, missingSans) ← Backend.FontSet.load dir [sansMathFile] fonts.set
+  let missing := missing ++ missingSans
+  if !missing.isEmpty then
+    return .error s!"fonts in {dir}: {", ".intercalate missing.toList}"
+  let mut bytes := #[]
+  for n in fontFiles ++ [sansMathFile] do
+    bytes := bytes.push (n, ← IO.FS.readBinFile (dir / n))
+  return .ok (engine { fonts with set := sansFontSet set } ("sans; " ++ engineId bytes.toList))
 
 end PILeanLeAnTeX
