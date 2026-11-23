@@ -863,19 +863,38 @@ compared with the object. The choices:
   (the alternative, axes through the origin, puts points of value `0` on the line, where the
   plane checks rightly cannot tell incidence from nearness); the index axis starts at the multiple
   of its tick step at or below `lo`, so the ticks fall on round indices. The points' radius is
-  `180 / count` pixels between `1.25` and `3`, so that consecutive indices never overlap at the
-  page width. The plane checks require markers of a geometric figure to keep a ring and a gap
+  `135 / count` pixels between `1` and `3`, so that, up to 140 indices, consecutive indices keep a
+  gap of more than half a point's width between them at the page width (with `180 / count` the points of a run of
+  equal values touched). The plane checks require markers of a geometric figure to keep a ring and a gap
   apart; a plot of a hundred points cannot, and its abscissae already tell the indices apart, so
   `plotProblems` accepts two points of a plot whose discs do not overlap, and a point near a
   comparison curve (a point is read against the axes, not the curve). Everything else of the
   checks applies.
 * **Grids and lattices.** A grid's marked cells are tinted when they carry text and filled opaque
-  when they do not (an Ulam spiral), the filled ones a twelfth of a unit inside their square so
-  that neighbours stand apart and no stroke lies on a fill. A lattice's coefficients are bounded
+  when they do not (an Ulam spiral), the filled ones a twelfth of a unit inside their square and
+  the tinted ones a sixteenth, so that marked neighbours stand apart and no stroke lies on a
+  fill. A lattice's coefficients are bounded
   from the window by Cramer's rule, rounded up; the core proves that the dots are the candidates
   in the window, and `pilean-mathlib` that the bound covers every lattice point of the window
   (inequalities over ℚ are Mathlib's). Points on the axes record that they are on them
   (`axesThrough`, an exact rational test), as points on circles do.
+* **Zeros and poles** (`RationalPlot`, `Diagram/ZeroPole.lean`). The numerator and the
+  denominator are lists of rational coefficients and the zeros and poles are supplied as Gaussian
+  rationals with their multiplicities; the core decides, in exact Gaussian rational arithmetic,
+  that each supplied point is a root of exactly its multiplicity (the derivatives of lower orders
+  vanish there, that of its order does not) and that the multiplicities add up to the degrees,
+  and `pilean-mathlib` turns these into `Polynomial.rootMultiplicity` and "every complex root is
+  marked" by the count of roots (`card_roots'`). Finding the roots was the alternative rejected:
+  roots of degree five and more are not expressible, and an approximate root is not a mark a
+  theorem can name; a supplied root is checked instead. Zeros are open circles in accent 0, poles
+  crosses in accent 1, a multiplicity above 1 written beside its point, the function's name
+  drawn as the title above the window.
+* **Domain colouring** (`DomainColouring`, `Raster/DomainColouring.lean`) is a raster picture of a
+  `Float` function, hue from the argument (OKLCH, so equal angles are equal steps of hue) and
+  bands of lightness from `log₂ |f|`. It has no theorem and is marked `@[figure illustration]`,
+  which its files, the manifest and the pages say; its outputs are a PNG and a PDF that embeds it
+  (an SVG would have to embed a raster image, which the inert check refuses, or draw a rectangle
+  per pixel).
 * **Values computed or proved.** The figures of number theory compute with plain functions, and
   `pilean-mathlib` proves each equal to Mathlib's function for every argument, so the theorems
   stay quick to check; what the kernel evaluates is finite and small (the caps, the layouts, the

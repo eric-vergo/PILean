@@ -417,8 +417,7 @@ def page (fr : Frame) (content : String) (st : State) : ByteArray :=
   let pages := (Obj.dict #[("Type", .name "Pages"), ("Kids", .arr #[.ref 3]), ("Count", .int 1)]).write.toUTF8
   let pageObj := (Obj.dict #[("Type", .name "Page"), ("Parent", .ref 2),
     ("MediaBox", .arr #[.int 0, .int 0, num w, num h]), ("Resources", .ref resourcesObject),
-    ("Contents", .ref 5),
-    ("Group", .dict #[("S", .name "Transparency"), ("CS", .name "DeviceRGB")])]).write.toUTF8
+    ("Contents", .ref 5)]).write.toUTF8
   document (#[catalog, pages, pageObj, resources.toUTF8, streamBody #[] body.toUTF8] ++ st.xobjects) 1
 
 /-- A one-page PDF of SVG nodes (the children of an `svg` root of `w × h` pixels), drawn as the

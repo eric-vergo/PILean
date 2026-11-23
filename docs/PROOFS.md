@@ -347,9 +347,20 @@ These kinds account for every mark by class as the diagrams of algebra do.
   primes with `|a|, |b| ≤ 4`, a skew lattice) each have a specification that writes out the
   values, the marked numbers and points, or the lattice points, checked by the kernel; `lake test`
   compiles changed copies that must fail inside them and plants a fault in every class of mark.
+* Zeros and poles of a rational function (`PILean/Diagram/ZeroPole.lean`,
+  `PILeanTest/ComplexDiagrams.lean`): `RationalPlot.draw_faithful`, `builder_faithful` (the
+  circles are exactly the supplied zeros, in order, at their exact positions; the crosses the
+  poles; the written multiplicities those above 1; the axes and the title the builder's; nothing
+  else), `RationalPlot.Verified` (decided: each supplied zero is a root of the numerator of exactly
+  its multiplicity, in exact Gaussian rational arithmetic, each pole one of the denominator, the
+  zeros distinct, the poles distinct, no zero a pole) and `RationalPlot.Complete` (decided: the
+  multiplicities add up to the degrees). `rationalFigure_spec` states both for
+  `f(z) = (z² + 1)(z − 1/2)² / ((z² − 2z + 2)(z + 3/2))`, with the data and the written `2`
+  beside `1/2`; `lake test` changes copies (a multiplicity, a zero, a pole, a coefficient, the
+  window) that must fail inside it.
 * Not proved: that the pictures are good (the axes a tenth of a unit outside the points, ticks at
   round indices, the points' radius shrinking with their number, the cells of an Ulam spiral
-  apart), which is tested. The layout checks of plane figures run on these figures with two
+  apart, marked cells of a table apart), which is tested. The layout checks of plane figures run on these figures with two
   allowances for the points of a plot (`plotProblems`): two points may stand closer than markers
   must in a geometric figure when their discs do not overlap, and a point may lie near a
   comparison curve.
@@ -515,6 +526,20 @@ and nowhere in the figures (`PILeanMathlibTest/Mutations.lean`). Möbius sums ar
 plain function is proved equal to `ArithmeticFunction.moebius`, and the kernel cannot evaluate
 Mathlib's in practice.
 
+## Zeros and poles against Mathlib
+
+`PILeanMathlib/RationalPlot.lean` reads a list of rational coefficients as a polynomial over ℚ
+(`ofCoeffs`) and over ℂ (`ofCoeffsC`): its value at `a + b i` is the core's Horner evaluation
+(`eval_ofCoeffsC`), the core's derivative is the derivative (`ofCoeffs_iterDeriv`), and its degree
+is at most the core's (`natDegree_ofCoeffs_le`). `rootMultiplicity_of`: a point that passes the
+core's test of multiplicity `m` has `Polynomial.rootMultiplicity` exactly `m` (by Mathlib's
+characterisation through iterated derivatives in characteristic zero). `RationalPlot.zeros_complete`
+and `poles_complete`: in a verified and complete figure every complex root of the numerator (the
+denominator) is a supplied zero (pole), by the count of roots (`Polynomial.card_roots'`,
+`count_roots`). `PILeanMathlib/Examples/Complex.lean`: `rationalFigure_roots` states all of this for
+the gallery's figure, frame by mark: each circle is a root of its written multiplicity, each cross
+a root of the denominator, and there are no other complex roots.
+
 ## What is tested, not proved
 
 * The rasteriser (coverage, compositing, colour conversion), the PNG, APNG and GIF encoders and
@@ -535,6 +560,8 @@ Mathlib's in practice.
   theorem of this library. The tests check values of the conversion (among them fractions with 53
   significant bits, and that a fraction and the same fraction not in lowest terms convert alike)
   and the positions of the gallery's points; that is a check on those pictures.
+* The domain colouring (`DomainColouring`): a picture of a `Float` function in floating point,
+  marked `@[figure illustration]`; nothing about it is proved, and its standing says so.
 * The adaptive sampler of `Series.function`, which plots a `Float → Float` function by refining
   where the curve bends and breaking it at poles and jumps. Its guarantee is weaker: it is
   tested (refinement, poles, jumps, undefined regions), not proved. Use `Series.ofExact` when the

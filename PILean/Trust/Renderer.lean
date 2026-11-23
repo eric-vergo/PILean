@@ -92,6 +92,7 @@ def rendererSources : Array (String × String) :=
     ("PILean.Png.Write", include_str "../Png/Write.lean"),
     ("PILean.Raster.Canvas", include_str "../Raster/Canvas.lean"),
     ("PILean.Raster.Coverage", include_str "../Raster/Coverage.lean"),
+    ("PILean.Raster.DomainColouring", include_str "../Raster/DomainColouring.lean"),
     ("PILean.Raster.Draw", include_str "../Raster/Draw.lean"),
     ("PILean.Raster.SrgbTables", include_str "../Raster/SrgbTables.lean"),
     ("PILean.Raster.Stroke", include_str "../Raster/Stroke.lean"),

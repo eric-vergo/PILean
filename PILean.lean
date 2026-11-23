@@ -54,6 +54,8 @@ import PILean.Diagram.Group
 import PILean.Diagram.Quiver
 import PILean.Diagram.Sequence
 import PILean.Diagram.Lattice
+import PILean.Diagram.ZeroPole
+import PILean.Raster.DomainColouring
 import PILean.Graph.Fixed
 import PILean.Graph.Model
 import PILean.Graph.Layout

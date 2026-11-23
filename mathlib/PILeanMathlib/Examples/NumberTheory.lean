@@ -233,7 +233,7 @@ theorem ulamFigure_spec :
     (ulamPlot.cells.zip ulamPlot.cells.tail).all (fun (c, c') =>
       (c.pos.1 - c'.pos.1).natAbs + (c.pos.2 - c'.pos.2).natAbs == 1) = true ∧
     (ulamPlot.cells.map (·.pos)).Nodup ∧
-    (∀ c ∈ ulamPlot.cells, c.text = "") ∧
+    (∀ c ∈ ulamPlot.cells, c.text = "") ∧ ulamPlot.ringed = some 1 ∧ ulamPlot.legend = "" ∧
     ∀ c ∈ ulamPlot.cells, c.marked = true ↔ c.key.Prime := by
   refine ⟨⟨rfl, by unfold ulamFigure CellPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : ulamPlot.Faithful ulamFigure :=
@@ -242,7 +242,7 @@ theorem ulamFigure_spec :
   have hc : ∀ c ∈ ulamPlot.cells, c.marked = isPrime' c.key ∧ c.text = "" := fun c h' => by
     simpa using mem_ulamCells h'
   refine ⟨h, rfl, rfl, by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel,
-    (nodup_of_distinctInBox 10 _ 0 (by decide +kernel)).2, fun c h' => (hc c h').2,
+    (nodup_of_distinctInBox 10 _ 0 (by decide +kernel)).2, fun c h' => (hc c h').2, rfl, rfl,
     fun c h' => by rw [(hc c h').1, isPrime'_iff]⟩
 
 figure_proves ulamFigure ulamFigure_spec
@@ -266,13 +266,14 @@ theorem residueFigure_spec :
       (3/2, 3/2)), ("2", (5/2, 3/2)), ("3", (7/2, 3/2)), ("4", (9/2, 3/2)), ("5", (11/2, 3/2)),
       ("6", (13/2, 3/2)), ("7", (15/2, 3/2)), ("8", (17/2, 3/2)), ("9", (19/2, 3/2)), ("10", (21/2,
       3/2)), ("11", (23/2, 3/2)), ("12", (25/2, 3/2))] ∧
-    residuePlot.solid = false := by
+    residuePlot.solid = false ∧ residuePlot.legend = "a nonzero square mod p" ∧
+    residuePlot.ringed = none := by
   refine ⟨⟨rfl, by unfold residueFigure CellPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : residuePlot.Faithful residueFigure :=
     CellPlot.faithful_of_marks (residuePlot.builder_faithful (by decide +kernel))
       (by simp only [residueFigure])
   refine ⟨h, rfl, by decide +kernel, by decide +kernel, fun i p hp hi a ha => ?_,
-    by decide +kernel, rfl⟩
+    by decide +kernel, rfl, rfl, rfl⟩
   have := Fact.mk hp
   have hne : NeZero p := ⟨hp.ne_zero⟩
   refine ⟨residueCell p i a, ?_, rfl, rfl, ?_, by rw [residueCell, legendre'_eq]⟩

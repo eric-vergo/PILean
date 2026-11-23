@@ -7,6 +7,7 @@ import PILean
 import PILean.Trust.Attr
 import PILeanVersoManual
 import PILeanManual.Meta
+import PILeanTest.ComplexDiagrams
 
 open Verso.Genre Manual
 open Verso.Genre.Manual.InlineLean
@@ -228,6 +229,33 @@ the interval, has a point above every abscissa of it, and every point `(x, y)` o
 The bound is loose where `|f''|` is smaller than its maximum over the interval. The pixels are
 computed in floating point by the package's tests; the theorem is about the exact polyline, and
 the step from it to the pixels is tested, not proved.
+
+# Zeros and Poles
+%%%
+tag := "zeros-poles"
+%%%
+
+A {name}`PILean.Diagram.RationalPlot` draws the zeros (open circles) and poles (crosses) of a
+rational function, given by the rational coefficients of its numerator and denominator, with the
+zeros and poles supplied as Gaussian rationals and their multiplicities; a multiplicity above 1 is
+written beside its point. Two statements about the data are decided in exact Gaussian rational
+arithmetic: {name}`PILean.Diagram.RationalPlot.Verified` (each supplied point is a root of
+exactly its multiplicity: the derivatives of lower orders vanish there and that of its order does
+not; the points are distinct) and {name}`PILean.Diagram.RationalPlot.Complete` (the
+multiplicities add up to the degrees). `pilean-mathlib` turns them into
+`Polynomial.rootMultiplicity` over ℂ and into the statement that every complex root is marked.
+
+:::figure PILeanTest.ComplexDiagrams.rationalFigure (alt := "The plane with its two axes from -2 to 2 and -3/2 to 3/2: open circles at i, -i and 1/2, the last with a 2 beside it; crosses at 1 + i, 1 - i and -3/2.") (proves := PILeanTest.ComplexDiagrams.rationalFigure_spec)
+The zeros and poles of `f(z) = (z² + 1)(z − 1/2)² / ((z² − 2z + 2)(z + 3/2))`.
+:::
+
+A {name}`PILean.DomainColouring` paints a complex function by the argument and the modulus of its
+values, in floating point: an illustration, marked `@[figure illustration]`, with no theorem; its
+files are a PNG and a PDF that embeds it.
+
+:::figure PILeanTest.ComplexDiagrams.domainColouring (alt := "The same function painted by colour: every hue meets at the zeros i, -i and 1/2 (twice round at 1/2) and at the poles 1 + i, 1 - i and -3/2, with bands of lightness crowding in at the zeros and out at the poles.") (format := "png")
+The same function by domain colouring, an illustration.
+:::
 
 # What Is Proved and What Is Tested
 %%%

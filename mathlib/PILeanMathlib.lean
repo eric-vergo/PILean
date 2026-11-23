@@ -15,6 +15,8 @@ import PILeanMathlib.Combinatorics
 import PILeanMathlib.Examples.Combinatorics
 import PILeanMathlib.Examples.CombinatoricsFigures
 import PILeanMathlib.Examples.Explorers
+import PILeanMathlib.RationalPlot
+import PILeanMathlib.Examples.Complex
 import PILeanMathlib.ExactPlot
 import PILeanMathlib.Examples.Sine
 import PILeanMathlib.Examples.SineFigure

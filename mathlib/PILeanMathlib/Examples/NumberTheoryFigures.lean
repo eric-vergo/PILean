@@ -69,7 +69,7 @@ def primeCountFigure : Diagram :=
   { primeCountPlot.figure with title := "π(n) and n / (Hₙ − 1), 2 ≤ n ≤ 100" }
 
 /-- The Ulam spiral of `1, …, 441`, `1` at the centre, with the primes filled. -/
-def ulamPlot : CellPlot := { cells := ulamCells 441 isPrime', solid := true }
+def ulamPlot : CellPlot := { cells := ulamCells 441 isPrime', solid := true, ringed := some 1 }
 
 /-- The primes on the Ulam spiral. -/
 @[figure]
@@ -101,6 +101,7 @@ def residuePlot : CellPlot where
   headings := residuePrimes.zipIdx.map (fun (p, i) => (s!"p = {p}", (-1, 1 / 2 - (i : Rat)))) ++
     ("a", (-1, 3 / 2)) ::
       (List.range 13).map fun (a : Nat) => (toString a, ((a : Rat) + 1 / 2, 3 / 2))
+  legend := "a nonzero square mod p"
 
 /-- The quadratic residues. -/
 @[figure]

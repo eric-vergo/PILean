@@ -17,7 +17,7 @@ the core's figures are `mutations`; the LeAnTeX package checks its own with the 
 ## Main definitions
 
 * `SpecMutation`, `SpecMutation.apply`, `errorLines`, `specLines`, `check`, `checkAll`,
-  `diagramMutations`, `algebraMutations`, `numberMutations`, `explorerMutations`, `mutations`,
+  `diagramMutations`, `algebraMutations`, `numberMutations`, `explorerMutations`, `complexMutations`, `mutations`,
   `ioChecks`.
 -/
 
@@ -256,6 +256,24 @@ def explorerMutations : Array SpecMutation :=
       anchor := "def periodY :", edits := [("#[1 / 2,", "#[0, 1 / 2,")],
       spec := "latticeExplorer_spec" }]
 
+/-- The changes to the zeros and poles of the rational function (`PILeanTest/ComplexDiagrams.lean`)
+that its theorem must catch: a multiplicity, a zero, a coefficient, the window. -/
+def complexMutations : Array SpecMutation :=
+  let f : System.FilePath := "PILeanTest" / "ComplexDiagrams.lean"
+  #[{ file := f, what := "the zero 1/2 is simple", anchor := "def rationalData : RationalPlot",
+      edits := [("((1 / 2, 0), 2)]", "((1 / 2, 0), 1)]")], spec := "rationalFigure_spec" },
+    { file := f, what := "the zero i is 2i", anchor := "def rationalData : RationalPlot",
+      edits := [("((0, 1), 1),", "((0, 2), 1),")], spec := "rationalFigure_spec" },
+    { file := f, what := "the pole −3/2 is −1/2", anchor := "def rationalData : RationalPlot",
+      edits := [("((-3 / 2, 0), 1)]", "((-1 / 2, 0), 1)]")], spec := "rationalFigure_spec" },
+    { file := f, what := "a coefficient of the numerator changed",
+      anchor := "def rationalData : RationalPlot",
+      edits := [("num := [1 / 4, -1,", "num := [1 / 4, -2,")], spec := "rationalFigure_spec" },
+    { file := f, what := "the pole 1 − i left out", anchor := "def rationalData : RationalPlot",
+      edits := [("((1, 1), 1), ((1, -1), 1),", "((1, 1), 1),")], spec := "rationalFigure_spec" },
+    { file := f, what := "the window is narrower", anchor := "def rationalData : RationalPlot",
+      edits := [("lo := (-2, -3 / 2)", "lo := (-1, -3 / 2)")], spec := "rationalFigure_spec" }]
+
 /-- The changes to the core's figures with specifications (`PILeanTest.Examples` and
 `PILeanTest.PlaneExact`), with those of the diagrams' galleries and the proved explorers. -/
 def mutations : Array SpecMutation :=
@@ -301,7 +319,7 @@ def mutations : Array SpecMutation :=
       anchor := "def stepPoint (j : Nat) : Item :=",
       edits := [("Plane.Exact.pointNearDisk (Zeta5.pow j) windowCentre windowRadius \"the window\"",
         "Plane.Exact.point (Zeta5.pow j)")], spec := "zetaSteps_spec" }] ++ diagramMutations ++
-    algebraMutations ++ numberMutations ++ explorerMutations
+    algebraMutations ++ numberMutations ++ explorerMutations ++ complexMutations
 
 /-- The checks of `mutations`. -/
 def ioChecks : IO (Array (String × Bool)) := checkAll mutations

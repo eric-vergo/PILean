@@ -7,6 +7,7 @@ import PILeanTest.Diagrams
 import PILeanTest.AlgebraDiagrams
 import PILeanTest.NumberDiagrams
 import PILeanTest.Explorers
+import PILeanTest.ComplexDiagrams
 import PILean.Trust.Build
 
 /-!

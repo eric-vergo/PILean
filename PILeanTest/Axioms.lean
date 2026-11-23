@@ -38,6 +38,7 @@ import PILeanTest.NumberDiagrams
 import PILeanTest.Standing
 import PILeanTest.Pdf
 import PILeanTest.Explorers
+import PILeanTest.ComplexDiagrams
 
 /-!
 # The axioms of the library, checked by the build

@@ -35,6 +35,7 @@ import PILeanTest.NumberDiagrams
 import PILeanTest.Standing
 import PILeanTest.Pdf
 import PILeanTest.Explorers
+import PILeanTest.ComplexDiagrams
 
 /-!
 # The test driver
@@ -142,7 +143,7 @@ def main (args : List String) : IO UInt32 := do
     PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
     (← SpecMutations.ioChecks) ++ Axioms.coverageChecks driverModules ++ Diagrams.checks ++ AlgebraDiagrams.checks ++
     NumberDiagrams.checks ++
-    Standing.checks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++ Explorers.checks ++
+    Standing.checks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++ Explorers.checks ++ ComplexDiagrams.checks ++
     (← PdfChecks.goldenChecks (args == ["--update"]))
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
@@ -175,7 +176,7 @@ def main (args : List String) : IO UInt32 := do
         failed := failed + 1
       else IO.println s!"golden {pngPath}: same"
   for (name, fig) in Examples.planes ++ Diagrams.gallery ++ AlgebraDiagrams.gallery ++
-      NumberDiagrams.gallery do
+      NumberDiagrams.gallery ++ ComplexDiagrams.gallery do
     let svg := fig.toSvg
     let pngName := (System.FilePath.mk name).withExtension "png" |>.toString
     let outs : Array (String × ByteArray) := #[(name, svg.toUTF8), (pngName, fig.toPng.getD .empty)]
@@ -193,6 +194,20 @@ def main (args : List String) : IO UInt32 := do
             the change)"
           failed := failed + 1
         else IO.println s!"golden {path}: same"
+  -- the domain colouring, a raster picture
+  let dcPath : System.FilePath := "examples" / "domain-colouring.png"
+  let dcPng := (ComplexDiagrams.domainColouring.toImage.bind fun im => im.writePng.toOption).getD
+    .empty
+  if args == ["--update"] then
+    IO.FS.writeBinFile dcPath dcPng
+    IO.println s!"wrote {dcPath}"
+  else
+    let golden ← if ← dcPath.pathExists then IO.FS.readBinFile dcPath else pure .empty
+    if golden.data != dcPng.data then
+      IO.eprintln s!"FAIL {dcPath}: differs (`lake exe pilean-test --update` after checking the \
+        change)"
+      failed := failed + 1
+    else IO.println s!"golden {dcPath}: same"
   for (stem, entry, st) in Examples.graphs do
     let svg := entry.svg st
     let outs : Array (String × ByteArray) :=

@@ -332,7 +332,8 @@ def bodyStroke : ArrowStyle → Stroke
 
 /-- The shapes of an arrow other than its body and texts, for its style: its tip (none for an
 equality or a line), a second tip for an epimorphism, a tip at the tail for a monomorphism, a
-hook for an inclusion, a bar for `↦`. -/
+hook for an inclusion (a half circle behind the tail with its free end running on towards the
+tip), a bar for `↦`. -/
 def tipShapes (style : ArrowStyle) (ps : List QPoint) : List Shape :=
   let e := ps.getLastD (0, 0)
   let s := ps.headD (0, 0)
@@ -344,11 +345,14 @@ def tipShapes (style : ArrowStyle) (ps : List QPoint) : List Shape :=
   | .epi => [tip, Shape.arrow (qalong e u (-2 * tipLength)) (qalong e u (-tipLength))]
   | .mono => [tip, Shape.arrow s (qalong s w tipLength)]
   | .inclusion =>
-    let r : Rat := 1 / 20
+    -- a half circle behind the tail, open towards the tip, its free end running on forwards so
+    -- that it reads as a hook and not as a loop
+    let r : Rat := 1 / 16
     let n := qperp w
     let c := qalong s n r
-    [tip, Shape.polyline (halfCirclePoints.map fun p =>
-      qadd c (qadd (qscale (-r * p.1) n) (qscale (-r * p.2) w)))]
+    [tip, Shape.polyline (halfCirclePoints.map (fun p =>
+      qadd c (qadd (qscale (-r * p.1) n) (qscale (-r * p.2) w))) ++
+      [qalong (qalong s n (2 * r)) w r])]
   | .mapsTo => [tip, Shape.segment (qalong s (qperp w) (1 / 16)) (qalong s (qperp w) (-1 / 16))]
   | _ => [tip]
 
@@ -403,7 +407,8 @@ def arrowMiddle (D : CommDiagram) (L : CDLayout) (k : Nat) : QPoint :=
   | none => (0, 0)
 
 /-- The marks of 2-cell `k` from arrow `c.src` to arrow `c.tgt`: a double line over the middle
-two-fifths of the way between the arrows' middles, its tip, and its label on its left. -/
+two-fifths of the way between the arrows' middles, up to where its tip begins, the tip, and its
+label on its left. -/
 def twoCellMarksOf (D : CommDiagram) (L : CDLayout) (k : Nat) (c : TwoCell) : List Mark :=
   let a := D.arrowMiddle L c.src
   let b := D.arrowMiddle L c.tgt
@@ -411,8 +416,10 @@ def twoCellMarksOf (D : CommDiagram) (L : CDLayout) (k : Nat) (c : TwoCell) : Li
   let p := qalong a v (3 / 10)
   let q := qalong a v (7 / 10)
   let part := Part.twoCell k
-  [{ part, shape := .path [p, q] (.double (1 / 25)) },
-    { part, shape := .arrow (qalong q (qdir v) (-tipLength)) q }] ++
+  -- the double line stops where the tip begins, so that the tip is drawn over nothing
+  let t := qalong q (qdir v) (-tipLength)
+  [{ part, shape := .path [p, t] (.double (1 / 25)) },
+    { part, shape := .arrow t q }] ++
     (if c.label.isEmpty then [] else
       [{ part, shape := .text c.label (qscale (1 / 2) (qadd p q)) (sideToward (qperp v)) }])
 

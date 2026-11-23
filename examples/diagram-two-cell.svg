@@ -40,7 +40,7 @@
     </g>
     <g>
       <title>arrow 2: 1 → 2</title>
-      <path d="M238.53 109.8 L240.01 105.37 L241.48 103.9 L245.91 102.42 L250.33 103.9 L251.81 105.37 L253.29 109.8" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M238.53 109.8 L240.38 104.27 L242.22 102.42 L247.75 100.58 L253.29 102.42 L255.13 104.27 L256.97 109.8 L256.97 119.02" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>arrow 2: 1 → 2</title>
@@ -61,8 +61,8 @@
     </g>
     <g>
       <title>2-cell 0</title>
-      <path d="M130.83 65.54 L130.83 109.8" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M124.93 65.54 L124.93 109.8" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M130.83 65.54 L130.83 95.05" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M124.93 65.54 L124.93 95.05" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
     <g>
       <title>2-cell 0</title>

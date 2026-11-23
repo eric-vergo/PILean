@@ -70,6 +70,7 @@ def sievePlot : CellPlot where
   cells := (List.range 100).map fun i =>
     { key := i + 1, pos := ((i % 10 : Nat), -((i / 10 : Nat) : Int)), marked := isPrime (i + 1),
       text := toString (i + 1) }
+  legend := "a prime"
 
 /-- The sieve. -/
 @[figure]
@@ -87,9 +88,10 @@ theorem sieve_spec :
     (sievePlot.cells.filter (·.marked)).map (·.key) =
       [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89,
         97] ∧
-    sievePlot.headings = [] ∧ sievePlot.solid = false := by
+    sievePlot.headings = [] ∧ sievePlot.solid = false ∧ sievePlot.legend = "a prime" ∧
+    sievePlot.ringed = none := by
   exact ⟨sievePlot.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
-    by decide +kernel, rfl, rfl⟩
+    by decide +kernel, rfl, rfl, rfl, rfl⟩
 
 figure_proves sieve sieve_spec
 
@@ -298,8 +300,11 @@ def layoutChecks : Array (String × Bool) :=
     ("plot: no point lies on an axis: the axes are a tenth of a unit outside the points",
       (totientPlot.dataTriples L).all fun (_, _, p) =>
         p.1 > SeqPlot.axisX L && p.2 > SeqPlot.axisY L),
-    ("plot: the points of a plot of 100 indices are 1.8 pixels in radius, of 12 indices 3",
-      SeqPlot.dotRadiusFor 100 == 1.8 && SeqPlot.dotRadiusFor 12 == 3),
+    ("plot: the points of a plot of 100 indices are 1.35 pixels in radius, of 12 indices 3; \
+        up to 140 indices, neighbours 450 / count apart keep a gap of more than half a point's width",
+      SeqPlot.dotRadiusFor 100 == 1.35 && SeqPlot.dotRadiusFor 12 == 3 &&
+        [12, 50, 100, 140].all fun n =>
+          450 / n.toFloat - 2 * SeqPlot.dotRadiusFor n > SeqPlot.dotRadiusFor n),
     ("grid: the sieve's cells are distinct", (sievePlot.cells.map (·.pos)).eraseDups.length == 100),
     ("lattice: the bound of the skew lattice covers its window: every point m ω₁ + n ω₂ with \
       |m|, |n| ≤ 20 in the window has |m|, |n| ≤ bound",

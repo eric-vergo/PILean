@@ -9,6 +9,7 @@ import PILean.Graph.Draw
 import PILean.Anim.Animation
 import PILean.Diagram.Basic
 import PILean.Pdf.Figures
+import PILean.Raster.DomainColouring
 
 /-!
 # Renderable figures
@@ -30,7 +31,7 @@ It covers the values a function takes where the figure samples it, not the funct
 * `Standing`: whether a figure is tied to its object by a theorem or is an illustration
 * `InlineSvg`, `FrameSet`: pictures and families of frames a web page puts inline
 * instances for `Plot.Figure`, `Plane.Figure`, `Explorer`, `Graph`, `GraphFigure`,
-  `Animation` and `Diagram.Diagram`
+  `Animation`, `Diagram.Diagram` and `DomainColouring`
 -/
 
 namespace PILean.Trust
@@ -319,6 +320,25 @@ instance : ToOutputs Explorer where
 at a narrow width the SVG and PNG with the suffix `-narrow`. -/
 instance : ToOutputs Diagram.Diagram where
   outputs d := ToOutputs.outputs d.toPlane
+
+/-- Domain colourings (`PILean.DomainColouring`, a raster picture computed in floating point, an
+illustration): the PNG and a PDF that embeds it (`Pdf.ofImage`); no SVG. The specification is the
+picture's size and its samples, so the fingerprint covers every pixel. -/
+instance : ToOutputs DomainColouring where
+  outputs d :=
+    let im := d.toImage
+    let spec := match im with
+      | some i => s!"domain colouring {i.width} {i.height}\n".toUTF8 ++ i.data
+      | none => .empty
+    let none' : Except String ByteArray := .error "the picture has no pixels, or too many"
+    #[{ name := "", format := .png, spec,
+        bytes := fun _ => match im with
+          | some i => (i.writePng).mapError toString
+          | none => none' },
+      { name := "", format := .pdf, spec,
+        bytes := fun _ => match im.bind Pdf.ofImage with
+          | some b => .ok b
+          | none => none' }]
 
 /-- A graph with how it is laid out and drawn. -/
 structure GraphFigure where

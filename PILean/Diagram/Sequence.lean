@@ -311,10 +311,11 @@ theorem mem_data (P : SeqPlot) (L : SeqLayout) (k n : Nat) (p : QPoint) :
     exact ⟨((s, f), k), List.mem_zipIdx_iff_getElem?.2 hk, n, ⟨n - P.lo, by omega, by omega⟩,
       rfl, rfl, rfl⟩
 
-/-- The radius in pixels of the points of a plot of `count` indices on the page: `180 / count`,
-between `1.25` and `3`, so that neighbours keep apart (the page is 560 pixels wide and the index
-axis about 450 of them). -/
-def dotRadiusFor (count : Nat) : Float := min 3 (max 1.25 (180 / count.toFloat))
+/-- The radius in pixels of the points of a plot of `count` indices on the page: `135 / count`,
+between `1` and `3`, so that, up to 140 indices, neighbours keep a gap of more than half their
+width between them (the page is 560 pixels wide and the index axis about 450 of them, about
+`450 / count` from one index to the next). -/
+def dotRadiusFor (count : Nat) : Float := min 3 (max 1 (135 / count.toFloat))
 
 /-- The most ticks of the value axis: values too large for the steps of `niceStep` would need
 more. -/
@@ -406,6 +407,11 @@ structure CellPlot where
   /-- Whether a marked cell is filled opaque (`Ink.solid 0`, for cells without text) rather than
   tinted (`Ink.tint 0`). -/
   solid : Bool := false
+  /-- The key of a cell drawn with a ring around it (the start of a spiral); none for no ring. -/
+  ringed : Option Nat := none
+  /-- What a marked cell means, written beside a sample of its fill below the cells (a legend);
+  empty for none. -/
+  legend : String := ""
   deriving Inhabited
 
 namespace CellPlot
@@ -413,10 +419,11 @@ namespace CellPlot
 /-- The most cells a plot draws. -/
 def maxCells : Nat := 4000
 
-/-- The square of a cell: the unit square at its position, or, for a plot of `solid` cells, the
-square inside it a twelfth of a unit from its sides (so that neighbouring cells stand apart). -/
+/-- The square of a cell: the unit square at its position, or the square inside it a twelfth of a
+unit from its sides for a plot of `solid` cells, a sixteenth for a marked (tinted) cell of a plot
+of cells with text, so that neighbouring marked cells stand apart. -/
 def box (solid : Bool) (c : NumberCell) : QPoint × QPoint :=
-  let e : Rat := if solid then 1 / 12 else 0
+  let e : Rat := if solid then 1 / 12 else if c.marked then 1 / 16 else 0
   (((c.pos.1 : Rat) + e, (c.pos.2 : Rat) + e), ((c.pos.1 : Rat) + 1 - e, (c.pos.2 : Rat) + 1 - e))
 
 /-- The ink of a cell: accent 0, opaque when `solid` and tinted otherwise, when the cell is marked;
@@ -437,20 +444,55 @@ def cellMarks (solid : Bool) (c : NumberCell) : List Mark :=
 def headingMarks (P : CellPlot) : List Mark :=
   P.headings.zipIdx.map fun ((s, p), i) => { part := .header 0 i, shape := .text s p .center }
 
-/-- The diagram: the cells (each with its text), then the headings. -/
+/-- The decorations: a ring around the cell `ringed` (accent 1, `note 0`) and, with a legend, a
+sample of a marked cell's fill (`note 1`) and the legend's text to its right (`note 2`), a unit
+below the lowest cell, at the left of the leftmost. -/
+def decorationMarks (P : CellPlot) : List Mark :=
+  let ring := match P.ringed.bind (fun k => P.cells.find? (·.key == k)) with
+    | some c =>
+      let centre : QPoint := ((c.pos.1 : Rat) + 1 / 2, (c.pos.2 : Rat) + 1 / 2)
+      [{ part := .note 0, ink := .accent 1, shape := .circle centre (11 / 16) }]
+    | none => []
+  let x0 : Rat := P.cells.foldl (fun m c => min m c.pos.1) ((P.cells.headD default).pos.1)
+  let y0 : Rat := P.cells.foldl (fun m c => min m c.pos.2) ((P.cells.headD default).pos.2)
+  let legend := if P.legend.isEmpty then [] else
+    let swatch : Shape := .rect (x0 + 1 / 16, y0 - 2 + 1 / 16) (x0 + 15 / 16, y0 - 1 - 1 / 16)
+    let fill : Ink := if P.solid then .solid 0 else .tint 0
+    [{ part := .note 1, ink := fill, shape := swatch },
+     { part := .note 2, shape := .text P.legend (x0 + 5 / 4, y0 - 3 / 2) .right }]
+  ring ++ legend
+
+/-- The diagram: the cells (each with its text), then the headings, then the decorations. -/
 def draw (P : CellPlot) : Diagram where
-  marks := P.cells.flatMap (cellMarks P.solid) ++ P.headingMarks
+  marks := P.cells.flatMap (cellMarks P.solid) ++ P.headingMarks ++ P.decorationMarks
 
 /-- The diagram draws the cells faithfully: its marks of cells and entries are exactly the cells'
-(position, colour by mark, text), cell by cell; its headings exactly the plot's; and nothing
-else. -/
+(position, colour by mark, text), cell by cell; its headings exactly the plot's; its decorations
+(the ring and the legend) exactly the builder's; and nothing else. -/
 def Faithful (P : CellPlot) (d : Diagram) : Prop :=
   d.marksWhere (fun p => p.isCell || p.isEntry) = P.cells.flatMap (cellMarks P.solid) ∧
     d.marksWhere Part.isHeader = P.headingMarks ∧
-    d.marks.all (fun m => m.part.isCell || m.part.isEntry || m.part.isHeader) = true
+    d.marksWhere Part.isDecoration = P.decorationMarks ∧
+    d.marks.all (fun m => m.part.isCell || m.part.isEntry || m.part.isHeader ||
+      m.part.isDecoration) = true
 
 instance (P : CellPlot) (d : Diagram) : Decidable (P.Faithful d) :=
-  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _))
+
+/-- Every decoration is a note. -/
+theorem note_of_mem_decorationMarks {P : CellPlot} {m : Mark} (h : m ∈ P.decorationMarks) :
+    ∃ k, m.part = .note k := by
+  unfold decorationMarks at h
+  simp only [List.mem_append] at h
+  rcases h with h | h
+  · split at h <;> simp at h
+    exact ⟨0, by rw [h]⟩
+  · split at h
+    · simp at h
+    · simp only [List.mem_cons, List.not_mem_nil, or_false] at h
+      rcases h with rfl | rfl
+      · exact ⟨1, rfl⟩
+      · exact ⟨2, rfl⟩
 
 /-- Every mark of a cell is the cell's square or its text. -/
 theorem part_of_mem_cellMarks {solid : Bool} {c : NumberCell} {m : Mark}
@@ -475,24 +517,40 @@ theorem draw_faithful (P : CellPlot) : P.Faithful P.draw := by
     simp only [headingMarks, List.mem_map] at hm
     obtain ⟨_, -, rfl⟩ := hm
     exact ⟨_, rfl⟩
-  refine ⟨?_, ?_, ?_⟩
+  have hD : ∀ m ∈ P.decorationMarks, ∃ k, m.part = .note k := fun m hm =>
+    note_of_mem_decorationMarks hm
+  refine ⟨?_, ?_, ?_, ?_⟩
   · simp only [Diagram.marksWhere, draw, List.filter_append]
     rw [(List.filter_eq_self (l := P.cells.flatMap (cellMarks P.solid))).2 fun m hm => by
         simpa [Bool.or_eq_true] using hC m hm,
       (List.filter_eq_nil_iff (l := P.headingMarks)).2 fun m hm => by
-        obtain ⟨i, h⟩ := hH m hm; simp [h, Part.isCell, Part.isEntry]]
+        obtain ⟨i, h⟩ := hH m hm; simp [h, Part.isCell, Part.isEntry],
+      (List.filter_eq_nil_iff (l := P.decorationMarks)).2 fun m hm => by
+        obtain ⟨k, h⟩ := hD m hm; simp [h, Part.isCell, Part.isEntry]]
     simp
   · simp only [Diagram.marksWhere, draw, List.filter_append]
     rw [(List.filter_eq_nil_iff (l := P.cells.flatMap (cellMarks P.solid))).2 fun m hm => by
         rcases hC m hm with h | h <;> cases hp : m.part <;> simp_all [Part.isCell, Part.isEntry,
           Part.isHeader],
       (List.filter_eq_self (l := P.headingMarks)).2 fun m hm => by
-        obtain ⟨i, h⟩ := hH m hm; simp [h, Part.isHeader]]
+        obtain ⟨i, h⟩ := hH m hm; simp [h, Part.isHeader],
+      (List.filter_eq_nil_iff (l := P.decorationMarks)).2 fun m hm => by
+        obtain ⟨k, h⟩ := hD m hm; simp [h, Part.isHeader]]
+    simp
+  · simp only [Diagram.marksWhere, draw, List.filter_append]
+    rw [(List.filter_eq_nil_iff (l := P.cells.flatMap (cellMarks P.solid))).2 fun m hm => by
+        rcases hC m hm with h | h <;> cases hp : m.part <;> simp_all [Part.isCell, Part.isEntry,
+          Part.isDecoration],
+      (List.filter_eq_nil_iff (l := P.headingMarks)).2 fun m hm => by
+        obtain ⟨i, h⟩ := hH m hm; simp [h, Part.isDecoration],
+      (List.filter_eq_self (l := P.decorationMarks)).2 fun m hm => by
+        obtain ⟨k, h⟩ := hD m hm; simp [h, Part.isDecoration]]
     simp
   · simp only [draw, List.all_append, Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true]
-    refine ⟨fun m hm => ?_, fun m hm => ?_⟩
+    refine ⟨⟨fun m hm => ?_, fun m hm => ?_⟩, fun m hm => ?_⟩
     · rcases hC m hm with h | h <;> simp [h]
     · obtain ⟨i, h⟩ := hH m hm; simp [h, Part.isHeader]
+    · obtain ⟨k, h⟩ := hD m hm; simp [h, Part.isDecoration]
 
 /-- In a faithful diagram every cell is drawn as its unit square in the colour of its mark:
 accent 0 when the cell is marked, the faint ink otherwise. -/
