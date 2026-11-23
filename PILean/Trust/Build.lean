@@ -95,6 +95,8 @@ def renderAll (entries : Array FigureEntry) (opts : BuildOptions := {}) :
   let mut errors : Array String := #[]
   for e in entries do
     for o in e.outputs () do
+      for w in o.problems () do
+        IO.eprintln s!"pilean-build: warning: {escapeControl e.decl}: {escapeControl w}"
       match renderOutput e o opts with
       | .ok f => files := files.push f
       | .error err => errors := errors.push err

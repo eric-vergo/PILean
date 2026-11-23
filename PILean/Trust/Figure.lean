@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Plot.Figure
 import PILean.Plane
+import PILean.Explorer
 import PILean.Graph.Draw
 import PILean.Anim.Animation
 
@@ -23,7 +24,9 @@ It covers the values a function takes where the figure samples it, not the funct
 ## Main definitions
 
 * `Format`, `Output`, `ToOutputs`
-* instances for `Plot.Figure`, `Plane.Figure`, `Graph`, `GraphFigure` and `Animation`
+* `InlineSvg`, `FrameSet`: pictures and families of frames a web page puts inline
+* instances for `Plot.Figure`, `Plane.Figure`, `Explorer`, `Graph`, `GraphFigure` and
+  `Animation`
 -/
 
 namespace PILean.Trust
@@ -62,6 +65,35 @@ def Format.ofName? : String → Option Format
   | "gif" => some .gif
   | _ => none
 
+/-- A picture a web page can put inline (as an `svg` element) instead of a file: its size in pixels
+and the SVG nodes of its body, as `Svg.document` writes them. -/
+structure InlineSvg where
+  /-- The width in pixels. -/
+  width : Float
+  /-- The height in pixels. -/
+  height : Float
+  /-- The nodes of the document's body. -/
+  nodes : Array Svg.Node
+  deriving Inhabited
+
+/-- The SVG document of an inline picture. -/
+def InlineSvg.document (i : InlineSvg) : String := Svg.document i.width i.height i.nodes
+
+/-- The inline frames of an `Explorer` for a web page: the axis, the steps, the frames
+(axis-major, as in `Explorer`) and the poster's position. -/
+structure FrameSet where
+  /-- The name of the parameter axis; empty for none. -/
+  axisName : String := ""
+  /-- The labels of the axis's values. -/
+  axisValues : Array String := #[]
+  /-- The captions of the steps. -/
+  stepCaptions : Array String := #[]
+  /-- The frames. -/
+  frames : Array InlineSvg
+  /-- The poster's position in `frames`. -/
+  poster : Nat := 0
+  deriving Inhabited
+
 /-- One file a figure is rendered to. -/
 structure Output where
   /-- The suffix of the file's stem, for instance `""`, `"-dark"` or `"-poster"`. -/
@@ -75,6 +107,17 @@ structure Output where
   /-- The identity of the text engine the output is drawn with (`TextEngine.id`), which the
   fingerprint covers through `rendererWith`; empty for the built-in lettering. -/
   textEngine : String := ""
+  /-- For an SVG output: the same picture as nodes, for a page that puts it inline. -/
+  inline : Unit → Option InlineSvg := fun _ => none
+  /-- For the poster of a family of frames: every frame, for a page that shows them inline. -/
+  frames : Unit → Option FrameSet := fun _ => none
+  /-- Problems of the figure's layout a build should report as warnings (on one output of a
+  figure, so that they are reported once). -/
+  problems : Unit → Array String := fun _ => #[]
+
+/-- An empty SVG output that cannot be rendered (for indexing arrays of outputs). -/
+instance : Inhabited Output :=
+  ⟨{ name := "", format := .svg, bytes := fun _ => .error "no output", spec := .empty }⟩
 
 /-- Values that PILean can render to files. -/
 class ToOutputs (α : Type) where
@@ -85,23 +128,64 @@ class ToOutputs (α : Type) where
 instance : ToOutputs Plot.Figure where
   outputs fig :=
     #[{ name := "", format := .svg, bytes := fun _ => .ok fig.toSvg.toUTF8,
-        spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id },
+        spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
+        inline := fun _ => some
+          { width := fig.width, height := fig.height,
+            nodes := fig.draw.render (.forSvg fig.style.text fig.style.fontFamily) } },
       { name := "", format := .png,
         bytes := fun _ => match fig.toPng with
           | some b => .ok b
           | none => .error "the figure has no pixels",
         spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
 
-/-- Plane figures: the SVG, and the PNG when the figure has pixels. -/
+/-- The bytes of a plane figure's output, or the figure's layout problems as an error when its
+`checks` level is `fail` and it has some. -/
+def planeBytes (fig : Plane.Figure) (bytes : Unit → Except String ByteArray) :
+    Except String ByteArray :=
+  let ps := if fig.checks == .fail then fig.checkMessages else #[]
+  if ps.isEmpty then bytes () else .error ("layout problems: " ++ "; ".intercalate ps.toList)
+
+/-- Plane figures: the SVG (with the layout problems the figure's `checks` level reports as
+warnings), and the PNG when the figure has pixels. A figure whose `checks` level is `fail` and
+that has layout problems cannot be rendered. -/
 instance : ToOutputs Plane.Figure where
   outputs fig :=
-    #[{ name := "", format := .svg, bytes := fun _ => .ok fig.toSvg.toUTF8,
-        spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id },
+    let g := fig.autoPlaced
+    #[{ name := "", format := .svg, bytes := fun _ => planeBytes fig fun _ => .ok fig.toSvg.toUTF8,
+        spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
+        inline := fun _ => some
+          { width := g.frame.width.round, height := g.frame.height.round,
+            nodes := fig.svgNodes },
+        problems := fun _ => if fig.checks == .warn then fig.checkMessages else #[] },
       { name := "", format := .png,
-        bytes := fun _ => match fig.toPng with
+        bytes := fun _ => planeBytes fig fun _ => match fig.toPng with
           | some b => .ok b
           | none => .error "the figure has no pixels",
         spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
+
+/-- An explorer frame for a page. -/
+def _root_.PILean.ExplorerFrame.inline (f : ExplorerFrame) : InlineSvg :=
+  { width := f.width, height := f.height, nodes := f.svgNodes }
+
+/-- Families of frames: the poster's SVG (carrying every frame for a page that shows them
+inline) and PNG. An explorer that is not well formed (`Explorer.valid`) cannot be rendered. -/
+instance : ToOutputs Explorer where
+  outputs x :=
+    let p := x.posterFrame
+    let ok := fun (b : Unit → Except String ByteArray) =>
+      if x.valid then b () else .error s!"the explorer has {x.frames.size} frames for         {x.values} values and {x.steps} steps, or its poster {x.poster} is not among them"
+    #[{ name := "", format := .svg, bytes := fun _ => ok fun _ => .ok p.toSvg.toUTF8,
+        spec := p.toSvg.toUTF8, textEngine := p.style.text.id,
+        inline := fun _ => some p.inline,
+        frames := fun _ => some
+          { axisName := x.axisName, axisValues := x.axisValues,
+            stepCaptions := x.stepCaptions, frames := x.frames.map (·.inline),
+            poster := x.poster } },
+      { name := "", format := .png,
+        bytes := fun _ => ok fun _ => match p.toPng with
+          | some b => .ok b
+          | none => .error "the poster has no pixels",
+        spec := (p.toSvg (outlines := true)).toUTF8, textEngine := p.style.text.id }]
 
 /-- A graph with how it is laid out and drawn. -/
 structure GraphFigure where
