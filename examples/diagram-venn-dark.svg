@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="362" viewBox="0 0 400 362">
+  <g>
+    <title>Multiples of 2, 3 and 5 up to 12</title>
+    <path d="M0 0 L400 0 L400 362 L0 362 Z" fill="#16181c"/>
+    <g>
+      <title>set 0</title>
+      <path d="M215.26 126.82 C215.26 182.68 169.98 227.95 114.13 227.95 C58.28 227.95 13 182.68 13 126.82 C13 70.97 58.28 25.69 114.13 25.69 C169.98 25.69 215.26 70.97 215.26 126.82 Z" fill="none" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>set 1</title>
+      <path d="M341.68 126.82 C341.68 182.68 296.4 227.95 240.54 227.95 C184.69 227.95 139.41 182.68 139.41 126.82 C139.41 70.97 184.69 25.69 240.54 25.69 C296.4 25.69 341.68 70.97 341.68 126.82 Z" fill="none" stroke="#f48e52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>set 2</title>
+      <path d="M278.47 235.18 C278.47 291.03 233.19 336.31 177.34 336.31 C121.48 336.31 76.21 291.03 76.21 235.18 C76.21 179.32 121.48 134.05 177.34 134.05 C233.19 134.05 278.47 179.32 278.47 235.18 Z" fill="none" stroke="#40c092" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <path d="M75.514 15.241 C75.893 14.195 76.841 13.464 77.944 13.367 C79.048 13.27 80.107 13.824 80.661 14.788 C81.215 15.753 81.162 16.952 80.527 17.864 L75.343 22.836 L81.193 22.836 M83.728 13.506 L89.728 13.506 L83.728 22.836 L89.728 22.836 M83.728 19.341 L85.978 15.831" fill="none" stroke="#68b6ec" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M265.489 14.563 C266.108 13.548 267.407 13.101 268.569 13.502 C269.732 13.902 270.423 15.036 270.208 16.19 C269.994 17.344 268.935 18.186 267.697 18.186 L267.697 18.156 C269.08 18.156 270.264 18.997 270.504 20.152 C270.744 21.306 269.972 22.439 268.672 22.84 C267.372 23.241 265.921 22.793 265.229 21.778 M273.348 13.506 L279.348 13.506 L273.348 22.836 L279.348 22.836 M273.348 19.341 L275.598 15.831" fill="none" stroke="#f48e52" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M175.091 336.764 L170.981 336.764 L170.981 341.474 L170.984 341.481 C171.765 340.652 172.95 340.43 173.95 340.925 C174.95 341.421 175.552 342.529 175.456 343.697 C175.359 344.866 174.586 345.845 173.52 346.149 C172.454 346.453 171.323 346.015 170.69 345.054 M178.538 336.764 L184.538 336.764 L178.538 346.094 L184.538 346.094 M178.538 342.599 L180.788 339.089" fill="none" stroke="#40c092" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <title>element 0 in region 0</title>
+      <path d="M378.175 83.643 L381.025 81.228 L381.025 90.558" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 1 in region 1</title>
+      <path d="M67.133 81.699 C67.512 80.652 68.459 79.921 69.563 79.824 C70.666 79.727 71.726 80.282 72.279 81.246 C72.833 82.21 72.781 83.41 72.146 84.322 L66.961 89.293 L72.811 89.293" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 2 in region 2</title>
+      <path d="M282.39 91.134 C283.009 90.119 284.308 89.671 285.471 90.072 C286.634 90.473 287.325 91.607 287.11 92.761 C286.895 93.915 285.836 94.757 284.599 94.757 L284.599 94.727 C285.982 94.727 287.165 95.568 287.405 96.722 C287.645 97.876 286.873 99.01 285.573 99.411 C284.274 99.812 282.822 99.364 282.13 98.349" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 3 in region 1</title>
+      <path d="M71.761 109.52 L71.761 100.19 L66.661 107.18 L73.111 107.18" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 4 in region 4</title>
+      <path d="M179.351 277.169 L175.241 277.169 L175.241 281.879 L175.244 281.886 C176.025 281.057 177.21 280.835 178.21 281.33 C179.21 281.826 179.812 282.934 179.716 284.102 C179.619 285.271 178.846 286.25 177.78 286.554 C176.714 286.857 175.583 286.42 174.95 285.459" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 5 in region 3</title>
+      <path d="M174.488 77.655 L174.488 75.03 C174.488 73.514 175.235 72.124 176.426 71.424 C177.616 70.724 179.053 70.83 180.153 71.7 M177.338 74.715 C178.912 74.715 180.188 76.031 180.188 77.655 C180.188 79.278 178.912 80.595 177.338 80.595 C175.764 80.595 174.488 79.278 174.488 77.655 C174.488 76.031 175.764 74.715 177.338 74.715 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 6 in region 0</title>
+      <path d="M376.75 106.51 L382.45 106.51 L378.85 115.84" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 7 in region 1</title>
+      <path d="M69.886 120.266 C71.212 120.266 72.286 121.314 72.286 122.606 C72.286 123.898 71.212 124.946 69.886 124.946 C68.561 124.946 67.486 123.898 67.486 122.606 C67.486 121.314 68.561 120.266 69.886 120.266 Z M69.886 124.916 C71.419 124.916 72.661 126.031 72.661 127.406 C72.661 128.781 71.419 129.896 69.886 129.896 C68.354 129.896 67.111 128.781 67.111 127.406 C67.111 126.031 68.354 124.916 69.886 124.916 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 8 in region 2</title>
+      <path d="M287.64 113.093 L287.64 115.718 C287.64 117.234 286.893 118.624 285.702 119.323 C284.511 120.023 283.074 119.917 281.975 119.048 M284.79 110.153 C286.364 110.153 287.64 111.469 287.64 113.093 C287.64 114.717 286.364 116.033 284.79 116.033 C283.216 116.033 281.94 114.717 281.94 113.093 C281.94 111.469 283.216 110.153 284.79 110.153 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 9 in region 5</title>
+      <path d="M105.978 197.415 L108.828 195 L108.828 204.33 M115.803 194.85 C117.377 194.85 118.653 197.006 118.653 199.665 C118.653 202.324 117.377 204.48 115.803 204.48 C114.229 204.48 112.953 202.324 112.953 199.665 C112.953 197.006 114.229 194.85 115.803 194.85 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 10 in region 0</title>
+      <path d="M373.975 134.208 L376.825 131.793 L376.825 141.123 M382.375 134.208 L385.225 131.793 L385.225 141.123" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>element 11 in region 3</title>
+      <path d="M171.713 93.756 L174.563 91.341 L174.563 100.671 M178.785 93.076 C179.164 92.03 180.111 91.299 181.215 91.202 C182.318 91.105 183.377 91.659 183.931 92.623 C184.485 93.587 184.433 94.787 183.798 95.699 L178.613 100.671 L184.463 100.671" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

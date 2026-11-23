@@ -32,6 +32,8 @@ import PILeanTest.Inert
 import PILeanTest.SpecMutations
 import PILeanTest.Bounds
 import PILeanTest.Tools
+import PILeanTest.Diagrams
+import PILeanTest.Standing
 
 /-!
 # The axioms of the library, checked by the build
@@ -208,6 +210,6 @@ def Axioms.ioChecks : IO (Array (String × Bool)) := do
 
 #assert_standard_axioms PILean PILeanTest
 
-#assert_figure_links 4
+#assert_figure_links 19
 
 end PILeanTest

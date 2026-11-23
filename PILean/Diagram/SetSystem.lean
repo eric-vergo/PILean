@@ -77,35 +77,36 @@ def anchor : Nat → Nat → QPoint
   | 3, 7 => (0, 0)
   | _, _ => (8 / 5, 3 / 5)
 
-/-- Place `t` of the region `mask` in a diagram of `k` sets: the anchor and, below and above it,
-steps of `4/25`; outside every circle a column going down by `1/5`. -/
-def slot (k mask t : Nat) : QPoint :=
+/-- Place `t` of the `p` places of the region `mask` in a diagram of `k` sets: a column centred on
+the anchor, going down by `4/25` from the top; outside every circle a column going down by `1/5`
+from the anchor. -/
+def slot (k mask t p : Nat) : QPoint :=
   let a := anchor k mask
-  if mask = 0 then (a.1, a.2 - t / 5)
-  else (a.1, a.2 + (if t % 2 = 1 then -1 else 1) * ((t + 1) / 2 : Nat) * (4 / 25))
+  if mask = 0 then (a.1, a.2 - (t : Rat) / 5)
+  else (a.1, a.2 + (((p : Rat) - 1) / 2 - t) * (4 / 25))
 
 /-- The number of places of a region: `outsideCap` outside every circle, `regionCap` inside. -/
 def capOf (mask : Nat) : Nat := if mask = 0 then outsideCap else regionCap
 
-/-- Whether every place of every region of the diagrams of 1, 2 and 3 sets is inside exactly the
-circles of its region. -/
+/-- Whether every place of every region of the diagrams of 1, 2 and 3 sets, for every number of
+places the region can have, is inside exactly the circles of its region. -/
 def slotsOk : Bool :=
-  [1, 2, 3].all fun k => (List.range (2 ^ k)).all fun mask => (List.range (capOf mask)).all
-    fun t => (List.range k).all fun s =>
-      inside ((vennCentres k).getD s (0, 0)) (slot k mask t) == mask.testBit s
+  [1, 2, 3].all fun k => (List.range (2 ^ k)).all fun mask => (List.range (capOf mask + 1)).all
+    fun p => (List.range p).all fun t => (List.range k).all fun s =>
+      inside ((vennCentres k).getD s (0, 0)) (slot k mask t p) == mask.testBit s
 
 /-- Every place of every region is inside exactly the circles of its region (decided by the
 kernel in exact arithmetic). -/
 theorem slots_correct : slotsOk = true := by decide +kernel
 
-/-- Place `t < capOf mask` of the region `mask < 2 ^ k` of a diagram of `k ∈ {1, 2, 3}` sets is
-inside circle `s < k` exactly when bit `s` of `mask` is set. -/
-theorem inside_slot {k mask t s : Nat} (hk : k = 1 ∨ k = 2 ∨ k = 3) (hm : mask < 2 ^ k)
-    (ht : t < capOf mask) (hs : s < k) :
-    inside ((vennCentres k).getD s (0, 0)) (slot k mask t) = mask.testBit s := by
+/-- Place `t < p` of `p ≤ capOf mask` places of the region `mask < 2 ^ k` of a diagram of
+`k ∈ {1, 2, 3}` sets is inside circle `s < k` exactly when bit `s` of `mask` is set. -/
+theorem inside_slot {k mask t p s : Nat} (hk : k = 1 ∨ k = 2 ∨ k = 3) (hm : mask < 2 ^ k)
+    (ht : t < p) (hp : p ≤ capOf mask) (hs : s < k) :
+    inside ((vennCentres k).getD s (0, 0)) (slot k mask t p) = mask.testBit s := by
   have h := slots_correct
   simp only [slotsOk, List.all_eq_true, List.mem_cons, List.mem_range, beq_iff_eq] at h
-  exact h k (by omega) mask hm t ht s hs
+  exact h k (by omega) mask hm p (by omega) t ht s hs
 
 /-- A set system: the elements `0, …, n - 1` with their names, and the sets with theirs. -/
 structure SetSystem where
@@ -153,15 +154,22 @@ theorem mask_lt (S : SetSystem) (x : Nat) (hk : S.sets.length ≤ 3) :
 def rank (S : SetSystem) (x : Nat) : Nat :=
   ((List.range x).filter fun y => S.mask y == S.mask x).length
 
-/-- Whether every region holds at most its number of places. -/
-def fits (S : SetSystem) : Bool := (List.range S.n).all fun x => S.rank x < capOf (S.mask x)
+/-- The number of elements in the region of `x`. -/
+def population (S : SetSystem) (x : Nat) : Nat :=
+  ((List.range S.n).filter fun y => S.mask y == S.mask x).length
+
+/-- Whether every region holds at most its number of places: each element's place is below its
+region's population, which is at most `capOf` of the region. -/
+def fits (S : SetSystem) : Bool :=
+  (List.range S.n).all fun x => S.rank x < S.population x && S.population x ≤ capOf (S.mask x)
 
 /-- The name of element `x`. -/
 def name (S : SetSystem) (x : Nat) : String := S.names.getD x (toString x)
 
 /-- The members as the Venn diagram writes them: `(x, region, place)` for each element. -/
 def memberList (S : SetSystem) : List (Nat × Nat × QPoint) :=
-  (List.range S.n).map fun x => (x, S.mask x, slot S.sets.length (S.mask x) (S.rank x))
+  (List.range S.n).map fun x =>
+    (x, S.mask x, slot S.sets.length (S.mask x) (S.rank x) (S.population x))
 
 /-- The Venn diagram: a tinted circle for each set, the sets' names beyond the circles, then each
 element's name at its place. -/
@@ -208,10 +216,10 @@ theorem venn_inside (S : SetSystem) (hk : 1 ≤ S.sets.length ∧ S.sets.length 
   obtain ⟨y, hy, he⟩ := hx
   simp only [Prod.mk.injEq] at he
   obtain ⟨rfl, -, rfl⟩ := he
-  have hr : S.rank y < capOf (S.mask y) := by
-    simp only [fits, List.all_eq_true, decide_eq_true_eq] at hfit
-    exact hfit y hy
-  rw [inside_slot (by omega) (S.mask_lt y hk.2) hr hs, S.testBit_mask y s (by omega)]
+  have hr := hfit
+  simp only [fits, List.all_eq_true, Bool.and_eq_true, decide_eq_true_eq] at hr
+  rw [inside_slot (by omega) (S.mask_lt y hk.2) (hr y hy).1 (hr y hy).2 hs,
+    S.testBit_mask y s (by omega)]
 
 /-- The most elements a Venn figure places (finding each element's place takes `n²` steps). -/
 def maxVennElements : Nat := 64
@@ -220,7 +228,7 @@ def maxVennElements : Nat := 64
 whose regions fit, or a note. -/
 def vennFigure (S : SetSystem) : Diagram :=
   Diagram.capped (decide (1 ≤ S.sets.length ∧ S.sets.length ≤ 3 ∧ S.n ≤ maxVennElements) &&
-    S.fits) "a Venn diagram needs one to three sets and regions that fit" S.venn
+    S.fits) "a Venn diagram needs one to three sets and regions that fit" fun _ => S.venn
 
 /-- The incidence graph: the elements `0, …, n - 1` and the sets `n, …, n + m - 1`, an edge
 `(x, n + s)` exactly when `x ∈ s`. -/
@@ -232,11 +240,16 @@ def toFinGraph (S : SetSystem) : FinGraph where
   names := ((List.range S.n).map S.name ++
     (List.range S.sets.length).map fun s => S.setNames.getD s s!"S{s}").toArray
 
-/-- The incidence layout: the elements in a row at height 0, the sets in a row at height 1, each
-row centred. -/
+/-- The gap between two elements of the incidence layout: 1, or more so that the row of elements is
+as wide as the row of sets, whose gap is 2. -/
+def elementGap (S : SetSystem) : Rat :=
+  if S.n ≤ 1 then 1 else max 1 (2 * ((S.sets.length : Rat) - 1) / ((S.n : Rat) - 1))
+
+/-- The incidence layout: the elements in a row at height 0, `elementGap` apart, the sets in a
+row at height 2, 2 apart, each row centred. -/
 def incidenceLayout (S : SetSystem) : Layout where
   pos i :=
-    if i < S.n then ((i : Rat) - ((S.n : Rat) - 1) / 2, 0)
+    if i < S.n then (S.elementGap * ((i : Rat) - ((S.n : Rat) - 1) / 2), 0)
     else (((i - S.n : Nat) : Rat) * 2 - ((S.sets.length : Rat) - 1), 2)
 
 /-- The incidence drawing. -/
@@ -248,7 +261,7 @@ def incidence (S : SetSystem) : Diagram :=
 elements and sets together. -/
 def incidenceFigure (S : SetSystem) : Diagram :=
   Diagram.capped (decide (S.n + S.sets.length ≤ FinGraph.maxVertices))
-    "too many elements and sets to draw" S.incidence
+    "too many elements and sets to draw" fun _ => S.incidence
 
 /-- An edge `(x, y)` is drawn in the incidence drawing exactly when `x` is an element, `y = n + s`
 for a set `s`, and `x ∈ s`. -/

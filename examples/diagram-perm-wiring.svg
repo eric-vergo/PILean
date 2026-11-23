@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="224" height="141" viewBox="0 0 224 141">
+  <g>
+    <title>The wiring diagram of 42513: six inversions</title>
+    <path d="M0 0 L224 0 L224 141 L0 141 Z" fill="#ffffff"/>
+    <path d="M16.5 32.3 L207.5 32.3" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M16.5 108.7 L207.5 108.7" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g>
+      <title>strand 0</title>
+      <path d="M35.6 32.3 L150.2 108.7" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>strand 1</title>
+      <path d="M73.8 32.3 L73.8 108.7" fill="none" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>strand 2</title>
+      <path d="M112 32.3 L188.4 108.7" fill="none" stroke="#007852" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>strand 3</title>
+      <path d="M150.2 32.3 L35.6 108.7" fill="none" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>strand 4</title>
+      <path d="M188.4 32.3 L112 108.7" fill="none" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (0, 0)</title>
+      <path d="M34.175 15.8 L37.025 13.385 L37.025 22.715" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (0, 1)</title>
+      <path d="M71.047 15.12 C71.426 14.074 72.373 13.343 73.477 13.246 C74.58 13.149 75.639 13.703 76.193 14.668 C76.747 15.632 76.695 16.831 76.06 17.743 L70.875 22.715 L76.725 22.715" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (0, 2)</title>
+      <path d="M109.601 14.443 C110.219 13.428 111.518 12.98 112.681 13.381 C113.844 13.781 114.535 14.915 114.32 16.069 C114.105 17.224 113.046 18.065 111.809 18.065 L111.809 18.035 C113.192 18.035 114.375 18.876 114.616 20.031 C114.856 21.185 114.083 22.319 112.784 22.719 C111.484 23.12 110.032 22.672 109.341 21.658" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (0, 3)</title>
+      <path d="M152.075 22.715 L152.075 13.385 L146.975 20.375 L153.425 20.375" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (0, 4)</title>
+      <path d="M190.413 13.385 L186.303 13.385 L186.303 18.095 L186.306 18.102 C187.087 17.273 188.272 17.051 189.272 17.546 C190.272 18.042 190.874 19.15 190.778 20.318 C190.681 21.487 189.908 22.466 188.842 22.77 C187.776 23.074 186.645 22.636 186.012 21.675" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1, 0)</title>
+      <path d="M34.175 118.3 L37.025 115.885 L37.025 125.215" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1, 1)</title>
+      <path d="M71.047 117.62 C71.426 116.574 72.373 115.843 73.477 115.746 C74.58 115.649 75.639 116.203 76.193 117.168 C76.747 118.132 76.695 119.331 76.06 120.243 L70.875 125.215 L76.725 125.215" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1, 2)</title>
+      <path d="M109.601 116.943 C110.219 115.928 111.518 115.48 112.681 115.881 C113.844 116.281 114.535 117.415 114.32 118.569 C114.105 119.724 113.046 120.565 111.809 120.565 L111.809 120.535 C113.192 120.535 114.375 121.376 114.616 122.531 C114.856 123.685 114.083 124.819 112.784 125.219 C111.484 125.62 110.032 125.172 109.341 124.158" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1, 3)</title>
+      <path d="M152.075 125.215 L152.075 115.885 L146.975 122.875 L153.425 122.875" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1, 4)</title>
+      <path d="M190.413 115.885 L186.303 115.885 L186.303 120.595 L186.306 120.602 C187.087 119.773 188.272 119.551 189.272 120.046 C190.272 120.542 190.874 121.65 190.778 122.818 C190.681 123.987 189.908 124.966 188.842 125.27 C187.776 125.574 186.645 125.136 186.012 124.175" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

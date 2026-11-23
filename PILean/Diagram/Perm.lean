@@ -17,7 +17,7 @@ A `FinPerm` is a permutation of `0, …, n - 1` in one-line notation: the list
 * `cycles`: the functional graph `i → σ i` on a circle, the vertices in the order of the cycles
   (each cycle from its least element), so that a cycle runs round the circle; a fixed point is a
   loop;
-* `wiring`: strand `i` a segment from `(i, 1)` at the top to `(σ i, 0)` at the bottom. Two strands
+* `wiring`: strand `i` a segment from `(i, 2)` at the top to `(σ i, 0)` at the bottom. Two strands
   between the two lines cross exactly when their order changes, so the drawn crossings are the
   inversions: `wiring_crossings` proves that the pairs of strands that cross are exactly the
   pairs `i < j` with `σ i > σ j`, so there are as many as the inversions.
@@ -233,17 +233,23 @@ theorem mem_cycles_edges (σ : FinPerm) (i j : Nat) :
   · rintro ⟨hi, hj, h⟩
     exact ⟨hj, hi, h⟩
 
-/-- The strand of `i`: from `(i, 1)` to `(σ i, 0)`. -/
+/-- The strand of `i`: from `(i, 2)` to `(σ i, 0)`. -/
 def strand (σ : FinPerm) (i : Nat) : Nat × QPoint × QPoint :=
-  (i, ((i : Rat), 1), ((σ.apply i : Rat), 0))
+  (i, ((i : Rat), 2), ((σ.apply i : Rat), 0))
 
-/-- The wiring diagram: the top and bottom lines (guides), then strand `i` for each `i`. -/
+/-- The wiring diagram: the top and bottom lines (guides), then strand `i` for each `i`, then the
+arguments above the top line (entries `(0, i)`) and the values below the bottom one (entries
+`(1, i)`). -/
 def wiring (σ : FinPerm) : Diagram where
-  marks := [{ part := .guide, shape := .segment (-1 / 2, 1) ((σ.n : Rat) - 1 / 2, 1), ink := .faint },
+  marks := [{ part := .guide, shape := .segment (-1 / 2, 2) ((σ.n : Rat) - 1 / 2, 2), ink := .faint },
       { part := .guide, shape := .segment (-1 / 2, 0) ((σ.n : Rat) - 1 / 2, 0), ink := .faint }] ++
-    (List.range σ.n).map fun i =>
+    (List.range σ.n).map (fun i =>
       let (_, p, q) := σ.strand i
-      { part := .strand i, shape := .segment p q, ink := .accent (i % 3) }
+      { part := .strand i, shape := .segment p q, ink := .accent (i % 3) }) ++
+    (List.range σ.n).map (fun i =>
+      { part := .entry 0 i, shape := .text (σ.text i) ((i : Rat), 2) .above }) ++
+    (List.range σ.n).map (fun i =>
+      { part := .entry 1 i, shape := .text (σ.text i) ((i : Rat), 0) .below })
   width := 40 * σ.n.toFloat + 24
 
 /-- The wiring diagram is faithful: its strands are `strand 0, …, strand (n - 1)`, in order. -/
@@ -255,7 +261,8 @@ instance (σ : FinPerm) (d : Diagram) : Decidable (σ.FaithfulWiring d) :=
 
 /-- The wiring diagram draws the strands. -/
 theorem wiring_faithful (σ : FinPerm) : σ.FaithfulWiring σ.wiring := by
-  simp [FaithfulWiring, Diagram.strands, wiring, strand, List.filterMap_map, Function.comp_def]
+  simp [FaithfulWiring, Diagram.strands, wiring, strand, List.filterMap_map, List.filterMap_append,
+    Function.comp_def]
 
 /-- The pairs of strands of the wiring diagram that cross are exactly the inversions, in
 order. -/
@@ -270,7 +277,7 @@ def small (σ : FinPerm) : Bool := σ.values.length ≤ maxSize
 /-- The figure of one of the drawings `draw` (`oneLine`, `twoLine`, `matrix`, `cycles`, `wiring`),
 or a note for more than `maxSize` values (the matrix and the crossings take `n²` steps). -/
 def figure (σ : FinPerm) (draw : FinPerm → Diagram) : Diagram :=
-  Diagram.capped σ.small s!"{σ.n} values: too many to draw" (draw σ)
+  Diagram.capped σ.small s!"{σ.n} values: too many to draw" fun _ => draw σ
 
 /-- Within the cap, the figure is the drawing itself, so its faithfulness theorem applies. -/
 theorem figure_eq (σ : FinPerm) (draw : FinPerm → Diagram) (h : σ.small = true) :

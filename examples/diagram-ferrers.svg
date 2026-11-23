@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="157" viewBox="0 0 200 157">
+  <g>
+    <title>The Ferrers board of (4, 3, 1)</title>
+    <path d="M0 0 L200 0 L200 157 L0 157 Z" fill="#ffffff"/>
+    <g>
+      <title>cell (0, 0)</title>
+      <path d="M13 143.75 L56.5 143.75 L56.5 100.25 L13 100.25 Z" fill="#b44400" fill-opacity="0.122" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1, 0)</title>
+      <path d="M56.5 143.75 L100 143.75 L100 100.25 L56.5 100.25 Z" fill="#b44400" fill-opacity="0.122" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (2, 0)</title>
+      <path d="M100 143.75 L143.5 143.75 L143.5 100.25 L100 100.25 Z" fill="#b44400" fill-opacity="0.122" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (3, 0)</title>
+      <path d="M143.5 143.75 L187 143.75 L187 100.25 L143.5 100.25 Z" fill="#b44400" fill-opacity="0.122" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (0, 1)</title>
+      <path d="M13 100.25 L56.5 100.25 L56.5 56.75 L13 56.75 Z" fill="#b44400" fill-opacity="0.122" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1, 1)</title>
+      <path d="M56.5 100.25 L100 100.25 L100 56.75 L56.5 56.75 Z" fill="#b44400" fill-opacity="0.122" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (2, 1)</title>
+      <path d="M100 100.25 L143.5 100.25 L143.5 56.75 L100 56.75 Z" fill="#b44400" fill-opacity="0.122" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (0, 2)</title>
+      <path d="M13 56.75 L56.5 56.75 L56.5 13.25 L13 13.25 Z" fill="#b44400" fill-opacity="0.122" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

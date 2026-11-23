@@ -269,14 +269,15 @@ def toPlane (d : Diagram) : Plane.Figure where
 theorem toPlane_items (d : Diagram) :
     d.toPlane.items = (d.marks.map (Mark.toItem d.arrowGap)).toArray := rfl
 
-/-- The diagram `d` when `ok`, otherwise a diagram with the note `what` only: how a builder refuses
-data beyond its caps, so that the work on hostile input stays bounded. -/
-def capped (ok : Bool) (what : String) (d : Diagram) : Diagram :=
-  if ok then d else { marks := [{ part := .note 0, shape := .text what (0, 0) .center }] }
+/-- The diagram `d ()` when `ok`, otherwise a diagram with the note `what` only: how a builder
+refuses data beyond its caps, so that the work on hostile input stays bounded. The diagram is a
+function of `Unit` so that it is not computed when `ok` is false. -/
+def capped (ok : Bool) (what : String) (d : Unit → Diagram) : Diagram :=
+  if ok then d () else { marks := [{ part := .note 0, shape := .text what (0, 0) .center }] }
 
 /-- Within its caps a builder draws the diagram itself. -/
-theorem capped_of {ok : Bool} (h : ok = true) (what : String) (d : Diagram) :
-    capped ok what d = d := by
+theorem capped_of {ok : Bool} (h : ok = true) (what : String) (d : Unit → Diagram) :
+    capped ok what d = d () := by
   simp [capped, h]
 
 /-- The diagram in the dark style. -/

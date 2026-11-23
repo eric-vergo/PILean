@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="157" viewBox="0 0 200 157">
+  <g>
+    <title>A semistandard tableau of shape (4, 3, 1), French notation</title>
+    <path d="M0 0 L200 0 L200 157 L0 157 Z" fill="#ffffff"/>
+    <g>
+      <title>cell (0, 0)</title>
+      <path d="M13 143.75 L56.5 143.75 L56.5 100.25 L13 100.25 Z" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (0, 1)</title>
+      <path d="M56.5 143.75 L100 143.75 L100 100.25 L56.5 100.25 Z" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (0, 2)</title>
+      <path d="M100 143.75 L143.5 143.75 L143.5 100.25 L100 100.25 Z" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (0, 3)</title>
+      <path d="M143.5 143.75 L187 143.75 L187 100.25 L143.5 100.25 Z" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1, 0)</title>
+      <path d="M13 100.25 L56.5 100.25 L56.5 56.75 L13 56.75 Z" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1, 1)</title>
+      <path d="M56.5 100.25 L100 100.25 L100 56.75 L56.5 56.75 Z" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1, 2)</title>
+      <path d="M100 100.25 L143.5 100.25 L143.5 56.75 L100 56.75 Z" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (2, 0)</title>
+      <path d="M13 56.75 L56.5 56.75 L56.5 13.25 L13 13.25 Z" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (0, 0)</title>
+      <path d="M33.325 118.55 L36.175 116.135 L36.175 125.465" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (0, 1)</title>
+      <path d="M76.825 118.55 L79.675 116.135 L79.675 125.465" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (0, 2)</title>
+      <path d="M118.997 117.87 C119.376 116.824 120.323 116.093 121.427 115.996 C122.53 115.899 123.589 116.453 124.143 117.417 C124.697 118.382 124.645 119.581 124.01 120.493 L118.825 125.465 L124.675 125.465" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (0, 3)</title>
+      <path d="M167.125 125.465 L167.125 116.135 L162.025 123.125 L168.475 123.125" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1, 0)</title>
+      <path d="M31.997 74.37 C32.376 73.324 33.323 72.593 34.427 72.496 C35.53 72.399 36.589 72.953 37.143 73.917 C37.697 74.882 37.645 76.081 37.01 76.993 L31.825 81.965 L37.675 81.965" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1, 1)</title>
+      <path d="M75.851 73.693 C76.469 72.678 77.768 72.23 78.931 72.631 C80.094 73.031 80.785 74.165 80.57 75.319 C80.355 76.474 79.296 77.315 78.059 77.315 L78.059 77.285 C79.442 77.285 80.625 78.126 80.866 79.281 C81.106 80.435 80.333 81.569 79.034 81.969 C77.734 82.37 76.282 81.922 75.591 80.908" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1, 2)</title>
+      <path d="M123.625 81.965 L123.625 72.635 L118.525 79.625 L124.975 79.625" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (2, 0)</title>
+      <path d="M36.625 38.465 L36.625 29.135 L31.525 36.125 L37.975 36.125" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

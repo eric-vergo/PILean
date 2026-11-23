@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="182" viewBox="0 0 220 182">
+  <g>
+    <title>The Young diagram of (5, 3, 3, 1)</title>
+    <path d="M0 0 L220 0 L220 182 L0 182 Z" fill="#ffffff"/>
+    <g>
+      <title>cell (0, 0)</title>
+      <path d="M13 52.2 L51.8 52.2 L51.8 13.4 L13 13.4 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (0, 1)</title>
+      <path d="M51.8 52.2 L90.6 52.2 L90.6 13.4 L51.8 13.4 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (0, 2)</title>
+      <path d="M90.6 52.2 L129.4 52.2 L129.4 13.4 L90.6 13.4 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (0, 3)</title>
+      <path d="M129.4 52.2 L168.2 52.2 L168.2 13.4 L129.4 13.4 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (0, 4)</title>
+      <path d="M168.2 52.2 L207 52.2 L207 13.4 L168.2 13.4 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1, 0)</title>
+      <path d="M13 91 L51.8 91 L51.8 52.2 L13 52.2 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1, 1)</title>
+      <path d="M51.8 91 L90.6 91 L90.6 52.2 L51.8 52.2 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1, 2)</title>
+      <path d="M90.6 91 L129.4 91 L129.4 52.2 L90.6 52.2 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (2, 0)</title>
+      <path d="M13 129.8 L51.8 129.8 L51.8 91 L13 91 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (2, 1)</title>
+      <path d="M51.8 129.8 L90.6 129.8 L90.6 91 L51.8 91 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (2, 2)</title>
+      <path d="M90.6 129.8 L129.4 129.8 L129.4 91 L90.6 91 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (3, 0)</title>
+      <path d="M13 168.6 L51.8 168.6 L51.8 129.8 L13 129.8 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
