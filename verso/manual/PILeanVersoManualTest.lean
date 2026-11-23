@@ -88,7 +88,8 @@ def main : IO UInt32 := do
     let files ← filesBelow figs
     check (files.contains "manifest.json") "the figures folder has its manifest"
     let svgs := files.filter (·.endsWith ".svg")
-    check (svgs.size == 12) s!"twelve SVG files, light, dark and narrow ({svgs.size})"
+    check (svgs.size == 21)
+      s!"21 SVG files: light, dark, narrow, and the explorers' frames ({svgs.size})"
     for f in svgs do
       let t ← IO.FS.readFile (figs / f)
       check (Svg.isInert t) s!"{f} is inert"
@@ -152,6 +153,9 @@ def main : IO UInt32 := do
     check (has ex "data-pilean-file=\"ManualExample/Figures/ManualExample.windowInline.svg\"" &&
       has ex "data-pilean-file=\"ManualExample/Figures/ManualExample.windowInline-narrow.svg\"")
       "an inline picture names its file"
+    check (has ex
+        "data-pilean-file=\"ManualExample/Figures/ManualExample.radiusSlider-frame-4.svg\"")
+      "an explorer's frame names its file"
     check (!has ex "class=\"pilean-decl-link\"" && !has numbers "class=\"pilean-lean-link\"" &&
       !has numbers "class=\"pilean-site-link\"")
       "by default this genre's figures link no declaration"
