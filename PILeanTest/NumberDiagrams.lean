@@ -54,7 +54,8 @@ theorem totient_spec :
         36, 40, 36, 60, 24, 78, 32, 54, 40, 82, 24, 64, 42, 56, 40, 88, 24, 72, 44, 60, 46, 72, 32,
         96, 42, 60, 40]] ∧
     totientPlot.curves.length = 0 := by
-  sorry
+  exact ⟨totientPlot.builder_faithful (by decide +kernel), rfl, rfl, by decide +kernel,
+    by decide +kernel, rfl⟩
 
 figure_proves totient totient_spec
 
@@ -87,7 +88,8 @@ theorem sieve_spec :
       [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89,
         97] ∧
     sievePlot.headings = [] ∧ sievePlot.solid = false := by
-  sorry
+  exact ⟨sievePlot.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
+    by decide +kernel, rfl, rfl⟩
 
 figure_proves sieve sieve_spec
 
@@ -126,7 +128,8 @@ theorem gaussian_spec :
         (-1, -4), (-1, -2), (-1, -1), (-1, 1), (-1, 2), (-1, 4), (0, -3), (0, 3), (1, -4),
         (1, -2), (1, -1), (1, 1), (1, 2), (1, 4), (2, -3), (2, -1), (2, 1), (2, 3), (3, -2),
         (3, 0), (3, 2), (4, -1), (4, 1)] := by
-  sorry
+  exact ⟨gaussianLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl,
+    by decide +kernel, rfl, by decide +kernel⟩
 
 figure_proves gaussian gaussian_spec
 
@@ -152,7 +155,8 @@ theorem skew_spec :
       (2, 0), (3, -3)] ∧
     skewLattice.points.all (fun (m, n) => !skewLattice.marked m n) = true ∧
     skewLattice.plainInk = .ink := by
-  sorry
+  exact ⟨skewLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl, by decide +kernel,
+    by decide +kernel, rfl⟩
 
 figure_proves skew skew_spec
 
@@ -167,5 +171,185 @@ def figures : Array (String × Diagram) :=
 def gallery : Array (String × Plane.Figure) :=
   figures.map (fun (n, d) => (n ++ ".svg", d.toPlane)) ++
     figures.map (fun (n, d) => (n ++ "-dark.svg", d.dark.toPlane))
+
+/-- A plot of two sequences and a curve on `0, …, 12`, for the checks of faults. -/
+def smallPlot : SeqPlot :=
+  { lo := 0, hi := 12,
+    series := [("n mod 3", fun n => (n % 3 : Nat)), ("3 + n mod 5", fun n => (3 + n % 5 : Nat))],
+    curves := [("n / 3", fun n => (n : Rat) / 3)] }
+
+/-- The small plot. -/
+def small : Diagram := smallPlot.figure
+
+/-- The position of the `k`-th mark (from 0) whose part satisfies `p`. -/
+def posWhere (d : Diagram) (p : Part → Bool) (k : Nat := 0) : Nat :=
+  ((d.marks.zipIdx.filter fun (m, _) => p m.part).map (·.2)).getD k 0
+
+/-- The position of the first mark whose part is `p` and whose shape satisfies `q`. -/
+def posShape (d : Diagram) (p : Part) (q : Shape → Bool) : Nat :=
+  (d.marks.findIdx? fun m => m.part == p && q m.shape).getD 0
+
+/-- Whether a shape is a text. -/
+def isText : Shape → Bool
+  | .text .. => true
+  | _ => false
+
+/-- Whether a shape is a dot. -/
+def isDot : Shape → Bool
+  | .dot _ => true
+  | _ => false
+
+/-- The text of a text mark replaced. -/
+def retext (t : String) (m : Mark) : Mark :=
+  match m.shape with
+  | .text _ p sd => { m with shape := .text t p sd }
+  | _ => m
+
+/-- Each predicate holds of its figure and refuses planted faults in every class of mark. -/
+def faultChecks : Array (String × Bool) :=
+  let P := smallPlot
+  let L := P.layout
+  let ok := fun (d : Diagram) => decide (P.Faithful L d)
+  let d0 := posOf small (.datum 0 4)
+  let c0 := posOf small (.curve 0)
+  let gl := gaussianLattice
+  let okG := fun (d : Diagram) => decide (gl.Faithful d)
+  let v0 := posOf gaussian (.vertex 0)
+  let vp := posWhere gaussian (fun p => p == .vertex 1)
+  let okS := fun (d : Diagram) => decide (sievePlot.Faithful d)
+  let s1 := posOf sieve (.cell 2 0)
+  #[("plot: faithful", ok small),
+    ("plot: a point dropped is refused", !ok (dropMark small d0)),
+    ("plot: a point moved to another value is refused", !ok (changeMark small d0 fun m =>
+      { m with shape := .dot (SeqPlot.point L 4 2) })),
+    ("plot: a point given to the other sequence is refused", !ok (changeMark small d0 fun m =>
+      { m with part := .datum 1 4 })),
+    ("plot: a point in the other sequence's colour is refused", !ok (changeMark small d0 fun m =>
+      { m with ink := .series 1 false })),
+    ("plot: an extra point is refused", !ok (addMark small
+      { part := .datum 0 13, shape := .dot (SeqPlot.point L 13 1), ink := .series 0 false })),
+    ("plot: a point drawn as a circle is refused", !ok (changeMark small d0 fun m =>
+      { m with shape := .circle (SeqPlot.point L 4 1) (1 / 20) })),
+    ("plot: the curve dropped is refused", !ok (dropMark small c0)),
+    ("plot: the curve bent is refused", !ok (changeMark small c0 fun m =>
+      { m with shape := .polyline [(0, 0), (3, 2)] })),
+    ("plot: the curve in another colour is refused", !ok (changeMark small c0 fun m =>
+      { m with ink := .series 0 false })),
+    ("plot: the index axis dropped is refused", !ok (dropMark small (posOf small (.axis 0)))),
+    ("plot: the value axis moved onto the first points is refused",
+      !ok (changeMark small (posOf small (.axis 1)) fun m =>
+        { m with shape := .segment (0, 0) (0, 2) })),
+    ("plot: a tick dropped is refused", !ok (dropMark small (posOf small .guide))),
+    ("plot: a tick's label changed is refused", !ok (changeMark small (posOf small (.note 0))
+      (retext "7"))),
+    ("plot: a value's label changed is refused", !ok (changeMark small (posOf small (.note 1))
+      (retext "9"))),
+    ("plot: a name of the legend changed is refused", !ok (changeMark small
+      (posOf small (.note 2)) (retext "n mod 4"))),
+    ("plot: the legend's sample in another colour is refused", !ok (changeMark small
+      (posShape small .guide isDot) fun m => { m with ink := .series 1 false })),
+    ("plot: the name of the index axis changed is refused", !ok (changeMark small
+      (posOf small (.note 3)) (retext "k"))),
+    ("plot: an extra guide is refused", !ok (addMark small
+      { part := .guide, shape := .segment (0, 0) (3, 2), ink := .faint })),
+    ("plot: an extra note is refused", !ok (addMark small
+      { part := .note 4, shape := .text "a claim" (1, 1) .center })),
+    ("plot: a mark of another kind is refused", !ok (addMark small
+      { part := .vertex 0, shape := .dot (0, 0) })),
+    ("plot: the totient figure is faithful", decide (totientPlot.Faithful totientPlot.layout totient)),
+    ("grid: faithful", okS sieve),
+    ("grid: a prime unmarked is refused", !okS (changeMark sieve s1 fun m => { m with ink := .faint })),
+    ("grid: a cell marked solid instead of tinted is refused", !okS (changeMark sieve s1 fun m =>
+      { m with ink := .solid 0 })),
+    ("grid: a cell moved is refused", !okS (changeMark sieve s1 fun m =>
+      { m with shape := .rect (5, 5) (6, 6) })),
+    ("grid: a cell dropped is refused", !okS (dropMark sieve s1)),
+    ("grid: a number changed is refused", !okS (changeMark sieve (s1 + 1) (retext "4"))),
+    ("grid: an extra heading is refused", !okS (addMark sieve
+      { part := .header 0 0, shape := .text "primes" (0, 2) .center })),
+    ("grid: an extra cell is refused", !okS (addMark sieve
+      { part := .cell 101 0, shape := .rect (0, 1) (1, 2), ink := .tint 0 })),
+    ("lattice: faithful", okG gaussian),
+    ("lattice: a point dropped is refused", !okG (dropMark gaussian v0)),
+    ("lattice: a point moved is refused", !okG (changeMark gaussian v0 fun m =>
+      { m with shape := .dot (1 / 2, 1 / 2) })),
+    ("lattice: a point marked that is not is refused", !okG (changeMark gaussian v0 fun m =>
+      { m with ink := .accent 1 })),
+    ("lattice: a marked point drawn plain is refused", !okG (changeMark gaussian
+      (posOf gaussian (.vertex 3)) fun m => { m with ink := .faint })),
+    ("lattice: two points' parts exchanged is refused", !okG (changeMark (changeMark gaussian v0
+      fun m => { m with part := .vertex 1 }) vp fun m => { m with part := .vertex 0 })),
+    ("lattice: an extra point is refused", !okG (addMark gaussian
+      { part := .vertex 81, shape := .dot (5, 5) })),
+    ("lattice: the parallelogram changed is refused", !okG (changeMark gaussian
+      (posOf gaussian (.note 0)) fun m => { m with shape := .polyline [(0, 0), (2, 0), (2, 1),
+        (0, 1), (0, 0)] })),
+    ("lattice: an axis dropped is refused", !okG (dropMark gaussian (posOf gaussian (.axis 1)))),
+    ("lattice: a label added is refused", !okG (addMark gaussian
+      { part := .note 1, shape := .text "1 + i" (1, 1) .aboveRight }))]
+
+/-- The layouts have the properties they are drawn for. -/
+def layoutChecks : Array (String × Bool) :=
+  let L := totientPlot.layout
+  #[("plot: the index axis of 1, …, 100 starts at 0 with ticks every 20",
+      L.xlo == 0 && L.xstep == 20 && totientPlot.xticks L == [0, 20, 40, 60, 80, 100]),
+    ("plot: the values 1, …, 96 are shown from 0 to 100 with ticks every 20",
+      L.vlo == 0 && L.vhi == 100 && L.ystep == 20),
+    ("plot: no point lies on an axis: the axes are a tenth of a unit outside the points",
+      (totientPlot.dataTriples L).all fun (_, _, p) =>
+        p.1 > SeqPlot.axisX L && p.2 > SeqPlot.axisY L),
+    ("plot: the points of a plot of 100 indices are 1.8 pixels in radius, of 12 indices 3",
+      SeqPlot.dotRadiusFor 100 == 1.8 && SeqPlot.dotRadiusFor 12 == 3),
+    ("grid: the sieve's cells are distinct", (sievePlot.cells.map (·.pos)).eraseDups.length == 100),
+    ("lattice: the bound of the skew lattice covers its window: every point m ω₁ + n ω₂ with \
+      |m|, |n| ≤ 20 in the window has |m|, |n| ≤ bound",
+      let Λ := skewLattice
+      ((List.range 41).flatMap fun (a : Nat) => (List.range 41).map fun (b : Nat) =>
+        ((a : Int) - 20, (b : Int) - 20)).all fun (m, n) =>
+          !Λ.inWindow (Λ.at_ m n) || (m.natAbs ≤ Λ.bound && n.natAbs ≤ Λ.bound)),
+    ("lattice: the points on the axes record that they are on them",
+      let fig := gaussian.toPlane
+      let onAxes := fig.leaves.filter fun lf => lf.info.title == "vertex 4" ||
+        lf.info.title == "vertex 36"
+      onAxes.size == 2 && onAxes.all fun lf => lf.look.incidences.any fun r =>
+        r.2 == "axis 0" || r.2 == "axis 1")]
+
+/-- Hostile data is refused within the caps, before any work that grows with it. -/
+def boundChecks : Array (String × Bool) :=
+  let note := fun (d : Diagram) => d.marks.length == 1 && d.data.isEmpty && d.cells.isEmpty &&
+    d.dots.isEmpty
+  #[("bounds: a plot of a billion indices is a note",
+      note (SeqPlot.figure { lo := 0, hi := 1000000000, series := [("n", fun n => n)] })),
+    ("bounds: a plot of seven sequences is a note",
+      note (SeqPlot.figure { lo := 0, hi := 3, series := List.replicate 7 ("n", fun n => n) })),
+    ("bounds: a plot whose range is empty is a note",
+      note (SeqPlot.figure { lo := 5, hi := 3, series := [("n", fun n => n)] })),
+    ("bounds: a plot with a name of 10000 characters is a note",
+      let long := String.ofList (List.replicate 10000 'a')
+      note (SeqPlot.figure { lo := 0, hi := 3, series := [(long, fun n => n)] })),
+    ("bounds: a plot of values near 10^40 is a note",
+      let big : Nat → Rat := fun n => (10 : Rat) ^ 40 * n
+      note (SeqPlot.figure { lo := 0, hi := 3, series := [("big", big)] })),
+    ("bounds: a grid of a million cells is a note",
+      let c : NumberCell := { key := 0, pos := (0, 0), marked := false }
+      note (CellPlot.figure { cells := List.replicate 1000000 c })),
+    ("bounds: a grid with a text of 10000 characters is a note",
+      let long := String.ofList (List.replicate 10000 'a')
+      note (CellPlot.figure { cells := [{ key := 0, pos := (0, 0), marked := false, text := long }] })),
+    ("bounds: a lattice in a window of a billion units is a note",
+      let Λ : PlaneLattice := { w1 := (1, 0), w2 := (0, 1), lo := (-1000000000, 0), hi := (1000000000, 1) }
+      note Λ.figure),
+    ("bounds: a lattice of dependent periods is a note",
+      note (PlaneLattice.figure { w1 := (1, 2), w2 := (2, 4), lo := (-1, -1), hi := (1, 1) }))]
+
+/-- The figures pass the layout checks of plane figures in both themes (a plot's points by
+`plotProblems`). -/
+def planeChecks : Array (String × Bool) :=
+  (gallery.push ("small-plot.svg", small.toPlane)).map fun (n, f) =>
+    let ps := plotProblems f
+    (s!"layout checks: {n} has no problems ({ps})", ps.isEmpty)
+
+/-- Every check of this module. -/
+def checks : Array (String × Bool) := faultChecks ++ layoutChecks ++ boundChecks ++ planeChecks
 
 end PILeanTest.NumberDiagrams

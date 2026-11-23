@@ -140,6 +140,18 @@ theorem unmarked_shown : ∀ a ∈ List.range 15, ∀ b ∈ List.range 15,
       notPrimeShown ((a : ℤ) - 7) ((b : ℤ) - 7) = true := by
   decide +kernel
 
+/-- In the window `|a|, |b| ≤ 7`, `gaussianPrime` marks exactly the primes of `GaussianInt`. -/
+theorem gaussianPrime_iff {a b : ℤ} (ha : |a| ≤ 7) (hb : |b| ≤ 7) :
+    gaussianPrime a b = true ↔ Prime (⟨a, b⟩ : GaussianInt) := by
+  refine ⟨prime_of_gaussianPrime, fun hp => ?_⟩
+  by_contra hf
+  rw [Bool.not_eq_true] at hf
+  rw [abs_le] at ha hb
+  have h := unmarked_shown (a + 7).toNat (by simp; omega) (b + 7).toNat (by simp; omega)
+  rw [Int.toNat_of_nonneg (by omega), Int.toNat_of_nonneg (by omega), add_sub_cancel_right,
+    add_sub_cancel_right] at h
+  exact not_prime_of_shown a b (h hf) hp
+
 /-! ### The figures -/
 
 /-- **Euler's totient.** The figure plots faithfully one sequence, named `φ(n)`, with no curve,
@@ -150,7 +162,10 @@ theorem totientFigure_spec :
     0 < totientPlot.layout.sx ∧ 0 < totientPlot.layout.sy ∧
     ∀ k n p, (k, n, p) ∈ totientFigure.data ↔
       k = 0 ∧ 1 ≤ n ∧ n ≤ 100 ∧ p = SeqPlot.point totientPlot.layout n (Nat.totient n) := by
-  sorry
+  have h : totientPlot.Faithful totientPlot.layout totientFigure :=
+    SeqPlot.faithful_of_marks (totientPlot.builder_faithful (by decide +kernel)) rfl
+  exact ⟨h, rfl, rfl, by decide +kernel, by decide +kernel,
+    SeqPlot.data_iff h rfl (fun n => by simp [totient'_eq])⟩
 
 figure_proves totientFigure totientFigure_spec
 
@@ -164,7 +179,11 @@ theorem divisorFigure_spec :
     ∀ k n p, (k, n, p) ∈ divisorFigure.data ↔
       k = 0 ∧ 1 ≤ n ∧ n ≤ 100 ∧
         p = SeqPlot.point divisorPlot.layout n (ArithmeticFunction.sigma 0 n) := by
-  sorry
+  have h : divisorPlot.Faithful divisorPlot.layout divisorFigure :=
+    SeqPlot.faithful_of_marks (divisorPlot.builder_faithful (by decide +kernel)) rfl
+  exact ⟨h, rfl, rfl, by decide +kernel, by decide +kernel,
+    SeqPlot.data_iff h rfl
+      (fun n => by simp [divisorCount_eq, ArithmeticFunction.sigma_zero_apply])⟩
 
 figure_proves divisorFigure divisorFigure_spec
 
@@ -183,14 +202,19 @@ theorem primeCountFigure_spec :
       [{ part := .curve 0, ink := .series 1 false,
          shape := .polyline ((List.range' 2 99).map fun n =>
            SeqPlot.point primeCountPlot.layout n ((n : ℚ) / (harmonic n - 1))) }] := by
-  sorry
+  have h : primeCountPlot.Faithful primeCountPlot.layout primeCountFigure :=
+    SeqPlot.faithful_of_marks (primeCountPlot.builder_faithful (by decide +kernel)) rfl
+  refine ⟨h, rfl, by decide +kernel, by decide +kernel,
+    SeqPlot.data_iff h rfl (fun n => by simp [primeCount_eq]), ?_⟩
+  rw [h.2.2.1]
+  simp [SeqPlot.curveMarks, primeCountPlot, SeqPlot.indices, harmonic'_eq]
 
 figure_proves primeCountFigure primeCountFigure_spec
 
 /-- **The primes on the Ulam spiral.** The figure draws the cells faithfully: their numbers are
 `1, …, 441`, each cell next to the one before (one unit across or up or down), no two at one
-place, `1` at the origin; a cell is marked (filled) exactly when its number is `Nat.Prime`;
-only the cell of `1` has a text, `1`; there is no heading. -/
+place, `1` at the origin (the centre of the spiral); a cell is marked (filled) exactly when its
+number is `Nat.Prime`; no cell has a text and there is no heading. -/
 theorem ulamFigure_spec :
     ulamPlot.Faithful ulamFigure ∧ ulamPlot.solid = true ∧ ulamPlot.headings = [] ∧
     ulamPlot.cells.map (·.key) = List.range' 1 441 ∧
@@ -198,9 +222,16 @@ theorem ulamFigure_spec :
     (ulamPlot.cells.zip ulamPlot.cells.tail).all (fun (c, c') =>
       (c.pos.1 - c'.pos.1).natAbs + (c.pos.2 - c'.pos.2).natAbs == 1) = true ∧
     (ulamPlot.cells.map (·.pos)).Nodup ∧
-    (∀ c ∈ ulamPlot.cells, c.text = if c.key = 1 then "1" else "") ∧
+    (∀ c ∈ ulamPlot.cells, c.text = "") ∧
     ∀ c ∈ ulamPlot.cells, c.marked = true ↔ c.key.Prime := by
-  sorry
+  have h : ulamPlot.Faithful ulamFigure :=
+    CellPlot.faithful_of_marks (ulamPlot.builder_faithful (by decide +kernel))
+      (by simp only [ulamFigure])
+  have hc : ∀ c ∈ ulamPlot.cells, c.marked = isPrime' c.key ∧ c.text = "" := fun c h' => by
+    simpa using mem_ulamCells h'
+  refine ⟨h, rfl, rfl, by decide +kernel, by decide +kernel, by decide +kernel,
+    (nodup_of_distinctInBox 10 _ 0 (by decide +kernel)).2, fun c h' => (hc c h').2,
+    fun c h' => by rw [(hc c h').1, isPrime'_iff]⟩
 
 figure_proves ulamFigure ulamFigure_spec
 
@@ -219,7 +250,21 @@ theorem residueFigure_spec :
     residuePlot.headings.map (·.1) = ["p = 3", "p = 5", "p = 7", "p = 11", "p = 13", "a", "0", "1",
       "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"] ∧
     residuePlot.solid = false := by
-  sorry
+  have h : residuePlot.Faithful residueFigure :=
+    CellPlot.faithful_of_marks (residuePlot.builder_faithful (by decide +kernel))
+      (by simp only [residueFigure])
+  refine ⟨h, rfl, by decide +kernel, by decide +kernel, fun i p hp hi a ha => ?_,
+    by decide +kernel, rfl⟩
+  have := Fact.mk hp
+  have hne : NeZero p := ⟨hp.ne_zero⟩
+  refine ⟨residueCell p i a, ?_, rfl, rfl, ?_, by rw [residueCell, legendre'_eq]⟩
+  · simp only [residuePlot, List.mem_flatMap, List.mem_map, List.mem_range]
+    exact ⟨(p, i), List.mem_zipIdx_iff_getElem?.2 hi, a, ha, rfl⟩
+  · have h0 : (a : ZMod p) ≠ 0 ↔ a % p ≠ 0 := by
+      rw [ne_eq, ZMod.natCast_eq_zero_iff, Nat.dvd_iff_mod_eq_zero]
+    simp only [residueCell, legendre', beq_iff_eq]
+    rw [h0, isSquare_iff_any]
+    split_ifs with h1 h2 <;> simp_all
 
 figure_proves residueFigure residueFigure_spec
 
@@ -233,7 +278,42 @@ theorem gaussianFigure_spec :
       ∃ a b : ℤ, |a| ≤ 7 ∧ |b| ≤ 7 ∧ p = ((a : ℚ), (b : ℚ)) ∧
         (col = .accent 1 ∧ Prime (⟨a, b⟩ : GaussianInt) ∨
           col = .faint ∧ ¬ Prime (⟨a, b⟩ : GaussianInt)) := by
-  sorry
+  have h : gaussianLattice.Faithful gaussianFigure :=
+    PlaneLattice.faithful_of_marks (gaussianLattice.builder_faithful (by decide +kernel))
+      (by simp only [gaussianFigure])
+  refine ⟨h, fun p col => ?_⟩
+  have hb : gaussianLattice.bound = 7 := by decide +kernel
+  have hw : ∀ m n : ℤ, (m, n) ∈ gaussianLattice.points ↔ |m| ≤ 7 ∧ |n| ≤ 7 := by
+    intro m n
+    rw [PlaneLattice.mem_points, hb]
+    simp only [PlaneLattice.inWindow, PlaneLattice.at_, gaussianLattice, Bool.and_eq_true]
+    simp only [decide_eq_true_eq, mul_one, mul_zero, add_zero, zero_add, abs_le]
+    constructor
+    · rintro ⟨-, -, ⟨⟨h1, h2⟩, h3⟩, h4⟩
+      exact ⟨⟨by exact_mod_cast h1, by exact_mod_cast h2⟩, by exact_mod_cast h3,
+        by exact_mod_cast h4⟩
+    · rintro ⟨⟨h1, h2⟩, h3, h4⟩
+      refine ⟨by omega, by omega, ⟨⟨by exact_mod_cast h1, by exact_mod_cast h2⟩,
+        by exact_mod_cast h3⟩, by exact_mod_cast h4⟩
+  have hink : ∀ m n : ℤ, |m| ≤ 7 → |n| ≤ 7 → ∀ col, col = gaussianLattice.pointInk m n ↔
+      (col = .accent 1 ∧ Prime (⟨m, n⟩ : GaussianInt) ∨
+        col = .faint ∧ ¬ Prime (⟨m, n⟩ : GaussianInt)) := by
+    intro m n hm hn col
+    rw [← gaussianPrime_iff hm hn]
+    simp only [PlaneLattice.pointInk, gaussianLattice]
+    by_cases hg : gaussianPrime m n = true <;> simp [hg]
+  rw [h.1]
+  simp only [List.mem_map, Prod.mk.injEq]
+  constructor
+  · rintro ⟨i, ⟨⟨m, n⟩, j⟩, hmem, rfl, rfl, rfl⟩
+    obtain ⟨hm, hn⟩ := (hw m n).1 (List.fst_mem_of_mem_zipIdx hmem)
+    refine ⟨m, n, hm, hn, ?_, (hink m n hm hn _).1 rfl⟩
+    simp [PlaneLattice.at_, gaussianLattice]
+  · rintro ⟨m, n, hm, hn, rfl, hc⟩
+    obtain ⟨k, hk⟩ := List.mem_iff_getElem?.1 ((hw m n).2 ⟨hm, hn⟩)
+    refine ⟨k, ((m, n), k), List.mk_mem_zipIdx_iff_getElem?.2 hk, rfl, ?_, ?_⟩
+    · simp [PlaneLattice.at_, gaussianLattice]
+    · exact ((hink m n hm hn col).2 hc).symm
 
 figure_proves gaussianFigure gaussianFigure_spec
 

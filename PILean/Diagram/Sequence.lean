@@ -21,13 +21,14 @@ Two kinds for number theory, drawn from the sequences and predicates themselves.
   `CellPlot.Faithful` accounts for every cell, its colour (accent 0 tinted exactly when marked)
   and its text, the headings and nothing else.
 
-`ulam n` is the position of `n ≥ 1` on the square spiral, `1` at the origin.
+`ulamWalk count` lists the positions of `1, …, count` on the square spiral, `1` at the origin.
 
 ## Main definitions
 
 * `SeqPlot`, `SeqLayout`, `SeqPlot.layout`, `SeqPlot.draw`, `SeqPlot.figure`, `SeqPlot.Faithful`
 * `Diagram.data`: the dots of a plot, read back
-* `CellPlot`, `CellPlot.draw`, `CellPlot.figure`, `CellPlot.Faithful`, `ulam`, `ulamCells`
+* `plotProblems`: the layout checks of plane figures as a plot needs them
+* `CellPlot`, `CellPlot.draw`, `CellPlot.figure`, `CellPlot.Faithful`, `ulamWalk`, `ulamCells`
 
 ## Main results
 
@@ -345,6 +346,42 @@ theorem builder_faithful (P : SeqPlot) (h : P.withinCaps = true) :
 
 end SeqPlot
 
+/-! ### The layout checks of a plot -/
+
+/-- The radius of a leaf's marker without its ring (`Item.size`, or the style's radius). -/
+def discRadius (e : Plane.Env) (lf : Plane.Leaf) : Float := lf.look.size.getD e.ps.markerRadius
+
+/-- Whether a leaf is a point of a plotted sequence (its title is `sequence k at n`). -/
+def isDatumLeaf (lf : Plane.Leaf) : Bool := lf.info.title.startsWith "sequence "
+
+/-- Whether a leaf is a plotted curve (its title is `curve j`). -/
+def isCurveLeaf (lf : Plane.Leaf) : Bool := lf.info.title.startsWith "curve "
+
+/-- The problems the layout checks of plane figures find in a figure, with two exceptions for the
+points of a plot: two of them may stand closer than markers must in a geometric figure when their
+discs do not overlap (in a plot the abscissa tells the indices apart, and a reader can still count
+the points), and a point may lie near a comparison curve (a plot's point is read against its axes,
+and a point near the curve claims no incidence with it). -/
+def plotProblems (fig : Plane.Figure) : Array String :=
+  if fig.checks == .ignore then #[] else
+  let e := fig.env
+  let lv := (fig.autoPlaced).leaves
+  (fig.problems.filter fun pr =>
+    match pr.kind, pr.items[0]?, pr.items[1]? with
+    | .markersTooClose, some i, some j =>
+      match lv[i]?, lv[j]? with
+      | some a, some b =>
+        let apart := match Plane.markerOf e a, Plane.markerOf e b with
+          | some (p, _), some (q, _) => (p - q).norm ≥ discRadius e a + discRadius e b
+          | _, _ => false
+        !(isDatumLeaf a && isDatumLeaf b && apart)
+      | _, _ => true
+    | .undecidedIncidence, some i, some j =>
+      match lv[i]?, lv[j]? with
+      | some a, some b => !(isDatumLeaf a && isCurveLeaf b)
+      | _, _ => true
+    | _, _, _ => true).map (·.message)
+
 /-! ### Grids of numbers -/
 
 /-- A cell of a `CellPlot`: its key, its position (the lower left corner of a unit square), whether
@@ -492,33 +529,36 @@ theorem builder_faithful (P : CellPlot) (h : P.withinCaps = true) :
 
 end CellPlot
 
-/-- The position of `n ≥ 1` on the square spiral: `1` at the origin, then one step right, one up,
-two left, two down, three right, … (`ulamWalk`). -/
-def ulamWalk (count : Nat) : Array (Int × Int) := Id.run do
-  let mut out : Array (Int × Int) := #[(0, 0)]
-  let mut x : Int := 0
-  let mut y : Int := 0
-  let mut run := 1
-  let mut dir := 0
-  while out.size < count do
-    for _ in [0:2] do
-      for _ in [0:run] do
-        match dir % 4 with
-        | 0 => x := x + 1
-        | 1 => y := y + 1
-        | 2 => x := x - 1
-        | _ => y := y - 1
-        out := out.push (x, y)
-      dir := dir + 1
-    run := run + 1
-  return out
+/-- The point one step from `p` in the direction `dir` (`0` right, `1` up, `2` left, `3` down,
+taken modulo 4). -/
+def spiralStep (dir : Nat) (p : Int × Int) : Int × Int :=
+  match dir % 4 with
+  | 0 => (p.1 + 1, p.2)
+  | 1 => (p.1, p.2 + 1)
+  | 2 => (p.1 - 1, p.2)
+  | _ => (p.1, p.2 - 1)
+
+/-- The next `n` points of the square spiral after `p`: going `dir`, `k` steps taken of a run of
+`run` steps, the run the first (`second = false`) or the second of its length; after two runs of
+a length the next is one longer, and each run turns left. Structural in `n`, so that the kernel
+can evaluate it. -/
+def spiralFrom : Nat → Int × Int → (run k dir : Nat) → (second : Bool) → List (Int × Int)
+  | 0, _, _, _, _, _ => []
+  | n + 1, p, run, k, dir, second =>
+    let q := spiralStep dir p
+    if k + 1 < run then q :: spiralFrom n q run (k + 1) dir second
+    else if second then q :: spiralFrom n q (run + 1) 0 (dir + 1) false
+    else q :: spiralFrom n q run 0 (dir + 1) true
+
+/-- The positions of `1, …, count` on the square spiral: `1` at the origin, then one step right,
+one up, two left, two down, three right, … -/
+def ulamWalk (count : Nat) : List (Int × Int) :=
+  if count = 0 then [] else (0, 0) :: spiralFrom (count - 1) (0, 0) 1 0 0 false
 
 /-- The Ulam spiral of `1, …, count`: cell `n` at its place on the spiral, marked where `p n`,
 with its number written when `numbers`. -/
 def ulamCells (count : Nat) (p : Nat → Bool) (numbers : Bool := false) : List NumberCell :=
-  let w := ulamWalk count
-  (List.range count).map fun i =>
-    { key := i + 1, pos := w.getD i (0, 0), marked := p (i + 1),
-      text := if numbers then toString (i + 1) else "" }
+  (ulamWalk count).zipIdx.map fun (pos, i) =>
+    { key := i + 1, pos, marked := p (i + 1), text := if numbers then toString (i + 1) else "" }
 
 end PILean.Diagram

@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanMathlibTest.Files
+import PILeanMathlibTest.Mutations
 
 /-!
 # The test driver
@@ -20,8 +21,10 @@ the theorems do not cover:
 * **pixels**: one unit of the ordinate is 143.5 pixels at the gallery size, the number the
   documents use to state the bound in pixels;
 * **the pin**: `lakefile.lean` and `lake-manifest.json` name the same Mathlib revision;
-* **the diagrams**: the combinatorial figures and those of algebra pass the layout checks of
-  plane figures in both themes;
+* **the diagrams**: the combinatorial figures, those of algebra and those of number theory pass
+  the layout checks of plane figures in both themes;
+* **the changes**: changes to the figures of number theory each break their theorem
+  (`PILeanMathlibTest.Mutations`);
 * **the modules**: every file below `PILeanMathlib/` on disk is imported by
   `PILeanMathlib/Axioms.lean`, whose axiom check covers the modules it imports, so a new file is
   reported even when that module's build comes from the cache.
@@ -95,12 +98,14 @@ def moduleChecks : IO (Array (String × Bool)) := do
   return #[("modules: every file below PILeanMathlib/ is imported by the axiom check",
     !mods.isEmpty && missing.isEmpty)]
 
-/-- The diagrams (combinatorics, algebra) pass the layout checks of plane figures in both
-themes. -/
+/-- The diagrams (combinatorics, algebra, number theory) pass the layout checks of plane figures
+in both themes (the points of a plot as `PILean.Diagram.plotProblems` checks them). -/
 def diagramChecks : Array (String × Bool) :=
   diagrams.flatMap fun (n, d) =>
-    #[(s!"layout checks: {n} has no problems", d.toPlane.checkMessages.isEmpty),
-      (s!"layout checks: {n}-dark has no problems", d.dark.toPlane.checkMessages.isEmpty)]
+    let light := PILean.Diagram.plotProblems d.toPlane
+    let dark := PILean.Diagram.plotProblems d.dark.toPlane
+    #[(s!"layout checks: {n} has no problems {light}", light.isEmpty),
+      (s!"layout checks: {n}-dark has no problems {dark}", dark.isEmpty)]
 
 end PILeanMathlibTest
 
@@ -108,7 +113,7 @@ open PILeanMathlibTest in
 /-- Runs the checks; `--update` rewrites the goldens. -/
 def main (args : List String) : IO UInt32 := do
   let all := floatChecks ++ (← goldenChecks (args == ["--update"])) ++ (← pinChecks) ++
-    (← moduleChecks) ++ diagramChecks
+    (← moduleChecks) ++ diagramChecks ++ (← Mutations.ioChecks)
   let mut failed := 0
   for (name, ok) in all do
     if ok then IO.println s!"ok {name}" else

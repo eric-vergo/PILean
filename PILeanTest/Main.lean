@@ -31,6 +31,7 @@ import PILeanTest.Axioms
 import PILeanTest.SpecMutations
 import PILeanTest.Diagrams
 import PILeanTest.AlgebraDiagrams
+import PILeanTest.NumberDiagrams
 import PILeanTest.Standing
 
 /-!
@@ -40,7 +41,8 @@ import PILeanTest.Standing
 `PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`, `PILeanTest.Plots`,
 `PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.GraphRoutes`, `PILeanTest.Trust`,
 `PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`,
-`PILeanTest.Diagrams`, `PILeanTest.AlgebraDiagrams`, `PILeanTest.Standing`), the
+`PILeanTest.Diagrams`, `PILeanTest.AlgebraDiagrams`, `PILeanTest.NumberDiagrams`,
+`PILeanTest.Standing`), the
 changes to the figures that their specifications must catch (`PILeanTest.SpecMutations`), and
 compares every gallery figure's SVG and PNG, every gallery plane figure's (the diagrams' among
 them) and graph's SVG and
@@ -134,6 +136,7 @@ def main (args : List String) : IO UInt32 := do
     Enclosures.checks ++ FigureChecks.checks ++ (← FigureChecks.ioChecks) ++
     PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
     (← SpecMutations.ioChecks) ++ Axioms.coverageChecks driverModules ++ Diagrams.checks ++ AlgebraDiagrams.checks ++
+    NumberDiagrams.checks ++
     Standing.checks ++ (← Standing.ioChecks)
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1
@@ -165,7 +168,8 @@ def main (args : List String) : IO UInt32 := do
           the change)"
         failed := failed + 1
       else IO.println s!"golden {pngPath}: same"
-  for (name, fig) in Examples.planes ++ Diagrams.gallery ++ AlgebraDiagrams.gallery do
+  for (name, fig) in Examples.planes ++ Diagrams.gallery ++ AlgebraDiagrams.gallery ++
+      NumberDiagrams.gallery do
     let svg := fig.toSvg
     let pngName := (System.FilePath.mk name).withExtension "png" |>.toString
     let outs : Array (String × ByteArray) := #[(name, svg.toUTF8), (pngName, fig.toPng.getD .empty)]

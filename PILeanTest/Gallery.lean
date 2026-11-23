@@ -5,13 +5,15 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILeanTest.Examples
 import PILeanTest.Diagrams
 import PILeanTest.AlgebraDiagrams
+import PILeanTest.NumberDiagrams
 
 /-!
 # The gallery writer
 
 `lake exe pilean-gallery` writes every figure of `PILeanTest.Examples.gallery` to `examples/`,
 as SVG and as PNG, every plane figure of `PILeanTest.Examples.planes` and of
-`PILeanTest.Diagrams.gallery` and `PILeanTest.AlgebraDiagrams.gallery` and every graph of
+`PILeanTest.Diagrams.gallery`, `PILeanTest.AlgebraDiagrams.gallery` and
+`PILeanTest.NumberDiagrams.gallery` and every graph of
 `PILeanTest.Examples.graphs` the same way, and every
 animation of `PILeanTest.Examples.animations` as an animated SVG
 (`NAME.svg`), an animated PNG (`NAME.png`), a GIF (`NAME.gif`) and its poster frame
@@ -30,7 +32,8 @@ def main : IO Unit := do
       let pngName := (System.FilePath.mk name).withExtension "png"
       IO.FS.writeBinFile ("examples" / pngName) png
       IO.println s!"examples/{pngName}"
-  for (name, fig) in planes ++ PILeanTest.Diagrams.gallery ++ PILeanTest.AlgebraDiagrams.gallery do
+  for (name, fig) in planes ++ PILeanTest.Diagrams.gallery ++ PILeanTest.AlgebraDiagrams.gallery ++
+      PILeanTest.NumberDiagrams.gallery do
     IO.FS.writeFile ("examples" / name) fig.toSvg
     let pngName := (System.FilePath.mk name).withExtension "png"
     IO.FS.writeBinFile ("examples" / pngName) (fig.toPng.getD .empty)

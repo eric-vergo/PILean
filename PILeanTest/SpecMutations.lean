@@ -16,7 +16,8 @@ the core's figures are `mutations`; the LeAnTeX package checks its own with the 
 
 ## Main definitions
 
-* `SpecMutation`, `SpecMutation.apply`, `errorLines`, `check`, `checkAll`, `mutations`,
+* `SpecMutation`, `SpecMutation.apply`, `errorLines`, `specLines`, `check`, `checkAll`,
+  `diagramMutations`, `algebraMutations`, `numberMutations`, `mutations`,
   `ioChecks`.
 -/
 
@@ -81,12 +82,17 @@ def errorLines (out : String) (path : String) : Array Nat :=
       | _ => none
     else none
 
-/-- The lines (from 1) of the specification in `text`: from its `theorem` line to the
-`figure_proves` line that names it. -/
+/-- The lines (from 1) of the specification in `text`: from its docstring (Lean reports an error
+of the whole declaration there) or, without one, its `theorem` line, to the `figure_proves` line
+that names it. -/
 def specLines (text spec : String) : Option (Nat × Nat) := do
   let ls := (text.splitOn "\n").toArray
-  let first ← ls.findIdx? (·.startsWith s!"theorem {spec} ")
+  let thm ← ls.findIdx? (·.startsWith s!"theorem {spec} ")
   let last ← ls.findIdx? fun l => l.startsWith "figure_proves " && l.endsWith s!" {spec}"
+  let above := if thm = 0 then "" else (ls[thm - 1]!).trimAsciiEnd.toString
+  let first := if above.endsWith "-/" then
+      ((List.range thm).reverse.find? fun i => (ls[i]!).startsWith "/--").getD thm
+    else thm
   return (first + 1, last + 1)
 
 /-- Runs the `lean` of the build on a file; its exit code and its output. -/
@@ -196,8 +202,41 @@ def algebraMutations : Array SpecMutation :=
     { file := f, what := "the loop is at the first vertex", anchor := "def quiverData : FinQuiver",
       edits := [("(2, 2, \"ℓ\")", "(0, 0, \"ℓ\")")], spec := "quiver_spec" }]
 
+/-- The changes to the data of the gallery's plots, grids and lattices
+(`PILeanTest/NumberDiagrams.lean`) that their specifications must catch: a value, a name, the
+range, a marking, a text, a window, a period or a colour changed. -/
+def numberMutations : Array SpecMutation :=
+  let f : System.FilePath := "PILeanTest" / "NumberDiagrams.lean"
+  #[{ file := f, what := "the totient counts the a ≤ n", anchor := "def phi (n : Nat) : Nat :=",
+      edits := [("(List.range n)", "(List.range (n + 1))")], spec := "totient_spec" },
+    { file := f, what := "the plot ends at 99", anchor := "def totientPlot : SeqPlot :=",
+      edits := [("hi := 100", "hi := 99")], spec := "totient_spec" },
+    { file := f, what := "the sequence is named ϕ(n)", anchor := "def totientPlot : SeqPlot :=",
+      edits := [("\"φ(n)\"", "\"ϕ(n)\"")], spec := "totient_spec" },
+    { file := f, what := "the plot gains a curve", anchor := "def totientPlot : SeqPlot :=",
+      edits := [("fun n => phi n)] }", "fun n => phi n)], curves := [(\"n\", fun n => n)] }")],
+      spec := "totient_spec" },
+    { file := f, what := "1 counts as a prime", anchor := "def isPrime (n : Nat) : Bool :=",
+      edits := [("2 ≤ n &&", "1 ≤ n &&")], spec := "sieve_spec" },
+    { file := f, what := "each cell shows the number before its own", anchor := "def sievePlot :",
+      edits := [("text := toString (i + 1)", "text := toString i")], spec := "sieve_spec" },
+    { file := f, what := "the rows run from the bottom", anchor := "def sievePlot :",
+      edits := [("-((i / 10 : Nat) : Int)", "((i / 10 : Nat) : Int)")], spec := "sieve_spec" },
+    { file := f, what := "the primes 1 mod 4 count as Gaussian primes on the axes",
+      anchor := "def gaussianPrime (a b : Int) : Bool :=",
+      edits := [("k % 4 == 3", "k % 4 == 1")], spec := "gaussian_spec" },
+    { file := f, what := "the window loses its lowest row", anchor := "def gaussianLattice :",
+      edits := [("lo := (-4, -4)", "lo := (-4, -3)")], spec := "gaussian_spec" },
+    { file := f, what := "the plain points are drawn in the ink", anchor := "def gaussianLattice :",
+      edits := [("plainInk := .faint", "plainInk := .ink")], spec := "gaussian_spec" },
+    { file := f, what := "the second period is (1/2, 5/4)", anchor := "def skewLattice :",
+      edits := [("w2 := (1 / 2, 3 / 2)", "w2 := (1 / 2, 5 / 4)")], spec := "skew_spec" },
+    { file := f, what := "the skew lattice marks its origin", anchor := "def skewLattice :",
+      edits := [("hi := (3, 3) }", "hi := (3, 3), marked := fun m n => m == 0 && n == 0 }")],
+      spec := "skew_spec" }]
+
 /-- The changes to the core's figures with specifications (`PILeanTest.Examples` and
-`PILeanTest.PlaneExact`). -/
+`PILeanTest.PlaneExact`), with those of the diagrams' galleries. -/
 def mutations : Array SpecMutation :=
   let disks : System.FilePath := "PILeanTest" / "Examples.lean"
   let plane : System.FilePath := "PILeanTest" / "PlaneExact.lean"
@@ -240,7 +279,8 @@ def mutations : Array SpecMutation :=
     { file := plane, what := "the points do not record the window",
       anchor := "def stepPoint (j : Nat) : Item :=",
       edits := [("Plane.Exact.pointNearDisk (Zeta5.pow j) windowCentre windowRadius \"the window\"",
-        "Plane.Exact.point (Zeta5.pow j)")], spec := "zetaSteps_spec" }] ++ diagramMutations
+        "Plane.Exact.point (Zeta5.pow j)")], spec := "zetaSteps_spec" }] ++ diagramMutations ++
+    algebraMutations ++ numberMutations
 
 /-- The checks of `mutations`. -/
 def ioChecks : IO (Array (String × Bool)) := checkAll mutations

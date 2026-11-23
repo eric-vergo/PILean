@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="219" viewBox="0 0 520 219">
+  <g>
+    <title>Quadratic residues and Legendre symbols modulo 3, 5, 7, 11, 13</title>
+    <path d="M0 0 L520 0 L520 219 L0 219 Z" fill="#16181c"/>
+    <g>
+      <title>cell (300, 0)</title>
+      <path d="M67.14 70.23 L100.98 70.23 L100.98 36.4 L67.14 36.4 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (300, 0)</title>
+      <path d="M84.06 47.298 C85.634 47.298 86.91 49.454 86.91 52.113 C86.91 54.773 85.634 56.928 84.06 56.928 C82.486 56.928 81.21 54.773 81.21 52.113 C81.21 49.454 82.486 47.298 84.06 47.298 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (301, 0)</title>
+      <path d="M100.98 70.23 L134.81 70.23 L134.81 36.4 L100.98 36.4 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (301, 0)</title>
+      <path d="M116.47 49.863 L119.32 47.448 L119.32 56.778" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (302, 0)</title>
+      <path d="M134.81 70.23 L168.65 70.23 L168.65 36.4 L134.81 36.4 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (302, 0)</title>
+      <path d="M144.681 52.413 L150.381 52.413 M154.641 49.863 L157.491 47.448 L157.491 56.778" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (500, 0)</title>
+      <path d="M67.14 104.07 L100.98 104.07 L100.98 70.23 L67.14 70.23 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (500, 0)</title>
+      <path d="M84.06 81.134 C85.634 81.134 86.91 83.289 86.91 85.949 C86.91 88.608 85.634 90.764 84.06 90.764 C82.486 90.764 81.21 88.608 81.21 85.949 C81.21 83.289 82.486 81.134 84.06 81.134 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (501, 0)</title>
+      <path d="M100.98 104.07 L134.81 104.07 L134.81 70.23 L100.98 70.23 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (501, 0)</title>
+      <path d="M116.47 83.699 L119.32 81.284 L119.32 90.614" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (502, 0)</title>
+      <path d="M134.81 104.07 L168.65 104.07 L168.65 70.23 L134.81 70.23 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (502, 0)</title>
+      <path d="M144.681 86.249 L150.381 86.249 M154.641 83.699 L157.491 81.284 L157.491 90.614" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (503, 0)</title>
+      <path d="M168.65 104.07 L202.48 104.07 L202.48 70.23 L168.65 70.23 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (503, 0)</title>
+      <path d="M178.516 86.249 L184.216 86.249 M188.476 83.699 L191.326 81.284 L191.326 90.614" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (504, 0)</title>
+      <path d="M202.48 104.07 L236.32 104.07 L236.32 70.23 L202.48 70.23 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (504, 0)</title>
+      <path d="M217.976 83.699 L220.826 81.284 L220.826 90.614" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (700, 0)</title>
+      <path d="M67.14 137.9 L100.98 137.9 L100.98 104.07 L67.14 104.07 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (700, 0)</title>
+      <path d="M84.06 114.969 C85.634 114.969 86.91 117.125 86.91 119.784 C86.91 122.443 85.634 124.599 84.06 124.599 C82.486 124.599 81.21 122.443 81.21 119.784 C81.21 117.125 82.486 114.969 84.06 114.969 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (701, 0)</title>
+      <path d="M100.98 137.9 L134.81 137.9 L134.81 104.07 L100.98 104.07 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (701, 0)</title>
+      <path d="M116.47 117.534 L119.32 115.119 L119.32 124.449" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (702, 0)</title>
+      <path d="M134.81 137.9 L168.65 137.9 L168.65 104.07 L134.81 104.07 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (702, 0)</title>
+      <path d="M150.306 117.534 L153.156 115.119 L153.156 124.449" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (703, 0)</title>
+      <path d="M168.65 137.9 L202.48 137.9 L202.48 104.07 L168.65 104.07 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (703, 0)</title>
+      <path d="M178.516 120.084 L184.216 120.084 M188.476 117.534 L191.326 115.119 L191.326 124.449" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (704, 0)</title>
+      <path d="M202.48 137.9 L236.32 137.9 L236.32 104.07 L202.48 104.07 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (704, 0)</title>
+      <path d="M217.976 117.534 L220.826 115.119 L220.826 124.449" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (705, 0)</title>
+      <path d="M236.32 137.9 L270.15 137.9 L270.15 104.07 L236.32 104.07 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (705, 0)</title>
+      <path d="M246.186 120.084 L251.886 120.084 M256.146 117.534 L258.996 115.119 L258.996 124.449" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (706, 0)</title>
+      <path d="M270.15 137.9 L303.99 137.9 L303.99 104.07 L270.15 104.07 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (706, 0)</title>
+      <path d="M280.021 120.084 L285.721 120.084 M289.981 117.534 L292.831 115.119 L292.831 124.449" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1100, 0)</title>
+      <path d="M67.14 171.74 L100.98 171.74 L100.98 137.9 L67.14 137.9 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1100, 0)</title>
+      <path d="M84.06 148.804 C85.634 148.804 86.91 150.96 86.91 153.619 C86.91 156.278 85.634 158.434 84.06 158.434 C82.486 158.434 81.21 156.278 81.21 153.619 C81.21 150.96 82.486 148.804 84.06 148.804 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1101, 0)</title>
+      <path d="M100.98 171.74 L134.81 171.74 L134.81 137.9 L100.98 137.9 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1101, 0)</title>
+      <path d="M116.47 151.369 L119.32 148.954 L119.32 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1102, 0)</title>
+      <path d="M134.81 171.74 L168.65 171.74 L168.65 137.9 L134.81 137.9 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1102, 0)</title>
+      <path d="M144.681 153.919 L150.381 153.919 M154.641 151.369 L157.491 148.954 L157.491 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1103, 0)</title>
+      <path d="M168.65 171.74 L202.48 171.74 L202.48 137.9 L168.65 137.9 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1103, 0)</title>
+      <path d="M184.141 151.369 L186.991 148.954 L186.991 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1104, 0)</title>
+      <path d="M202.48 171.74 L236.32 171.74 L236.32 137.9 L202.48 137.9 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1104, 0)</title>
+      <path d="M217.976 151.369 L220.826 148.954 L220.826 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1105, 0)</title>
+      <path d="M236.32 171.74 L270.15 171.74 L270.15 137.9 L236.32 137.9 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1105, 0)</title>
+      <path d="M251.811 151.369 L254.661 148.954 L254.661 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1106, 0)</title>
+      <path d="M270.15 171.74 L303.99 171.74 L303.99 137.9 L270.15 137.9 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1106, 0)</title>
+      <path d="M280.021 153.919 L285.721 153.919 M289.981 151.369 L292.831 148.954 L292.831 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1107, 0)</title>
+      <path d="M303.99 171.74 L337.82 171.74 L337.82 137.9 L303.99 137.9 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1107, 0)</title>
+      <path d="M313.857 153.919 L319.557 153.919 M323.817 151.369 L326.667 148.954 L326.667 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1108, 0)</title>
+      <path d="M337.82 171.74 L371.66 171.74 L371.66 137.9 L337.82 137.9 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1108, 0)</title>
+      <path d="M347.692 153.919 L353.392 153.919 M357.652 151.369 L360.502 148.954 L360.502 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1109, 0)</title>
+      <path d="M371.66 171.74 L405.49 171.74 L405.49 137.9 L371.66 137.9 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1109, 0)</title>
+      <path d="M387.152 151.369 L390.002 148.954 L390.002 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1110, 0)</title>
+      <path d="M405.49 171.74 L439.33 171.74 L439.33 137.9 L405.49 137.9 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1110, 0)</title>
+      <path d="M415.362 153.919 L421.062 153.919 M425.322 151.369 L428.172 148.954 L428.172 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1300, 0)</title>
+      <path d="M67.14 205.57 L100.98 205.57 L100.98 171.74 L67.14 171.74 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1300, 0)</title>
+      <path d="M84.06 182.639 C85.634 182.639 86.91 184.795 86.91 187.454 C86.91 190.113 85.634 192.269 84.06 192.269 C82.486 192.269 81.21 190.113 81.21 187.454 C81.21 184.795 82.486 182.639 84.06 182.639 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1301, 0)</title>
+      <path d="M100.98 205.57 L134.81 205.57 L134.81 171.74 L100.98 171.74 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1301, 0)</title>
+      <path d="M116.47 185.204 L119.32 182.789 L119.32 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1302, 0)</title>
+      <path d="M134.81 205.57 L168.65 205.57 L168.65 171.74 L134.81 171.74 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1302, 0)</title>
+      <path d="M144.681 187.754 L150.381 187.754 M154.641 185.204 L157.491 182.789 L157.491 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1303, 0)</title>
+      <path d="M168.65 205.57 L202.48 205.57 L202.48 171.74 L168.65 171.74 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1303, 0)</title>
+      <path d="M184.141 185.204 L186.991 182.789 L186.991 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1304, 0)</title>
+      <path d="M202.48 205.57 L236.32 205.57 L236.32 171.74 L202.48 171.74 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1304, 0)</title>
+      <path d="M217.976 185.204 L220.826 182.789 L220.826 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1305, 0)</title>
+      <path d="M236.32 205.57 L270.15 205.57 L270.15 171.74 L236.32 171.74 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1305, 0)</title>
+      <path d="M246.186 187.754 L251.886 187.754 M256.146 185.204 L258.996 182.789 L258.996 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1306, 0)</title>
+      <path d="M270.15 205.57 L303.99 205.57 L303.99 171.74 L270.15 171.74 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1306, 0)</title>
+      <path d="M280.021 187.754 L285.721 187.754 M289.981 185.204 L292.831 182.789 L292.831 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1307, 0)</title>
+      <path d="M303.99 205.57 L337.82 205.57 L337.82 171.74 L303.99 171.74 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1307, 0)</title>
+      <path d="M313.857 187.754 L319.557 187.754 M323.817 185.204 L326.667 182.789 L326.667 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1308, 0)</title>
+      <path d="M337.82 205.57 L371.66 205.57 L371.66 171.74 L337.82 171.74 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1308, 0)</title>
+      <path d="M347.692 187.754 L353.392 187.754 M357.652 185.204 L360.502 182.789 L360.502 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1309, 0)</title>
+      <path d="M371.66 205.57 L405.49 205.57 L405.49 171.74 L371.66 171.74 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1309, 0)</title>
+      <path d="M387.152 185.204 L390.002 182.789 L390.002 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1310, 0)</title>
+      <path d="M405.49 205.57 L439.33 205.57 L439.33 171.74 L405.49 171.74 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1310, 0)</title>
+      <path d="M420.987 185.204 L423.837 182.789 L423.837 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1311, 0)</title>
+      <path d="M439.33 205.57 L473.16 205.57 L473.16 171.74 L439.33 171.74 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1311, 0)</title>
+      <path d="M449.197 187.754 L454.897 187.754 M459.157 185.204 L462.007 182.789 L462.007 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>cell (1312, 0)</title>
+      <path d="M473.16 205.57 L507 205.57 L507 171.74 L473.16 171.74 Z" fill="#68b6ec" fill-opacity="0.102" stroke="#68b6ec" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>entry (1312, 0)</title>
+      <path d="M488.657 185.204 L491.507 182.789 L491.507 192.119" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 0</title>
+      <path d="M17.835 50.298 L17.835 59.778 M21.06 50.148 C22.841 50.148 24.285 51.666 24.285 53.538 C24.285 55.411 22.841 56.928 21.06 56.928 C19.279 56.928 17.835 55.411 17.835 53.538 C17.835 51.666 19.279 50.148 21.06 50.148 Z M30.93 53.613 L36.63 53.613 M30.93 51.213 L36.63 51.213 M43.816 48.506 C44.434 47.491 45.733 47.043 46.896 47.444 C48.059 47.845 48.75 48.979 48.535 50.133 C48.32 51.287 47.261 52.128 46.024 52.128 L46.024 52.098 C47.407 52.098 48.59 52.94 48.831 54.094 C49.071 55.248 48.298 56.382 46.999 56.783 C45.699 57.184 44.247 56.736 43.556 55.721" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 1</title>
+      <path d="M17.835 84.134 L17.835 93.614 M21.06 83.984 C22.841 83.984 24.285 85.501 24.285 87.374 C24.285 89.246 22.841 90.764 21.06 90.764 C19.279 90.764 17.835 89.246 17.835 87.374 C17.835 85.501 19.279 83.984 21.06 83.984 Z M30.93 87.449 L36.63 87.449 M30.93 85.049 L36.63 85.049 M48.228 81.284 L44.118 81.284 L44.118 85.994 L44.121 86.001 C44.902 85.171 46.087 84.949 47.087 85.445 C48.087 85.941 48.689 87.048 48.593 88.217 C48.496 89.385 47.723 90.365 46.657 90.669 C45.591 90.972 44.46 90.535 43.827 89.574" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 2</title>
+      <path d="M17.835 117.969 L17.835 127.449 M21.06 117.819 C22.841 117.819 24.285 119.337 24.285 121.209 C24.285 123.081 22.841 124.599 21.06 124.599 C19.279 124.599 17.835 123.081 17.835 121.209 C17.835 119.337 19.279 117.819 21.06 117.819 Z M30.93 121.284 L36.63 121.284 M30.93 118.884 L36.63 118.884 M43.365 115.119 L49.065 115.119 L45.465 124.449" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 3</title>
+      <path d="M13.635 151.804 L13.635 161.284 M16.86 151.654 C18.641 151.654 20.085 153.172 20.085 155.044 C20.085 156.916 18.641 158.434 16.86 158.434 C15.079 158.434 13.635 156.916 13.635 155.044 C13.635 153.172 15.079 151.654 16.86 151.654 Z M26.73 155.119 L32.43 155.119 M26.73 152.719 L32.43 152.719 M40.59 151.369 L43.44 148.954 L43.44 158.284 M48.99 151.369 L51.84 148.954 L51.84 158.284" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 4</title>
+      <path d="M13.635 185.639 L13.635 195.119 M16.86 185.489 C18.641 185.489 20.085 187.007 20.085 188.879 C20.085 190.751 18.641 192.269 16.86 192.269 C15.079 192.269 13.635 190.751 13.635 188.879 C13.635 187.007 15.079 185.489 16.86 185.489 Z M26.73 188.954 L32.43 188.954 M26.73 186.554 L32.43 186.554 M40.59 185.204 L43.44 182.789 L43.44 192.119 M48.016 183.847 C48.634 182.832 49.933 182.384 51.096 182.785 C52.259 183.186 52.95 184.319 52.735 185.474 C52.52 186.628 51.461 187.469 50.224 187.469 L50.224 187.439 C51.607 187.439 52.79 188.281 53.031 189.435 C53.271 190.589 52.498 191.723 51.199 192.124 C49.899 192.524 48.447 192.077 47.756 191.062" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 5</title>
+      <path d="M30.945 18.563 C30.945 17.321 32.053 16.313 33.42 16.313 C34.787 16.313 35.895 17.321 35.895 18.563 L35.895 22.943 M35.895 19.163 L33.12 19.163 C31.587 19.163 30.345 20.043 30.345 21.128 C30.345 22.213 31.587 23.093 33.12 23.093 C34.653 23.093 35.895 22.213 35.895 21.128" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 6</title>
+      <path d="M84.06 13.463 C85.634 13.463 86.91 15.619 86.91 18.278 C86.91 20.938 85.634 23.093 84.06 23.093 C82.486 23.093 81.21 20.938 81.21 18.278 C81.21 15.619 82.486 13.463 84.06 13.463 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 7</title>
+      <path d="M116.47 16.028 L119.32 13.613 L119.32 22.943" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 8</title>
+      <path d="M148.978 15.348 C149.356 14.302 150.304 13.571 151.407 13.474 C152.511 13.377 153.57 13.932 154.124 14.896 C154.678 15.86 154.626 17.059 153.99 17.972 L148.806 22.943 L154.656 22.943" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 9</title>
+      <path d="M183.166 14.671 C183.785 13.656 185.084 13.208 186.247 13.609 C187.41 14.01 188.101 15.143 187.886 16.298 C187.671 17.452 186.612 18.293 185.375 18.293 L185.375 18.263 C186.758 18.263 187.941 19.105 188.181 20.259 C188.422 21.413 187.649 22.547 186.35 22.948 C185.05 23.348 183.598 22.901 182.907 21.886" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 10</title>
+      <path d="M221.276 22.943 L221.276 13.613 L216.176 20.603 L222.626 20.603" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 11</title>
+      <path d="M255.249 13.613 L251.139 13.613 L251.139 18.323 L251.143 18.33 C251.923 17.501 253.108 17.279 254.108 17.775 C255.108 18.27 255.71 19.378 255.614 20.546 C255.518 21.715 254.744 22.695 253.678 22.998 C252.612 23.302 251.481 22.864 250.848 21.904" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 12</title>
+      <path d="M284.221 20.153 L284.221 17.528 C284.221 16.012 284.968 14.622 286.159 13.923 C287.35 13.223 288.787 13.329 289.886 14.198 M287.071 17.213 C288.645 17.213 289.921 18.53 289.921 20.153 C289.921 21.777 288.645 23.093 287.071 23.093 C285.497 23.093 284.221 21.777 284.221 20.153 C284.221 18.53 285.497 17.213 287.071 17.213 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 13</title>
+      <path d="M318.057 13.613 L323.757 13.613 L320.157 22.943" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 14</title>
+      <path d="M354.742 13.463 C356.067 13.463 357.142 14.511 357.142 15.803 C357.142 17.096 356.067 18.143 354.742 18.143 C353.416 18.143 352.342 17.096 352.342 15.803 C352.342 14.511 353.416 13.463 354.742 13.463 Z M354.742 18.113 C356.274 18.113 357.517 19.228 357.517 20.603 C357.517 21.978 356.274 23.093 354.742 23.093 C353.209 23.093 351.967 21.978 351.967 20.603 C351.967 19.228 353.209 18.113 354.742 18.113 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 15</title>
+      <path d="M391.427 16.403 L391.427 19.028 C391.427 20.544 390.68 21.934 389.489 22.634 C388.298 23.334 386.862 23.228 385.762 22.358 M388.577 13.463 C390.151 13.463 391.427 14.78 391.427 16.403 C391.427 18.027 390.151 19.343 388.577 19.343 C387.003 19.343 385.727 18.027 385.727 16.403 C385.727 14.78 387.003 13.463 388.577 13.463 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 16</title>
+      <path d="M416.787 16.028 L419.637 13.613 L419.637 22.943 M426.612 13.463 C428.186 13.463 429.462 15.619 429.462 18.278 C429.462 20.938 428.186 23.093 426.612 23.093 C425.038 23.093 423.762 20.938 423.762 18.278 C423.762 15.619 425.038 13.463 426.612 13.463 Z" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 17</title>
+      <path d="M450.622 16.028 L453.472 13.613 L453.472 22.943 M459.022 16.028 L461.872 13.613 L461.872 22.943" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g>
+      <title>row 18</title>
+      <path d="M484.457 16.028 L487.307 13.613 L487.307 22.943 M491.529 15.348 C491.908 14.302 492.856 13.571 493.959 13.474 C495.062 13.377 496.122 13.932 496.676 14.896 C497.229 15.86 497.177 17.059 496.542 17.972 L491.357 22.943 L497.207 22.943" fill="none" stroke="#ececf0" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

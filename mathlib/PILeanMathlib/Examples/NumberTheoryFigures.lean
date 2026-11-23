@@ -67,10 +67,8 @@ def primeCountPlot : SeqPlot :=
 def primeCountFigure : Diagram :=
   { primeCountPlot.figure with title := "π(n) and n / (Hₙ − 1), 2 ≤ n ≤ 100" }
 
-/-- The Ulam spiral of `1, …, 441` with the primes marked solid and `1` written in its cell. -/
-def ulamPlot : CellPlot :=
-  { cells := (ulamCells 441 isPrime').map fun c => if c.key = 1 then { c with text := "1" } else c,
-    solid := true }
+/-- The Ulam spiral of `1, …, 441`, `1` at the centre, with the primes filled. -/
+def ulamPlot : CellPlot := { cells := ulamCells 441 isPrime', solid := true }
 
 /-- The primes on the Ulam spiral. -/
 @[figure]

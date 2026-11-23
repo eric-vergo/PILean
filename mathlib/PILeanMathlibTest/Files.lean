@@ -5,13 +5,15 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILeanMathlib.Examples.SineFigure
 import PILeanMathlib.Examples.CombinatoricsFigures
 import PILeanMathlib.Examples.AlgebraFigures
+import PILeanMathlib.Examples.NumberTheoryFigures
 
 /-!
 # The files of the gallery
 
 The pictures of `sineFigure`, of the combinatorial figures
 (`PILeanMathlib.Examples.CombinatoricsFigures`) and of the figures of algebra
-(`PILeanMathlib.Examples.AlgebraFigures`), light and dark, as SVG and PNG. This module and
+(`PILeanMathlib.Examples.AlgebraFigures`) and of number theory
+(`PILeanMathlib.Examples.NumberTheoryFigures`), light and dark, as SVG and PNG. This module and
 the programs built from it import nothing from Mathlib.
 -/
 
@@ -25,7 +27,7 @@ def figures : Array (String × Figure) :=
 
 /-- The diagrams of the gallery: file stem and diagram. -/
 def diagrams : Array (String × PILean.Diagram.Diagram) :=
-  PILeanMathlib.Examples.figures ++ algebraFigures
+  PILeanMathlib.Examples.figures ++ algebraFigures ++ numberTheoryFigures
 
 /-- Every file of the gallery: name and bytes, in a fixed order. -/
 def files : Array (String × Except String ByteArray) := Id.run do
