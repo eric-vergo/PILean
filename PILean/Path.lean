@@ -16,6 +16,8 @@ rasteriser later).
 * `PathCmd`, `Path`: the commands and the path; `Path.moveTo`, `lineTo`, `quadTo`, `cubicTo`,
   `close` build one; `Path.rect`, `Path.roundedRect`, `Path.polyline`, `Path.ellipse` common
   shapes.
+* `Path.arc`, `Path.arcTo`: a circular arc between two angles as cubic Béziers, each spanning at
+  most a quarter turn, within `arcError` of the circle (at most 0.0273 % of the radius).
 * `Path.transform`: the path under an affine transform (Béziers are affine invariant).
 * `Path.flatten`: the path as polylines, each curve cut so that no point of the polyline is
   farther than a tolerance from the curve.
@@ -29,6 +31,13 @@ control points: a quadratic with `D = ‖p₀ - 2p₁ + p₂‖` strays at most 
 a cubic with `D` the larger of its two second differences at most `3D / (4n²)`, so the smallest
 `n` meeting the tolerance is used (at most `maxPieces`, so a huge or non-finite curve costs a
 bounded amount of work).
+
+An arc of sweep `Δ` is cut into `⌈|Δ| / (π/2)⌉` equal pieces, each drawn as the cubic whose
+control points lie on the tangents at its ends at the distance `(4/3) tan (δ/4) r` (`δ` the
+sweep of the piece). That cubic meets the circle at its ends and its middle and keeps within
+`r (2/27) sin⁶(δ/4) / cos²(δ/4)` of the radius in between (Goldapp, *Approximation of circular
+arcs by cubic polynomials*, Computer Aided Geometric Design 8, 1991); for a quarter turn this is
+`2.73 × 10⁻⁴ r`, the error `Path.ellipse` has for its four quarters.
 -/
 
 namespace PILean
@@ -125,6 +134,58 @@ def ellipse (c : Point) (rx ry : Float) : Path :=
   (((((empty.moveTo (p rx 0)).cubicTo (p rx (k * ry)) (p (k * rx) ry) (p 0 ry)).cubicTo
     (p (-k * rx) ry) (p (-rx) (k * ry)) (p (-rx) 0)).cubicTo (p (-rx) (-k * ry))
     (p (-k * rx) (-ry)) (p 0 (-ry))).cubicTo (p (k * rx) (-ry)) (p rx (-k * ry)) (p rx 0)).close
+
+/-- The number of cubic pieces of an arc of sweep `Δ` radians: `⌈|Δ| / (π/2)⌉`, at least 1 and
+at most 4 (a sweep beyond a full turn is drawn as a full turn); 0 for a sweep that is not
+finite. -/
+def arcPieceCount (sweep : Float) : Nat :=
+  if sweep.isNaN || sweep.isInf then 0
+  else
+    let q := (sweep.abs / (3.141592653589793 / 2)).ceil
+    if q ≤ 1 then 1 else if q ≥ 4 then 4 else q.toUInt64.toNat
+
+/-- The largest radial error of the cubic piece of sweep `δ` (at most a quarter turn) of a
+circle of radius `r`, as a distance: `r (2/27) sin⁶(δ/4) / cos²(δ/4)` (see the module
+docstring). -/
+def arcError (r δ : Float) : Float :=
+  let s := (δ / 4).sin
+  let c := (δ / 4).cos
+  r.abs * 2 / 27 * s ^ 6 / (c * c)
+
+/-- The cubic pieces of the arc of the circle with centre `c` and radius `r` from angle `θ₀` to
+`θ₁` (radians; a point at angle `θ` is `c + r (cos θ, sin θ)`, so on screen, with `y` down, a
+growing angle turns clockwise). The sweep `θ₁ - θ₀` is clamped to one full turn either way; the
+commands start where the arc starts (no move). -/
+def arcCmds (c : Point) (r θ₀ θ₁ : Float) : Array PathCmd := Id.run do
+  let tau := 2 * 3.141592653589793
+  let sweep := max (-tau) (min tau (θ₁ - θ₀))
+  let n := arcPieceCount sweep
+  if n == 0 || r.isNaN || r.isInf || θ₀.isNaN || θ₀.isInf then return #[]
+  let δ := sweep / n.toFloat
+  let k := 4 / 3 * (δ / 4).tan * r
+  let at_ := fun (θ : Float) => (⟨c.x + r * θ.cos, c.y + r * θ.sin⟩ : Point)
+  let tangent := fun (θ : Float) => (⟨-θ.sin, θ.cos⟩ : Point)
+  let mut out := #[]
+  for i in [0:n] do
+    let a := θ₀ + δ * i.toFloat
+    let b := if i + 1 == n then θ₀ + sweep else θ₀ + δ * (i + 1).toFloat
+    out := out.push (.cubic (at_ a + k * tangent a) (at_ b - k * tangent b) (at_ b))
+  return out
+
+/-- The open arc of the circle with centre `c` and radius `r` from angle `θ₀` to `θ₁` (see
+`arcCmds`), starting with a move to its first point; the empty path for a sweep or radius that is
+not finite. -/
+def arc (c : Point) (r θ₀ θ₁ : Float) : Path :=
+  let cmds := arcCmds c r θ₀ θ₁
+  if cmds.isEmpty then empty
+  else ⟨#[.move ⟨c.x + r * θ₀.cos, c.y + r * θ₀.sin⟩] ++ cmds⟩
+
+/-- The path continued by the arc from angle `θ₀` to `θ₁` (see `arcCmds`): a line to the arc's
+first point, then the arc; for a sector, `(empty.moveTo c).arcTo c r θ₀ θ₁ |>.close`. -/
+def arcTo (path : Path) (c : Point) (r θ₀ θ₁ : Float) : Path :=
+  let cmds := arcCmds c r θ₀ θ₁
+  if cmds.isEmpty then path
+  else ⟨path.cmds.push (.line ⟨c.x + r * θ₀.cos, c.y + r * θ₀.sin⟩) ++ cmds⟩
 
 /-- The closed rectangle with corners `(x, y)` and `(x + w, y + h)` and its corners rounded to
 quarter circles of radius `r` (clamped to `0` and to half the shorter side), each a cubic arc
