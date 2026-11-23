@@ -267,6 +267,21 @@ def treeFigure : PILeanManual.LaidOut := ⟨fun st => tree.treeLayout 0 {} st⟩
 :::figure PILeanManual.Graphs.treeFigure (alt := "A binary tree with root 0, children 1 and 2, then 3 to 6, then 7 to 14 on the bottom level.") (width := "70%")
 :::
 
+{name}`PILean.Graph.fixedLayout` puts every node where the caller says (page coordinates;
+{name}`PILean.Graph.fixedLayoutAt` takes world coordinates and a scale,
+{name}`PILean.Graph.fixedLayoutExact` exact points) and draws the edges straight or bent around
+the nodes they would pass through; the result is a normal layout for `toSvg`, `toPng` and
+`toWebSvg`. Inside a plane figure, {name}`PILean.Plane.graph` draws a graph's nodes as points among
+other geometry.
+
+```lean (name := fixedEx)
+#eval ((Graph.ofNames #["a", "b", "c"] [(0, 2)]).fixedLayoutAt #[⟨0, 0⟩, ⟨1, 0⟩, ⟨2, 0⟩] 100
+  .aroundNodes).edges.size
+```
+
+```leanResult fixedEx
+```
+
 # DOT In and Out
 %%%
 tag := "graph-dot"

@@ -497,6 +497,29 @@ def smallMultiples : Figure where
 :::figure PILeanManual.Plots.smallMultiples (alt := "A two by two grid of panels titled harmonic 1 to 4, each one sine wave on 0 to 2 pi with 1 to 4 periods and amplitudes 1, 1/2, 1/3 and 1/4, on the same axes; tick labels only on the outer panels.")
 :::
 
+A panel with `equalAspect` gives one unit as many pixels across as down (its plot area narrowed
+or shortened, centred), and the annotations {name}`PILean.Plot.Annotation.hband` and
+{name}`PILean.Plot.Annotation.vband` shade a band of the vertical or horizontal axis, labelled,
+under the series.
+
+```lean
+/-- A unit circle on equal axes with a shaded band. -/
+@[figure]
+def equalAxes : Figure where
+  title := "Equal axes"
+  width := 480
+  height := 320
+  panels := #[{ equalAspect := true, x := { domain := some (-1.5, 1.5) },
+    y := { domain := some (-1.2, 1.2) },
+    series := #[.line "unit circle" ((List.range 97).toArray.map fun i =>
+      let a := 2 * pi * i.toFloat / 96
+      ⟨a.cos, a.sin⟩)],
+    notes := #[.hband (-0.5) 0.5 "|y| ≤ 1/2"] }]
+```
+
+:::figure PILeanManual.Plots.equalAxes (alt := "A round unit circle on axes from -1.5 to 1.5 and -1.2 to 1.2 with equal units, a grey band shaded between y = -1/2 and 1/2.")
+:::
+
 # Data That Does Not Fit
 %%%
 tag := "plot-awkward"

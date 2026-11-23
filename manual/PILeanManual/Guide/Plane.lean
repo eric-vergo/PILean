@@ -113,6 +113,89 @@ An item's metadata ({name}`PILean.Plane.Item.named`, {name}`PILean.Plane.Item.de
 ```leanResult metaEx
 ```
 
+# Regions, Fills, Markers and Ticks
+%%%
+tag := "plane-regions"
+%%%
+
+The intersection, union and difference of two closed disks are regions bounded by arcs of their
+circles ({name}`PILean.Plane.lens`, {name}`PILean.Plane.diskUnion`,
+{name}`PILean.Plane.diskDifference`), drawn with exact circular arcs, not sampled polygons. A
+shape's tint and outline are styled apart: {name}`PILean.Plane.Item.fillTone`,
+{name}`PILean.Plane.Item.fillOpacity`, {name}`PILean.Plane.Item.noOutline`,
+{name}`PILean.Plane.Item.noFill`. A point's marker can be a dot, a ring, a square, a diamond or
+a cross ({name}`PILean.Plane.Item.marker`), on a halo of the background
+({name}`PILean.Plane.Item.halo`); a tick ({name}`PILean.Plane.tickOn`) crosses a line at a
+point with a length in pixels, resolved when the figure is fitted.
+
+Colours can be named roles of the style ({name}`PILean.PlaneRole`: a light and a dark colour,
+{name}`PILean.Plane.Item.role`), so that a figure's own palette has its dark twin too, and a
+label can follow the role of the point it names ({name}`PILean.Plane.Item.labelFor`). The
+image of a plane figure is composited in sRGB, as a browser composites its SVG, so the PNG and
+the SVG show the same tints; text is drawn as shapes by default, so every viewer shows the
+lettering the layout measured.
+
+```lean
+/-- The lens of two disks as its own region, a chord in two role colours with labels beside its
+pieces, and ticks where the pieces meet. -/
+@[figure]
+def lensFigure : Plane.Figure where
+  width := 480
+  narrowWidth := some 320
+  style := { Style.light with plane := { PlaneStyle.light with
+    roles := #[⟨"lens", ⟨154, 69, 0, 255⟩, ⟨245, 184, 61, 255⟩⟩,
+      ⟨"a", ⟨29, 78, 216, 255⟩, ⟨143, 176, 252, 255⟩⟩,
+      ⟨"b", ⟨13, 107, 99, 255⟩, ⟨94, 224, 200, 255⟩⟩] } }
+  items :=
+    let p : Point := ⟨0, 1.3⟩
+    let q : Point := ⟨0, -1.3⟩
+    #[disk ⟨-0.8, 0⟩ 1.5 |>.noFill |>.width 1.5, disk ⟨0.8, 0⟩ 1.5 |>.noFill |>.width 1.5,
+      lens ⟨-0.8, 0⟩ 1.5 ⟨0.8, 0⟩ 1.5 |>.role "lens" |>.fillOpacity 0.14,
+      segment q ⟨0, 0.3⟩ |>.role "a" |>.width 5, segment ⟨0, 0.3⟩ p |>.role "b" |>.width 5,
+      labelBeside "S₁" q ⟨0, 0.3⟩ |>.role "a", labelBeside "S₂" ⟨0, 0.3⟩ p |>.role "b",
+      tickOn q p 0.62, point p |>.incident .on "both circles",
+      point q |>.incident .on "both circles"]
+```
+
+:::figure PILeanManual.PlaneGuide.lensFigure (alt := "Two outlined circles overlapping; the lens between them is tinted orange with a strong outline; a vertical chord joins the circles' crossings, its lower piece blue and labelled S1, its upper piece green and labelled S2, with a tick where they meet.")
+:::
+
+# Checks and Automatic Placement
+%%%
+tag := "plane-checks"
+%%%
+
+{name}`PILean.Plane.Figure.problems` reports what a reader objects to in a fitted figure
+({api}`PILean.Plane.Check`): labels that overlap, a label over a line or marker it does not
+name, something beyond the page, markers that read as one, a point drawn too near a curve for a
+reader to see whether it is on it (unless the point records where it is,
+{name}`PILean.Plane.Item.incident`; {name}`PILean.Plane.Exact.pointNearDisk` decides it
+exactly), and a colour of too little contrast against what it is drawn on, in both themes. A
+figure's `checks` level makes `pilean-build` and the Verso blocks warn about them or fail.
+Labels placed `auto` (or beside a segment, {name}`PILean.Plane.labelBeside`) take the least
+offset and the first side at which they collide with nothing
+({name}`PILean.Plane.Figure.autoPlaced`).
+
+```lean (name := checkEx)
+#eval (lensFigure.problems).size
+#eval (Plane.Figure.problems { items := #[point ⟨0, 0⟩, point ⟨0.001, 0⟩] }).map (·.kind)
+```
+
+```leanResult checkEx
+```
+
+# Explorers
+%%%
+tag := "plane-explorers"
+%%%
+
+An {name}`PILean.Explorer` is a finite family of frames computed in Lean: a parameter axis shown
+with a slider ({name}`PILean.Plane.slider`), a step sequence shown with previous, play and next
+({name}`PILean.Plane.stepper`), or both ({name}`PILean.Explorer.grid`). Its files are its poster;
+a Verso page shows every frame inline with `:::figure_explorer`, with pan and zoom, and lists the
+frames when it cannot run the script. {name}`PILean.Explorer.toAnimation` plays a step sequence
+as an animation, and {name}`PILean.Plane.animation` does so for plane figures.
+
 # Exact Points
 %%%
 tag := "plane-exact"
@@ -136,5 +219,16 @@ of its conversion ({name}`PILean.Plane.Exact.point_draw`,
 ```leanResult exactEx
 ```
 
-The tests give worked instances for numbers of ℚ(√5) and for the ring ℤ\[ζ₅\] as arrays of integer
-coefficients, whose balls are checked exactly by squaring rationals.
+{api}`PILean.Exact.Algebraic` has numbers of ℚ(√d) ({name}`PILean.Exact.QSqrt`), the ring
+ℤ\[ζ₅\] as arrays of integer coefficients ({name}`PILean.Exact.Zeta5`), exact square roots
+({name}`PILean.Exact.SqrtOf`), and constructions whose results are certified enclosures
+({name}`PILean.Exact.circleCircle`, {name}`PILean.Exact.lineCircle`,
+{name}`PILean.Exact.foot`, {name}`PILean.Exact.midpoint`).
+
+```lean (name := algEx)
+#eval (Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2 + Exact.Zeta5.ofInt 1).normSq
+#eval Exact.QSqrt5.phi * Exact.QSqrt5.phi
+```
+
+```leanResult algEx
+```
