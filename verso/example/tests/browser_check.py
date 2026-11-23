@@ -26,8 +26,7 @@ narrow rendition is shown. The three link modes: `lean:` links, links into the s
 follows to an existing anchor (also in the side-by-side layout), and no links. Everything a
 figure shows is centred in its container and stays within it: wide, in the narrow column of the
 side-by-side layout, and at 360 px, also with a word of 240 letters in a caption and in the
-figures page's list; a caption's text is isolated from the page's direction. Hostile captions,
-names and ids show as text and run nothing.
+figures page's list. Hostile captions, names and ids show as text and run nothing.
 """
 
 import base64
@@ -417,18 +416,16 @@ def noscript_checks(c, browser, base, shots):
 
 def long_word_checks(c, browser, base, shots):
     """At 360 px: a word of 240 letters in a caption and in the figures page's list wraps within
-    the page, and a caption isolates its text's direction."""
+    the page."""
     ctx = browser.new_context(viewport={"width": 360, "height": 800})
     page = ctx.new_page()
     word = "W" * 240
     goto(page, base + "Pictures-with-proofs/A-function/")
     got = page.evaluate("""w => { const cap = document.querySelector('.pilean-figure-caption');
       cap.append(' ' + w); return [document.documentElement.scrollWidth - window.innerWidth,
-        cap.getBoundingClientRect().right <= window.innerWidth,
-        getComputedStyle(cap).unicodeBidi]; }""", word)
+        cap.getBoundingClientRect().right <= window.innerWidth]; }""", word)
     c.check("360 px: a caption with a 240-letter word stays within the page",
             got[0] <= 0 and got[1], str(got))
-    c.check("a caption's text is isolated from the page's direction", got[2] == "isolate", got[2])
     goto(page, base + "Figures/")
     got = page.evaluate("""w => { const t = document.querySelector('.pilean-figure-index li');
       t.querySelector('.pilean-index-title').append(' ' + w);

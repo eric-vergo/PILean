@@ -135,8 +135,8 @@ theorem zetaSteps_spec :
       Plane.Exact.pointNearDisk (Zeta5.pow 4) windowCentre windowRadius "the window",
       Plane.Exact.point ((0, 0) : Int × Int),
       Plane.Exact.point windowCentre |>.incident .on "the step to 1"] ∧
-    (List.range 5).map (fun j => diskIncidence? (Zeta5.pow j) windowCentre windowRadius) =
-      [some .inside, some .inside, some .outside, some .outside, some .inside] ∧
+    ((List.range 5).map (fun j => diskIncidence? (Zeta5.pow j) windowCentre windowRadius) ==
+      [some .inside, some .inside, some .outside, some .outside, some .inside]) = true ∧
     (List.range 5).filter inWindow = [0, 1, 4] := by
   refine ⟨rfl, rfl, ?_, by decide +kernel, by decide +kernel⟩
   have h0 : inWindow 0 = true := by decide +kernel
