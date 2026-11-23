@@ -147,7 +147,7 @@ def figureWith (explorer : Bool) : DirectiveExpanderOf FigureConfig
     -- the blueprint names its own blocks by label, `none`)
     let numbering := match Informal.numberingMode opts with
       | .sub => "sub"
-      | _ => "global"
+      | .global | .local | .none => "global"
     let subPrefix := match Informal.subNumberingPrefix opts with
       | .first => "first"
       | .full => "full"

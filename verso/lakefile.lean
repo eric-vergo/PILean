@@ -19,13 +19,14 @@ HTML of a figure block) is the package `pilean-verso-manual` in the folder `manu
 
 open Lake DSL
 
--- Verso Blueprint and the Verso and SubVerso revisions it is built against.
+-- Verso Blueprint and the Verso and SubVerso revisions it is built against: Verso's
+-- v4.35.0-patch1 release, SubVerso and Verso Blueprint at the revisions downstream projects use.
 require subverso from git "https://github.com/eric-vergo/subverso" @
-  "7202fb62e46825ab9a176a786f1e15b1ab40a6ae"
-require verso from git "https://github.com/eric-vergo/verso" @
-  "9aa40617081ed144742d6fa31d5a24b77fde4679"
+  "f53c070f0357f5dcf3b03b8924deb714294dac69"
+require verso from git "https://github.com/leanprover/verso" @
+  "d56e6c92d8606a5ae2baf18f0090ca6e82ca38e4"
 require VersoBlueprint from git "https://github.com/eric-vergo/verso-blueprint.git" @
-  "cd3f3c51d7907ed27a120bb7a2b8bbe5c24c6854"
+  "9fa92b2bf1d3bf2071963157e077b011666c435d"
 require pilean from ".."
 require «pilean-verso-manual» from "manual"
 
