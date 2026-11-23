@@ -11,7 +11,7 @@ A `Figure` is a list of `Item`s, a page width (and optionally a height), a paddi
 metadata. `Figure.frame` fits the items into the page (`Frame.fit`, every item's reaches: its
 world points with the pixel extents of markers, strokes, arrowheads, angle marks and label boxes),
 or fits a given world box; `Figure.draw` draws every item through that frame on the vector canvas,
-so that `Figure.toSvg` and `Figure.toPng` write the same picture.
+the drawing `Figure.toSvg` and `Figure.toPng` (`PILean.Plane.Render`) write.
 
 Every element is drawn in page coordinates: its world points go through `Frame.toScreen` and its
 radii are multiplied by the scale, while stroke widths, markers, arrowheads, label sizes and
@@ -31,7 +31,7 @@ offsets stay in pixels. Colours come from `Style.plane` by role (`Tone`), so the
 ## Main definitions
 
 * `Env`, `drawGeom`, `drawItem`, `labelBox`, `geomReaches`, `itemReaches`.
-* `Figure`, `Figure.frame`, `Figure.draw`, `Figure.toSvg`, `Figure.toImage`, `Figure.toPng`.
+* `Figure`, `Figure.frame`, `Figure.draw` (the outputs are in `PILean.Plane.Render`).
 -/
 
 namespace PILean.Plane
@@ -254,6 +254,8 @@ structure Figure where
   style : Style := {}
   /-- Metadata of the whole drawing (its title and description). -/
   info : ShapeInfo := {}
+  /-- How the layout checks are applied when the figure is rendered (`PILean.Plane.Check`). -/
+  checks : CheckLevel := .warn
   deriving Inhabited
 
 namespace Figure
@@ -281,25 +283,6 @@ def draw (fig : Figure) : Shape :=
 /-- The page size in whole pixels. -/
 def pixelSize (fig : Figure) : Nat × Nat :=
   (fig.frame.width.round.toUInt64.toNat, fig.frame.height.round.toUInt64.toNat)
-
-/-- The figure as an SVG document, text as SVG text (or as shapes when `outlines`, or when the
-style's text engine is not plain text, `TextMode.forSvg`). -/
-def toSvg (fig : Figure) (outlines : Bool := false) : String :=
-  let f := fig.frame
-  Svg.document f.width.round f.height.round
-    (fig.draw.render (.forSvg fig.style.text fig.style.fontFamily outlines))
-
-/-- The figure as an RGB image of its size in pixels, text drawn by the style's text engine. -/
-def toImage (fig : Figure) : Image :=
-  let (w, h) := fig.pixelSize
-  (Raster.Svg.rasterize w h (fig.draw.render (.shapes fig.style.text)) fig.style.background
-    ).toImage .rgb
-
-/-- The figure as PNG bytes (deterministic); `none` for a figure of no pixels. -/
-def toPng (fig : Figure) (md : Png.Metadata := {}) : Option ByteArray :=
-  match fig.toImage.writePng md with
-  | .ok b => some b
-  | .error _ => none
 
 /-- The drawing is the background and then each item's shapes, in order, inside the figure's
 metadata. -/

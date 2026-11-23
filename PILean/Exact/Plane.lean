@@ -44,14 +44,16 @@ type indexed by it (`def Cyc (F : CycField) := Array Int`, with an instance for 
 
 * `PlanePoint.toPoint_ratPair`, `PlanePoint.re_ratPair`, `PlanePoint.im_ratPair`: a rational
   point is its own ball (radius 0) and is drawn at its coordinates converted by `Exact.toFloat`.
-* `Plane.drawGeom_point`, `Plane.drawGeom_segment`, `Plane.Env.marker_centred`: a point is drawn
+* `Plane.drawGeom_point`, `Plane.drawItem_point`, `Plane.drawGeom_segment`,
+  `Plane.Env.marker_centred`, `Plane.Exact.pointNearDisk_eq`: a point is drawn
   as a marker centred at the frame's image of it, a segment as the polyline between the images of
   its ends.
 * `Plane.Exact.point_draw`, `Plane.Exact.point_draw_default`, `Plane.Exact.segment_draw`,
   `Plane.Exact.points_draw`: the same for
   exact points: what is drawn is at `Frame.toScreen (PlanePoint.toPoint p)`.
 * `Plane.Exact.figure_points_draw`: a figure whose items are exact points draws, after its
-  background, exactly one marker at the frame's image of each point, in order.
+  background, exactly one marker at the frame's image of each point, in order;
+  `Plane.Exact.DrawsExactPoints` and `drawsExactPoints` package it as a figure's specification.
 
 What is proved stops at `Frame.toScreen` of the converted point: the conversion, the frame's
 fitting and the rasteriser are floating point and tested, as for plots (`docs/PROOFS.md`).
@@ -92,6 +94,16 @@ def smul (q : Rat) (b : RatBall) : RatBall :=
 
 /-- The ball of a negation. -/
 def neg (b : RatBall) : RatBall := ⟨-b.centre, b.radius⟩
+
+/-- The absolute value of a rational. -/
+def absQ (q : Rat) : Rat := if q < 0 then -q else q
+
+/-- The ball of a product: `|a| ρ + |b| σ + σ ρ` around `a b` for balls `(a, σ)`, `(b, ρ)`. -/
+def mul (a b : RatBall) : RatBall :=
+  ⟨a.centre * b.centre, absQ a.centre * b.radius + absQ b.centre * a.radius + a.radius * b.radius⟩
+
+/-- The ball of a difference. -/
+def sub (a b : RatBall) : RatBall := a.add b.neg
 
 end RatBall
 
@@ -235,6 +247,26 @@ theorem PlanePoint.toPoint_intPair (x y : Int) :
 /-- A rational is drawn as its conversion by `Exact.toFloat`. -/
 theorem RealValue.toFloat_rat (q : Rat) : RealValue.toFloat q = Exact.toFloat q := rfl
 
+/-- Where the point `p` stands relative to the closed disk with centre `c` and radius `r`, decided
+from balls of `|p - c|² - r²` at the precisions 16, 32, 64, … up to `maxPrecision`: `outside` once
+the ball lies above 0, `inside` once it lies below, `on` when it is exactly 0 (a ball of radius 0
+around 0, as for rational data); `none` when no precision tried separates it from 0 (a point on
+the boundary of an irrational disk, or one too near it). -/
+def diskIncidence? {α γ β : Type} [PlanePoint α] [PlanePoint γ] [RealValue β] (p : α) (c : γ)
+    (r : β) (maxPrecision : Nat := 512) : Option Plane.Incidence := Id.run do
+  let mut k := 16
+  for _ in [0:12] do
+    if k > maxPrecision then break
+    let dx := (PlanePoint.re p k).sub (PlanePoint.re c k)
+    let dy := (PlanePoint.im p k).sub (PlanePoint.im c k)
+    let rb := RealValue.ball r k
+    let v := ((dx.mul dx).add (dy.mul dy)).sub (rb.mul rb)
+    if v.radius == 0 && v.centre == 0 then return some .on
+    if v.lo > 0 then return some .outside
+    if v.hi < 0 then return some .inside
+    k := 2 * k
+  return none
+
 end Exact
 
 namespace Plane
@@ -263,6 +295,14 @@ theorem drawGeom_segment (e : Env) (l : Look) (a b : Point) (h : l.arrowHead = f
     drawGeom e l (.segment a b) =
       #[e.strokePath l (Path.polyline #[e.frame.toScreen a, e.frame.toScreen b])] := by
   simp [drawGeom, h]
+
+/-- A point item in any look is drawn as the marker at the frame's image of the point, inside a
+group carrying its metadata when it has some. -/
+theorem drawItem_point (e : Env) (p : Point) (l : Look) (i : ShapeInfo) :
+    drawItem e (.shape (.point p) l i) =
+      if i.isEmpty then e.marker l (e.frame.toScreen p)
+      else #[.tagged i (.group (e.marker l (e.frame.toScreen p)))] := by
+  simp [drawItem, drawGeom]
 
 /-- An item without metadata is drawn as its element. -/
 theorem drawItem_shape (e : Env) (g : Geom) (l : Look) :
@@ -319,6 +359,23 @@ def label (s : String) (p : α) (place : Placement := .center) (offset : Option 
     Item :=
   Plane.label s (PlanePoint.toPoint p) place offset
 
+/-- The exact point `p` with where it stands relative to the closed disk `(c, r)` recorded
+(`Item.incident`, named `what`), when `Exact.diskIncidence?` decides it; otherwise the point
+alone, which the layout checks report if it is drawn too near the disk's boundary to be seen. -/
+def pointNearDisk {γ : Type} [PlanePoint γ] (p : α) (c : γ) (r : β) (what : String) : Item :=
+  match diskIncidence? p c r with
+  | some rel => (point p).incident rel what
+  | none => point p
+
+/-- `pointNearDisk` is a point item at the conversion of the exact point, whatever it records. -/
+theorem pointNearDisk_eq {γ : Type} [PlanePoint γ] (p : α) (c : γ) (r : β) (what : String) :
+    ∃ (l : Look) (i : ShapeInfo),
+      pointNearDisk p c r what = .shape (.point (PlanePoint.toPoint p)) l i := by
+  unfold pointNearDisk
+  split
+  · simp [point, Plane.point, Item.incident, Item.mapLook, Item.mapInfo]
+  · exact ⟨{}, {}, rfl⟩
+
 /-- An exact point is the point item at its conversion. -/
 theorem point_eq (p : α) : point p = .shape (.point (PlanePoint.toPoint p)) := rfl
 
@@ -367,6 +424,22 @@ theorem figure_points_draw (fig : Figure) (ps : List α)
       (ps.map fun p => fig.env.marker {}
         (fig.env.frame.toScreen (PlanePoint.toPoint p))).toArray.flatten)) := by
   rw [Figure.draw_eq, h, points_draw]
+
+/-- The specification of a figure of exact points, ready to link with `figure_proves`: its items
+are exactly the points `ps` in their default look, and its drawing is its background followed by
+one marker at the frame's image of each point's conversion, in order. The statement names the
+figure, so `theorem fig_spec : DrawsExactPoints fig ps := drawsExactPoints rfl` and
+`figure_proves fig fig_spec` link it. -/
+def DrawsExactPoints (fig : Figure) (ps : List α) : Prop :=
+  fig.items = (ps.map point).toArray ∧
+    fig.draw = .tagged fig.info (.group (#[fig.background] ++
+      (ps.map fun p => fig.env.marker {}
+        (fig.env.frame.toScreen (PlanePoint.toPoint p))).toArray.flatten))
+
+/-- A figure whose items are the exact points `ps` satisfies `DrawsExactPoints`. -/
+theorem drawsExactPoints {fig : Figure} {ps : List α} (h : fig.items = (ps.map point).toArray) :
+    DrawsExactPoints fig ps :=
+  ⟨h, figure_points_draw fig ps h⟩
 
 /-- The hypotheses can be met: the integer points `(0, 0)` and `(1, 2)` are drawn at the
 frame's images of `(0, 0)` and `(1, 2)`. -/

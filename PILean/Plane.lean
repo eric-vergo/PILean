@@ -5,6 +5,8 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILean.Plane.Basic
 import PILean.Plane.Frame
 import PILean.Plane.Draw
+import PILean.Plane.Check
+import PILean.Plane.Render
 
 /-!
 # Plane figures
@@ -21,6 +23,9 @@ the dark twin of any figure in the default colours.
 * `PILean.Plane.Frame`: the map from world to page (`Frame`) and its fitting (`Frame.fit`),
   clipping (`clipLine`).
 * `PILean.Plane.Draw`: the drawing (`drawGeom`, `drawItem`) and the figure (`Figure`).
+* `PILean.Plane.Check`: the layout checks (`Figure.problems`) and automatic label placement
+  (`Figure.autoPlaced`).
+* `PILean.Plane.Render`: the outputs (`Figure.toSvg`, `Figure.toPng`).
 
 Exact points (rationals, or any type with certified rational enclosures) are in
 `PILean.Exact.Plane`.

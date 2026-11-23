@@ -99,6 +99,9 @@ inductive Placement where
   | belowRight
   /-- In the direction `θ`. -/
   | toward (θ : Float)
+  /-- The first of the eight sides, from above right round the compass, where the label collides
+  with nothing (`Figure.autoPlaced`); above right when every side collides. -/
+  | auto
   deriving BEq, Inhabited, Repr
 
 /-- The unit direction of a placement on screen (`y` down); `(0, 0)` for `center`. -/
@@ -113,6 +116,36 @@ def Placement.screenDir : Placement → Point
   | .belowLeft => ⟨-0.7071067811865476, 0.7071067811865476⟩
   | .belowRight => ⟨0.7071067811865476, 0.7071067811865476⟩
   | .toward θ => ⟨θ.cos, -θ.sin⟩
+  | .auto => ⟨0.7071067811865476, -0.7071067811865476⟩
+
+/-- The eight sides `Placement.auto` tries, in order. -/
+def Placement.compass : Array Placement :=
+  #[.aboveRight, .above, .aboveLeft, .left, .belowLeft, .below, .belowRight, .right]
+
+/-- Where a point stands relative to a curve or a region: on it, inside, or outside. -/
+inductive Incidence where
+  /-- On the curve (the boundary). -/
+  | on
+  /-- Inside the region. -/
+  | inside
+  /-- Outside the region. -/
+  | outside
+  deriving BEq, Inhabited, Repr
+
+/-- The incidence in words: `on`, `inside`, `outside`. -/
+def Incidence.text : Incidence → String
+  | .on => "on" | .inside => "inside" | .outside => "outside"
+
+/-- How strictly a figure's layout checks (`PILean.Plane.Check`) are applied when it is
+rendered: not at all, as warnings, or as errors that stop its rendering. -/
+inductive CheckLevel where
+  /-- The checks are not run. -/
+  | ignore
+  /-- Problems are reported as warnings. -/
+  | warn
+  /-- A problem stops the figure from being rendered. -/
+  | fail
+  deriving BEq, Inhabited, Repr
 
 /-- What an element is, in world coordinates (see the module docstring). Angles are in radians,
 counterclockwise; lengths marked *pixels* are on the page. -/
@@ -162,6 +195,10 @@ structure Look where
   arrowHead : Bool := false
   /-- The radius of a point's marker or the size of a label, in pixels. -/
   size : Option Float := none
+  /-- For a point: where it stands relative to the curves or regions it is near, as decided by the
+  author (exactly, for exact points), and what it is relative to. A point drawn too near a curve
+  for a reader to see on which side it is must say so (`PILean.Plane.Check`). -/
+  incidence : Option (Incidence × String) := none
   deriving Inhabited, Repr
 
 /-- A plane figure's element with its look and metadata, or a group of items with metadata. -/
@@ -274,6 +311,14 @@ def withArrow (it : Item) : Item := it.mapLook ({ · with arrowHead := true })
 
 /-- The item with a marker radius or label size in pixels. -/
 def size (s : Float) (it : Item) : Item := it.mapLook ({ · with size := some s })
+
+/-- The point recorded as standing `rel` (on, inside, outside) relative to `what` (`"the
+window"`): the look keeps it for the layout checks, and the title says it (`inside the window`,
+after the title if there is one). -/
+def incident (rel : Incidence) (what : String) (it : Item) : Item :=
+  let words := s!"{rel.text} {what}"
+  (it.mapLook ({ · with incidence := some (rel, what) })).mapInfo fun i =>
+    { i with title := if i.title.isEmpty then words else s!"{i.title}, {words}" }
 
 /-- The item with an accessible name (an SVG `title`). -/
 def named (t : String) (it : Item) : Item := it.mapInfo ({ · with title := t })
