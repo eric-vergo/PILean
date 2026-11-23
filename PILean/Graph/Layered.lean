@@ -316,6 +316,58 @@ def strays (tree : ClusterTree) (sk : Skeleton) : Array (Nat × Option Nat × Op
           if !out.contains entry then out := out.push entry
   return out
 
+/-- The coordinates with the lanes of long edges straightened (for bundled routes): a run of a
+chain's dummy nodes at one position is moved onto the line of the node before or after it in the
+chain (the port of a real node, `port`, or another run of dummy nodes) when that closes a jog
+narrower than `tol` without opening another, and every layer of the run has room for it
+(`sep u v`, the least distance between the centres of `u` left of `v`). At most `rounds` passes
+over the chains, each linear in the dummy nodes. -/
+def straightenLanes (n : Nat) (order : Array (Array Nat)) (chains : Array (Array Nat))
+    (x : Array Float) (port : Nat → Float) (sep : Nat → Nat → Float) (tol : Float)
+    (rounds : Nat := 3) : Array Float := Id.run do
+  let pos := positionsOf x.size order
+  let mut layerOf : Array Nat := Array.replicate x.size 0
+  for layer in order, l in [0:order.size] do
+    for v in layer do layerOf := layerOf.setIfInBounds v l
+  let mut xs := x
+  let small := fun (d : Float) => d.abs > 0.01 && d.abs < tol
+  for _ in [0:rounds] do
+    let mut changed := false
+    for c in chains do
+      if c.size < 3 then continue
+      let mut i := 1
+      for _ in [0:c.size] do
+        if i + 1 ≥ c.size then break
+        -- the run of dummy nodes from `i` at one position
+        let at_ := fun (xs : Array Float) (v : Nat) => if v < n then port v else xs.getD v 0
+        let here := at_ xs (c.getD i 0)
+        let mut k := i
+        while k + 2 < c.size && (at_ xs (c.getD (k + 1) 0) - here).abs ≤ 0.01 do k := k + 1
+        let prev := at_ xs (c.getD (i - 1) 0)
+        let next := at_ xs (c.getD (k + 1) 0)
+        let before := (if small (prev - here) then 1 else 0) + (if small (next - here) then 1 else 0)
+        -- the targets: the line before, then the line after, a real node's first
+        let realPrev := c.getD (i - 1) 0 < n
+        let targets := if realPrev || !(c.getD (k + 1) 0 < n) then #[prev, next] else #[next, prev]
+        for t in targets do
+          if !small (t - here) then continue
+          let after := (if small (prev - t) then 1 else 0) + (if small (next - t) then 1 else 0)
+          if after ≥ before then continue
+          let fits := (Array.range (k + 1 - i)).all fun j =>
+            let d := c.getD (i + j) 0
+            let layer := order.getD (layerOf.getD d 0) #[]
+            let p := pos.getD d 0
+            (p == 0 || t - xs.getD (layer.getD (p - 1) 0) 0 ≥ sep (layer.getD (p - 1) 0) d - 0.01) &&
+              (p + 1 ≥ layer.size ||
+                xs.getD (layer.getD (p + 1) 0) 0 - t ≥ sep d (layer.getD (p + 1) 0) - 0.01)
+          if fits then
+            for j in [i:k + 1] do xs := xs.setIfInBounds (c.getD j 0) t
+            changed := true
+            break
+        i := k + 1
+    if !changed then break
+  return xs
+
 /-- The phases one to four: the plan for routing the edges. -/
 def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let n := g.nodes.size
@@ -439,6 +491,9 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
       let (a, b) := if vars.isEmpty then (a, b) else (vars.getD a a, vars.getD b b)
       if a != b then some (a, b, 0, Int.ofNat o.compact) else none
   let x := simplexBreadth total n chains order sep bw x1 8 o.coordinateWork vars (extra ++ spans)
+  let x := if !bundled then x else
+    straightenLanes n order chains (x.map Float.round)
+      (fun v => (x.getD v 0 - loopExtra.getD v 0 / 2).round) sep bst.laneGap
   let gap := if hasLabels then o.layerGap / 2 else o.layerGap
   -- room above and below the nodes for the clusters' sides and titles (nested clusters that
   -- start or end in the same layer stack)

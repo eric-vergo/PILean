@@ -23,6 +23,7 @@ import PILeanTest.Exact
 import PILeanTest.Enclosures
 import PILeanTest.FigureChecks
 import PILeanTest.GraphRoutes
+import PILeanTest.GraphBundles
 import PILeanTest.Plane
 import PILeanTest.PlaneExact
 import PILeanTest.Trust

@@ -45,6 +45,8 @@ import PILean.Graph.Compound
 import PILean.Graph.Coordinates
 import PILean.Graph.Route
 import PILean.Graph.Nested
+import PILean.Graph.Channel
+import PILean.Graph.Bundle
 import PILean.Graph.Layered
 import PILean.Graph.Pack
 import PILean.Graph.Web

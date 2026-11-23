@@ -360,27 +360,35 @@ def cornerRadii (st : BundleStyle) (routes : Array (Array Point)) (corners : Arr
     let (_, first, _, _) := sorted.getD start ((0, 0, 0), 0, 0, 0)
     want := want.modify k (·.setIfInBounds i (st.radius + (first - inward)))
     family := family.modify k (·.setIfInBounds i families)
-  -- the factor every corner needs to fit its segments
-  let mut scale : Array (Array Float) := corners.map fun cs => cs.map fun _ => 1
+  -- the most every corner may take: of a segment between two corners its share in proportion
+  -- to the radii they want, of a segment at a port the room the port leaves
+  let mut cap : Array (Array Float) := corners.map fun cs => cs.map fun _ => 0
   for pts in routes, k in [0:routes.size] do
     let ws := want.getD k #[]
     let m := ws.size
     for i in [0:m] do
       let r := ws.getD i 0
-      if r ≤ 0 then continue
       let p := pts.getD (i + 1) ⟨0, 0⟩
       let before := (pts.getD i ⟨0, 0⟩).dist p
       let after := p.dist (pts.getD (i + 2) ⟨0, 0⟩)
-      let fitBefore := if i == 0 then max 0 (room k false / r) else before / (r + ws.getD (i - 1) 0)
-      let fitAfter := if i + 1 == m then max 0 (room k true / r) else after / (r + ws.getD (i + 1) 0)
-      scale := scale.modify k (·.setIfInBounds i (min 1 (min fitBefore fitAfter)))
-  -- a bundle is scaled as a whole
-  let mut least : Array Float := Array.replicate (families + 1) 1
+      let share := fun (len other : Float) => if r + other ≤ 0 then 0 else len * r / (r + other)
+      let capBefore := if i == 0 then max 0 (room k false) else share before (ws.getD (i - 1) 0)
+      let capAfter := if i + 1 == m then max 0 (room k true) else share after (ws.getD (i + 1) 0)
+      cap := cap.modify k (·.setIfInBounds i (min r (min capBefore capAfter)))
+  -- a bundle keeps its corners concentric by a smaller innermost radius when that is enough, and
+  -- is scaled as a whole when it is not
+  let mut base : Array Float := Array.replicate (families + 1) st.radius
+  let mut ratio : Array Float := Array.replicate (families + 1) 1
   for fs in family, k in [0:family.size] do
     for f in fs, i in [0:fs.size] do
-      least := least.modify f (min · ((scale.getD k #[]).getD i 1))
-  return want.mapIdx fun k ws => ws.mapIdx fun i r =>
-    r * least.getD ((family.getD k #[]).getD i 0) 1
+      let w := (want.getD k #[]).getD i 0
+      let c := (cap.getD k #[]).getD i 0
+      base := base.modify f (min · (c - (w - st.radius)))
+      if w > 0 then ratio := ratio.modify f (min · (c / w))
+  return want.mapIdx fun k ws => ws.mapIdx fun i w =>
+    let f := (family.getD k #[]).getD i 0
+    let b := base.getD f 0
+    if b ≥ 0 then b + (w - st.radius) else w * ratio.getD f 0
 
 /-- The path along a route from `first` (a point on its first segment) to `last` (a point on its
 last segment) through its corners, each rounded by its radius (a quarter circle as a cubic). -/

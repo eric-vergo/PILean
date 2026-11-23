@@ -110,106 +110,110 @@ theorem overlaps_comm (gap : Float) (p q : Float × Float) :
     overlaps gap p q = overlaps gap q p := by
   simp only [overlaps, Bool.and_comm]
 
-/-- The track of a stretch placed after the stretches `placed` (each with its track): one below
-the lowest track among those it overlaps, or `0`. -/
-def trackAfter (gap : Float) (placed : List ((Float × Float) × Nat)) (p : Float × Float) : Nat :=
-  placed.foldl (fun t q => if overlaps gap q.1 p then max t (q.2 + 1) else t) 0
+section Tracks
 
-/-- `tracksInOrder` with the stretches placed so far (`placed`, the last placed first). -/
-def tracksAux (gap : Float) : List ((Float × Float) × Nat) → List (Float × Float) → List Nat
+variable {α : Type}
+
+/-- The track of an item placed after the items `placed` (each with its track): one below the
+lowest track among those it is in conflict with (`c q p`), or `0`. -/
+def trackAfter (c : α → α → Bool) (placed : List (α × Nat)) (p : α) : Nat :=
+  placed.foldl (fun t q => if c q.1 p then max t (q.2 + 1) else t) 0
+
+/-- `tracksInOrder` with the items placed so far (`placed`, the last placed first). -/
+def tracksAux (c : α → α → Bool) : List (α × Nat) → List α → List Nat
   | _, [] => []
   | placed, p :: ps =>
-    let t := trackAfter gap placed p
-    t :: tracksAux gap ((p, t) :: placed) ps
+    let t := trackAfter c placed p
+    t :: tracksAux c ((p, t) :: placed) ps
 
-/-- The tracks of stretches placed in the order given (the left-edge rule): each gets the track
-below the lowest of the earlier stretches that it overlaps (`overlaps gap`), or the first. -/
-def tracksInOrder (gap : Float) (ps : List (Float × Float)) : List Nat :=
-  tracksAux gap [] ps
+/-- The tracks of items placed in the order given (the left-edge rule): each gets the track
+below the lowest of the earlier items it is in conflict with (`c`), or the first. -/
+def tracksInOrder (c : α → α → Bool) (ps : List α) : List Nat :=
+  tracksAux c [] ps
 
-theorem foldl_max_ge (gap : Float) (p : Float × Float) :
-    ∀ (placed : List ((Float × Float) × Nat)) (t : Nat),
-      t ≤ placed.foldl (fun t q => if overlaps gap q.1 p then max t (q.2 + 1) else t) t
+theorem foldl_max_ge (c : α → α → Bool) (p : α) :
+    ∀ (placed : List (α × Nat)) (t : Nat),
+      t ≤ placed.foldl (fun t q => if c q.1 p then max t (q.2 + 1) else t) t
   | [], _ => Nat.le_refl _
   | q :: qs, t => by
     simp only [List.foldl_cons]
-    refine Nat.le_trans ?_ (foldl_max_ge gap p qs _)
+    refine Nat.le_trans ?_ (foldl_max_ge c p qs _)
     split
     · exact Nat.le_max_left _ _
     · exact Nat.le_refl _
 
-theorem foldl_max_member (gap : Float) (p : Float × Float) :
-    ∀ (placed : List ((Float × Float) × Nat)) (t : Nat) (q : (Float × Float) × Nat),
-      q ∈ placed → overlaps gap q.1 p = true →
-      q.2 + 1 ≤ placed.foldl (fun t q => if overlaps gap q.1 p then max t (q.2 + 1) else t) t
+theorem foldl_max_member (c : α → α → Bool) (p : α) :
+    ∀ (placed : List (α × Nat)) (t : Nat) (q : α × Nat),
+      q ∈ placed → c q.1 p = true →
+      q.2 + 1 ≤ placed.foldl (fun t q => if c q.1 p then max t (q.2 + 1) else t) t
   | [], _, _, h, _ => by simp at h
-  | r :: rs, t, q, h, hov => by
+  | r :: rs, t, q, h, hc => by
     simp only [List.foldl_cons]
     rcases List.mem_cons.mp h with rfl | h
-    · refine Nat.le_trans ?_ (foldl_max_ge gap p rs _)
-      simp only [hov, ite_true]
+    · refine Nat.le_trans ?_ (foldl_max_ge c p rs _)
+      simp only [hc, ite_true]
       exact Nat.le_max_right _ _
-    · exact foldl_max_member gap p rs _ q h hov
+    · exact foldl_max_member c p rs _ q h hc
 
-/-- A stretch placed after an overlapping one gets a deeper track. -/
-theorem trackAfter_gt (gap : Float) (placed : List ((Float × Float) × Nat)) (p : Float × Float)
-    (q : (Float × Float) × Nat) (h : q ∈ placed) (hov : overlaps gap q.1 p = true) :
-    q.2 < trackAfter gap placed p :=
-  foldl_max_member gap p placed 0 q h hov
+/-- An item placed after one it is in conflict with gets a deeper track. -/
+theorem trackAfter_gt (c : α → α → Bool) (placed : List (α × Nat)) (p : α) (q : α × Nat)
+    (h : q ∈ placed) (hc : c q.1 p = true) : q.2 < trackAfter c placed p :=
+  foldl_max_member c p placed 0 q h hc
 
-theorem tracksAux_length (gap : Float) :
-    ∀ (placed : List ((Float × Float) × Nat)) (ps : List (Float × Float)),
-      (tracksAux gap placed ps).length = ps.length
+theorem tracksAux_length (c : α → α → Bool) :
+    ∀ (placed : List (α × Nat)) (ps : List α), (tracksAux c placed ps).length = ps.length
   | _, [] => rfl
   | placed, p :: ps => by
     simp only [tracksAux, List.length_cons]
     rw [tracksAux_length]
 
-/-- The stretch `ps[i]` with its track is among the placed stretches when `ps[j]` is placed, for
-every `i < j`, and every stretch of `placed` stays among them. -/
-theorem tracksAux_gt (gap : Float) :
-    ∀ (placed : List ((Float × Float) × Nat)) (ps : List (Float × Float)) (j : Nat)
-      (hj : j < ps.length),
-      (∀ q ∈ placed, overlaps gap q.1 ps[j] = true →
-        q.2 < (tracksAux gap placed ps)[j]'(by rw [tracksAux_length]; exact hj)) ∧
-      (∀ (i : Nat) (hij : i < j), overlaps gap ps[i] ps[j] = true →
-        (tracksAux gap placed ps)[i]'(by rw [tracksAux_length]; omega) <
-          (tracksAux gap placed ps)[j]'(by rw [tracksAux_length]; exact hj))
+/-- When `ps[j]` is placed, every item of `placed` and every `ps[i]` with `i < j` is among the
+placed items with its track. -/
+theorem tracksAux_gt (c : α → α → Bool) :
+    ∀ (placed : List (α × Nat)) (ps : List α) (j : Nat) (hj : j < ps.length),
+      (∀ q ∈ placed, c q.1 ps[j] = true →
+        q.2 < (tracksAux c placed ps)[j]'(by rw [tracksAux_length]; exact hj)) ∧
+      (∀ (i : Nat) (hij : i < j), c ps[i] ps[j] = true →
+        (tracksAux c placed ps)[i]'(by rw [tracksAux_length]; omega) <
+          (tracksAux c placed ps)[j]'(by rw [tracksAux_length]; exact hj))
   | _, [], j, hj => by simp at hj
   | placed, p :: ps, 0, _ => by
-    refine ⟨fun q hq hov => ?_, fun i hij _ => by omega⟩
+    refine ⟨fun q hq hc => ?_, fun i hij _ => by omega⟩
     simp only [tracksAux, List.getElem_cons_zero]
-    exact trackAfter_gt gap placed p q hq hov
+    exact trackAfter_gt c placed p q hq hc
   | placed, p :: ps, j + 1, hj => by
     have hj' : j < ps.length := by simp at hj; omega
-    have ih := tracksAux_gt gap ((p, trackAfter gap placed p) :: placed) ps j hj'
-    refine ⟨fun q hq hov => ?_, fun i hij hov => ?_⟩
+    have ih := tracksAux_gt c ((p, trackAfter c placed p) :: placed) ps j hj'
+    refine ⟨fun q hq hc => ?_, fun i hij hc => ?_⟩
     · simp only [tracksAux, List.getElem_cons_succ]
-      exact ih.1 q (List.mem_cons_of_mem _ hq) hov
+      exact ih.1 q (List.mem_cons_of_mem _ hq) hc
     · cases i with
       | zero =>
         simp only [tracksAux, List.getElem_cons_zero, List.getElem_cons_succ]
-        exact ih.1 _ (List.mem_cons_self) hov
+        exact ih.1 _ (List.mem_cons_self) hc
       | succ i =>
         simp only [tracksAux, List.getElem_cons_succ]
-        exact ih.2 i (by omega) hov
+        exact ih.2 i (by omega) hc
 
-/-- Of two overlapping stretches, the one placed later gets a deeper track. -/
-theorem tracksInOrder_lt (gap : Float) (ps : List (Float × Float)) (i j : Nat) (hij : i < j)
-    (hj : j < ps.length) (hov : overlaps gap ps[i] ps[j] = true) :
-    (tracksInOrder gap ps)[i]'(by unfold tracksInOrder; rw [tracksAux_length]; omega) <
-      (tracksInOrder gap ps)[j]'(by unfold tracksInOrder; rw [tracksAux_length]; exact hj) :=
-  (tracksAux_gt gap [] ps j hj).2 i hij hov
+/-- Of two items in conflict, the one placed later gets a deeper track. -/
+theorem tracksInOrder_lt (c : α → α → Bool) (ps : List α) (i j : Nat) (hij : i < j)
+    (hj : j < ps.length) (hc : c ps[i] ps[j] = true) :
+    (tracksInOrder c ps)[i]'(by unfold tracksInOrder; rw [tracksAux_length]; omega) <
+      (tracksInOrder c ps)[j]'(by unfold tracksInOrder; rw [tracksAux_length]; exact hj) :=
+  (tracksAux_gt c [] ps j hj).2 i hij hc
 
-/-- Two different stretches that overlap never share a track. -/
-theorem tracksInOrder_ne (gap : Float) (ps : List (Float × Float)) (i j : Nat) (hij : i ≠ j)
-    (hi : i < ps.length) (hj : j < ps.length) (hov : overlaps gap ps[i] ps[j] = true) :
-    (tracksInOrder gap ps)[i]'(by unfold tracksInOrder; rw [tracksAux_length]; exact hi) ≠
-      (tracksInOrder gap ps)[j]'(by unfold tracksInOrder; rw [tracksAux_length]; exact hj) := by
+/-- Two different items in conflict never share a track, for a symmetric conflict. -/
+theorem tracksInOrder_ne (c : α → α → Bool) (hsymm : ∀ a b, c a b = c b a) (ps : List α)
+    (i j : Nat) (hij : i ≠ j) (hi : i < ps.length) (hj : j < ps.length)
+    (hc : c ps[i] ps[j] = true) :
+    (tracksInOrder c ps)[i]'(by unfold tracksInOrder; rw [tracksAux_length]; exact hi) ≠
+      (tracksInOrder c ps)[j]'(by unfold tracksInOrder; rw [tracksAux_length]; exact hj) := by
   rcases Nat.lt_or_gt_of_ne hij with h | h
-  · exact Nat.ne_of_lt (tracksInOrder_lt gap ps i j h hj hov)
-  · rw [overlaps_comm] at hov
-    exact Nat.ne_of_gt (tracksInOrder_lt gap ps j i h hi hov)
+  · exact Nat.ne_of_lt (tracksInOrder_lt c ps i j h hj hc)
+  · rw [hsymm] at hc
+    exact Nat.ne_of_gt (tracksInOrder_lt c ps j i h hi hc)
+
+end Tracks
 
 /-- The kind of a run for the nesting order: going right or left from an end reaching up to an
 end reaching down (`a` the first, `b` the second), or neither (both ends reach the same side). -/
@@ -293,6 +297,32 @@ def insertSorted (xs : Array Float) (x : Float) : Array Float := Id.run do
 def RunPart.nestsBefore (gap : Float) (p q : RunPart) : Bool :=
   p.nested && q.nested && nestsAbove p.kind q.kind && overlaps gap p.nestSpan q.nestSpan
 
+/-- Whether two parts leave one trunk (or join one) on its two sides: an end of each with one
+owner, reaching the same side at one column, one part wholly on the left of that column and the
+other wholly on the right. Such parts may share a track: the trunk forks there. -/
+def RunPart.tee (p q : RunPart) : Bool :=
+  [p.spec.start, p.spec.finish].any fun e => [q.spec.start, q.spec.finish].any fun f =>
+    e.owner.isSome && e.owner == f.owner && e.reach == f.reach && e.x == f.x &&
+      ((p.spec.span.2 ≤ e.x && e.x ≤ q.spec.span.1) || (q.spec.span.2 ≤ e.x && e.x ≤ p.spec.span.1))
+
+/-- Whether an end of `p` reaching up and an end of `q` reaching down, of two owners, stand at
+one column (closer than `laneGap`): then `p` must lie above `q`. -/
+def RunPart.stacked (laneGap : Float) (p q : RunPart) : Bool :=
+  [p.spec.start, p.spec.finish].any fun e => [q.spec.start, q.spec.finish].any fun f =>
+    e.reach == .up && f.reach == .down && e.owner.isSome && f.owner.isSome &&
+      e.owner != f.owner && (e.x - f.x).abs < laneGap
+
+/-- Whether two parts may not share a track: their stretches overlap or come closer than `gap`
+and they do not fork from one trunk (`RunPart.tee`), or one must lie above the other at a column
+(`RunPart.stacked`). Symmetric (`RunPart.conflicts_comm`). -/
+def RunPart.conflicts (laneGap gap : Float) (p q : RunPart) : Bool :=
+  (overlaps gap p.spec.span q.spec.span && !(p.tee q || q.tee p)) ||
+    (p.stacked laneGap q || q.stacked laneGap p)
+
+theorem RunPart.conflicts_comm (laneGap gap : Float) (p q : RunPart) :
+    RunPart.conflicts laneGap gap p q = RunPart.conflicts laneGap gap q p := by
+  simp only [RunPart.conflicts, overlaps_comm gap p.spec.span, Bool.or_comm]
+
 /-- The parts of a run split at the column `x`: the part with the end that reaches up (placed
 first and so above) and the part with the end that reaches down, each with its role. Expects a
 run whose ends reach opposite sides. -/
@@ -344,17 +374,18 @@ def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array
   -- the columns of every end and every blocked column, sorted
   let mut cols : Array Float :=
     (runs.foldl (fun acc r => (acc.push r.start.x).push r.finish.x) blocked).qsort (· < ·)
-  -- the part placed after each part (the second part of a split run)
-  let mut after : Array (Option Nat) := Array.replicate n none
+  -- the parts that must be placed after each part (the second part of a split run, and the
+  -- parts that wait for it at a column where they also stand)
+  let mut after : Array (Array Nat) := Array.replicate n #[]
   -- runs whose ends reach opposite sides at one column are split at once
   for i in [0:n] do
     let r := runs.getD i default
     if r.start.reach != r.finish.reach && (r.start.x - r.finish.x).abs < 0.5 then
-      let x := freeColumn cols r.start.x r.start.x laneGap
+      let x := freeColumn cols r.start.x r.start.x (max laneGap trackGap)
       cols := insertSorted cols x
       let (first, second) := splitAt (parts.getD i default) x
       parts := parts.setIfInBounds i { second with nested := false }
-      after := after.push (some i)
+      after := after.push #[i]
       parts := parts.push { first with nested := false }
   -- owners of ends reaching up and down, with the parts that have such an end
   let mut ups : Std.HashMap Nat (Float × Array Nat) := {}
@@ -385,12 +416,22 @@ def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array
   let mut hubsOf : Std.HashMap Nat (Array Nat) := {}
   let mut hubLeft : Array Nat := Array.replicate hubs.size 0
   let mut hardIn : Array Nat := Array.replicate parts.size 0
+  -- the parts that wait for each hub
+  let mut hubDown : Array (Array Nat) := Array.replicate hubs.size #[]
   for (u, d) in hubs, h in [0:hubs.size] do
     hubsOf := hubsOf.insert u ((hubsOf.getD u #[]).push h)
-    hubLeft := hubLeft.setIfInBounds h (ups.getD u (0, #[])).2.size
-    for m in (downs.getD d (0, #[])).2 do hardIn := hardIn.modify m (· + 1)
+    let upParts := (ups.getD u (0, #[])).2
+    hubLeft := hubLeft.setIfInBounds h upParts.size
+    -- a part with ends at both columns waits for the other parts of the upper column only
+    for m in (downs.getD d (0, #[])).2 do
+      if upParts.contains m then
+        for q in upParts do
+          if q != m then after := after.modify q (·.push m)
+      else
+        hardIn := hardIn.modify m (· + 1)
+        hubDown := hubDown.modify h (·.push m)
   for a in after do
-    if let some s := a then hardIn := hardIn.modify s (· + 1)
+    for s in a do hardIn := hardIn.modify s (· + 1)
   -- the nesting order: how many parts must come before each
   let mut softIn : Array Nat := Array.replicate parts.size 0
   for q in parts, k in [0:parts.size] do
@@ -426,7 +467,7 @@ def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array
       | some c =>
         let p := parts.getD c default
         let (lo, hi) := p.spec.span
-        let x := freeColumn cols lo hi laneGap
+        let x := freeColumn cols lo hi (max laneGap trackGap)
         cols := insertSorted cols x
         let (first, second) := splitAt p x
         let s := parts.size
@@ -435,12 +476,11 @@ def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array
         hardIn := (hardIn.setIfInBounds c 0).push (hardIn.getD c 0 + 1)
         softIn := softIn.push 0
         placed := placed.push false
-        after := (after.setIfInBounds c (some s)).push none
+        -- what waited for the run waits for its second part
+        after := (after.map fun a => a.map fun m => if m == c then s else m).modify c (·.push s)
+          |>.push #[]
         -- the end reaching down now belongs to the second part
-        for e in [second.spec.start, second.spec.finish] do
-          if let (some o, .down) := (e.owner, e.reach) then
-            downs := downs.insert o ((downs.getD o (e.x, #[])).1,
-              (downs.getD o (e.x, #[])).2.map fun m => if m == c then s else m)
+        hubDown := hubDown.map fun a => a.map fun m => if m == c then s else m
         ready := ready.push c
     -- the ready part that comes first
     let mut bi := 0
@@ -461,10 +501,10 @@ def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array
         for h in hubsOf.getD o #[] do
           hubLeft := hubLeft.modify h (· - 1)
           if hubLeft.getD h 1 == 0 then
-            for m in (downs.getD (hubs.getD h (0, 0)).2 (0, #[])).2 do
+            for m in hubDown.getD h #[] do
               hardIn := hardIn.modify m (· - 1)
               woken := woken.push m
-    if let some s := after.getD k none then
+    for s in after.getD k #[] do
       hardIn := hardIn.modify s (· - 1)
       woken := woken.push s
     -- the parts it came before in the nesting order
@@ -480,8 +520,9 @@ def placeRuns (runs : Array RunSpec) (laneGap trackGap : Float) (blocked : Array
   -- every part left (not reached when the constraints are as built) in its own order
   for k in [0:parts.size] do
     if !placed.getD k true then order := order.push k
-  let tracks := (tracksInOrder trackGap (order.toList.map fun k => (parts.getD k default).spec.span))
-    |>.toArray
+  let tracks :=
+    (tracksInOrder (RunPart.conflicts laneGap trackGap)
+      (order.toList.map (parts.getD · default))).toArray
   let mut trackOf : Array Nat := Array.replicate parts.size 0
   for k in order, t in tracks do trackOf := trackOf.setIfInBounds k t
   let depth := tracks.foldl (fun m t => max m (t + 1)) 0

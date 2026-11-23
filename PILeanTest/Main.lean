@@ -21,6 +21,7 @@ import PILeanTest.Enclosures
 import PILeanTest.FigureChecks
 import PILeanTest.Plane
 import PILeanTest.GraphRoutes
+import PILeanTest.GraphBundles
 import PILeanTest.Trust
 import PILeanTest.TrustBuild
 import PILeanTest.Inert
@@ -105,13 +106,20 @@ def main (args : List String) : IO UInt32 := do
     let r := (← Bounds.ioChecks) ++ (← Tools.ioChecks)
     for (name, ok) in r do if !ok then IO.eprintln s!"FAIL {name}"
     return if r.all (·.2) then 0 else 1
+  | "--bundle-out" :: dir :: names => GraphBundles.writeSamples dir names; return 0
+  | "--bundle-measures" :: names => GraphBundles.printMeasures {} names; return 0
+  | ["--bundle-checks"] =>
+    let r := GraphBundles.checks
+    for (name, ok) in r do if !ok then IO.eprintln s!"FAIL {name}"
+    IO.println s!"{(r.filter (·.2)).size} of {r.size} hold"
+    return if r.all (·.2) then 0 else 1
   | ["--graph-compare-out", dir] => Graphs.writeCompare dir; return 0
   | "--graph-compare-out" :: _ => IO.eprintln "usage: --graph-compare-out DIR"; return 1
   | _ => pure ()
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++ Blur.checks ++
     Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
-    Graphs.checks ++ GraphOrder.checks ++ GraphRoutes.checks ++ GraphQuality.checks ++
+    Graphs.checks ++ GraphOrder.checks ++ GraphRoutes.checks ++ GraphBundles.checks ++ GraphQuality.checks ++
     (← GraphQuality.ioChecks) ++ GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
