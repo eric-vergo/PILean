@@ -20,13 +20,16 @@ import PILeanManual.Api.PILean.Anim.Quantize
 import PILeanManual.Api.PILean.Canvas
 import PILeanManual.Api.PILean.Color
 import PILeanManual.Api.PILean.Exact
+import PILeanManual.Api.PILean.Exact.Algebraic
 import PILeanManual.Api.PILean.Exact.Plane
+import PILeanManual.Api.PILean.Explorer
 import PILeanManual.Api.PILean.Geometry
 import PILeanManual.Api.PILean.Graph.Check
 import PILeanManual.Api.PILean.Graph.Compound
 import PILeanManual.Api.PILean.Graph.Coordinates
 import PILeanManual.Api.PILean.Graph.Dot
 import PILeanManual.Api.PILean.Graph.Draw
+import PILeanManual.Api.PILean.Graph.Fixed
 import PILeanManual.Api.PILean.Graph.Layered
 import PILeanManual.Api.PILean.Graph.Layering
 import PILeanManual.Api.PILean.Graph.Layout
@@ -46,8 +49,11 @@ import PILeanManual.Api.PILean.Image.Proofs
 import PILeanManual.Api.PILean.Path
 import PILeanManual.Api.PILean.Plane
 import PILeanManual.Api.PILean.Plane.Basic
+import PILeanManual.Api.PILean.Plane.Check
 import PILeanManual.Api.PILean.Plane.Draw
 import PILeanManual.Api.PILean.Plane.Frame
+import PILeanManual.Api.PILean.Plane.Graph
+import PILeanManual.Api.PILean.Plane.Render
 import PILeanManual.Api.PILean.Plot.Exact
 import PILeanManual.Api.PILean.Plot.Figure
 import PILeanManual.Api.PILean.Plot.Proofs
@@ -121,6 +127,7 @@ The modules, by the folder they are in:
   {ref "api-PILean"}[`PILean`],
   {ref "api-PILean.Canvas"}[`PILean.Canvas`],
   {ref "api-PILean.Color"}[`PILean.Color`],
+  {ref "api-PILean.Explorer"}[`PILean.Explorer`],
   {ref "api-PILean.Geometry"}[`PILean.Geometry`],
   {ref "api-PILean.Path"}[`PILean.Path`],
   {ref "api-PILean.Sort"}[`PILean.Sort`],
@@ -140,6 +147,7 @@ The modules, by the folder they are in:
   {ref "api-PILean.Anim.Quantize"}[`PILean.Anim.Quantize`]
 * *Exact*:
   {ref "api-PILean.Exact"}[`PILean.Exact`],
+  {ref "api-PILean.Exact.Algebraic"}[`PILean.Exact.Algebraic`],
   {ref "api-PILean.Exact.Plane"}[`PILean.Exact.Plane`]
 * *Graph*:
   {ref "api-PILean.Graph.Check"}[`PILean.Graph.Check`],
@@ -147,6 +155,7 @@ The modules, by the folder they are in:
   {ref "api-PILean.Graph.Coordinates"}[`PILean.Graph.Coordinates`],
   {ref "api-PILean.Graph.Dot"}[`PILean.Graph.Dot`],
   {ref "api-PILean.Graph.Draw"}[`PILean.Graph.Draw`],
+  {ref "api-PILean.Graph.Fixed"}[`PILean.Graph.Fixed`],
   {ref "api-PILean.Graph.Layered"}[`PILean.Graph.Layered`],
   {ref "api-PILean.Graph.Layering"}[`PILean.Graph.Layering`],
   {ref "api-PILean.Graph.Layout"}[`PILean.Graph.Layout`],
@@ -167,8 +176,11 @@ The modules, by the folder they are in:
 * *Plane*:
   {ref "api-PILean.Plane"}[`PILean.Plane`],
   {ref "api-PILean.Plane.Basic"}[`PILean.Plane.Basic`],
+  {ref "api-PILean.Plane.Check"}[`PILean.Plane.Check`],
   {ref "api-PILean.Plane.Draw"}[`PILean.Plane.Draw`],
-  {ref "api-PILean.Plane.Frame"}[`PILean.Plane.Frame`]
+  {ref "api-PILean.Plane.Frame"}[`PILean.Plane.Frame`],
+  {ref "api-PILean.Plane.Graph"}[`PILean.Plane.Graph`],
+  {ref "api-PILean.Plane.Render"}[`PILean.Plane.Render`]
 * *Plot*:
   {ref "api-PILean.Plot.Exact"}[`PILean.Plot.Exact`],
   {ref "api-PILean.Plot.Figure"}[`PILean.Plot.Figure`],
@@ -257,7 +269,11 @@ The modules, by the folder they are in:
 
 {include 1 PILeanManual.Api.PILean.Exact}
 
+{include 1 PILeanManual.Api.PILean.Exact.Algebraic}
+
 {include 1 PILeanManual.Api.PILean.Exact.Plane}
+
+{include 1 PILeanManual.Api.PILean.Explorer}
 
 {include 1 PILeanManual.Api.PILean.Geometry}
 
@@ -270,6 +286,8 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.Graph.Dot}
 
 {include 1 PILeanManual.Api.PILean.Graph.Draw}
+
+{include 1 PILeanManual.Api.PILean.Graph.Fixed}
 
 {include 1 PILeanManual.Api.PILean.Graph.Layered}
 
@@ -309,9 +327,15 @@ The modules, by the folder they are in:
 
 {include 1 PILeanManual.Api.PILean.Plane.Basic}
 
+{include 1 PILeanManual.Api.PILean.Plane.Check}
+
 {include 1 PILeanManual.Api.PILean.Plane.Draw}
 
 {include 1 PILeanManual.Api.PILean.Plane.Frame}
+
+{include 1 PILeanManual.Api.PILean.Plane.Graph}
+
+{include 1 PILeanManual.Api.PILean.Plane.Render}
 
 {include 1 PILeanManual.Api.PILean.Plot.Exact}
 
