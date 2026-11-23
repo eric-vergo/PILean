@@ -28,6 +28,10 @@ optional:
 * `format := "svg"`: the file shown: `svg` (the default), `png`, `apng` or `gif`; an animation's
   `svg` is its animated SVG.
 * `width := "..."`: the picture's width as a CSS length (`60%`, `24rem`, `480px`).
+* `inline := true`: the picture put inline as an `svg` element (its narrow rendition on small
+  screens, when it has one): its titles show on hover, its elements that name a declaration
+  (`data-lean-decl`) link to it with the `lean:decl/` links of the source line, and one picture
+  serves both themes.
 * `proves := name`: a theorem about the figure. It must exist, must not depend on `sorryAx` or any
   axiom other than `propext`, `Classical.choice` and `Quot.sound`, and its statement must name
   the figure itself (PILean's rule, `figure_proves`): a statement about a series or a relation
@@ -38,6 +42,11 @@ The figure is numbered as the Blueprint numbers its blocks (`verso.blueprint.num
 line that names the declaration that made the picture and its file and line (a `lean:decl/` link
 for viewers that set `data-lean-links`, a link to the repository at the build's commit when the
 site has one), its fingerprint and the theorem, if any.
+
+`:::figure_explorer Decl …` takes the same options and shows an explorer (`PILean.Explorer`: a
+parameter axis with a slider, a step sequence with previous, play and next, or both): every frame
+inline, pan and zoom, the script `pilean-explorer.js` of the site; without script the frames are
+listed with their values and captions.
 
 `{figure_list}` adds a page that lists every figure of the document with its source, fingerprint,
 files and theorem; `{figref "label"}[]` refers to a figure by its label.
@@ -72,6 +81,7 @@ linked to the repository when the site has one. -/
 def blueprintDeclStyle : DeclStyle where
   decl := declHtml
   place r href := placeHtml r.file r.line href
+  href name := some (Informal.LeanSourceAnchor.declHref name.toName)
 
 /-- The part number a figure's number goes below, as the Blueprint numbers its blocks. -/
 def blueprintPrefix? (ctxt : TraverseContext) (d : FigureData) : Option String :=
@@ -81,9 +91,10 @@ def blueprintPrefix? (ctxt : TraverseContext) (d : FigureData) : Option String :
 /-- The source line under a figure's caption. -/
 def sourceLine (p : Placed) (fp : String) : Html := sourceLineWith blueprintDeclStyle p fp
 
-/-- The HTML of a figure block. -/
-def figureHtml (p : Placed) (idAttr : Array (String × String)) (caption : Html) : Html :=
-  figureHtmlWith blueprintDeclStyle p idAttr caption
+/-- The HTML of a figure block; `site` is the site's render (inline pictures and explorers). -/
+def figureHtml (p : Placed) (idAttr : Array (String × String)) (caption : Html)
+    (site : Option SiteRender := none) : Html :=
+  figureHtmlWith blueprintDeclStyle p idAttr caption site
 
 -- The block of a figure; `serialized` is its `FigureData` as JSON text.
 block_extension Block.figure (serialized : String) where
@@ -98,7 +109,8 @@ block_extension Block.figure (serialized : String) where
     let some p := (Registry.get st).find? (toJson id).compress
       | Verso.reportError s!"The figure {d.decl} was not traversed"; pure .empty
     let caption ← contents.mapM goB
-    pure (figureHtml p (st.htmlId id) (.seq caption))
+    let site ← (siteRef.get : IO _)
+    pure (figureHtml p (st.htmlId id) (.seq caption) site)
   toTeX := some fun _goI goB _id json contents => do
     let name := match (fromJson? json : Except String FigureData) with
       | .ok d => d.decl
@@ -106,13 +118,13 @@ block_extension Block.figure (serialized : String) where
     let caption ← contents.mapM goB
     pure (.seq #[.raw "\\begin{quote}\\emph{", .text s!"Figure {name}", .raw "} (in the HTML \
       version). ", .seq caption, .raw "\\end{quote}\n"])
-  extraCss := [figureCss]
+  extraCss := [figureCss, explorerCss]
+  extraJsFiles := {explorerJsFile}
 
-/-! ### The directive -/
+/-! ### The directives -/
 
-/-- `:::figure Decl (options) caption :::` (see the module doc). -/
-@[directive]
-def figure : DirectiveExpanderOf FigureConfig
+/-- The expansion of a figure directive (`explorer`: of `figure_explorer`). -/
+def figureWith (explorer : Bool) : DirectiveExpanderOf FigureConfig
   | cfg, contents => do
     let (decl, r) ← figureRecord cfg.decl
     let env ← getEnv
@@ -145,8 +157,17 @@ def figure : DirectiveExpanderOf FigureConfig
       caption := if contents.isEmpty then #[(false, summary.getD "")]
         else captionRuns env contents,
       docCaption := if contents.isEmpty then summary else none,
-      proves, numbering, subPrefix }
+      proves, numbering, subPrefix, inline := cfg.inline.getD false, explorer }
     let body ← contents.mapM elabBlock
     ``(Verso.Doc.Block.other (Block.figure $(quote (toJson data).compress)) #[$body,*])
+
+/-- `:::figure Decl (options) caption :::` (see the module doc). -/
+@[directive]
+def figure : DirectiveExpanderOf FigureConfig := figureWith false
+
+/-- `:::figure_explorer Decl (options) caption :::`: an explorer (a declaration of type
+`PILean.Explorer`) with its frames inline, its controls and its script (see the module doc). -/
+@[directive]
+def figure_explorer : DirectiveExpanderOf FigureConfig := figureWith true
 
 end PILeanVerso

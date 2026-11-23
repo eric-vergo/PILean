@@ -13,7 +13,9 @@ site's repository and commit, when given) as `pilean-build` writes it, and the m
 them. The files go below the folder `figureFolder` of the site's data directory, at the paths
 `pilean-build` uses, with `manifest.json` beside them, so `pilean-verify` checks the published
 folder as it checks one made by `pilean-build`. Every SVG output must be inert
-(`PILean.Svg.inertProblem?`): no script, no event handler, nothing loaded from elsewhere.
+(`PILean.Svg.inertProblem?`): no script, no event handler, nothing loaded from elsewhere; so must
+every picture a page puts inline (`Output.inline`, every frame of an explorer, `Output.frames`),
+and one figure's inline SVG may not pass `SiteOptions.inlineLimit` bytes.
 
 The rendered site is kept in `siteRef` while the document is rendered: the generator wrapper
 (`PILeanVerso.withFigures`) sets it, and the figure blocks read it during traversal.
@@ -42,6 +44,9 @@ structure SiteOptions where
   /-- The folder of the package's sources within the repository (empty, or ending in `/`), put
   before a figure's file in links to the repository. -/
   sourcePrefix : String := ""
+  /-- The most bytes of SVG one figure may put inline in a page (its inline picture, or all the
+  frames of an explorer); a figure above it fails the build. -/
+  inlineLimit : Nat := 2000000
 deriving Inhabited, Repr
 
 /-- Whether `s` is empty, or relative path components of `nameChar` characters each followed by
@@ -68,6 +73,12 @@ structure SiteFile where
   format : Format
   /-- The manifest entry and the bytes. -/
   built : BuiltFile
+  /-- The picture as nodes for a page that puts it inline (SVG outputs that have one). -/
+  inline : Option InlineSvg := none
+  /-- Every frame of an explorer, for a page that shows them inline. -/
+  frames : Option FrameSet := none
+  /-- The layout warnings of the figure. -/
+  problems : Array String := #[]
 
 /-- The files of one figure declaration. -/
 structure SiteFigure where
@@ -86,6 +97,8 @@ structure SiteRender where
   files : Array BuiltFile := #[]
   /-- The text of `manifest.json`. -/
   manifest : String := Manifest.render #[]
+  /-- The layout warnings of the figures (`Output.problems`), one per line. -/
+  warnings : Array String := #[]
 
 instance : Inhabited SiteRender := ⟨{}⟩
 
@@ -99,7 +112,17 @@ def renderSiteFile (e : FigureEntry) (o : Output) (opts : SiteOptions) :
     | some text =>
       if let some why := Svg.inertProblem? text then
         throw s!"{built.entry.path}: the SVG is not inert ({why})"
-  return { name := o.name, format := o.format, built }
+  let inline := o.inline ()
+  let frames := o.frames ()
+  let pictures := (inline.toArray ++ (frames.map (·.frames)).getD #[]).map (·.document)
+  for (doc, i) in pictures.zipIdx do
+    if let some why := Svg.inertProblem? doc then
+      throw s!"{built.entry.path}: inline picture {i} is not inert ({why})"
+  let size := pictures.foldl (fun n d => n + d.utf8ByteSize) 0
+  if size > opts.inlineLimit then
+    throw s!"{built.entry.path}: {size} bytes of inline SVG, more than the limit of \
+      {opts.inlineLimit} (--figure-inline-limit)"
+  return { name := o.name, format := o.format, built, inline, frames, problems := o.problems () }
 
 /-- Renders the figures `used` (declaration names; repeated names count once) from the table
 `entries`, with all the messages (one per line) if a name has no entry, a figure cannot be
@@ -115,6 +138,7 @@ def renderSite (entries : Array FigureEntry) (used : Array String) (opts : SiteO
   let mut figures : Std.HashMap String SiteFigure := {}
   let mut files : Array BuiltFile := #[]
   let mut errors : Array String := #[]
+  let mut warnings : Array String := #[]
   for n in names do
     match byName[n]? with
     | none => errors := errors.push s!"{n}: no figure of that name in the generator's table \
@@ -125,6 +149,8 @@ def renderSite (entries : Array FigureEntry) (used : Array String) (opts : SiteO
         match renderSiteFile e o opts with
         | .ok f => fs := fs.push f
         | .error msg => errors := errors.push msg
+      for f in fs do
+        for w in f.problems do warnings := warnings.push s!"{n}: {w}"
       figures := figures.insert n { source := e.toSourceData, files := fs }
       files := files ++ fs.map (·.built)
   files := files.qsort (fun a b => a.entry.path < b.entry.path)
@@ -132,7 +158,8 @@ def renderSite (entries : Array FigureEntry) (used : Array String) (opts : SiteO
     if files[i - 1]!.entry.path == files[i]!.entry.path then
       errors := errors.push s!"two outputs have the path {files[i]!.entry.path}"
   if !errors.isEmpty then throw ("\n".intercalate errors.toList)
-  return { options := opts, figures, files, manifest := Manifest.render (files.map (·.entry)) }
+  return { options := opts, figures, files, manifest := Manifest.render (files.map (·.entry)),
+           warnings }
 
 /-- The lines `pilean-build --check` prints for the folder `dir` against this render
 (`missing:`, `stale:`, `extra:`); none if the folder holds exactly the render. -/

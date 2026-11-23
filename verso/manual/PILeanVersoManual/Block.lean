@@ -27,12 +27,20 @@ empty, is the caption; an empty body takes the declaration's doc string. The nam
 * `backdrop := "..."`: a picture of the site (a path relative to the site's root, with `{theme}`
   standing for `light` or `dark`) that the figure is drawn over, as callouts over a screenshot:
   the backdrop carries the text alternative, the figure is laid over it at the same size.
+* `inline := true`: the picture put inline as an `svg` element (with its narrow rendition, when it
+  has one, on small screens), so that its titles show on hover and its elements that name a
+  declaration link to it; one picture serves both themes (`PILeanVersoManual.Inline`).
 * `proves := name`: a theorem about the figure, by PILean's rule (`figure_proves`,
   `PILean.Trust.figureTheoremProblem?`): it must not depend on `sorryAx` or any axiom other than
   `propext`, `Classical.choice` and `Quot.sound`, and its statement must name the figure itself
   (a statement about a definition the figure is built from is refused). A theorem about a
   function defined elsewhere is linked through a theorem that says what the figure holds and
   applies it to those values (the example's `trianglePoints_spec`).
+
+`:::figure_explorer Decl …` shows an explorer (`PILean.Explorer`: a parameter axis with a slider, a
+step sequence with previous, play and next, or both) with every frame inline, pan and zoom, and a
+script of the site (`pilean-explorer.js`); without script the frames are listed, the poster first
+in size. It takes the same options.
 
 Figures are numbered in document order, "Figure 1", "Figure 2", …; the caption ends with a line
 that names the declaration that made the picture with its file and line, the fingerprint, and the
@@ -79,7 +87,8 @@ block_extension Block.figure (serialized : String) where
       | Verso.reportError s!"The figure {d.decl} was not traversed"; pure .empty
     let caption ← contents.mapM goB
     let style ← (declStyleRef.get : IO DeclStyle)
-    pure (figureHtmlWith style p (st.htmlId id) (.seq caption))
+    let site ← (siteRef.get : IO _)
+    pure (figureHtmlWith style p (st.htmlId id) (.seq caption) site)
   toTeX := some fun _goI goB _id json contents => do
     let name := match (fromJson? json : Except String FigureData) with
       | .ok d => d.decl
@@ -87,11 +96,11 @@ block_extension Block.figure (serialized : String) where
     let caption ← contents.mapM goB
     pure (.seq #[.raw "\\begin{quote}\\emph{", .text s!"Figure {name}", .raw "} (in the HTML \
       version). ", .seq caption, .raw "\\end{quote}\n"])
-  extraCss := [figureCss]
+  extraCss := [figureCss, explorerCss]
+  extraJsFiles := {explorerJsFile}
 
-/-- `:::figure Decl (alt := "...") (options) caption :::` (see the module doc). -/
-@[directive]
-def figure : DirectiveExpanderOf FigureConfig
+/-- The expansion of a figure directive (`explorer`: of `figure_explorer`). -/
+def figureWith (explorer : Bool) : DirectiveExpanderOf FigureConfig
   | cfg, contents => do
     let (decl, r) ← figureRecord cfg.decl
     let env ← getEnv
@@ -115,8 +124,17 @@ def figure : DirectiveExpanderOf FigureConfig
       caption := if contents.isEmpty then #[(false, summary.getD "")]
         else captionRuns env contents,
       docCaption := if contents.isEmpty then summary else none,
-      proves, numbering := "global" }
+      proves, numbering := "global", inline := cfg.inline.getD false, explorer }
     let body ← contents.mapM elabBlock
     ``(Verso.Doc.Block.other (Block.figure $(quote (toJson data).compress)) #[$body,*])
+
+/-- `:::figure Decl (alt := "...") (options) caption :::` (see the module doc). -/
+@[directive]
+def figure : DirectiveExpanderOf FigureConfig := figureWith false
+
+/-- `:::figure_explorer Decl (alt := "...") (options) caption :::`: an explorer (a declaration of
+type `PILean.Explorer`) with its frames inline and its controls (see the module doc). -/
+@[directive]
+def figure_explorer : DirectiveExpanderOf FigureConfig := figureWith true
 
 end PILeanVerso.Manual

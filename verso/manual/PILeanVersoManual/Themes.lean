@@ -27,27 +27,9 @@ namespace PILeanVerso
 
 open PILean PILean.Trust
 
-/-- Whether two styles have the same colours (background, inks, axis, grid, palette, the graph
-colours and the plane colours with their fill opacity); sizes, fonts and the text engine are not
-compared. -/
-def sameColours (a b : Style) : Bool :=
-  a.background == b.background && a.inkPrimary == b.inkPrimary &&
-    a.inkSecondary == b.inkSecondary && a.inkMuted == b.inkMuted && a.axis == b.axis &&
-    a.grid == b.grid && a.gridMinor == b.gridMinor && a.palette == b.palette &&
-    a.nodeFill == b.nodeFill && a.nodeStroke == b.nodeStroke && a.edge == b.edge &&
-    a.plane.sameColours b.plane
-
 /-- The style `s` with the colours of `Style.dark`, everything else kept, if `s` has the colours of
-`Style.light`; `none` otherwise. -/
-def Style.darkVariant? (s : Style) : Option Style :=
-  if sameColours s Style.light then
-    let d := Style.dark
-    some { s with
-      background := d.background, inkPrimary := d.inkPrimary, inkSecondary := d.inkSecondary,
-      inkMuted := d.inkMuted, axis := d.axis, grid := d.grid, gridMinor := d.gridMinor,
-      palette := d.palette, nodeFill := d.nodeFill, nodeStroke := d.nodeStroke, edge := d.edge,
-      plane := s.plane.withColoursOf d.plane }
-  else none
+`Style.light`; `none` otherwise (PILean's `Style.darkTwin?`). -/
+def Style.darkVariant? (s : Style) : Option Style := s.darkTwin?
 
 /-- The outputs `os` for the dark theme: the suffix `-dark` added to each name. -/
 def darkOutputs (os : Array Output) : Array Output :=

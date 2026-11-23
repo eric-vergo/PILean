@@ -6,6 +6,7 @@ import VersoManual
 import PILean.Trust.Attr
 import PILeanVersoManual.Render
 import PILeanVersoManual.Style
+import PILeanVersoManual.Inline
 
 /-!
 # The parts every figure block shares
@@ -82,6 +83,10 @@ structure FigureData where
   numbering : String := "sub"
   /-- With `sub`: `full` (the whole section path) or `first` (the chapter) as prefix. -/
   subPrefix : String := "full"
+  /-- Whether the picture is put inline as an `svg` element (`inline := true`). -/
+  inline : Bool := false
+  /-- Whether the figure is an explorer (`figure_explorer`): its frames inline, with controls. -/
+  explorer : Bool := false
 deriving ToJson, FromJson, Inhabited, Repr
 
 /-- The parsed arguments of a figure directive. -/
@@ -102,16 +107,19 @@ structure FigureConfig where
   proves : Option Ident
   /-- `backdrop := "..."`. -/
   backdrop : Option (ArgParse.WithSyntax String)
+  /-- `inline := true`. -/
+  inline : Option Bool
 
 section
-variable {m : Type → Type} [Monad m] [MonadError m]
+variable {m : Type → Type} [Monad m] [MonadError m] [MonadLiftT CoreM m]
 
 /-- The argument parser of a figure directive. -/
 def FigureConfig.parse : ArgParse m FigureConfig :=
   FigureConfig.mk <$> .positional `decl .ident <*> .named `label .string true <*>
     .named `alt .string true <*> .named `title .string true <*>
     .named `format (.withSyntax .string) true <*> .named `width (.withSyntax .string) true <*>
-    .named `proves .ident true <*> .named `backdrop (.withSyntax .string) true
+    .named `proves .ident true <*> .named `backdrop (.withSyntax .string) true <*>
+    .named `inline .bool true
 
 instance : FromArgs FigureConfig m := ⟨FigureConfig.parse⟩
 
@@ -406,8 +414,16 @@ def pictureHtml (p : Placed) : Option Html := do
   let dark := pick? p.files d.format "-dark"
   let poster := pick? p.files "png" "-poster"
   let alt := if d.backdrop.isSome then "" else d.alt
+  let narrowOf := fun (f : FileInfo) => pick? p.files d.format (if f.name == "-dark" then
+    "-narrow-dark" else "-narrow")
   let one (f : FileInfo) (cls : String) : Html :=
-    let img := imgTag f s!"pilean-figure-img {cls}" alt d.title d.width
+    let img := match narrowOf f with
+      | some nf =>
+        .tag "picture" #[("class", s!"pilean-figure-motion {cls}")] (.seq #[
+          .tag "source" #[("media", "(max-width: 560px)"),
+            ("srcset", fileUrlRelative nf.path)] .empty,
+          imgTag f "pilean-figure-img" alt d.title d.width])
+      | none => imgTag f s!"pilean-figure-img {cls}" alt d.title d.width
     match poster with
     | some pf =>
       .tag "picture" #[("class", s!"pilean-figure-motion {cls}")] (.seq #[
@@ -452,14 +468,17 @@ def shownFingerprint (p : Placed) : String :=
 
 /-- How a document shows a declaration a figure names: `decl` gives the declaration's name as
 the source line shows it, `place` its file and line (with the repository link of the site's
-options, if any). -/
+options, if any), and `href` the link an element of an inline picture that names a declaration
+(`data-lean-decl`) leads to, if the document has one. -/
 structure DeclStyle where
   /-- The declaration's name. -/
   decl : String → Html
   /-- The file and line of a declaration, and the repository link the traversal computed. -/
   place : DeclRef → Option String → Html
+  /-- The link of a declaration named in an inline picture, if any. -/
+  href : String → Option String := fun _ => none
 
-instance : Inhabited DeclStyle := ⟨⟨fun _ => .empty, fun _ _ => .empty⟩⟩
+instance : Inhabited DeclStyle := ⟨{ decl := fun _ => .empty, place := fun _ _ => .empty }⟩
 
 open Verso.Output.Html in
 /-- The source line under a figure's caption. -/
@@ -479,26 +498,70 @@ def sourceLineWith (s : DeclStyle) (p : Placed) (fp : String) : Html :=
       {{thm}}
     </span>}}
 
+open Verso.Genre.Manual in
+/-- The script of explorers (`explorerJs`) as a file of the site, `pilean-explorer.js`, loaded
+deferred. -/
+def explorerJsFile : JsFile :=
+  { filename := "pilean-explorer.js", defer := true, contents := ⟨explorerJs⟩, sourceMap? := none }
+
+/-- The id a figure's elements are named after: its anchor's id, or one from its declaration and
+its place in the document. -/
+def figureDomId (p : Placed) (idAttr : Array (String × String)) : String :=
+  match idAttr.find? (·.1 == "id") with
+  | some (_, v) => v
+  | none => s!"pilean-figure-{p.order}"
+
+/-- The inline markup of a figure (`inline := true`, and explorers), from the site's render: the
+picture (and its narrow rendition, shown on small screens) as `svg` elements, or an explorer's
+frames and controls; `none` when the figure is shown as files. -/
+def inlinePicture? (s : DeclStyle) (site : Option SiteRender) (p : Placed)
+    (idAttr : Array (String × String)) : Option Html := Id.run do
+  let d := p.data
+  if !d.inline && !d.explorer then return none
+  let base := figureDomId p idAttr
+  let some site := site | return none
+  let some fig := site.figures[d.decl]? | return none
+  let file := fun (name : String) => fig.files.find? fun f => f.format == .svg && f.name == name
+  if d.explorer then
+    let some f := file "" | return none
+    let some fs := f.frames | return none
+    return some (.text false (explorerHtml s!"{base}-x" fs s.href d.alt))
+  let some f := file "" | return none
+  let some i := f.inline | return none
+  let wide := inlineSvgText s!"{base}-svg" i s.href d.alt
+  match (file "-narrow").bind (·.inline) with
+  | some n =>
+    let narrow := inlineSvgText s!"{base}-svg-narrow" n s.href d.alt
+    return some (.tag "div" #[("class", "pilean-has-narrow")] (.seq #[
+      .tag "div" #[("class", "pilean-inline-frame pilean-inline-wide")] (.text false wide),
+      .tag "div" #[("class", "pilean-inline-frame pilean-inline-narrow")] (.text false narrow)]))
+  | none => return some (.tag "div" #[("class", "pilean-inline-frame")] (.text false wide))
+
 open Verso.Output.Html in
-/-- The HTML of a figure block. -/
+/-- The HTML of a figure block; `site` is the site's render, which inline pictures and explorers
+are read from. -/
 def figureHtmlWith (s : DeclStyle) (p : Placed) (idAttr : Array (String × String))
-    (caption : Html) : Html :=
+    (caption : Html) (site : Option SiteRender := none) : Html :=
   let d := p.data
   let hasDark := (pick? p.files d.format "-dark").isSome ||
     (d.backdrop.map backdropThemed).getD false
   let cls := if hasDark then "pilean-figure pilean-figure-has-dark" else "pilean-figure"
-  let picture := (pictureHtml p).getD
-    {{<p class="pilean-figure-missing">{{.text true s!"No {d.format} file for {d.decl}."}}</p>}}
+  let picture := match inlinePicture? s site p idAttr with
+    | some h => h
+    | none => (pictureHtml p).getD
+      {{<p class="pilean-figure-missing">{{.text true s!"No {d.format} file for {d.decl}."}}</p>}}
   let captionBody : Html := match d.docCaption with
     | some c => {{<span class="pilean-figure-text">{{.text true c}}</span>}}
     | none => {{<span class="pilean-figure-text">{{caption}}</span>}}
-  .tag "figure" (idAttr ++ #[("class", cls), ("data-lean-decl", d.decl)]) (.seq #[
+  let capId := s!"{figureDomId p idAttr}-caption"
+  let cls := if d.explorer then cls ++ " pilean-figure-explorer" else cls
+  let role := if d.explorer then #[("role", "group"), ("aria-labelledby", capId)] else #[]
+  .tag "figure" (idAttr ++ #[("class", cls), ("data-lean-decl", d.decl)] ++ role) (.seq #[
     {{<div class="pilean-figure-frame">{{picture}}</div>}},
-    {{<figcaption class="pilean-figure-caption">
-      <span class="pilean-figure-number">{{.text true s!"Figure {p.number}"}}</span>
-      {{captionBody}}
-      {{sourceLineWith s p (shownFingerprint p)}}
-    </figcaption>}}])
+    .tag "figcaption" #[("class", "pilean-figure-caption"), ("id", capId)] (.seq #[
+      {{<span class="pilean-figure-number">{{.text true s!"Figure {p.number}"}}</span>}},
+      captionBody,
+      sourceLineWith s p (shownFingerprint p)])])
 
 /-! ### The figures page -/
 
@@ -632,8 +695,12 @@ def parseWrapperArgs (opts : SiteOptions) (args : List String) : Except String W
       w := { w with options.sourcePrefix := p }; rest := r
     | "--check-figures" :: d :: r => w := { w with checkDir := some d }; rest := r
     | "--strict-figures" :: r => w := { w with strict := true }; rest := r
+    | "--figure-inline-limit" :: n :: r =>
+      match n.toNat? with
+      | some k => w := { w with options.inlineLimit := k }; rest := r
+      | none => throw s!"--figure-inline-limit {n}: expected a number of bytes"
     | a@"--figure-repo" :: [] | a@"--figure-commit" :: [] | a@"--figure-source-prefix" :: []
-    | a@"--check-figures" :: [] => throw s!"{a} needs a value"
+    | a@"--check-figures" :: [] | a@"--figure-inline-limit" :: [] => throw s!"{a} needs a value"
     | a :: r => kept := kept.push a; rest := r
   return { w with rest := kept.toList }
 
@@ -673,6 +740,7 @@ def withFiguresFor (used : Array String) (figures : Array FigureEntry) (args : L
     | .error e =>
       for l in e.splitOn "\n" do IO.eprintln s!"figures: {escapeControl l}"
       return 1
+  for l in site.warnings do IO.eprintln s!"figures: warning: {escapeControl l}"
   if let some dir := w.checkDir then
     let lines ← site.checkFolder dir
     for l in lines do IO.println (escapeControl l)

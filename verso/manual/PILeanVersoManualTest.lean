@@ -88,7 +88,7 @@ def main : IO UInt32 := do
     let files ← filesBelow figs
     check (files.contains "manifest.json") "the figures folder has its manifest"
     let svgs := files.filter (·.endsWith ".svg")
-    check (svgs.size == 6) s!"six SVG files, light and dark ({svgs.size})"
+    check (svgs.size == 12) s!"twelve SVG files, light, dark and narrow ({svgs.size})"
     for f in svgs do
       let t ← IO.FS.readFile (figs / f)
       check (Svg.isInert t) s!"{f} is inert"
@@ -120,6 +120,41 @@ def main : IO UInt32 := do
       figureParts.all (!has · " on")) "the figures' markup has no script and no event handler"
     let list ← IO.FS.readFile (out1 / "html-multi" / "Figures" / "index.html")
     check (has list "pilean-figure-index" && has list "Figure 3") "the figures page lists them"
+    check (has list "ManualExample.radiusSlider" && has list "ManualExample.wordSteps")
+      "the figures page lists the explorers"
+    -- explorers and inline pictures
+    let ex ← IO.FS.readFile (out1 / "html-multi" / "Explorers" / "index.html")
+    let frames := (ex.splitOn "<li class=\"pilean-explorer-frame").length - 1
+    check (frames == 9) s!"every frame of both explorers is in the page ({frames})"
+    check (has ex "data-poster=\"\"" && has ex "class=\"pilean-explorer-controls\" hidden=\"\"")
+      "without script the frames are listed and the controls hidden"
+    check (has ex "<input type=\"range\" min=\"0\" max=\"4\" step=\"1\" value=\"2\"" &&
+      has ex "aria-valuetext=\"8/10\"") "the slider starts at the poster, with its value"
+    check (has ex "data-action=\"prev\"" && has ex "data-action=\"next\"" &&
+      has ex "Step 1 of 4" && has ex "aria-live=\"polite\"") "the stepper's controls and caption"
+    check (has ex "role=\"group\" aria-labelledby=\"radius-caption\"" &&
+      has ex "id=\"radius-caption\"") "the explorer is labelled by its caption"
+    check (has ex "<script src=\"-verso-data/pilean-explorer.js\" defer=\"defer\">")
+      "the explorer's script is a file of the site"
+    check (← (out1 / "html-multi" / "-verso-data" / "pilean-explorer.js").pathExists)
+      "the script file is written"
+    check (has ex "html[data-theme=\"dark\"] #radius-x-f0 [fill=\"#ffffff\"]{fill:#16181c}" &&
+      has ex "@media (prefers-color-scheme: dark){html:not([data-theme=\"light\"])")
+      "inline pictures carry their dark theme rules"
+    check (has ex "pilean-has-narrow" && has ex "pilean-inline-narrow")
+      "an inline figure carries its narrow rendition"
+    check (has ex "<title>ζ^1</title>") "inline titles are in the page"
+    let svgParts := (ex.splitOn "<svg").drop 1 |>.map fun p =>
+      "<svg" ++ (p.splitOn "</svg>").headD "" ++ "</svg>"
+    check (svgParts.length == 11 && svgParts.all Svg.isInert)
+      s!"every inline picture is inert ({svgParts.length})"
+    let exFigures := (ex.splitOn "<figure").drop 1 |>.map fun p => (p.splitOn "</figure>").headD ""
+    let handler := fun (t : String) => ((t.splitOn " on").drop 1).any fun rest =>
+      let name := rest.takeWhile Char.isAlpha
+      !name.isEmpty && (rest.drop name.length).startsWith "="
+    check (exFigures.length == 3 && exFigures.all (!has · "<script") &&
+      exFigures.all (!handler ·)) "the explorers' markup has no script and no event handler"
+    IO.println s!"size: the explorers page is {ex.utf8ByteSize} bytes for {svgParts.length} pictures"
     -- a damaged copy is found
     let damaged := tmp / "damaged"
     IO.FS.createDirAll damaged

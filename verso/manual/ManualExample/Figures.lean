@@ -109,4 +109,46 @@ instance : PILeanVerso.SiteOutputs Marks where
 @[figure]
 def marks : Marks := { width := 320, height := 200, centres := #[⟨60, 40⟩, ⟨240, 150⟩] }
 
+/-! ### An explorer, a step sequence and an inline figure -/
+
+open PILean.Plane in
+/-- A window disk of radius `r` about `1/2` over the five unit steps `ζʲ`. -/
+def windowAt (r : Float) : Plane.Figure :=
+  { width := 360,
+    items := #[disk ⟨0.5, 0⟩ r |>.accent 0 |>.named s!"the window of radius {r}"] ++
+      ((List.range 5).toArray.map fun j => segment ⟨0, 0⟩ (rootOfUnity 5 j) |>.faint) ++
+      ((List.range 5).toArray.map fun j => point (rootOfUnity 5 j)
+        |>.named s!"ζ^{j}" |>.declRef ``ManualExample.trianglePoints) }
+
+/-- The window's radius from 0.6 to 1.0: a slider over five frames. -/
+@[figure]
+def radiusSlider : Explorer :=
+  Plane.slider "r" ((List.range 5).toArray.map fun k =>
+    (s!"{6 + k}/10", windowAt (0.6 + k.toFloat / 10))) (poster := 2)
+
+open PILean.Plane in
+/-- The point after the letters of a word, each a turn by 72° clockwise about `-1` (`a`) or `1`
+(`b`). -/
+def wordFrame (word : List Bool) : Plane.Figure :=
+  let turn := fun (c : Point) (p : Point) =>
+    let a := -(2 * pi / 5)
+    let v := p - c
+    c + (⟨a.cos * v.x - a.sin * v.y, a.sin * v.x + a.cos * v.y⟩ : Point)
+  let pts := word.foldl (fun acc l => acc.push (turn (if l then ⟨1, 0⟩ else ⟨-1, 0⟩) acc.back!))
+    #[(⟨0, 0.3⟩ : Point)]
+  { width := 360,
+    items := #[circle ⟨-1, 0⟩ 1.5 |>.accent 0, circle ⟨1, 0⟩ 1.5 |>.accent 1,
+      polyline pts |>.faint |>.dashed, point pts.back! |>.named "the point"] }
+
+/-- The word `a b a` acting on a point, letter by letter. -/
+@[figure]
+def wordSteps : Explorer :=
+  Plane.stepper #[("start", wordFrame []), ("a: a fifth turn about −1", wordFrame [false]),
+    ("b: a fifth turn about 1", wordFrame [false, true]),
+    ("a again", wordFrame [false, true, false])]
+
+/-- The window of radius 0.8, inline: its points' titles show on hover. -/
+@[figure]
+def windowInline : Plane.Figure := { windowAt 0.8 with narrowWidth := some 280 }
+
 end ManualExample
