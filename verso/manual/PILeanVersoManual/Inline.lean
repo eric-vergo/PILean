@@ -292,11 +292,13 @@ def explorerJs : String := r##"// PILean explorers: one frame at a time, a slide
     function currentRect() { return svgs[vi * steps + sj].getBoundingClientRect(); }
     function toRel(clientX, clientY) {
       var r = currentRect();
+      if (!(r.width > 0 && r.height > 0)) return centre();
       return { x: rel.x + (clientX - r.left) / r.width * rel.w,
                y: rel.y + (clientY - r.top) / r.height * rel.h };
     }
     function panBy(dx, dy) {
       var r = currentRect();
+      if (!(r.width > 0 && r.height > 0)) return;
       rel.x -= dx / r.width * rel.w; rel.y -= dy / r.height * rel.h;
       clamp(); apply();
     }

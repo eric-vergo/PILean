@@ -577,11 +577,10 @@ structure Links where
 /-- The links of a document: the site's mode (`ideil` without a rendered site), the document's
 places of declarations (`DeclStyle.target`), then the figures they draw. -/
 def Links.of (s : DeclStyle) (st : TraverseState) (site : Option SiteRender) : Links :=
-  let reg := Registry.get st
+  let placed := (Registry.get st).placed.qsort (·.order < ·.order)
   { mode := (site.map (·.options.leanLinks)).getD .ideil,
     place := fun n => s.target st n <|>
-      (reg.placed.qsort (·.order < ·.order)).findSome? fun p =>
-        if p.data.decl == n then placedLink? st p else none }
+      placed.findSome? fun p => if p.data.decl == n then placedLink? st p else none }
 
 /-- The link of the declaration `n`, if the mode gives it one; in the mode `site`, a declaration
 without a place is recorded in `unlinkedRef` (the build warns about it) unless `here` says the
