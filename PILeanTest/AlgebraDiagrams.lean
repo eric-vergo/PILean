@@ -390,6 +390,8 @@ def faultChecks : Array (String × Bool) :=
         | _ => m))),
     ("table: a rule dropped is refused", !decide (s3.FaithfulTable
       (dropMark cayleyTable (posOf cayleyTable .guide)))),
+    ("table: a rule drawn in an accent colour is refused", !decide (s3.FaithfulTable
+      (changeMark cayleyTable (posOf cayleyTable .guide) fun m => { m with ink := .accent 0 }))),
     ("table: an extra guide is refused", !decide (s3.FaithfulTable
       (addMark cayleyTable { part := .guide, shape := .segment (1, -1) (7, -7) }))),
     ("table: a table that is not associative is not a group",

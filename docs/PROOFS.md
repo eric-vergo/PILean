@@ -410,7 +410,9 @@ Its figures (`PILeanMathlib/Examples/Algebra.lean`): the Cayley table of `Dihedr
 (`d4TableFigure_spec`: the entries are the products, a group, not commutative, centre `{1, r 2}`),
 its Cayley graph (`d4CayleyFigure_spec`), its lattice of subgroups (`d4SubgroupsFigure_spec`: the
 ten drawn subgroups are all the subgroups, each once, decided over the 256 subsets of the group;
-the edges are `⋖`; a dot is in colour exactly when its subgroup is `Normal`), a `CommSq` of
+each is named by generators and is the subgroup they generate, `Subgroup.closure`, the names of
+the generators being those of `d4Name`; the edges are `⋖`; a dot is in colour exactly when its
+subgroup is `Normal`; the names the table writes are `d4Name` of the elements), a `CommSq` of
 reductions in `Type` (`commSqFigure_spec`) and the drawing of a short exact sequence
 (`shortExactFigure_spec`, for every short complex of a preadditive category with a zero object).
 

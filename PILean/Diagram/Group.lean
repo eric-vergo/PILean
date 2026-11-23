@@ -179,11 +179,12 @@ def entryTexts (M : FinMagma) : List ((Nat × Nat) × String) :=
 /-- The diagram draws the table of `M` faithfully: its cells are the `n²` cells, row by row; its
 entries are the names of the products (`entryTexts`); its marks of cells (with their colours),
 of entries and of headings are exactly the builder's at their positions; its decorations are
-exactly the two rules and the corner sign; and it has no mark of any other part. -/
+exactly the two rules and the corner sign, in the faint ink; and it has no mark of any other
+part. -/
 def FaithfulTable (M : FinMagma) (d : Diagram) : Prop :=
   d.cells = cellPairs M.n ∧ d.entries = M.entryTexts ∧ d.marksWhere Part.isCell = M.cellMarks ∧
     d.marksWhere Part.isEntry = M.entryMarks ∧ d.marksWhere Part.isHeader = M.headerMarks ∧
-    d.decorations = M.tableDecorations ∧
+    d.marksWhere Part.isDecoration = M.decorationMarks ∧
     d.marks.all (fun m => m.part.isCell || m.part.isEntry || m.part.isHeader ||
       m.part.isDecoration) = true
 
@@ -276,14 +277,16 @@ theorem table_faithful (M : FinMagma) : M.FaithfulTable M.table := by
       (List.filter_eq_nil_iff (l := M.decorationMarks)).2 fun m hm => by
         rcases hD hm with h | h <;> simp [h, Part.isHeader]]
     simp
-  · simp only [Diagram.decorations, table_marks, List.filterMap_append]
-    rw [(List.filterMap_eq_nil_iff (l := M.cellMarks)).2 fun m hm => by
-        obtain ⟨a, i, h⟩ := hC hm; simp [h],
-      (List.filterMap_eq_nil_iff (l := M.entryMarks)).2 fun m hm => by
-        obtain ⟨a, i, h⟩ := hE hm; simp [h],
-      (List.filterMap_eq_nil_iff (l := M.headerMarks)).2 fun m hm => by
-        obtain ⟨a, i, h⟩ := hH hm; simp [h]]
-    simp [decorationMarks, tableDecorations]
+  · simp only [Diagram.marksWhere, table_marks, List.filter_append]
+    rw [(List.filter_eq_self (l := M.decorationMarks)).2 fun m hm => by
+        rcases hD hm with h | h <;> simp [h, Part.isDecoration],
+      (List.filter_eq_nil_iff (l := M.cellMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hC hm; simp [h, Part.isDecoration],
+      (List.filter_eq_nil_iff (l := M.entryMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hE hm; simp [h, Part.isDecoration],
+      (List.filter_eq_nil_iff (l := M.headerMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hH hm; simp [h, Part.isDecoration]]
+    simp
   · simp only [table_marks, List.all_append, Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true]
     refine ⟨⟨⟨fun m hm => ?_, fun m hm => ?_⟩, fun m hm => ?_⟩, fun m hm => ?_⟩
     · rcases hD hm with h | h <;> simp [h, Part.isDecoration]

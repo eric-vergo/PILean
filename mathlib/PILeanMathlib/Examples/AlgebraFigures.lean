@@ -67,6 +67,14 @@ for element `k`): `{1}`, `⟨s⟩`, `⟨sr²⟩`, `⟨r²⟩`, `⟨sr⟩`, `⟨s
 `⟨r², sr⟩`, the group (numbered so that the layered drawing has few crossings). -/
 def d4SubgroupMasks : Array Nat := #[1, 17, 65, 5, 33, 129, 85, 15, 165, 255]
 
+/-- Generators of each subgroup, by element number (none for the trivial subgroup). -/
+def d4SubgroupGens : Array (List Nat) :=
+  #[[], [4], [6], [2], [5], [7], [2, 4], [1], [2, 5], [1, 4]]
+
+/-- The name of a subgroup from its generators: `⟨g, h⟩`, or `1` for none. -/
+def genName (gs : List Nat) : String :=
+  if gs.isEmpty then "1" else "⟨" ++ ", ".intercalate (gs.map fun g => d4Names.getD g "") ++ "⟩"
+
 /-- Which of them are normal (checked against Mathlib's `Subgroup.Normal` in
 `PILeanMathlib.Examples.Algebra`). -/
 def d4Normal : Array Bool := #[true, false, false, true, false, false, true, true, true, true]
@@ -75,7 +83,7 @@ def d4Normal : Array Bool := #[true, false, false, true, false, false, true, tru
 def d4Subgroups : FinPoset where
   n := 10
   le i j := d4SubgroupMasks.getD i 0 &&& d4SubgroupMasks.getD j 0 == d4SubgroupMasks.getD i 0
-  names := #["1", "⟨s⟩", "⟨sr²⟩", "⟨r²⟩", "⟨sr⟩", "⟨sr³⟩", "⟨r², s⟩", "⟨r⟩", "⟨r², sr⟩", "D₄"]
+  names := d4SubgroupGens.map genName
   marked := d4Normal
 
 /-- The lattice of subgroups of the dihedral group of order 8, normal subgroups in colour. -/
