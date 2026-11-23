@@ -57,6 +57,30 @@ text as shapes) show the same picture. Each is written light and dark (`-dark`).
 
 `graph-build`, among the animations below, is the compiler graph appearing layer by layer.
 
+## Combinatorial diagrams
+
+Drawn from plain data by `PILean.Diagram` (`PILeanTest/Diagrams.lean`). Each has a specification
+linked by `figure_proves` that writes out what it draws, read back from its marks, and the
+theorem of its kind that the drawn parts are exactly the parts of the data
+([`docs/PROOFS.md`](../docs/PROOFS.md), "Combinatorial diagrams").
+
+| Figure | Light | Dark |
+|---|---|---|
+| **Petersen graph** — the Kneser graph K(5, 2) on a pentagon and a pentagram; the fifteen edges are the disjoint pairs (`diagram-petersen`) | ![](diagram-petersen.svg) | ![](diagram-petersen-dark.svg) |
+| **Hasse diagram** — the subsets of {1, 2, 3}; the twelve covers, nothing else (`diagram-cube`) | ![](diagram-cube.svg) | ![](diagram-cube-dark.svg) |
+| **Young diagram** — of (5, 3, 3, 1), English notation: cell (i, j) iff j < λᵢ (`diagram-young`) | ![](diagram-young.svg) | ![](diagram-young-dark.svg) |
+| **Semistandard tableau** — of shape (4, 3, 1), French notation (`diagram-tableau`) | ![](diagram-tableau.svg) | ![](diagram-tableau-dark.svg) |
+| **Two-line notation** — of the permutation 42513 (`diagram-perm-two-line`) | ![](diagram-perm-two-line.svg) | ![](diagram-perm-two-line-dark.svg) |
+| **Permutation matrix** — of 42513: the cells (i, σ i) (`diagram-perm-matrix`) | ![](diagram-perm-matrix.svg) | ![](diagram-perm-matrix-dark.svg) |
+| **Cycle diagram** — of 42513: the arrows i → σ i, the fixed point a loop (`diagram-perm-cycles`) | ![](diagram-perm-cycles.svg) | ![](diagram-perm-cycles-dark.svg) |
+| **Wiring diagram** — of 42513: the crossings are the six inversions (`diagram-perm-wiring`) | ![](diagram-perm-wiring.svg) | ![](diagram-perm-wiring-dark.svg) |
+| **Rooted tree** — in the tidy layout of Reingold and Tilford (`diagram-tree`) | ![](diagram-tree.svg) | ![](diagram-tree-dark.svg) |
+| **Binary search tree** — of 1, …, 9, a lone child to its side (`diagram-binary-tree`) | ![](diagram-binary-tree.svg) | ![](diagram-binary-tree-dark.svg) |
+| **Venn diagram** — the multiples of 2, 3 and 5 up to 12: each number inside exactly the circles of its sets (`diagram-venn`) | ![](diagram-venn.svg) | ![](diagram-venn-dark.svg) |
+| **Incidence drawing** — the points and lines of the Fano plane (`diagram-fano`) | ![](diagram-fano.svg) | ![](diagram-fano-dark.svg) |
+| **Dyck path** — UUDUUDDDUD (`diagram-dyck`) | ![](diagram-dyck.svg) | ![](diagram-dyck-dark.svg) |
+| **Ferrers board** — of (4, 3, 1) (`diagram-ferrers`) | ![](diagram-ferrers.svg) | ![](diagram-ferrers-dark.svg) |
+
 ## Animations
 
 Each animation is written four ways from one `Animation` value: an animated SVG (declarative SMIL

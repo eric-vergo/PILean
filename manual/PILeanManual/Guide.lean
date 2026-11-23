@@ -8,6 +8,7 @@ import PILeanManual.Guide.Canvas
 import PILeanManual.Guide.Plots
 import PILeanManual.Guide.Plane
 import PILeanManual.Guide.Graphs
+import PILeanManual.Guide.Combinatorics
 import PILeanManual.Guide.Animations
 import PILeanManual.Guide.Raster
 import PILeanManual.Guide.Text
@@ -21,7 +22,8 @@ tag := "guide"
 %%%
 
 The library part by part: colours and the style record; geometry, paths and the vector canvas;
-every kind of plot; plane figures; graphs and their layouts; animations; raster images, the image
+every kind of plot; plane figures; graphs and their layouts; diagrams of combinatorial objects
+and orders; animations; raster images, the image
 writers and the readers with their bounds; text engines; and the optional packages beside the core.
 
 {include 1 PILeanManual.Guide.Colour}
@@ -33,6 +35,8 @@ writers and the readers with their bounds; text engines; and the optional packag
 {include 1 PILeanManual.Guide.Plane}
 
 {include 1 PILeanManual.Guide.Graphs}
+
+{include 1 PILeanManual.Guide.Combinatorics}
 
 {include 1 PILeanManual.Guide.Animations}
 

@@ -6,7 +6,7 @@ is only tested, and what you still have to trust.
 
 ## The idea
 
-Every picture here is the value of a Lean declaration. Five kinds have an exact specification:
+Every picture here is the value of a Lean declaration. Six kinds have an exact specification:
 
 | Picture | The Lean object | What the theorem says |
 |---|---|---|
@@ -14,6 +14,7 @@ Every picture here is the value of a Lean declaration. Five kinds have an exact 
 | Data plot | a list of integer (or exact rational) points | the plotted series has exactly the points of the list, in order, none added or dropped, each coordinate converted to a floating-point number |
 | Graph | a list of nodes and a relation on them (or an edge list) | the nodes are exactly the list and the edges exactly the related pairs, each once; the layout has one route for each edge, with that edge's two ends, and the picture draws those routes. Nothing is said about where a node is placed or how a route runs |
 | Animation | a drawing as a function of time, a frame rate | frame `i` is the drawing function applied to the exact rational time `i / fps` converted to a floating-point number. Nothing is said about the drawing function itself or about the number of frames |
+| Combinatorial diagram (`PILean.Diagram`) | plain finite data: a relation on `Fin n` (a graph, a digraph, an order), row lengths (a Young diagram) or a filling (a tableau), a permutation in one-line notation, parent links (a forest, a binary tree), a list of sets, a list of integer steps (a lattice path), a list of cells (a polyomino) | the marks the diagram draws, read back from it, are exactly the parts of the data, in a fixed order, each at the exact rational position the layout gives it: the edges are exactly the related pairs (for an order, exactly the covers, whose transitive closure is the strict order of a partial order), the cells exactly `(i, j)` with `j < λᵢ`, the written entries exactly the filling, the crossing strands of a wiring diagram exactly the inversions, an element written in a Venn diagram inside circle `s` exactly when it belongs to set `s`. Nothing is said about how the marks look: text, the conversion to floating point, the frame, colours, style and pixels |
 | Plane figure of exact points | points of a type with rational enclosures (`Exact.PlanePoint`: rationals, integers, or an algebraic representation such as ℤ[ζ₅] by integer coefficients) | each exact point is drawn as a marker centred at the frame's image of its conversion (the centre of its ball at 64 bits, converted by `Exact.toFloat`), a segment between the images of its ends; a figure of points draws one marker per point, in order. A figure's specification can also write out its items, labels included, with their colours, titles and recorded incidences, with the incidences decided by exact arithmetic in the representation. A rational point is its own ball. That the ball of another representation holds its value is declared by its instance, not proved (the core has no real numbers); the frame's fitting is floating point |
 
 **Floating point.** Every statement in this table is about exact numbers and lists. The picture
@@ -225,6 +226,63 @@ not rational-valued.
   not finite is drawn as nothing and reported (`degenerate`); a negative radius is never read as
   its absolute value.
 
+**Combinatorial diagrams** (`PILean/Diagram/*.lean`; the gallery's figures with their
+specifications in `PILeanTest/Diagrams.lean`)
+
+A `Diagram` is a list of marks, each an exact shape (rational coordinates) tagged with the part
+of the object it depicts (`Part`: vertex, edge, cell, entry, strand, set, member, step). Each kind
+has a decidable predicate `Faithful` that reads the diagram back (`Diagram.edges`, `vertices`,
+`cells`, `entries`, `strands`, `steps`, `members`) and compares it with the data as full lists, and
+mark by mark with the layout; the theorems below say that the builders satisfy it for every
+input within the kind's cap (`builder_faithful` takes the cap as its hypothesis; beyond it the
+figure is a note, and nothing is drawn).
+
+* `Diagram.toPlane_items`: the plane figure's items are the marks' items, in order (each built
+  from the mark's exact points by the builders of `PILean.Exact.Plane`, so the theorems of plane
+  figures about exact points apply to them).
+* Graphs: `FinGraph.mem_edgePairs` (a pair `(i, j)` is drawn exactly when `i, j < n` and the pair
+  is drawn by the relation: `adj i j` for a directed graph, `i ≤ j` and `adj i j ∨ adj j i` for
+  an undirected one), `FinGraph.edgePairs_nodup`, `FinGraph.draw_faithful` (at every layout the
+  drawn edges are `edgePairs` in order, the vertex dots `0, …, n - 1`, each dot, name and edge at
+  the layout's positions, a loop a circle through its vertex), `FinGraph.toGraph_layout_edges`
+  (the layered layout of `PILean.Graph` has one route per drawn pair).
+* Hasse diagrams: `FinPoset.mem_coverPairs` (an edge is drawn exactly when it is a cover:
+  `i < j` and nothing strictly between), `FinPoset.draw_faithful`, and
+  `FinPoset.transGen_covers_iff` (for a partial order, `i < j` exactly when a chain of drawn edges
+  leads from `i` to `j`).
+* Young diagrams and tableaux: `mem_cellList` (cell `(i, j)` is drawn exactly when `j < λᵢ`),
+  `cellList_nodup`, `YoungShape.draw_faithful` and `Tableau.draw_faithful` (the drawn cells, in
+  order, each the unit square of its convention, English or French; the written entries are the
+  filling, cell by cell, each at its cell's centre).
+* Permutations: `FinPerm.oneLine_faithful`, `twoLine_faithful`, `matrix_faithful` (the marked
+  cells are exactly `(i, σ i)`), `cycles_faithful` and `mem_cycles_edges` (an arrow `i → j` is
+  drawn exactly when `σ i = j`), `wiring_faithful` and `wiring_crossings` (the pairs of strands
+  that cross, decided from their drawn ends, are exactly the inversions, in order;
+  `wiring_crossings_length`: as many crossings as inversions), `mem_inversions`.
+* Trees: `Forest.draw_faithful`, `Forest.mem_edges` (an edge `(p, c)` is drawn exactly when `p`
+  is the parent of `c`), `BinTree.builder_faithful`.
+* Set systems: `slots_correct` (each place of each region of the Venn diagrams of one, two and
+  three sets is inside exactly the circles of its region, decided by the kernel in rational
+  arithmetic), `SetSystem.venn_faithful`, `SetSystem.venn_inside` (the name of every element is
+  written at a point inside the circle of set `s` exactly when the element belongs to `s`),
+  `SetSystem.incidence_edges`.
+* Lattice paths and boards: `LatticePath.draw_faithful` (step `k` is drawn from point `k` to point
+  `k + 1`), `LatticePath.point_succ` (point `k + 1` is point `k` plus step `k`),
+  `LatticePath.ofDyck_step_rises`, `Polyomino.draw_faithful`.
+* The gallery's fourteen diagrams (`PILeanTest/Diagrams.lean`) each have a specification that
+  writes out the drawn parts in full (the fifteen edges of the Petersen graph, the twelve covers
+  of the Boolean lattice, the cells, the entries, the six inversions, the regions of the twelve
+  numbers, the 21 incidences of the Fano plane, the points of the Dyck path), checked by the
+  kernel, and `figure_proves` links it to the figure. `lake test` compiles copies of the module
+  with a datum changed and requires each to fail inside the specification
+  (`PILeanTest/SpecMutations.lean`), and plants faults in the drawn diagrams (a mark dropped,
+  added, moved or relabelled) that each kind's `Faithful` must refuse.
+* Not proved: the layouts' qualities (that a Hasse edge goes up the page, that the tidy layout
+  keeps siblings apart and centres each parent, that the points of `Layout.circular` are near the
+  equal angles; the points are exactly on the circle, which is tested), and everything after the
+  exact marks (the floating-point conversion, the frame, text, colours, the rasteriser), as for
+  every plane figure.
+
 ## Plots against the real numbers
 
 The core has no real numbers, so it cannot say that a curve is near `sin`. The optional package
@@ -265,11 +323,43 @@ declare, used or not, and fails if a file of the package is left out of the chec
 (`PILeanMathlib/Axioms.lean`, with the commands of `PILean.Trust.Attr`); every `lake test` of the
 package checks that no file is left out.
 
+## Combinatorics against Mathlib
+
+The package `pilean-mathlib` binds the diagrams to Mathlib's objects
+(`PILeanMathlib/Combinatorics.lean`), with theorems stated in Mathlib's own definitions:
+
+* `FinGraph.ofSimpleGraph_mem_edgePairs`: a pair `(a, b)` is drawn for a `SimpleGraph (Fin n)`
+  exactly when `a < b` and `G.Adj a b`; `FinGraph.ofDigraph_mem_edgePairs`: for a `Digraph`,
+  exactly when `G.Adj a b`.
+* `FinPoset.ofOrder_mem_coverPairs`: for a partial order enumerated by `e : Fin n ≃ α`, an edge
+  `(a, b)` is drawn exactly when `e a ⋖ e b` (`CovBy`); `FinPoset.ofOrder_isPartialOrder`.
+* `YoungShape.ofYoungDiagram_cells`: cell `(i, j)` is drawn exactly when `(i, j) ∈ μ.cells`;
+  `YoungShape.ofPartition_rows`: the row lengths of a `Nat.Partition` are its parts.
+* `Tableau.ofSSYT_cells`, `Tableau.ofSSYT_entries`: for a `SemistandardYoungTableau μ`, the cells
+  are those of `μ` and the entry written at `(i, j)` is `T i j`.
+* `FinPerm.ofPerm_cycles_edges`, `FinPerm.ofPerm_crossings`: for an `Equiv.Perm (Fin n)`, an
+  arrow `a → b` is drawn exactly when `σ a = b`, two strands cross exactly when `a < b` and
+  `σ b < σ a`.
+* `LatticePath.isDyck_dyckBits`, `LatticePath.ofDyckWord_step_rises`: the path of a `DyckWord`
+  rises exactly at its `U`s.
+* `SetSystem.ofFinsets_venn_inside`: an element is written inside circle `k` exactly when it
+  belongs to the finset `sets[k]`.
+
+Its gallery (`PILeanMathlib/Examples/Combinatorics.lean`) links a theorem of this kind to each of
+nine figures: the divisors of 60 (`divisorsFigure_spec`: the elements are `Nat.divisors 60`, an
+edge joins `a` to `b` exactly when `a ∣ b` and `b / a` is prime), the subsets of a 3-set with
+`CovBy`, the Petersen graph as a `SimpleGraph`, a `YoungDiagram`, Mathlib's highest-weight
+tableau, the cycles and the wiring diagram of a permutation (with its sign, `(-1)` to the number of
+crossings), a `DyckWord` and three finsets in a Venn diagram.
+
 ## What is tested, not proved
 
 * The rasteriser (coverage, compositing, colour conversion), the PNG, APNG and GIF encoders and
   decoders, the SVG writer: tested against published values, other software and the golden files
   in `examples/`.
+* The layouts of the combinatorial diagrams (Hasse edges going up, the tidy layout of trees, the
+  circle's points), and that the diagrams pass the layout checks of plane figures in both
+  themes: tested.
 * The quality of a graph layout (layers, crossings, coordinates, curves): tested, including
   against Graphviz's recorded measures (`PILeanTest/graphs/dot-recorded.tsv`); so are the
   sifting, the packing of components, mirrored layouts and the SVG for web pages. Only the *set* of drawn edges and the downward direction of the layers (by
@@ -310,7 +400,10 @@ package checks that no file is left out.
 
 ## How to read a picture's guarantee
 
-1. Find its source record (`lake exe pilean-info FILE`): the module, declaration and line.
+1. Find its source record (`lake exe pilean-info FILE`): the module, declaration and line, and
+   its standing as the build recorded it: `proved` with the theorems linked to it, or
+   `illustration` (`docs/TRUST.md`, "Standing"). The record is what the file says about itself;
+   `pilean-build --check` is what ties it to the source.
 2. Read the theorem beside the declaration (in the Mathlib package, in the module that imports
    the declaration's: `PILeanMathlib.Examples.Sine` for `SineFigure`). It names the exact
    function, list, relation or time. The command `figure_proves picture theorem` links the two,

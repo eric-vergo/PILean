@@ -22,10 +22,14 @@ the Lean object it shows, and what stays tested or trusted, is on
 | `commit` | the commit the image was built from | no |
 | `version` | the version of PILean (`PILean.version`) | yes |
 | `fingerprint` | 64 lowercase hexadecimal digits (a SHA-256) | no |
+| `standing` | `proved` or `illustration`: the figure's standing as the build recorded it ("Standing" below) | no |
+| `proves` | for a proved figure, the theorems linked to it, by full name, separated by single spaces | with `standing` `proved` only |
 
 A record can be written only if every value is at most 4096 bytes of UTF-8 and has only
 characters XML 1.0 can carry (so no NUL and no other control character except tab, line feed and
-carriage return), and a fingerprint has the form above (`Source.validate`).
+carriage return), a fingerprint has the form above, and the standing is well formed: none,
+`illustration` without `proves`, or `proved` with a non-empty `proves` of names without white
+space (`Source.validate`, `standingOk`; the readers refuse anything else).
 
 ## Writing
 
@@ -179,6 +183,7 @@ see "Checks" below).
 | `Explorer` | the poster's SVG (with every frame for a page that shows them inline) and PNG; then each frame `k` (from 0, in the order of `Explorer.frames`) as an SVG with the suffix `-frame-k` |
 | `Graph` (default layered layout, light style, scale 1), or `GraphFigure` (graph, layout options, style, PNG scale) | SVG; PNG |
 | `Animation` | animated SVG; APNG (file extension `png`); GIF; poster frame (PNG, suffix `-poster`) |
+| `Diagram.Diagram` | those of its plane figure (`Diagram.toPlane`) |
 
 ### Checks
 
@@ -300,6 +305,35 @@ What this means:
 A link is a pointer from a picture to a statement to read, not a certificate that the picture is
 correct.
 
+## Standing
+
+A figure is *proved* or an *illustration* (`PILean.Trust.Standing`). It is proved when at least
+one theorem is linked to it by `figure_proves` and that link passes the rule of `figure_proves`
+again where the build's table of figures (`figures%`) is elaborated (`figureStanding`); it is then
+recorded with the names of those theorems. Otherwise it is an illustration: a figure that no
+theorem ties to its object. `@[figure illustration]` marks a figure as one openly, and
+`figure_proves` refuses a figure so marked.
+
+* `figures%` sets the standing on every output of a figure (`Output.standing`;
+  `FigureEntry.standing` reads it), so a build writes it into every file's source record
+  (`standing`, `proves`) and into the manifest (the keys `standing` and `proves`), and
+  `pilean-info` prints it. It is not part of the fingerprint, which identifies the drawing and the
+  declaration; it is part of the file, so the file's SHA-256 in the manifest covers it.
+* `pilean-build --require-standing` (with or without `--check`) fails, before rendering anything,
+  if a figure is an illustration without the marking, naming each such figure: a project can
+  require that every picture is either tied to its object by a theorem or openly marked.
+* `pilean-verify` compares the recorded standing and theorems of each file with the manifest, and
+  ends each `ok` line with the standing the file records (` [recorded: proved by T]`,
+  ` [recorded: illustration]`). It checks no theorem: what it prints is what the file and the
+  manifest say.
+* What `proved` establishes is the rule of `figure_proves`: a theorem free of `sorry` and of
+  non-standard axioms whose statement names the figure. It says nothing about what the statement
+  says; that is for its reader (`docs/PROOFS.md`). A figure whose theorem is in a module the
+  build's driver does not import is an illustration to that build.
+* The Verso adapters build their own table of figures (`site_figures%`) and do not set the
+  standing yet; their outputs carry the default, an unmarked illustration, until they call
+  `figureStanding` for each figure and set it with `withStanding`, as `figures%` does.
+
 ## The fingerprint
 
 `PILean/Trust/Fingerprint.lean`. `fingerprint spec src` is the lowercase hexadecimal SHA-256 of
@@ -350,7 +384,7 @@ def main (args : List String) : IO UInt32 := PILean.Trust.buildMain figures% arg
 renders the gallery figures that carry `@[figure]`.
 
 ```
-pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check]
+pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]
 ```
 
 * Without `--check`, every output of every entry is rendered, the source record (with the
@@ -390,6 +424,8 @@ line for each output, sorted by `path`, every object with the keys in this order
 | `fingerprint` | the fingerprint recorded in the file |
 | `module`, `decl`, `file`, `line`, `column`, `version` | the source record |
 | `repo`, `commit` | only if the build was given them |
+| `darkColours`, `darkOpacities` | for a file a page can put inline: the theme's colour pairs |
+| `standing`, `proves` | the standing and the theorems recorded in the file ("Standing") |
 
 Strings are escaped as in JSON (`\"`, `\\`, `\n`, `\r`, `\t`, `\u00XX` for other control
 characters).
@@ -414,7 +450,7 @@ is not listed:
 
 | Line | Meaning |
 |---|---|
-| `ok: PATH` | a regular file of the listed size and SHA-256 and of the listed format, whose source record agrees with the manifest (module, declaration, file, line, column, version, repository, commit and fingerprint) |
+| `ok: PATH` | a regular file of the listed size and SHA-256 and of the listed format, whose source record agrees with the manifest (module, declaration, file, line, column, version, repository, commit, fingerprint, standing and theorems); the line ends with the recorded standing, if any |
 | `missing: PATH` | no file has that path, spelled exactly so (on a file system that ignores case, a file found only under another spelling is `missing`, and listed as `extra` under its own) |
 | `changed: PATH` | another size or hash |
 | `format differs: PATH` | the bytes are not of the listed format (`svg`, `png`, `apng` with an `acTL` chunk before the image data, `gif`) |

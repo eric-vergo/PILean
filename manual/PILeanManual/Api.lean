@@ -20,6 +20,14 @@ import PILeanManual.Api.PILean.Anim.Quantize
 import PILeanManual.Api.PILean.Canvas
 import PILeanManual.Api.PILean.CheckLevel
 import PILeanManual.Api.PILean.Color
+import PILeanManual.Api.PILean.Diagram.Basic
+import PILeanManual.Api.PILean.Diagram.Graph
+import PILeanManual.Api.PILean.Diagram.Hasse
+import PILeanManual.Api.PILean.Diagram.Path
+import PILeanManual.Api.PILean.Diagram.Perm
+import PILeanManual.Api.PILean.Diagram.SetSystem
+import PILeanManual.Api.PILean.Diagram.Tree
+import PILeanManual.Api.PILean.Diagram.Young
 import PILeanManual.Api.PILean.Exact
 import PILeanManual.Api.PILean.Exact.Algebraic
 import PILeanManual.Api.PILean.Exact.Plane
@@ -151,6 +159,15 @@ The modules, by the folder they are in:
   {ref "api-PILean.Anim.Lzw"}[`PILean.Anim.Lzw`],
   {ref "api-PILean.Anim.Proofs"}[`PILean.Anim.Proofs`],
   {ref "api-PILean.Anim.Quantize"}[`PILean.Anim.Quantize`]
+* *Diagram*:
+  {ref "api-PILean.Diagram.Basic"}[`PILean.Diagram.Basic`],
+  {ref "api-PILean.Diagram.Graph"}[`PILean.Diagram.Graph`],
+  {ref "api-PILean.Diagram.Hasse"}[`PILean.Diagram.Hasse`],
+  {ref "api-PILean.Diagram.Path"}[`PILean.Diagram.Path`],
+  {ref "api-PILean.Diagram.Perm"}[`PILean.Diagram.Perm`],
+  {ref "api-PILean.Diagram.SetSystem"}[`PILean.Diagram.SetSystem`],
+  {ref "api-PILean.Diagram.Tree"}[`PILean.Diagram.Tree`],
+  {ref "api-PILean.Diagram.Young"}[`PILean.Diagram.Young`]
 * *Exact*:
   {ref "api-PILean.Exact"}[`PILean.Exact`],
   {ref "api-PILean.Exact.Algebraic"}[`PILean.Exact.Algebraic`],
@@ -278,6 +295,22 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.CheckLevel}
 
 {include 1 PILeanManual.Api.PILean.Color}
+
+{include 1 PILeanManual.Api.PILean.Diagram.Basic}
+
+{include 1 PILeanManual.Api.PILean.Diagram.Graph}
+
+{include 1 PILeanManual.Api.PILean.Diagram.Hasse}
+
+{include 1 PILeanManual.Api.PILean.Diagram.Path}
+
+{include 1 PILeanManual.Api.PILean.Diagram.Perm}
+
+{include 1 PILeanManual.Api.PILean.Diagram.SetSystem}
+
+{include 1 PILeanManual.Api.PILean.Diagram.Tree}
+
+{include 1 PILeanManual.Api.PILean.Diagram.Young}
 
 {include 1 PILeanManual.Api.PILean.Exact}
 

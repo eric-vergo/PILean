@@ -42,11 +42,12 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.CheckLevel` | how strictly a figure's checks apply (`ignore`, `warn`, `fail`), shared by plots and plane figures | done |
 | `PILean.Explorer` | families of frames (a parameter axis, a step sequence, or both) for web pages, their poster files and animations | done |
 | `PILean.Exact.Plane`, `PILean.Exact.Algebraic`, `PILean.Exact.Spec` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn; exact incidence with a disk; ℚ(√d), ℤ[ζ₅], exact square roots, constructions with certified enclosures; what an item of a figure is in exact terms (`IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`), for specifications | done |
+| `PILean.Diagram` (`Basic`, `Graph`, `Hasse`, `Young`, `Perm`, `Tree`, `SetSystem`, `Path`) | diagrams of finite combinatorial objects and orders drawn from their data: exact marks tagged with the part they depict, read back by `Faithful` predicates with theorems for every kind, drawn as plane figures | done; faithfulness proved for every kind, see [`PROOFS.md`](PROOFS.md) |
 | `PILean.Graph.Fixed` | graphs at given positions (page, world or exact), edges straight or bent around nodes | done |
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline, orthogonal or bundled edges (one entry and one exit port per node, tracks in channels, concentric corners), arrowheads, edge labels and clusters, circular and tree layouts, components laid out apart and packed, mirrored layouts, drawing on the canvas as SVG and PNG, and as SVG for a web page | done; layering proved, see below |
-| `PILean.Trust` | done: SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_proves` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
+| `PILean.Trust` | done: a figure's standing (`proved` or `illustration`, recorded in its files and the manifest, `--require-standing`); SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG and GIF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_proves` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
 
 ## Public API in Pillow's spirit
 
@@ -752,6 +753,46 @@ frame maps them to the page with one scale for both axes, so circles stay round 
 * **Arcs** (`Path.arc`): at most a quarter turn per cubic, control points on the tangents at
   `(4/3) tan(δ/4) r`, radial error at most `r (2/27) sin⁶(δ/4) / cos²(δ/4)` (Goldapp 1991), at most
   `2.73 × 10⁻⁴ r`; the tests sample the curves against this bound.
+
+## Combinatorial diagrams
+
+`PILean.Diagram` draws a finite object from its data so that what is drawn can be read back and
+compared with the object. The choices:
+
+* **Exact marks with parts.** A `Diagram` is a list of `Mark`s: an exact shape (rational points)
+  and the `Part` of the object it depicts. The kinds' predicates read the diagram back by parts
+  (`Diagram.edges`, `cells`, …), never by position in floating point, so the theorems are about
+  the same values the drawing is made from and decidable for any diagram, which is what the
+  planted-fault tests use. The alternative, a theorem about the plane figure's items, would be
+  about floating-point numbers that no theorem can pin.
+* **Full lists, then mark by mark.** Each `Faithful` states the drawn parts as a list equal to a
+  canonical list of the data's parts (all of them, in order, each once) and checks every mark
+  against the layout. The canonical list has its own characterisation (`mem_edgePairs`,
+  `mem_coverPairs`, `mem_cellList`, `mem_inversions`), so the reader of a theorem need not read
+  the list's code.
+* **Rendered as plane figures.** `Diagram.toPlane` makes one plane item per mark with the exact
+  builders, so styles, themes, labels, layout checks and outputs are those of plane figures, and
+  the renderer's identity covers `Diagram.Basic`. A dot that lies exactly on a circle of the
+  diagram records it (an exact rational test), as the plane checks require.
+* **Caps before work.** Each builder checks its cap on the data before any work that grows with it
+  (`Diagram.capped` takes the diagram as a function of `Unit` so that it is not computed past the
+  cap); beyond the cap the figure is a note. The theorems for `figure` take the cap as a
+  hypothesis; `draw` has none.
+* **Layouts.** The circle uses rational points exactly on the circle (the rational
+  parametrisation at a rounded tangent, turned by exact quarter turns), near the equal angles; the
+  Hasse layout layers by height, the lowest at the bottom, ordering each layer by one sweep of mean
+  positions; trees use the tidy algorithm of Reingold and Tilford (contours, separation 1, parents
+  centred), chosen over Buchheim's linear-time variant because the work is bounded by the cap and
+  the simpler algorithm is easier to state; a Venn diagram uses fixed circles and fixed places per
+  region whose membership is decided once by the kernel (`slots_correct`), so that the statement
+  about every element follows without arithmetic at drawing time.
+* **The Mathlib side.** The core holds the kinds over plain data and no Mathlib; `pilean-mathlib`
+  gives each kind a function from Mathlib's object and a theorem in Mathlib's terms, and its
+  figures are defined in a module without Mathlib so that the drawing program does not contain it.
+* **Standing.** Whether a figure is proved is computed where the table of figures is elaborated,
+  from the links `figure_proves` recorded, re-checked there, and carried on every `Output` so that
+  the positional constructors of `FigureEntry` and `SourceData` that the Verso adapters use stay
+  as they are.
 
 ## Text in images
 
