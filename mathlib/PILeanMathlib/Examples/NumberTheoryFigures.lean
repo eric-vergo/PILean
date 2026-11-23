@@ -64,7 +64,8 @@ def primeCountFigure : Diagram :=
   { primeCountPlot.figure with title := "π(n) and n / (Hₙ − 1), 2 ≤ n ≤ 200" }
 
 /-- The Ulam spiral of `1, …, 441` with the primes marked. -/
-def ulamPlot : CellPlot := { cells := ulamCells 441 isPrime' }
+def ulamPlot : CellPlot :=
+  { cells := ulamCells 441 isPrime', headings := [("1", (1 / 2, 1 / 2))], solid := true }
 
 /-- The primes on the Ulam spiral. -/
 @[figure]
@@ -90,7 +91,8 @@ left. -/
 def residuePlot : CellPlot where
   cells := residuePrimes.zipIdx.flatMap fun (p, i) => (List.range p).map fun a =>
     residueCell p i a
-  headings := residuePrimes.zipIdx.map fun (p, i) => (s!"p = {p}", (-1, 1 / 2 - (i : Rat)))
+  headings := residuePrimes.zipIdx.map (fun (p, i) => (s!"p = {p}", (-1, 1 / 2 - (i : Rat)))) ++
+    (List.range 13).map fun (a : Nat) => (toString a, ((a : Rat) + 1 / 2, 3 / 2))
 
 /-- The quadratic residues. -/
 @[figure]
@@ -108,7 +110,8 @@ def gaussianPrime (a b : Int) : Bool :=
 
 /-- The Gaussian integers `a + b i` with `|a|, |b| ≤ 7`, the Gaussian primes marked. -/
 def gaussianLattice : PlaneLattice :=
-  { w1 := (1, 0), w2 := (0, 1), lo := (-7, -7), hi := (7, 7), marked := gaussianPrime }
+  { w1 := (1, 0), w2 := (0, 1), lo := (-7, -7), hi := (7, 7), marked := gaussianPrime,
+    plainInk := .faint }
 
 /-- The Gaussian primes. -/
 @[figure]

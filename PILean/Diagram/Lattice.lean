@@ -56,6 +56,9 @@ structure PlaneLattice where
   hi : QPoint
   /-- Which points `m ω₁ + n ω₂` are marked, by their coefficients. -/
   marked : Int → Int → Bool := fun _ _ => false
+  /-- The ink of the points that are not marked (the faint ink when the marked ones are what the
+  figure shows). -/
+  plainInk : Ink := .ink
 
 namespace PlaneLattice
 
@@ -99,24 +102,28 @@ def candidates (Λ : PlaneLattice) : List (Int × Int) :=
 def points (Λ : PlaneLattice) : List (Int × Int) :=
   Λ.candidates.filter fun (m, n) => Λ.inWindow (Λ.at_ m n)
 
-/-- The marks of the points: the `i`-th drawn point is a dot at its exact position, in accent 1
-when marked and in the ink otherwise. -/
+/-- The ink of the point `m ω₁ + n ω₂`: accent 1 when marked, `plainInk` otherwise. -/
+def pointInk (Λ : PlaneLattice) (m n : Int) : Ink := if Λ.marked m n then .accent 1 else Λ.plainInk
+
+/-- The marks of the points: the `i`-th drawn point is a dot at its exact position in its ink
+(`pointInk`). -/
 def pointMarks (Λ : PlaneLattice) : List Mark :=
   Λ.points.zipIdx.map fun ((m, n), i) =>
-    { part := .vertex i, shape := .dot (Λ.at_ m n), ink := if Λ.marked m n then .accent 1 else .ink }
+    { part := .vertex i, shape := .dot (Λ.at_ m n), ink := Λ.pointInk m n }
 
-/-- The decorations: the axes across the window (where they meet it), and the fundamental
-parallelogram `0, ω₁, ω₁ + ω₂, ω₂`, tinted. -/
-def decorations (Λ : PlaneLattice) : List (Part × Shape) :=
+/-- The decorations with their inks: the real axis (`axis 0`) and the imaginary axis (`axis 1`)
+across the window, faint, and the fundamental parallelogram `0, ω₁, ω₁ + ω₂, ω₂` (`note 0`) in
+accent 0. -/
+def decorations (Λ : PlaneLattice) : List (Part × Shape × Ink) :=
   let o : QPoint := (0, 0)
   let w12 : QPoint := (Λ.w1.1 + Λ.w2.1, Λ.w1.2 + Λ.w2.2)
-  [(.guide, .segment (Λ.lo.1, 0) (Λ.hi.1, 0)), (.guide, .segment (0, Λ.lo.2) (0, Λ.hi.2)),
-    (.note 0, .polyline [o, Λ.w1, w12, Λ.w2, o])]
+  [(.axis 0, .segment (Λ.lo.1, 0) (Λ.hi.1, 0), .faint),
+    (.axis 1, .segment (0, Λ.lo.2) (0, Λ.hi.2), .faint),
+    (.note 0, .polyline [o, Λ.w1, w12, Λ.w2, o], .accent 0)]
 
-/-- The marks of the decorations: the axes faint, the parallelogram in accent 0. -/
+/-- The marks of the decorations. -/
 def decorationMarks (Λ : PlaneLattice) : List Mark :=
-  Λ.decorations.map fun (p, s) =>
-    { part := p, shape := s, ink := if p = .guide then .faint else .accent 0 }
+  Λ.decorations.map fun (p, s, i) => { part := p, shape := s, ink := i }
 
 /-- The diagram: the decorations, then the points. -/
 def draw (Λ : PlaneLattice) : Diagram where
@@ -126,8 +133,7 @@ def draw (Λ : PlaneLattice) : Diagram where
 exact positions, each in accent 1 exactly when marked (`Diagram.dots`); its decorations are
 exactly the axes and the parallelogram; there is nothing else. -/
 def Faithful (Λ : PlaneLattice) (d : Diagram) : Prop :=
-  d.dots = Λ.points.zipIdx.map (fun ((m, n), i) =>
-      (i, Λ.at_ m n, if Λ.marked m n then Ink.accent 1 else Ink.ink)) ∧
+  d.dots = Λ.points.zipIdx.map (fun ((m, n), i) => (i, Λ.at_ m n, Λ.pointInk m n)) ∧
     d.marksWhere Part.isVertex = Λ.pointMarks ∧
     d.marksWhere Part.isDecoration = Λ.decorationMarks ∧
     d.marks.all (fun m => m.part.isVertex || m.part.isDecoration) = true
@@ -142,9 +148,9 @@ theorem isVertex_of_mem_pointMarks {Λ : PlaneLattice} {m : Mark} (h : m ∈ Λ.
   obtain ⟨_, -, rfl⟩ := h
   exact ⟨_, rfl⟩
 
-/-- Every mark of the decorations is a guide or a note. -/
+/-- Every mark of the decorations is an axis or a note. -/
 theorem isDecoration_of_mem_decorationMarks {Λ : PlaneLattice} {m : Mark}
-    (h : m ∈ Λ.decorationMarks) : m.part = .guide ∨ m.part = .note 0 := by
+    (h : m ∈ Λ.decorationMarks) : m.part = .axis 0 ∨ m.part = .axis 1 ∨ m.part = .note 0 := by
   simp only [decorationMarks, decorations, List.map_cons, List.map_nil, List.mem_cons,
     List.not_mem_nil, or_false] at h
   rcases h with rfl | rfl | rfl <;> simp
@@ -156,23 +162,23 @@ theorem draw_faithful (Λ : PlaneLattice) : Λ.Faithful Λ.draw := by
   refine ⟨?_, ?_, ?_, ?_⟩
   · simp only [Diagram.dots, draw, List.filterMap_append]
     rw [(List.filterMap_eq_nil_iff (l := Λ.decorationMarks)).2 fun m hm => by
-      rcases hD hm with h | h <;> simp [h]]
+      rcases hD hm with h | h | h <;> simp [h]]
     simp [pointMarks, List.filterMap_map, Function.comp_def]
   · simp only [Diagram.marksWhere, draw, List.filter_append]
     rw [(List.filter_eq_nil_iff (l := Λ.decorationMarks)).2 fun m hm => by
-        rcases hD hm with h | h <;> simp [h, Part.isVertex],
+        rcases hD hm with h | h | h <;> simp [h, Part.isVertex],
       (List.filter_eq_self (l := Λ.pointMarks)).2 fun m hm => by
         obtain ⟨i, h⟩ := hP hm; simp [h, Part.isVertex]]
     simp
   · simp only [Diagram.marksWhere, draw, List.filter_append]
     rw [(List.filter_eq_self (l := Λ.decorationMarks)).2 fun m hm => by
-        rcases hD hm with h | h <;> simp [h, Part.isDecoration],
+        rcases hD hm with h | h | h <;> simp [h, Part.isDecoration],
       (List.filter_eq_nil_iff (l := Λ.pointMarks)).2 fun m hm => by
         obtain ⟨i, h⟩ := hP hm; simp [h, Part.isDecoration]]
     simp
   · simp only [draw, List.all_append, Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true]
     refine ⟨fun m hm => ?_, fun m hm => ?_⟩
-    · rcases hD hm with h | h <;> simp [h, Part.isDecoration]
+    · rcases hD hm with h | h | h <;> simp [h, Part.isDecoration]
     · obtain ⟨i, h⟩ := hP hm; simp [h, Part.isVertex]
 
 /-- A pair of coefficients is drawn exactly when both are within `bound` and its point is in

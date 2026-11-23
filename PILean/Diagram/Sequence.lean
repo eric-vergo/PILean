@@ -66,16 +66,19 @@ structure SeqPlot where
   curves : List (String × (Nat → Rat)) := []
 
 /-- The exact scales of a plot: index `n` at `x = sx n`, value `v` at `y = sy v`; the lowest value
-`vlo` and the highest `vhi` the axes show, and the steps of their ticks. -/
+`vlo` and the highest `vhi` the axes show, the first tick `xlo` of the index axis, and the steps of
+the ticks. -/
 structure SeqLayout where
   /-- World units per unit of the index. -/
   sx : Rat
   /-- World units per unit of value. -/
   sy : Rat
-  /-- The lowest value shown (where the index axis crosses). -/
+  /-- The lowest value shown. -/
   vlo : Rat
   /-- The highest value shown. -/
   vhi : Rat
+  /-- The index of the first tick of the index axis (a multiple of `xstep`, at most `lo`). -/
+  xlo : Nat
   /-- The step of the ticks of the index axis. -/
   xstep : Nat
   /-- The step of the ticks of the value axis. -/
@@ -88,6 +91,9 @@ def maxIndices : Nat := 2000
 
 /-- The most sequences and curves a plot draws. -/
 def maxSeries : Nat := 6
+
+/-- The most characters of a sequence's or a curve's name. -/
+def maxNameLength : Nat := 80
 
 /-- The indices `lo, …, hi`. -/
 def indices (P : SeqPlot) : List Nat := List.range' P.lo (P.hi + 1 - P.lo)
@@ -108,7 +114,8 @@ def values (P : SeqPlot) : List Rat :=
   0 :: (P.series ++ P.curves).flatMap fun (_, f) => P.indices.map f
 
 /-- The layout: the values from the least to the greatest of `values` (rounded out to the ticks'
-step), an index axis three units long and a value axis two units high. -/
+step), the index axis from the multiple `xlo` of its step at or below `lo` to `hi`, three units
+long, and the value axis two units high. -/
 def layout (P : SeqPlot) : SeqLayout :=
   let vs := P.values
   let lo := vs.foldl min 0
@@ -116,9 +123,10 @@ def layout (P : SeqPlot) : SeqLayout :=
   let ystep := niceStep (hi - lo)
   let vlo := ystep * ((lo / ystep).floor : Rat)
   let vhi := ystep * ((hi / ystep).ceil : Rat)
-  let span : Rat := max 1 ((P.hi : Rat) - P.lo)
-  { sx := 3 / span, sy := 2 / max 1 (vhi - vlo), vlo, vhi,
-    xstep := max 1 (niceStep span).ceil.toNat, ystep }
+  let xstep := max 1 (niceStep (max 1 ((P.hi : Rat) - P.lo))).ceil.toNat
+  let xlo := xstep * (P.lo / xstep)
+  let span : Rat := max 1 ((P.hi : Rat) - xlo)
+  { sx := 3 / span, sy := 2 / max 1 (vhi - vlo), vlo, vhi, xlo, xstep, ystep }
 
 /-- The exact point of index `n` and value `v`. -/
 def point (L : SeqLayout) (n : Nat) (v : Rat) : QPoint := (L.sx * n, L.sy * v)
@@ -139,49 +147,63 @@ def curveMarks (P : SeqPlot) (L : SeqLayout) : List Mark :=
 /-- A tick label: an integer as itself, another rational as `p/q`. -/
 def tickText (q : Rat) : String := if q.den = 1 then toString q.num else s!"{q.num}/{q.den}"
 
-/-- The tick marks of the index axis, the indices at which they stand. -/
+/-- The indices at the ticks of the index axis: `xlo, xlo + xstep, …` up to `hi`. -/
 def xticks (P : SeqPlot) (L : SeqLayout) : List Nat :=
-  (List.range ((P.hi - P.lo) / L.xstep + 1)).map fun i => P.lo + i * L.xstep
+  (List.range ((P.hi - L.xlo) / L.xstep + 1)).map fun i => L.xlo + i * L.xstep
+
+/-- The number of ticks of the value axis. -/
+def tickCount (L : SeqLayout) : Nat := ((L.vhi - L.vlo) / L.ystep).floor.toNat + 1
 
 /-- The values at the ticks of the value axis. -/
 def yticks (L : SeqLayout) : List Rat :=
-  (List.range (((L.vhi - L.vlo) / L.ystep).floor.toNat + 1)).map fun (i : Nat) =>
-    L.vlo + i * L.ystep
+  (List.range (tickCount L)).map fun (i : Nat) => L.vlo + i * L.ystep
 
 /-- The names of the sequences and curves, in the order of their colours. -/
 def names (P : SeqPlot) : List String := P.series.map (·.1) ++ P.curves.map (·.1)
+
+/-- The abscissa of the value axis: a tenth of a unit left of the first tick of the index axis, so
+that no point of the plot lies on it. -/
+def axisX (L : SeqLayout) : Rat := L.sx * L.xlo - 1 / 10
+
+/-- The ordinate of the index axis: a tenth of a unit below the lowest value shown, so that no
+point of the plot lies on it. -/
+def axisY (L : SeqLayout) : Rat := L.sy * L.vlo - 1 / 10
 
 /-- The height of the legend's line `i`, above the value axis. -/
 def legendY (P : SeqPlot) (L : SeqLayout) (i : Nat) : Rat :=
   L.sy * L.vhi + (3 : Rat) / 10 * ((P.names.length : Rat) - i)
 
-/-- The lines of the decorations with their inks: the index axis at the lowest value and the
-value axis at the first index, their ticks (faint), and the legend's samples (a short line in the
-colour of each sequence and curve, at the top left). -/
-def guides (P : SeqPlot) (L : SeqLayout) : List (Shape × Ink) :=
-  let x0 := L.sx * P.lo
-  let y0 := L.sy * L.vlo
-  let t : Rat := 1 / 20
-  [(.segment (x0, y0) (L.sx * P.hi, y0), .faint), (.segment (x0, y0) (x0, L.sy * L.vhi), .faint)] ++
-    (P.xticks L).map (fun n => (.segment (L.sx * n, y0) (L.sx * n, y0 - t), .faint)) ++
-    (yticks L).map (fun v => (.segment (x0, L.sy * v) (x0 - t, L.sy * v), .faint)) ++
-    P.names.zipIdx.map fun (_, i) =>
-      (.segment (x0, P.legendY L i) (x0 + 1 / 5, P.legendY L i), .series i false)
+/-- The decorations with their inks, in order:
 
-/-- The texts of the decorations: the ticks' labels (`note 0` below the index axis, `note 1` left
-of the value axis) and the legend's names (`note 2`). -/
-def notes (P : SeqPlot) (L : SeqLayout) : List (Nat × Shape) :=
-  let x0 := L.sx * P.lo
-  let y0 := L.sy * L.vlo
+* the index axis (`axis 0`) from the value axis to `hi` and the value axis (`axis 1`) up to the
+  highest value shown, faint;
+* their ticks, faint guides;
+* the legend's samples, guides in the colour of each sequence (a dot) and of each curve (a short
+  line), at the top left;
+* the ticks' labels (`note 0` below the index axis, `note 1` left of the value axis), the legend's
+  names (`note 2`, right of their samples) and the name `n` of the index axis (`note 3`, at its
+  right end), in the ink. -/
+def decorations (P : SeqPlot) (L : SeqLayout) : List (Part × Shape × Ink) :=
+  let x0 := axisX L
+  let y0 := axisY L
   let t : Rat := 1 / 20
-  (P.xticks L).map (fun n => (0, .text (toString n) (L.sx * n, y0 - t) .below)) ++
-    (yticks L).map (fun v => (1, .text (tickText v) (x0 - t, L.sy * v) .left)) ++
-    P.names.zipIdx.map fun (s, i) => (2, .text s (x0 + 3 / 10, P.legendY L i) .right)
+  let xe := L.sx * P.hi + 1 / 10
+  [(.axis 0, .segment (x0, y0) (xe, y0), .faint),
+    (.axis 1, .segment (x0, y0) (x0, L.sy * L.vhi), .faint)] ++
+    (P.xticks L).map (fun n => (.guide, .segment (L.sx * n, y0) (L.sx * n, y0 - t), .faint)) ++
+    (yticks L).map (fun v => (.guide, .segment (x0, L.sy * v) (x0 - t, L.sy * v), .faint)) ++
+    P.names.zipIdx.map (fun (_, i) =>
+      (.guide, if i < P.series.length then .dot (x0 + 1 / 10, P.legendY L i)
+        else .segment (x0, P.legendY L i) (x0 + 1 / 5, P.legendY L i), .series i false)) ++
+    (P.xticks L).map (fun n => (.note 0, .text (toString n) (L.sx * n, y0 - t) .below, .ink)) ++
+    (yticks L).map (fun v => (.note 1, .text (tickText v) (x0 - t, L.sy * v) .left, .ink)) ++
+    P.names.zipIdx.map (fun (s, i) =>
+      (.note 2, .text s (x0 + 1 / 4, P.legendY L i) .right, .ink)) ++
+    [(.note 3, .text "n" (xe, y0) .right, .ink)]
 
-/-- The marks of the decorations: the guides in their inks, then the notes in the ink. -/
+/-- The marks of the decorations. -/
 def decorationMarks (P : SeqPlot) (L : SeqLayout) : List Mark :=
-  (P.guides L).map (fun (s, i) => { part := .guide, shape := s, ink := i }) ++
-    (P.notes L).map fun (k, s) => { part := .note k, shape := s }
+  (P.decorations L).map fun (p, s, i) => { part := p, shape := s, ink := i }
 
 /-- The diagram at the layout `L`: the decorations, the curves, then the points. -/
 def draw (P : SeqPlot) (L : SeqLayout) : Diagram where
@@ -218,13 +240,19 @@ theorem isCurve_of_mem_curveMarks {P : SeqPlot} {L : SeqLayout} {m : Mark}
   obtain ⟨_, -, rfl⟩ := h
   exact ⟨_, rfl⟩
 
-/-- Every mark of the decorations is a guide or a note. -/
+/-- Every decoration's part is a decoration's. -/
+theorem decorations_all (P : SeqPlot) (L : SeqLayout) :
+    (P.decorations L).all (·.1.isDecoration) = true := by
+  simp [decorations, List.all_map, Part.isDecoration, Function.comp_def]
+
+/-- Every mark of the decorations is an axis, a guide or a note. -/
 theorem isDecoration_of_mem_decorationMarks {P : SeqPlot} {L : SeqLayout} {m : Mark}
-    (h : m ∈ P.decorationMarks L) : m.part = .guide ∨ ∃ k, m.part = .note k := by
-  simp only [decorationMarks, List.mem_append, List.mem_map] at h
-  rcases h with ⟨_, -, rfl⟩ | ⟨_, -, rfl⟩
-  · exact .inl rfl
-  · exact .inr ⟨_, rfl⟩
+    (h : m ∈ P.decorationMarks L) : m.part = .guide ∨ (∃ k, m.part = .axis k) ∨
+      ∃ k, m.part = .note k := by
+  simp only [decorationMarks, List.mem_map] at h
+  obtain ⟨⟨p, s, i⟩, hp, rfl⟩ := h
+  have := List.all_eq_true.1 (P.decorations_all L) _ hp
+  cases p <;> simp_all [Part.isDecoration]
 
 /-- The plot is faithful at every layout. -/
 theorem draw_faithful (P : SeqPlot) (L : SeqLayout) : P.Faithful L (P.draw L) := by
@@ -234,13 +262,13 @@ theorem draw_faithful (P : SeqPlot) (L : SeqLayout) : P.Faithful L (P.draw L) :=
   refine ⟨?_, ?_, ?_, ?_, ?_⟩
   · simp only [Diagram.data, draw, List.filterMap_append]
     rw [(List.filterMap_eq_nil_iff (l := P.decorationMarks L)).2 fun m hm => by
-        rcases hN hm with h | ⟨k, h⟩ <;> simp [h],
+        rcases hN hm with h | ⟨k, h⟩ | ⟨k, h⟩ <;> simp [h],
       (List.filterMap_eq_nil_iff (l := P.curveMarks L)).2 fun m hm => by
         obtain ⟨j, h⟩ := hC hm; simp [h]]
     simp [dataMarks, dataTriples, List.filterMap_flatMap, List.filterMap_map, Function.comp_def]
   · simp only [Diagram.marksWhere, draw, List.filter_append]
     rw [(List.filter_eq_nil_iff (l := P.decorationMarks L)).2 fun m hm => by
-        rcases hN hm with h | ⟨k, h⟩ <;> simp [h, Part.isDatum],
+        rcases hN hm with h | ⟨k, h⟩ | ⟨k, h⟩ <;> simp [h, Part.isDatum],
       (List.filter_eq_nil_iff (l := P.curveMarks L)).2 fun m hm => by
         obtain ⟨j, h⟩ := hC hm; simp [h, Part.isDatum],
       (List.filter_eq_self (l := P.dataMarks L)).2 fun m hm => by
@@ -248,7 +276,7 @@ theorem draw_faithful (P : SeqPlot) (L : SeqLayout) : P.Faithful L (P.draw L) :=
     simp
   · simp only [Diagram.marksWhere, draw, List.filter_append]
     rw [(List.filter_eq_nil_iff (l := P.decorationMarks L)).2 fun m hm => by
-        rcases hN hm with h | ⟨k, h⟩ <;> simp [h, Part.isCurve],
+        rcases hN hm with h | ⟨k, h⟩ | ⟨k, h⟩ <;> simp [h, Part.isCurve],
       (List.filter_eq_self (l := P.curveMarks L)).2 fun m hm => by
         obtain ⟨j, h⟩ := hC hm; simp [h, Part.isCurve],
       (List.filter_eq_nil_iff (l := P.dataMarks L)).2 fun m hm => by
@@ -256,7 +284,7 @@ theorem draw_faithful (P : SeqPlot) (L : SeqLayout) : P.Faithful L (P.draw L) :=
     simp
   · simp only [Diagram.marksWhere, draw, List.filter_append]
     rw [(List.filter_eq_self (l := P.decorationMarks L)).2 fun m hm => by
-        rcases hN hm with h | ⟨k, h⟩ <;> simp [h, Part.isDecoration],
+        rcases hN hm with h | ⟨k, h⟩ | ⟨k, h⟩ <;> simp [h, Part.isDecoration],
       (List.filter_eq_nil_iff (l := P.curveMarks L)).2 fun m hm => by
         obtain ⟨j, h⟩ := hC hm; simp [h, Part.isDecoration],
       (List.filter_eq_nil_iff (l := P.dataMarks L)).2 fun m hm => by
@@ -264,7 +292,7 @@ theorem draw_faithful (P : SeqPlot) (L : SeqLayout) : P.Faithful L (P.draw L) :=
     simp
   · simp only [draw, List.all_append, Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true]
     refine ⟨⟨fun m hm => ?_, fun m hm => ?_⟩, fun m hm => ?_⟩
-    · rcases hN hm with h | ⟨k, h⟩ <;> simp [h, Part.isDecoration]
+    · rcases hN hm with h | ⟨k, h⟩ | ⟨k, h⟩ <;> simp [h, Part.isDecoration]
     · obtain ⟨j, h⟩ := hC hm; simp [h, Part.isCurve]
     · obtain ⟨k, n, h⟩ := hD hm; simp [h, Part.isDatum]
 
@@ -282,16 +310,31 @@ theorem mem_data (P : SeqPlot) (L : SeqLayout) (k n : Nat) (p : QPoint) :
     exact ⟨((s, f), k), List.mem_zipIdx_iff_getElem?.2 hk, n, ⟨n - P.lo, by omega, by omega⟩,
       rfl, rfl, rfl⟩
 
-/-- The plot at its layout, or a note beyond the caps (more than `maxIndices` indices or
-`maxSeries` sequences and curves). -/
+/-- The radius in pixels of the points of a plot of `count` indices on the page: `180 / count`,
+between `1.25` and `3`, so that neighbours keep apart (the page is 560 pixels wide and the index
+axis about 450 of them). -/
+def dotRadiusFor (count : Nat) : Float := min 3 (max 1.25 (180 / count.toFloat))
+
+/-- The most ticks of the value axis: values too large for the steps of `niceStep` would need
+more. -/
+def maxTicks : Nat := 20
+
+/-- The caps: at most `maxIndices` indices, `maxSeries` sequences and curves, a range that is not
+empty, names of at most `maxNameLength` characters, and at most `maxTicks` ticks on the value
+axis (checked last, after the others have bounded the work of the layout). -/
+def withinCaps (P : SeqPlot) : Bool :=
+  P.lo ≤ P.hi && P.hi + 1 - P.lo ≤ maxIndices && P.series.length + P.curves.length ≤ maxSeries &&
+    P.names.all (·.length ≤ maxNameLength) && tickCount P.layout ≤ maxTicks
+
+/-- The plot at its layout, or a note beyond the caps (`withinCaps`). -/
 def figure (P : SeqPlot) : Diagram :=
-  Diagram.capped (P.hi + 1 - P.lo ≤ maxIndices && P.series.length + P.curves.length ≤ maxSeries)
+  Diagram.capped (P.withinCaps)
     s!"a plot of {P.hi + 1 - P.lo} indices and {P.series.length + P.curves.length} series: \
-      too many to draw" fun _ => { P.draw P.layout with width := 560 }
+      too many to draw" fun _ =>
+    { P.draw P.layout with width := 560, dotRadius := some (dotRadiusFor (P.hi + 1 - P.lo)) }
 
 /-- Within the caps the plot is drawn faithfully by `figure`. -/
-theorem builder_faithful (P : SeqPlot)
-    (h : (P.hi + 1 - P.lo ≤ maxIndices && P.series.length + P.curves.length ≤ maxSeries) = true) :
+theorem builder_faithful (P : SeqPlot) (h : P.withinCaps = true) :
     P.Faithful P.layout P.figure := by
   have e : P.figure.marks = (P.draw P.layout).marks := by
     simp only [figure, Diagram.capped, h, ite_true]
@@ -323,6 +366,9 @@ structure CellPlot where
   cells : List NumberCell
   /-- The headings: their texts and positions. -/
   headings : List (String × QPoint) := []
+  /-- Whether a marked cell is filled opaque (`Ink.solid 0`, for cells without text) rather than
+  tinted (`Ink.tint 0`). -/
+  solid : Bool := false
   deriving Inhabited
 
 namespace CellPlot
@@ -330,15 +376,22 @@ namespace CellPlot
 /-- The most cells a plot draws. -/
 def maxCells : Nat := 4000
 
-/-- The unit square of a cell. -/
-def box (c : NumberCell) : QPoint × QPoint :=
-  (((c.pos.1 : Rat), (c.pos.2 : Rat)), ((c.pos.1 : Rat) + 1, (c.pos.2 : Rat) + 1))
+/-- The square of a cell: the unit square at its position, or, for a plot of `solid` cells, the
+square inside it a twelfth of a unit from its sides (so that neighbouring cells stand apart). -/
+def box (solid : Bool) (c : NumberCell) : QPoint × QPoint :=
+  let e : Rat := if solid then 1 / 12 else 0
+  (((c.pos.1 : Rat) + e, (c.pos.2 : Rat) + e), ((c.pos.1 : Rat) + 1 - e, (c.pos.2 : Rat) + 1 - e))
 
-/-- The marks of a cell: its square, tinted in accent 0 when marked and in the faint ink otherwise,
-then its text at its centre when it has one. -/
-def cellMarks (c : NumberCell) : List Mark :=
-  { part := .cell c.key 0, shape := .rect (box c).1 (box c).2,
-    ink := if c.marked then .tint 0 else .faint } ::
+/-- The ink of a cell: accent 0, opaque when `solid` and tinted otherwise, when the cell is marked;
+the faint ink when it is not. -/
+def cellInk (solid : Bool) (c : NumberCell) : Ink :=
+  if c.marked then (if solid then .solid 0 else .tint 0) else .faint
+
+/-- The marks of a cell: its square in its ink (`cellInk`), then its text at its centre when it
+has one. -/
+def cellMarks (solid : Bool) (c : NumberCell) : List Mark :=
+  { part := .cell c.key 0, shape := .rect (box solid c).1 (box solid c).2,
+    ink := cellInk solid c } ::
   (if c.text.isEmpty then [] else
     let centre : QPoint := ((c.pos.1 : Rat) + 1 / 2, (c.pos.2 : Rat) + 1 / 2)
     [{ part := .entry c.key 0, shape := .text c.text centre .center }])
@@ -349,13 +402,13 @@ def headingMarks (P : CellPlot) : List Mark :=
 
 /-- The diagram: the cells (each with its text), then the headings. -/
 def draw (P : CellPlot) : Diagram where
-  marks := P.cells.flatMap cellMarks ++ P.headingMarks
+  marks := P.cells.flatMap (cellMarks P.solid) ++ P.headingMarks
 
 /-- The diagram draws the cells faithfully: its marks of cells and entries are exactly the cells'
 (position, colour by mark, text), cell by cell; its headings exactly the plot's; and nothing
 else. -/
 def Faithful (P : CellPlot) (d : Diagram) : Prop :=
-  d.marksWhere (fun p => p.isCell || p.isEntry) = P.cells.flatMap cellMarks ∧
+  d.marksWhere (fun p => p.isCell || p.isEntry) = P.cells.flatMap (cellMarks P.solid) ∧
     d.marksWhere Part.isHeader = P.headingMarks ∧
     d.marks.all (fun m => m.part.isCell || m.part.isEntry || m.part.isHeader) = true
 
@@ -363,7 +416,8 @@ instance (P : CellPlot) (d : Diagram) : Decidable (P.Faithful d) :=
   inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- Every mark of a cell is the cell's square or its text. -/
-theorem part_of_mem_cellMarks {c : NumberCell} {m : Mark} (h : m ∈ cellMarks c) :
+theorem part_of_mem_cellMarks {solid : Bool} {c : NumberCell} {m : Mark}
+    (h : m ∈ cellMarks solid c) :
     m.part = .cell c.key 0 ∨ m.part = .entry c.key 0 := by
   unfold cellMarks at h
   simp only [List.mem_cons] at h
@@ -375,7 +429,7 @@ theorem part_of_mem_cellMarks {c : NumberCell} {m : Mark} (h : m ∈ cellMarks c
 
 /-- The diagram is faithful. -/
 theorem draw_faithful (P : CellPlot) : P.Faithful P.draw := by
-  have hC : ∀ m ∈ P.cells.flatMap cellMarks, m.part.isCell = true ∨ m.part.isEntry = true := by
+  have hC : ∀ m ∈ P.cells.flatMap (cellMarks P.solid), m.part.isCell = true ∨ m.part.isEntry = true := by
     intro m hm
     obtain ⟨c, -, hm⟩ := List.mem_flatMap.1 hm
     rcases part_of_mem_cellMarks hm with h | h <;> simp [h, Part.isCell, Part.isEntry]
@@ -386,13 +440,13 @@ theorem draw_faithful (P : CellPlot) : P.Faithful P.draw := by
     exact ⟨_, rfl⟩
   refine ⟨?_, ?_, ?_⟩
   · simp only [Diagram.marksWhere, draw, List.filter_append]
-    rw [(List.filter_eq_self (l := P.cells.flatMap cellMarks)).2 fun m hm => by
+    rw [(List.filter_eq_self (l := P.cells.flatMap (cellMarks P.solid))).2 fun m hm => by
         simpa [Bool.or_eq_true] using hC m hm,
       (List.filter_eq_nil_iff (l := P.headingMarks)).2 fun m hm => by
         obtain ⟨i, h⟩ := hH m hm; simp [h, Part.isCell, Part.isEntry]]
     simp
   · simp only [Diagram.marksWhere, draw, List.filter_append]
-    rw [(List.filter_eq_nil_iff (l := P.cells.flatMap cellMarks)).2 fun m hm => by
+    rw [(List.filter_eq_nil_iff (l := P.cells.flatMap (cellMarks P.solid))).2 fun m hm => by
         rcases hC m hm with h | h <;> cases hp : m.part <;> simp_all [Part.isCell, Part.isEntry,
           Part.isHeader],
       (List.filter_eq_self (l := P.headingMarks)).2 fun m hm => by
@@ -404,26 +458,33 @@ theorem draw_faithful (P : CellPlot) : P.Faithful P.draw := by
     · obtain ⟨i, h⟩ := hH m hm; simp [h, Part.isHeader]
 
 /-- In a faithful diagram every cell is drawn as its unit square in the colour of its mark:
-accent 0 tinted when the cell is marked, the faint ink otherwise. -/
+accent 0 when the cell is marked, the faint ink otherwise. -/
 theorem mem_marked {P : CellPlot} {d : Diagram} (h : P.Faithful d) (c : NumberCell)
     (hc : c ∈ P.cells) :
-    { part := .cell c.key 0, shape := .rect (box c).1 (box c).2,
-      ink := if c.marked then .tint 0 else .faint } ∈ d.marks := by
-  let m : Mark := { part := .cell c.key 0, shape := .rect (box c).1 (box c).2,
-                    ink := if c.marked then .tint 0 else .faint }
+    { part := .cell c.key 0, shape := .rect (box P.solid c).1 (box P.solid c).2,
+      ink := cellInk P.solid c } ∈ d.marks := by
+  let m : Mark := { part := .cell c.key 0, shape := .rect (box P.solid c).1 (box P.solid c).2,
+                    ink := cellInk P.solid c }
   have hm : m ∈ d.marksWhere (fun p => p.isCell || p.isEntry) := by
     rw [h.1]
     exact List.mem_flatMap.2 ⟨c, hc, by simp [cellMarks, m]⟩
   exact (List.mem_filter.1 hm).1
 
-/-- The diagram, or a note for more than `maxCells` cells. -/
-def figure (P : CellPlot) : Diagram :=
-  Diagram.capped (P.cells.length ≤ maxCells && P.headings.length ≤ maxCells)
-    s!"{P.cells.length} cells: too many to draw" fun _ => P.draw
+/-- The most characters of a cell's text or a heading. -/
+def maxTextLength : Nat := 40
 
-/-- Within the cap the cells are drawn faithfully by `figure`. -/
-theorem builder_faithful (P : CellPlot)
-    (h : (P.cells.length ≤ maxCells && P.headings.length ≤ maxCells) = true) :
+/-- The caps: at most `maxCells` cells and headings, texts of at most `maxTextLength`
+characters. -/
+def withinCaps (P : CellPlot) : Bool :=
+  P.cells.length ≤ maxCells && P.headings.length ≤ maxCells &&
+    P.cells.all (·.text.length ≤ maxTextLength) && P.headings.all (·.1.length ≤ maxTextLength)
+
+/-- The diagram, or a note beyond the caps (`withinCaps`). -/
+def figure (P : CellPlot) : Diagram :=
+  Diagram.capped P.withinCaps s!"{P.cells.length} cells: too many to draw" fun _ => P.draw
+
+/-- Within the caps the cells are drawn faithfully by `figure`. -/
+theorem builder_faithful (P : CellPlot) (h : P.withinCaps = true) :
     P.Faithful P.figure := by
   unfold figure
   rw [Diagram.capped_of h]

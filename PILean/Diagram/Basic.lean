@@ -79,6 +79,9 @@ inductive Part where
   | datum (k n : Nat)
   /-- The plotted curve `j` (a comparison curve). -/
   | curve (j : Nat)
+  /-- Axis `k` of a plot or of the plane (`0` horizontal, `1` vertical): a line that depicts no
+  part of the object, named so that a point drawn on it can record that it is (`Mark.toItemIn`). -/
+  | axis (k : Nat)
   /-- An annotation (a title, an axis name): text that depicts no part of the object. -/
   | note (k : Nat)
   /-- A guide (grid lines, a frame): a drawing that depicts no part of the object. -/
@@ -168,6 +171,9 @@ inductive Ink where
   /-- Colour `k` of the twelve series colours (`seriesRole`), with a tinted inside when
   `tinted`: a colour per element of a group, per generator, per residue. -/
   | series (k : Nat) (tinted : Bool)
+  /-- Accent `k` with an opaque inside: a marked cell of a grid without text (a prime of an Ulam
+  spiral). -/
+  | solid (k : Nat)
   deriving DecidableEq, Repr, Inhabited
 
 /-- Whether an ink is one of the series colours. -/
@@ -201,6 +207,9 @@ structure Diagram where
   arrowGap : Float := 0.12
   /-- A second, narrower width for small screens. -/
   narrowWidth : Option Float := none
+  /-- The radius in pixels of the markers of its dots, when not the style's (`markerRadius`): a
+  plot of many points draws them smaller, so that neighbours stay apart. -/
+  dotRadius : Option Float := none
   deriving Inhabited
 
 /-- The most marks a diagram is drawn with: the builders of the kinds refuse data whose drawing
@@ -250,11 +259,12 @@ def steps (d : Diagram) : List (Nat × QPoint × QPoint) :=
     | _, _ => none
 
 /-- The decorations the diagram draws: `(part, shape)` for each mark whose part is a `guide` or a
-`note` (a part that depicts nothing of the object), in order. A kind's `Faithful` requires them to
+`note` or an `axis` (a part that depicts nothing of the object), in order. A kind's `Faithful` requires them to
 be exactly the builder's, so that nothing is drawn under a decoration's part. -/
 def decorations (d : Diagram) : List (Part × Shape) :=
   d.marks.filterMap fun m => match m.part with
     | .guide => some (m.part, m.shape)
+    | .axis _ => some (m.part, m.shape)
     | .note _ => some (m.part, m.shape)
     | _ => none
 
@@ -308,9 +318,10 @@ def Part.isHeader : Part → Bool
   | .header .. => true
   | _ => false
 
-/-- Whether a part is a decoration (a guide or a note). -/
+/-- Whether a part is a decoration (a guide, an axis or a note). -/
 def Part.isDecoration : Part → Bool
   | .guide => true
+  | .axis _ => true
   | .note _ => true
   | _ => false
 
@@ -329,6 +340,7 @@ def Part.title : Part → String
   | .header a i => if a = 0 then s!"row {i}" else s!"column {i}"
   | .datum k n => s!"sequence {k} at {n}"
   | .curve j => s!"curve {j}"
+  | .axis k => s!"axis {k}"
   | .note _ => ""
   | .guide => ""
 
@@ -384,6 +396,7 @@ def Ink.apply : Ink → Item → Item
   | .series k false, it => it.role s!"series-{k % 12}"
   | .series k true, it =>
     ((it.role s!"series-{k % 12}").filled).fillOpacity seriesFillOpacity
+  | .solid k, it => ((it.accent k).filled).fillOpacity 1
 
 /-- Series colour `k` (of twelve): a hue of the OKLCH circle, the twelve hues `30°` apart and
 taken in steps of `150°` so that consecutive colours differ most, darker on light surfaces and
@@ -406,6 +419,17 @@ def circlesThrough (marks : List Mark) (p : QPoint) : List String :=
       then some m.part.title else none
     | _ => none
 
+/-- The titles of the axes among `marks` that pass exactly through `p`: segments of a part
+`axis k` with `p` on them (collinear, between the ends, in rational arithmetic). -/
+def axesThrough (marks : List Mark) (p : QPoint) : List String :=
+  marks.filterMap fun m => match m.part, m.shape with
+    | .axis _, .segment a b =>
+      let cross := (b.1 - a.1) * (p.2 - a.2) - (b.2 - a.2) * (p.1 - a.1)
+      let dot := (p.1 - a.1) * (b.1 - a.1) + (p.2 - a.2) * (b.2 - a.2)
+      let len := (b.1 - a.1) * (b.1 - a.1) + (b.2 - a.2) * (b.2 - a.2)
+      if cross = 0 && 0 ≤ dot && dot ≤ len then some m.part.title else none
+    | _, _ => none
+
 /-- The plane item of a mark: its shape's item in its ink, named by its part (`Part.title`); a dot
 records that it is on each of the `onCircles` (by title), which the layout checks of plane figures
 require of a point drawn on a curve. -/
@@ -414,19 +438,25 @@ def Mark.toItem (gap : Float) (m : Mark) (onCircles : List String := []) : Item 
   let it := onCircles.foldl (fun it t => it.incident .on t) it
   if m.part.title.isEmpty then it else it.named m.part.title
 
-/-- The plane item of the mark `m` of the diagram's `marks`: a dot records the circles of the
-diagram it lies on exactly (`circlesThrough`). -/
+/-- The plane item of the mark `m` of the diagram's `marks`: a dot records the circles and the
+axes of the diagram it lies on exactly (`circlesThrough`, `axesThrough`). -/
 def Mark.toItemIn (gap : Float) (marks : List Mark) (m : Mark) : Item :=
   match m.shape with
-  | .dot p => m.toItem gap (circlesThrough marks p)
+  | .dot p => m.toItem gap (circlesThrough marks p ++ axesThrough marks p)
   | _ => m.toItem gap
 
 namespace Diagram
 
-/-- The diagram as a plane figure: one item per mark, in order (`Mark.toItemIn`), with the
-diagram's width, style and title. -/
+/-- The item of a mark at the diagram's `dotRadius`: a dot's marker at that radius, when set. -/
+def sized (d : Diagram) (m : Mark) (it : Item) : Item :=
+  match d.dotRadius, m.shape with
+  | some r, .dot _ => it.size r
+  | _, _ => it
+
+/-- The diagram as a plane figure: one item per mark, in order (`Mark.toItemIn`, at the
+`dotRadius`), with the diagram's width, style and title. -/
 def toPlane (d : Diagram) : Plane.Figure where
-  items := (d.marks.map (Mark.toItemIn d.arrowGap d.marks)).toArray
+  items := (d.marks.map fun m => d.sized m (Mark.toItemIn d.arrowGap d.marks m)).toArray
   width := d.width
   style := if d.marks.any (·.ink.isSeries) then withSeriesRoles d.style else d.style
   info := { title := d.title, description := d.description }
@@ -434,7 +464,8 @@ def toPlane (d : Diagram) : Plane.Figure where
 
 /-- The plane figure's items are the marks' items, in order. -/
 theorem toPlane_items (d : Diagram) :
-    d.toPlane.items = (d.marks.map (Mark.toItemIn d.arrowGap d.marks)).toArray := rfl
+    d.toPlane.items = (d.marks.map fun m => d.sized m (Mark.toItemIn d.arrowGap d.marks m)).toArray :=
+  rfl
 
 /-- The diagram `d ()` when `ok`, otherwise a diagram with the note `what` only: how a builder
 refuses data beyond its caps, so that the work on hostile input stays bounded. The diagram is a
