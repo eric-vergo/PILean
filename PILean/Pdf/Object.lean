@@ -70,7 +70,8 @@ def Obj.writeAt : Nat → Obj → String
   | _ + 1, .str b => hexString b
   | fuel + 1, .arr xs => "[" ++ " ".intercalate (xs.toList.map (Obj.writeAt fuel)) ++ "]"
   | fuel + 1, .dict kvs =>
-    "<<" ++ String.join (kvs.toList.map fun (k, v) => " /" ++ nameText k ++ " " ++ v.writeAt fuel) ++
+    "<<" ++
+      String.join (kvs.toList.map fun (k, v) => " /" ++ nameText k ++ " " ++ v.writeAt fuel) ++
       " >>"
   | _ + 1, .ref n => s!"{n} 0 R"
 

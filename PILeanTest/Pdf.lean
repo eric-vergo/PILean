@@ -46,7 +46,8 @@ def sampler : Shape :=
         (some { ink := ⟨0, 0, 0, 255⟩, width := 6 }),
       .path (circle ⟨180, 80⟩ 25) (some (.solid ⟨0, 158, 115, 255⟩))] (opacity := 0.5),
     .path curve none
-      (some { ink := ⟨40, 40, 40, 255⟩, width := 4, cap := "round", join := "round", dash := #[12, 6] }),
+      (some { ink := ⟨40, 40, 40, 255⟩, width := 4, cap := "round", join := "round",
+              dash := #[12, 6] }),
     .path (Path.polyline #[⟨200, 20⟩, ⟨250, 60⟩, ⟨300, 20⟩]) none
       (some { ink := ⟨120, 0, 120, 255⟩, width := 8, cap := "square", join := "bevel" }),
     .path (rect 260 120 40 40) (some (.solid ⟨0, 0, 0, 255⟩)) (opacity := 0.3)]
@@ -132,10 +133,16 @@ def galleryProblems : Array String :=
 planted in its text: a page whose content draws a form (`/X0`) at an opacity (`/G0`), a shading
 (`/S0`) inside a clip, and an image (`/X1`). `content` replaces the page's content and `extra`
 the text of the resources' entries. -/
-def handmade (content : String := "q\n/G0 gs\n/X0 Do\nQ\nq\n0 0 10 10 re W n\n/S0 sh\nQ\nq\n4 0 0 4 0 0 cm\n/X1 Do\nQ\n")
-    (resources : String := "<< /ExtGState << /G0 << /ca 0.5 /CA 0.5 >> >> /Shading << /S0 << /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 10 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> /Extend [true true] >> >> /XObject << /X0 6 0 R /X1 7 0 R >> >>")
+def handmade
+    (content : String :=
+      "q\n/G0 gs\n/X0 Do\nQ\nq\n0 0 10 10 re W n\n/S0 sh\nQ\nq\n4 0 0 4 0 0 cm\n/X1 Do\nQ\n")
+    (resources : String := "<< /ExtGState << /G0 << /ca 0.5 /CA 0.5 >> >> /Shading << /S0 << \
+      /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 10 0] /Function << /FunctionType 2 \
+      /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> /Extend [true true] >> >> /XObject << \
+      /X0 6 0 R /X1 7 0 R >> >>")
     (form : String := "0 0 1 rg\n1 1 8 8 re\nf\n") (count : String := "1")
-    (parent : String := "2 0 R") (image : ByteArray := ⟨#[255, 0, 0, 0, 255, 0, 0, 0, 255, 9, 9, 9]⟩)
+    (parent : String := "2 0 R")
+    (image : ByteArray := ⟨#[255, 0, 0, 0, 255, 0, 0, 0, 255, 9, 9, 9]⟩)
     (lengthDelta : Int := 0) : ByteArray :=
   let catalog := "<< /Type /Catalog /Pages 2 0 R >>".toUTF8
   let pages := s!"<< /Type /Pages /Kids [3 0 R] /Count {count} >>".toUTF8
@@ -191,7 +198,9 @@ def faults : Array (String × ByteArray) :=
 /-- The checks of the planted faults: the hand-made file passes, and each fault is refused. -/
 def faultChecks : Array (String × Bool) :=
   #[("pdf check: the hand-made file passes",
-      match Pdf.check handmade with | .ok s => s.pages == 1 && s.contents == 2 | .error _ => false)] ++
+      match Pdf.check handmade with
+      | .ok s => s.pages == 1 && s.contents == 2
+      | .error _ => false)] ++
     faults.map fun (name, d) =>
       (s!"pdf check: refuses {name}", match Pdf.check d with | .ok _ => false | .error _ => true)
 
@@ -282,7 +291,8 @@ def goldens : Array String :=
 def goldenChecks (update : Bool) : IO (Array (String × Bool)) := do
   let mut r := #[]
   for g in goldens do
-    let some (_, pdf, _, _) := galleryPdfs.find? (·.1 == g) | r := r.push (s!"pdf golden {g}", false)
+    let some (_, pdf, _, _) := galleryPdfs.find? (·.1 == g)
+      | r := r.push (s!"pdf golden {g}", false)
     let path : System.FilePath := "examples" / s!"{g}.pdf"
     if update then
       IO.FS.writeBinFile path pdf

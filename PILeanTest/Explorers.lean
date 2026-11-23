@@ -18,7 +18,8 @@ quantified over the grid that `figure_proves` links to the explorer:
 * `latticeExplorer`: the lattice `ℤ (1, 0) + ℤ ω₂` in the window `[-3, 3] × [-2, 2]` as its
   second period `ω₂ = (x, y)` moves over `x = 0, 1/4, 1/2, 3/4` and `y = 1/2, 3/4, 1` (12
   frames, `y` played). `latticeExplorer_spec`: every frame is the figure of its point of the grid,
-  which draws its lattice (of that window) faithfully (the dots are exactly the points `m ω₁ + n ω₂` of the window
+  which draws its lattice (of that window) faithfully (the dots are exactly the points
+  `m ω₁ + n ω₂` of the window
   among the candidates the bound allows, the fundamental parallelogram `0, ω₁, ω₁ + ω₂, ω₂`).
   That the candidates hold every lattice point of the window is proved in `pilean-mathlib`
   (`PILeanMathlib.Examples.latticeExplorer_span`), with Mathlib's `Submodule.span ℤ`; so is the
@@ -113,7 +114,8 @@ figure_proves cayleyExplorer cayleyExplorer_spec
 /-! ### A lattice whose second period moves -/
 
 /-- The lattice of the periods `(1, 0)` and `(x, y)` in the window `[-3, 3] × [-2, 2]`. -/
-def lattice (x y : Rat) : PlaneLattice := { w1 := (1, 0), w2 := (x, y), lo := (-3, -2), hi := (3, 2) }
+def lattice (x y : Rat) : PlaneLattice :=
+  { w1 := (1, 0), w2 := (x, y), lo := (-3, -2), hi := (3, 2) }
 
 /-- The figure of `(x, y)`: the lattice, titled. -/
 def latticeDiagram (x y : Rat) : Diagram :=

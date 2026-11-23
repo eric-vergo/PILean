@@ -54,7 +54,8 @@ goldens), byte for byte; it also renders each figure twice to check that the out
 deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
 `tools/compare-render.py`; `--pdf-out DIR` writes every gallery PDF with a PNG of the same
-picture for `tools/pdf-compare.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the graph
+picture for `tools/pdf-compare.py`; `--bench` times a 2000 × 1200 plot; `--graph-bench` times the
+graph
 layout and its output on module graphs of 100, 800 and 3000 nodes;
 `--graph-compare-out DIR` writes the files of `tools/graph-compare.py`;
 `--bundle-measures [NAME…]` prints the measures of the spline and bundled routes of the measured
@@ -143,7 +144,8 @@ def main (args : List String) : IO UInt32 := do
     PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
     (← SpecMutations.ioChecks) ++ Axioms.coverageChecks driverModules ++ Diagrams.checks ++ AlgebraDiagrams.checks ++
     NumberDiagrams.checks ++
-    Standing.checks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++ Explorers.checks ++ ComplexDiagrams.checks ++
+    Standing.checks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++ Explorers.checks ++
+    ComplexDiagrams.checks ++
     (← PdfChecks.goldenChecks (args == ["--update"]))
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1

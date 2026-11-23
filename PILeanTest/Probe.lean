@@ -9,9 +9,10 @@ import PILean
 
 `pilean-probe png|gif|apng|zlib|pdf|source FILE` decodes the file with the reader's default
 limits (zlib: an output cap of 256 MiB; `pdf`: the structural check of PDF files, `Pdf.check`;
-`source`: the source record of any format, `Source.read?`) and prints `ok` with the size of what was
-decoded, or `error` with the reason; `pilean-probe graph KIND N` lays out a generated graph. The test driver runs it on
-hostile inputs under limits (`PILeanTest.Bounds`); it imports only the library, so what it
+`source`: the source record of any format, `Source.read?`) and prints `ok` with the size of what
+was decoded, or `error` with the reason; `pilean-probe graph KIND N` lays out a generated graph.
+The test driver runs it on hostile inputs under limits (`PILeanTest.Bounds`); it imports only the
+library, so what it
 costs is what the reader costs.
 -/
 

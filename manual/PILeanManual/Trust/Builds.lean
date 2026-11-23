@@ -54,11 +54,12 @@ fingerprint covers.
 The specification of an output is the SVG document that PILean's deterministic writer makes from
 the figure's drawing, before any source information is added: for an SVG output the document
 itself; for the PNG and the PDF of a figure or a graph the SVG with text drawn as shapes, which is
-the drawing the PNG is rasterised from and the PDF is written from; for an animation's APNG and GIF the animated SVG, which holds every
-frame. The specification covers what is drawn: the sampled values of a function (the points the
-figure takes), data, colours, sizes, text and layout. It does not cover the function's code, nor
-anything that does not change the drawing. The rasteriser is not part of the specification; a change to
-its source text changes the fingerprint through the renderer's identity (below), and nothing here
+the drawing the PNG is rasterised from and the PDF is written from; for an animation's APNG and
+GIF the animated SVG, which holds every frame. The specification covers what is drawn: the
+sampled values of a function (the points the figure takes), data, colours, sizes, text and
+layout. It does not cover the function's code, nor anything that does not change the drawing.
+The rasteriser is not part of the specification; a change to its source text changes the fingerprint
+through the renderer's identity (below), and nothing here
 checks that it rasterises correctly.
 
 # `@[figure]` and `figures%`

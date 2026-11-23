@@ -55,7 +55,8 @@ theorem rationalFigure_spec :
     rationalFigure.marksWhere RationalPlot.isLabel =
       [{ part := .entry 0 2, shape := .text "2" (1 / 2 + 1 / 15, 1 / 15) .aboveRight,
          ink := .accent 0 }] ∧
-    rationalFigure.title = "Zeros and poles of f(z) = (z² + 1)(z − 1/2)² / ((z² − 2z + 2)(z + 3/2))" := by
+    rationalFigure.title =
+      "Zeros and poles of f(z) = (z² + 1)(z − 1/2)² / ((z² − 2z + 2)(z + 3/2))" := by
   have h : rationalData.Faithful rationalFigure := rationalData.builder_faithful (by decide +kernel)
   refine ⟨rfl, rfl, rfl, rfl, by decide +kernel, by decide +kernel, h, ?_, ?_⟩
   · rw [h.2.2.1]; decide +kernel

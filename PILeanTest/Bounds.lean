@@ -18,8 +18,9 @@ bounds are fixed numbers with room to spare: they catch a large regression on th
 are not a proof of a reader's complexity.
 
 The large inputs are generated here, not stored: a zlib stream of zeros made of 258-byte matches,
-PNG and PDF files that wrap it, and PDF files of many pages, operators or nested arrays; the hostile graphs are made by the probe (`hostileGraph`), which
-lays each out and writes its SVG, so the bounds cover the drawing as well as the layout (the
+PNG and PDF files that wrap it, and PDF files of many pages, operators or nested arrays; the
+hostile graphs are made by the probe (`hostileGraph`), which lays each out and writes its SVG, so
+the bounds cover the drawing as well as the layout (the
 100,000 routes of the self-loop case make an SVG of about 36 MB).
 
 ## Main definitions

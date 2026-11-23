@@ -17,7 +17,8 @@ the core's figures are `mutations`; the LeAnTeX package checks its own with the 
 ## Main definitions
 
 * `SpecMutation`, `SpecMutation.apply`, `errorLines`, `specLines`, `check`, `checkAll`,
-  `diagramMutations`, `algebraMutations`, `numberMutations`, `explorerMutations`, `complexMutations`, `mutations`,
+  `diagramMutations`, `algebraMutations`, `numberMutations`, `explorerMutations`,
+  `complexMutations`, `mutations`,
   `ioChecks`.
 -/
 
@@ -243,10 +244,12 @@ def explorerMutations : Array SpecMutation :=
       edits := [("11, 12]", "11, 12, 13]")], spec := "cayleyExplorer_spec" },
     { file := f, what := "the generator is a + 1", anchor := "def generator (n a : Nat)",
       edits := [("⟨a % n,", "⟨(a + 1) % n,")], spec := "cayleyExplorer_spec" },
-    { file := f, what := "the title speaks of generators", anchor := "def cayleyDiagram (n a : Nat)",
+    { file := f, what := "the title speaks of generators",
+      anchor := "def cayleyDiagram (n a : Nat)",
       edits := [("for the generator {a}", "for the generators {a}")],
       spec := "cayleyExplorer_spec" },
-    { file := f, what := "an involution's pairs drawn twice", anchor := "def cayleyPairs (n a : Nat)",
+    { file := f, what := "an involution's pairs drawn twice",
+      anchor := "def cayleyPairs (n a : Nat)",
       edits := [("== 0 && !(g < t)", "== 1 && !(g < t)")], spec := "cayleyExplorer_spec" },
     { file := f, what := "the window loses a row", anchor := "def lattice (x y : Rat)",
       edits := [("lo := (-3, -2)", "lo := (-3, -1)")], spec := "latticeExplorer_spec" },

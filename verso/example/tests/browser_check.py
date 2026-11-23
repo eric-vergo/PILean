@@ -14,8 +14,9 @@ and the inline scripts of the head (by hash), no inline event handlers, no plug-
 elsewhere. Checked: every picture loads in the light and the dark theme and the right one is
 shown; the source line's links; the figures page; the still frame under reduced motion; no
 horizontal scrolling at narrow widths; no content-policy report about a figure. For the
-explorers: the sliders (one for each parameter of a family of two) and the stepper change the frame (by pointer and by keyboard) and say what
-they show from the frames' data, whatever the captions hold; one status region speaks, only
+explorers: the sliders (one for each parameter of a family of two) and the stepper change the
+frame (by pointer and by keyboard) and say what they show from the frames' data, whatever the
+captions hold; one status region speaks, only
 when asked; the page scrolls under a wheel or a one-finger swipe, the picture zooms under Ctrl
 and the wheel or two fingers; frames of different sizes keep their own view; the script set up
 twice acts once; the controls are large enough to touch; an inline element carries its title and
@@ -246,7 +247,8 @@ def control_checks(c, browser, base, shots):
     c.check("a family of two parameters has a slider for each, named for what it sets",
             names == [["value", "Value of r in Figure 1.4.3", "8/10"],
                       ["step", "Value of c in Figure 1.4.3", "1/4"]], str(names))
-    page.evaluate("""() => { const s = document.querySelector('figure#family input[data-axis=step]');
+    page.evaluate("""() => {
+      const s = document.querySelector('figure#family input[data-axis=step]');
       s.value = '2'; s.dispatchEvent(new Event('input', {bubbles: true})); }""")
     shown = page.locator("figure#family .pilean-explorer-step-value").inner_text()
     c.check("the second slider moves the second parameter", current(page, "family") == [5]

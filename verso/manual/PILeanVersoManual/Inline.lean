@@ -38,8 +38,8 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   slider for the parameter axis, previous, play and next for the steps, with a slider of their
   own when the steps are the values of a second parameter (`FrameSet.stepName`), zoom in, zoom
   out and reset), shows one frame at a time and makes the view a focusable group. Without script
-  the poster comes first, across the whole width, and the other frames follow it. A frame of a different
-  size keeps its own view box; pan and zoom are shared as fractions of each frame's box.
+  the poster comes first, across the whole width, and the other frames follow it. A frame of a
+  different size keeps its own view box; pan and zoom are shared as fractions of each frame's box.
 * **Gestures.** The page keeps its own scrolling, as embedded maps do with cooperative gestures:
   the wheel and a one-finger swipe scroll the page; Ctrl or ⌘ with the wheel (what a trackpad
   pinch sends) zooms about the pointer, and the wheel events that follow within 400 ms keep
@@ -47,8 +47,9 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   drag pans; on the focused view `+`, `-` and `0` zoom and reset and the arrows pan (with Ctrl, ⌘
   or Alt held, keys are left to the browser).
 * **Announcements.** One polite status region per explorer says the step after previous or next
-  (`Step 2 of 4: …`, or `a = 3` for a parameter); the slider says its value itself (`aria-valuetext`); nothing is announced
-  when the page loads or while the steps play. A reader who asks for reduced motion gets no play
+  (`Step 2 of 4: …`, or `a = 3` for a parameter); a slider says its value itself
+  (`aria-valuetext`); nothing is announced when the page loads or while the steps play. A reader who
+  asks for reduced motion gets no play
   button and no transitions.
 
 ## Main definitions
@@ -155,7 +156,8 @@ def frameStepText (fs : FrameSet) (k : Nat) : String :=
   else if fs.stepName.isEmpty then s!"{frameCounter fs k}: {frameStep fs k}"
   else s!"{fs.stepName} = {frameStep fs k}"
 
-/-- The label of frame `k` of an explorer: its value (`r = 13/10`) and its step (`frameStepText`). -/
+/-- The label of frame `k` of an explorer: its value (`r = 13/10`) and its step
+(`frameStepText`). -/
 def frameLabel (fs : FrameSet) (k : Nat) : String :=
   let value := if fs.axisValues.isEmpty then "" else s!"{fs.axisName} = {frameValue fs k}"
   " · ".intercalate ([value, frameStepText fs k].filter (!·.isEmpty))
@@ -191,7 +193,8 @@ def explorerHtml (id : String) (fs : FrameSet) (href : String → Option String)
     s!"<label class=\"pilean-explorer-axis\"><span class=\"pilean-explorer-axis-name\">\
       {escapeText fs.axisName}</span>\
       <input type=\"range\" data-axis=\"value\" min=\"0\" max=\"{values - 1}\" step=\"1\" \
-      value=\"{pi}\" aria-label=\"{esc s!"Value of {fs.axisName} in {name}"}\" aria-valuetext=\"{esc v}\"/>\
+      value=\"{pi}\" aria-label=\"{esc s!"Value of {fs.axisName} in {name}"}\" \
+      aria-valuetext=\"{esc v}\"/>\
       <span class=\"pilean-explorer-value\" aria-hidden=\"true\">{escapeText v}</span></label>"
   let pj := fs.poster % steps
   -- the steps as the values of a parameter: a slider beside the buttons
@@ -204,7 +207,8 @@ def explorerHtml (id : String) (fs : FrameSet) (href : String → Option String)
       aria-valuetext=\"{esc v}\"/>\
       <span class=\"pilean-explorer-step-value\" aria-hidden=\"true\">{escapeText v}</span></label>"
   let playName := if fs.stepName.isEmpty then "Play the steps" else s!"Play {fs.stepName}"
-  let prevName := if fs.stepName.isEmpty then "Previous step" else s!"Previous value of {fs.stepName}"
+  let prevName :=
+    if fs.stepName.isEmpty then "Previous step" else s!"Previous value of {fs.stepName}"
   let nextName := if fs.stepName.isEmpty then "Next step" else s!"Next value of {fs.stepName}"
   let stepper := if fs.stepCaptions.isEmpty then "" else
     s!"{stepSlider}<span class=\"pilean-explorer-steps\">\

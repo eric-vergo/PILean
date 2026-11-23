@@ -151,7 +151,8 @@ def Manifest.render (es : Array ManifestEntry) : String :=
 
 /-- The entry a JSON object describes; every key but `repo`, `commit`, the colour pairs,
 `standing` and `proves` must be there with a string or a number as its kind, the hashes in the
-form of `isFingerprint`, the format one of `svg`, `png`, `apng`, `gif`, `pdf`, the path `safePath`, and
+form of `isFingerprint`, the format one of `svg`, `png`, `apng`, `gif`, `pdf`, the path
+`safePath`, and
 the standing with its theorems well formed (`standingOk`). -/
 def ManifestEntry.ofJson (j : Json) : Except String ManifestEntry := do
   let str := fun (k : String) => do

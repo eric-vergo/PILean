@@ -21,8 +21,8 @@ a fingerprint covers (see `docs/TRUST.md`).
 The specification of an output is the SVG document PILean's deterministic writer makes from the
 drawing, before any source information is added: for a figure, a graph and an animation the SVG
 output, the animation's APNG and GIF (the SVG of all frames) and its poster (the SVG of the poster
-frame); for a PNG and a PDF the SVG with text as shapes, which is the drawing the PNG is rasterised from
-and the PDF is written from.
+frame); for a PNG and a PDF the SVG with text as shapes, which is the drawing the PNG is
+rasterised from and the PDF is written from.
 It covers the values a function takes where the figure samples it, not the function's code.
 
 ## Main definitions
@@ -373,8 +373,8 @@ instance : ToOutputs Graph where
   outputs g := ToOutputs.outputs ({ graph := g } : GraphFigure)
 
 /-- Animations: the animated SVG (with the animation's problems as warnings), the APNG, the GIF
-and the poster frame (a PNG and a PDF with the suffix `-poster`). An animation whose problems stop it
-(`Animation.problemsFail`) cannot be rendered. -/
+and the poster frame (a PNG and a PDF with the suffix `-poster`). An animation whose problems
+stop it (`Animation.problemsFail`) cannot be rendered. -/
 instance : ToOutputs Animation where
   outputs a :=
     let svg := a.toSvg.toUTF8

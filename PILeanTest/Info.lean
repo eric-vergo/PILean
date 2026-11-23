@@ -7,7 +7,8 @@ import PILean
 /-!
 # `pilean-info`
 
-`lake exe pilean-info FILE` prints the source information of an SVG, PNG, APNG, GIF or PDF file written
+`lake exe pilean-info FILE` prints the source information of an SVG, PNG, APNG, GIF or PDF file
+written
 with `PILean.Trust.withSource`, one `key: value` line a field. Values are shown with control
 characters escaped (`escapeControl`; the messages too). The file must be a regular file (a
 symbolic link to one is followed) of at most `maxInput` bytes, checked before it is opened, so a

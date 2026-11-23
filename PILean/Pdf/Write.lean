@@ -71,7 +71,8 @@ def streamBody (dict : Array (String × Obj)) (data : ByteArray) (compress : Boo
     ByteArray :=
   let data := if compress then Png.zlibCompress data else data
   let filter := if compress then #[("Filter", Obj.name "FlateDecode")] else #[]
-  (Obj.dict (dict ++ filter ++ #[("Length", .int data.size)])).write.toUTF8 ++ "\nstream\n".toUTF8 ++
+  (Obj.dict (dict ++ filter ++ #[("Length", .int data.size)])).write.toUTF8 ++
+    "\nstream\n".toUTF8 ++
     data ++ "\nendstream".toUTF8
 
 /-- The file of the indirect objects `bodies` (object `k + 1` is `bodies[k]`) with object `root`
@@ -236,7 +237,8 @@ def stopsFunction (stops : Array Raster.Stop) : Option Obj :=
   let ps := stopPieces stops
   let comps := fun (c : Rgba) => Obj.arr #[.real (c.r.toNat.toFloat / 255) 4,
     .real (c.g.toNat.toFloat / 255) 4, .real (c.b.toNat.toFloat / 255) 4]
-  let lin := fun (a b : Rgba) => Obj.dict #[("FunctionType", .int 2), ("Domain", .arr #[.int 0, .int 1]),
+  let lin := fun (a b : Rgba) => Obj.dict #[("FunctionType", .int 2),
+    ("Domain", .arr #[.int 0, .int 1]),
     ("C0", comps a), ("C1", comps b), ("N", .int 1)]
   match ps.size with
   | 0 => none
@@ -245,7 +247,8 @@ def stopsFunction (stops : Array Raster.Stop) : Option Obj :=
   | n =>
     let pieces := (List.range (n - 1)).toArray.map fun k =>
       lin (ps[k]?.getD (0, default)).2 (ps[k + 1]?.getD (0, default)).2
-    let bounds := ((List.range (n - 2)).toArray.map fun k => Obj.real (ps[k + 1]?.getD (0, default)).1 4)
+    let bounds := (List.range (n - 2)).toArray.map fun k =>
+      Obj.real (ps[k + 1]?.getD (0, default)).1 4
     let encode := (List.range (n - 1)).toArray.flatMap fun _ => #[Obj.int 0, Obj.int 1]
     some (.dict #[("FunctionType", .int 3), ("Domain", .arr #[.int 0, .int 1]),
       ("Functions", .arr pieces), ("Bounds", .arr bounds), ("Encode", .arr encode)])
@@ -353,7 +356,8 @@ def nodesOps (fr : Frame) (clips : Array (String × Path)) (grads : Array (Strin
           let single : Option (Path × Raster.Style) := match children with
             | #[.element cn ca _] =>
               let cs := s.apply ca
-              let fills : Bool := cs.fill.isSome && !((Raster.attr? ca "fill").getD "").startsWith "url("
+              let fills : Bool :=
+                cs.fill.isSome && !((Raster.attr? ca "fill").getD "").startsWith "url("
               let strokes : Bool := cs.stroke.isSome && decide (cs.st.width > (0 : Float))
               let painted : Bool := fills != strokes
               if clip.isNone && painted && cs.fillPaint.isNone && opacity < 1 then
@@ -414,11 +418,13 @@ def page (fr : Frame) (content : String) (st : State) : ByteArray :=
   let body := s!"q\n{fmtNum ptPerPx 3} 0 0 {fmtNum (-ptPerPx) 3} 0 {fmtNum h 3} cm\n" ++ content ++
     "Q\n"
   let catalog := (Obj.dict #[("Type", .name "Catalog"), ("Pages", .ref 2)]).write.toUTF8
-  let pages := (Obj.dict #[("Type", .name "Pages"), ("Kids", .arr #[.ref 3]), ("Count", .int 1)]).write.toUTF8
+  let pages :=
+    (Obj.dict #[("Type", .name "Pages"), ("Kids", .arr #[.ref 3]), ("Count", .int 1)]).write.toUTF8
   let pageObj := (Obj.dict #[("Type", .name "Page"), ("Parent", .ref 2),
     ("MediaBox", .arr #[.int 0, .int 0, num w, num h]), ("Resources", .ref resourcesObject),
     ("Contents", .ref 5)]).write.toUTF8
-  document (#[catalog, pages, pageObj, resources.toUTF8, streamBody #[] body.toUTF8] ++ st.xobjects) 1
+  document (#[catalog, pages, pageObj, resources.toUTF8, streamBody #[] body.toUTF8] ++
+    st.xobjects) 1
 
 /-- A one-page PDF of SVG nodes (the children of an `svg` root of `w × h` pixels), drawn as the
 module docstring says, on a background `bg` (none when it is transparent). -/

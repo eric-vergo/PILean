@@ -26,7 +26,8 @@ open Canvas
 /-- The figure as a one-page PDF (`Pdf.ofSvgNodes`): its drawing with text as shapes, on its
 style's background. -/
 def Plot.Figure.toPdf (fig : Plot.Figure) : ByteArray :=
-  Pdf.ofSvgNodes fig.width fig.height (fig.draw.render (.shapes fig.style.text)) fig.style.background
+  Pdf.ofSvgNodes fig.width fig.height (fig.draw.render (.shapes fig.style.text))
+    fig.style.background
 
 /-- The plane figure as a one-page PDF (its `auto` labels placed, text as shapes, on the style's
 background), of the size of its SVG. -/

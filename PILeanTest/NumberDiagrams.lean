@@ -301,7 +301,8 @@ def layoutChecks : Array (String × Bool) :=
       (totientPlot.dataTriples L).all fun (_, _, p) =>
         p.1 > SeqPlot.axisX L && p.2 > SeqPlot.axisY L),
     ("plot: the points of a plot of 100 indices are 1.35 pixels in radius, of 12 indices 3; \
-        up to 140 indices, neighbours 450 / count apart keep a gap of more than half a point's width",
+        up to 140 indices, neighbours 450 / count apart keep a gap of more than half a point's \
+        width",
       SeqPlot.dotRadiusFor 100 == 1.35 && SeqPlot.dotRadiusFor 12 == 3 &&
         [12, 50, 100, 140].all fun n =>
           450 / n.toFloat - 2 * SeqPlot.dotRadiusFor n > SeqPlot.dotRadiusFor n),

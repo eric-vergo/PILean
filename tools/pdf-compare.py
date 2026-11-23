@@ -5,8 +5,8 @@
 # PDF renderer already on the machine and compares it with PILean's PNG of the same picture
 # (composited in sRGB, as PDF viewers composite). The renderers, each used when it is installed:
 # Ghostscript (`gs`, at 96 dots per inch, so one pixel of the picture is one pixel, with
-# anti-aliasing) and macOS's Quick Look (`qlmanage -t`, which draws with the system's PDF renderer, the
-# one Preview uses, at the size of the picture). With `--qpdf`, every PDF is also checked by
+# anti-aliasing) and macOS's Quick Look (`qlmanage -t`, which draws with the system's PDF renderer,
+# the one Preview uses, at the size of the picture). With `--qpdf`, every PDF is also checked by
 # `qpdf --check`.
 # Nothing is installed; the renderers write only into DIR.
 #
@@ -106,8 +106,9 @@ def main():
                   f"{100 * within:.2f} % of pixels within {TOLERANCE['LEVELS']} levels, "
                   f"largest {worst}: {verdict}")
     for rname, means in summary.items():
-        print(f"{rname}: {len(means)} pictures compared, mean difference {sum(means) / len(means):.3f}"
-              f" levels (largest {max(means):.3f})")
+        mean = sum(means) / len(means)
+        print(f"{rname}: {len(means)} pictures compared, mean difference {mean:.3f} levels "
+              f"(largest {max(means):.3f})")
     sys.exit(1 if failures else 0)
 
 
