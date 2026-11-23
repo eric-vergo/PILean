@@ -476,13 +476,160 @@ def Faithful (D : CommDiagram) (L : CDLayout) (d : Diagram) : Prop :=
 instance (D : CommDiagram) (L : CDLayout) (d : Diagram) : Decidable (D.Faithful L d) :=
   inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _))
 
+/-- `filterMap` with functions that agree on the list. -/
+theorem filterMap_congr_mem {α β : Type} {f g : α → Option β} :
+    ∀ {l : List α}, (∀ x ∈ l, f x = g x) → l.filterMap f = l.filterMap g
+  | [], _ => rfl
+  | a :: l, h => by
+    simp only [List.filterMap_cons, h a (by simp),
+      filterMap_congr_mem fun x hx => h x (List.mem_cons_of_mem a hx)]
+
+/-- `flatMap` with functions that agree on the list. -/
+theorem flatMap_congr_mem {α β : Type} {f g : α → List β} :
+    ∀ {l : List α}, (∀ x ∈ l, f x = g x) → l.flatMap f = l.flatMap g
+  | [], _ => rfl
+  | a :: l, h => by
+    simp only [List.flatMap_cons, h a (by simp),
+      flatMap_congr_mem fun x hx => h x (List.mem_cons_of_mem a hx)]
+
+/-- Every mark of arrow `k` is of its part. -/
+theorem part_of_mem_arrowMarksOf {L : CDLayout} {k : Nat} {a : CDArrow} {m : Mark}
+    (h : m ∈ arrowMarksOf L k a) : m.part = .arrow k a.src a.tgt := by
+  simp only [arrowMarksOf, List.cons_append, List.mem_cons, List.mem_append, List.mem_map] at h
+  rcases h with rfl | ⟨_, _, rfl⟩ | ⟨_, _, rfl⟩ <;> rfl
+
+/-- Every mark of the arrows is of an arrow's part. -/
+theorem isArrow_of_mem_arrowMarks {D : CommDiagram} {L : CDLayout} {m : Mark}
+    (h : m ∈ D.arrowMarks L) : m.part.isArrow = true := by
+  simp only [arrowMarks, List.mem_flatMap] at h
+  obtain ⟨⟨a, k⟩, -, hm⟩ := h
+  rw [part_of_mem_arrowMarksOf hm]
+  rfl
+
+/-- Every mark of the 2-cells is of a 2-cell's part. -/
+theorem isTwoCell_of_mem_twoCellMarks {D : CommDiagram} {L : CDLayout} {m : Mark}
+    (h : m ∈ D.twoCellMarks L) : m.part.isTwoCell = true := by
+  simp only [twoCellMarks, twoCellMarksOf, List.mem_flatMap] at h
+  obtain ⟨⟨c, k⟩, -, hm⟩ := h
+  simp only [List.cons_append, List.mem_cons, List.mem_append] at hm
+  split at hm <;> simp at hm <;> rcases hm with rfl | rfl | rfl <;> rfl
+
+/-- Every mark of the objects is of an object's part. -/
+theorem isVertex_of_mem_objectMarks {D : CommDiagram} {L : CDLayout} {m : Mark}
+    (h : m ∈ D.objectMarks L) : m.part.isVertex = true := by
+  simp only [objectMarks, List.mem_map] at h
+  obtain ⟨i, -, rfl⟩ := h
+  rfl
+
+/-- No tip of an arrow is a path or a text. -/
+theorem tipShapes_cases (st : ArrowStyle) (ps : List QPoint) (s : Shape)
+    (h : s ∈ tipShapes st ps) : (∀ qs t, s ≠ .path qs t) ∧ ∀ t p sd, s ≠ .text t p sd := by
+  unfold tipShapes at h
+  split at h <;> simp at h <;> (try rcases h with rfl | rfl) <;> (try subst h) <;> simp
+
+/-- The texts of an arrow are texts. -/
+theorem arrowTextShapes_text (L : CDLayout) (a : CDArrow) (ps : List QPoint) (s : Shape)
+    (h : s ∈ arrowTextShapes L a ps) : ∃ t p sd, s = .text t p sd := by
+  unfold arrowTextShapes at h
+  simp only [List.mem_append] at h
+  rcases h with h | h <;> split at h <;> simp at h <;> exact ⟨_, _, _, h⟩
+
+/-- The arrows read back from the marks of one arrow: its own, once. -/
+theorem arrows_arrowMarksOf (L : CDLayout) (k : Nat) (a : CDArrow) :
+    (arrowMarksOf L k a).filterMap (fun m => match m.part, m.shape with
+      | .arrow k i j, .path _ _ => some (k, i, j)
+      | _, _ => none) = [(k, a.src, a.tgt)] := by
+  simp only [arrowMarksOf, List.cons_append, List.filterMap_cons, List.filterMap_append,
+    List.filterMap_map, List.cons.injEq, true_and]
+  rw [List.filterMap_eq_nil_iff.2, List.filterMap_eq_nil_iff.2]
+  · rfl
+  · intro s hs
+    obtain ⟨t, p, sd, rfl⟩ := arrowTextShapes_text L a _ s hs
+    rfl
+  · intro s hs
+    have := (tipShapes_cases _ _ s hs).1
+    cases s <;> simp_all
+
+/-- The texts read back from the marks of one arrow: its texts. -/
+theorem arrowTexts_arrowMarksOf (L : CDLayout) (k : Nat) (a : CDArrow) :
+    (arrowMarksOf L k a).filterMap (fun m => match m.part, m.shape with
+      | .arrow k _ _, .text s _ _ => some (k, s)
+      | _, _ => none) =
+      (arrowTextShapes L a (arrowPoints L k a)).filterMap fun s => match s with
+        | .text t _ _ => some (k, t)
+        | _ => none := by
+  simp only [arrowMarksOf, List.cons_append, List.filterMap_cons, List.filterMap_append,
+    List.filterMap_map]
+  rw [List.filterMap_eq_nil_iff.2]
+  · simp only [List.nil_append]
+    apply filterMap_congr_mem
+    intro s hs
+    obtain ⟨t, p, sd, rfl⟩ := arrowTextShapes_text L a _ s hs
+    rfl
+  · intro s hs
+    have := (tipShapes_cases _ _ s hs).2
+    cases s <;> simp_all
+
 /-- The drawn arrows are the data's arrows: `(k, src, tgt)` for arrow `k`, in order. -/
 theorem arrows_draw (D : CommDiagram) (L : CDLayout) : (D.draw L).arrows = D.arrowTriples := by
-  sorry
+  simp only [Diagram.arrows, draw, List.filterMap_append, arrowMarks, List.filterMap_flatMap,
+    arrowTriples]
+  rw [flatMap_congr_mem (fun x _ => arrows_arrowMarksOf L x.2 x.1),
+    List.filterMap_eq_nil_iff.2 (fun m hm => ?_), List.filterMap_eq_nil_iff.2 (fun m hm => ?_)]
+  · generalize D.arrows.zipIdx = l
+    induction l with
+    | nil => rfl
+    | cons x l ih => simp_all [List.flatMap_cons]
+  · have := isVertex_of_mem_objectMarks hm
+    split <;> simp_all [Part.isVertex]
+  · have := isTwoCell_of_mem_twoCellMarks hm
+    split <;> simp_all [Part.isTwoCell]
 
 /-- The diagram of `D` is faithful at every layout. -/
 theorem draw_faithful (D : CommDiagram) (L : CDLayout) : D.Faithful L (D.draw L) := by
-  sorry
+  have hA : ∀ m ∈ D.arrowMarks L, m.part.isArrow = true := fun m hm =>
+    isArrow_of_mem_arrowMarks hm
+  have hT : ∀ m ∈ D.twoCellMarks L, m.part.isTwoCell = true := fun m hm =>
+    isTwoCell_of_mem_twoCellMarks hm
+  have hV : ∀ m ∈ D.objectMarks L, m.part.isVertex = true := fun m hm =>
+    isVertex_of_mem_objectMarks hm
+  have nA : ∀ m : Mark, m.part.isArrow = true → m.part.isVertex = false ∧
+      m.part.isTwoCell = false := by
+    intro m h; cases hp : m.part <;> simp_all [Part.isArrow, Part.isVertex, Part.isTwoCell]
+  have nT : ∀ m : Mark, m.part.isTwoCell = true → m.part.isVertex = false ∧
+      m.part.isArrow = false := by
+    intro m h; cases hp : m.part <;> simp_all [Part.isArrow, Part.isVertex, Part.isTwoCell]
+  have nV : ∀ m : Mark, m.part.isVertex = true → m.part.isArrow = false ∧
+      m.part.isTwoCell = false := by
+    intro m h; cases hp : m.part <;> simp_all [Part.isArrow, Part.isVertex, Part.isTwoCell]
+  refine ⟨arrows_draw D L, ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [Diagram.arrowTexts, draw, List.filterMap_append, arrowMarks,
+      List.filterMap_flatMap, CommDiagram.arrowTexts]
+    rw [flatMap_congr_mem fun x _ => arrowTexts_arrowMarksOf L x.2 x.1,
+      List.filterMap_eq_nil_iff.2 (fun m hm => ?_), List.filterMap_eq_nil_iff.2 (fun m hm => ?_)]
+    · simp
+    · have := isVertex_of_mem_objectMarks hm
+      split <;> simp_all [Part.isVertex]
+    · have := isTwoCell_of_mem_twoCellMarks hm
+      split <;> simp_all [Part.isTwoCell]
+  · simp only [Diagram.marksWhere, draw, List.filter_append]
+    rw [List.filter_eq_nil_iff.2 fun m hm => by simp [(nA m (hA m hm)).1],
+      List.filter_eq_nil_iff.2 fun m hm => by simp [(nT m (hT m hm)).1],
+      List.filter_eq_self.2 fun m hm => hV m hm]
+    simp
+  · simp only [Diagram.marksWhere, draw, List.filter_append]
+    rw [List.filter_eq_self.2 fun m hm => hA m hm,
+      List.filter_eq_nil_iff.2 fun m hm => by simp [(nT m (hT m hm)).2],
+      List.filter_eq_nil_iff.2 fun m hm => by simp [(nV m (hV m hm)).1]]
+    simp
+  · simp only [Diagram.marksWhere, draw, List.filter_append]
+    rw [List.filter_eq_nil_iff.2 fun m hm => by simp [(nA m (hA m hm)).2],
+      List.filter_eq_self.2 fun m hm => hT m hm,
+      List.filter_eq_nil_iff.2 fun m hm => by simp [(nV m (hV m hm)).2]]
+    simp
+  · simp only [draw, List.all_append, Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true]
+    exact ⟨⟨fun m hm => .inl (.inr (hA m hm)), fun m hm => .inr (hT m hm)⟩,
+      fun m hm => .inl (.inl (hV m hm))⟩
 
 /-- The diagram at its layout, or a note when the data is not well formed (`Valid`) or beyond the
 caps. Its width gives about 120 pixels to a unit of the objects' horizontal span. -/
@@ -499,7 +646,9 @@ def figure (D : CommDiagram) : Diagram :=
 theorem builder_faithful (D : CommDiagram) (h : (D.objects.size ≤ maxObjects &&
     D.arrows.length ≤ maxArrows && D.twoCells.length ≤ maxTwoCells && D.Valid) = true) :
     D.Faithful D.layout D.figure := by
-  sorry
+  unfold figure
+  rw [Diagram.capped_of h]
+  exact D.draw_faithful _
 
 end CommDiagram
 

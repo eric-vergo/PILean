@@ -81,7 +81,10 @@ def layout (Q : FinQuiver) : CDLayout := Q.toCommDiagram.layout
 /-- The arrows of the diagram of `Q` are its arrows: `(k, src, tgt)` for arrow `k`. -/
 theorem arrows_toCommDiagram (Q : FinQuiver) :
     Q.toCommDiagram.arrowTriples = Q.arrows.zipIdx.map fun (a, k) => (k, a.1, a.2.1) := by
-  sorry
+  apply List.ext_getElem
+  · simp [toCommDiagram, CommDiagram.arrowTriples]
+  · intro i h₁ h₂
+    simp [toCommDiagram, CommDiagram.arrowTriples, cdArrow]
 
 /-- The quiver is drawn faithfully at every layout. -/
 theorem draw_faithful (Q : FinQuiver) (L : CDLayout) : Q.Faithful L (Q.toCommDiagram.draw L) :=

@@ -181,9 +181,105 @@ def FaithfulTable (M : FinMagma) (d : Diagram) : Prop :=
 instance (M : FinMagma) (d : Diagram) : Decidable (M.FaithfulTable d) :=
   inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _))
 
+/-- The marks of the table's decorations. -/
+def decorationMarks (M : FinMagma) : List Mark :=
+  M.tableDecorations.map fun (p, s) => { part := p, shape := s, ink := .faint }
+
+theorem table_marks (M : FinMagma) :
+    M.table.marks = M.cellMarks ++ M.entryMarks ++ M.headerMarks ++ M.decorationMarks := rfl
+
+theorem isCell_of_mem_cellMarks {M : FinMagma} {m : Mark} (h : m ∈ M.cellMarks) :
+    ∃ i j, m.part = .cell i j := by
+  simp only [cellMarks, List.mem_map] at h
+  obtain ⟨⟨i, j⟩, -, rfl⟩ := h
+  exact ⟨i, j, rfl⟩
+
+theorem isEntry_of_mem_entryMarks {M : FinMagma} {m : Mark} (h : m ∈ M.entryMarks) :
+    ∃ i j, m.part = .entry i j := by
+  simp only [entryMarks, List.mem_map] at h
+  obtain ⟨⟨i, j⟩, -, rfl⟩ := h
+  exact ⟨i, j, rfl⟩
+
+theorem isHeader_of_mem_headerMarks {M : FinMagma} {m : Mark} (h : m ∈ M.headerMarks) :
+    ∃ a i, m.part = .header a i := by
+  simp only [headerMarks, List.mem_append, List.mem_map] at h
+  rcases h with ⟨j, -, rfl⟩ | ⟨i, -, rfl⟩
+  · exact ⟨1, j, rfl⟩
+  · exact ⟨0, i, rfl⟩
+
+theorem isDecoration_of_mem_decorationMarks {M : FinMagma} {m : Mark}
+    (h : m ∈ M.decorationMarks) : m.part = .guide ∨ m.part = .note 0 := by
+  simp only [decorationMarks, tableDecorations, List.map_cons, List.map_nil, List.mem_cons,
+    List.not_mem_nil, or_false] at h
+  rcases h with rfl | rfl | rfl <;> simp
+
 /-- The table is faithful. -/
 theorem table_faithful (M : FinMagma) : M.FaithfulTable M.table := by
-  sorry
+  have hC := @isCell_of_mem_cellMarks M
+  have hE := @isEntry_of_mem_entryMarks M
+  have hH := @isHeader_of_mem_headerMarks M
+  have hD := @isDecoration_of_mem_decorationMarks M
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [Diagram.cells, table_marks, List.filterMap_append]
+    rw [(List.filterMap_eq_nil_iff (l := M.entryMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hE hm; simp [h],
+      (List.filterMap_eq_nil_iff (l := M.headerMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hH hm; simp [h],
+      (List.filterMap_eq_nil_iff (l := M.decorationMarks)).2 fun m hm => by
+        rcases hD hm with h | h <;> simp [h]]
+    simp [cellMarks, List.filterMap_map, Function.comp_def]
+  · simp only [Diagram.entries, table_marks, List.filterMap_append]
+    rw [(List.filterMap_eq_nil_iff (l := M.cellMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hC hm; simp [h],
+      (List.filterMap_eq_nil_iff (l := M.headerMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hH hm; simp [h],
+      (List.filterMap_eq_nil_iff (l := M.decorationMarks)).2 fun m hm => by
+        rcases hD hm with h | h <;> simp [h]]
+    simp [entryMarks, entryTexts, List.filterMap_map, Function.comp_def]
+  · simp only [Diagram.marksWhere, table_marks, List.filter_append]
+    rw [(List.filter_eq_self (l := M.cellMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hC hm; simp [h, Part.isCell],
+      (List.filter_eq_nil_iff (l := M.entryMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hE hm; simp [h, Part.isCell],
+      (List.filter_eq_nil_iff (l := M.headerMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hH hm; simp [h, Part.isCell],
+      (List.filter_eq_nil_iff (l := M.decorationMarks)).2 fun m hm => by
+        rcases hD hm with h | h <;> simp [h, Part.isCell]]
+    simp
+  · simp only [Diagram.marksWhere, table_marks, List.filter_append]
+    rw [(List.filter_eq_nil_iff (l := M.cellMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hC hm; simp [h, Part.isEntry],
+      (List.filter_eq_self (l := M.entryMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hE hm; simp [h, Part.isEntry],
+      (List.filter_eq_nil_iff (l := M.headerMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hH hm; simp [h, Part.isEntry],
+      (List.filter_eq_nil_iff (l := M.decorationMarks)).2 fun m hm => by
+        rcases hD hm with h | h <;> simp [h, Part.isEntry]]
+    simp
+  · simp only [Diagram.marksWhere, table_marks, List.filter_append]
+    rw [(List.filter_eq_nil_iff (l := M.cellMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hC hm; simp [h, Part.isHeader],
+      (List.filter_eq_nil_iff (l := M.entryMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hE hm; simp [h, Part.isHeader],
+      (List.filter_eq_self (l := M.headerMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hH hm; simp [h, Part.isHeader],
+      (List.filter_eq_nil_iff (l := M.decorationMarks)).2 fun m hm => by
+        rcases hD hm with h | h <;> simp [h, Part.isHeader]]
+    simp
+  · simp only [Diagram.decorations, table_marks, List.filterMap_append]
+    rw [(List.filterMap_eq_nil_iff (l := M.cellMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hC hm; simp [h],
+      (List.filterMap_eq_nil_iff (l := M.entryMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hE hm; simp [h],
+      (List.filterMap_eq_nil_iff (l := M.headerMarks)).2 fun m hm => by
+        obtain ⟨a, i, h⟩ := hH hm; simp [h]]
+    simp [decorationMarks, tableDecorations]
+  · simp only [table_marks, List.all_append, Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true]
+    refine ⟨⟨⟨fun m hm => ?_, fun m hm => ?_⟩, fun m hm => ?_⟩, fun m hm => ?_⟩
+    · obtain ⟨a, i, h⟩ := hC hm; simp [h, Part.isCell]
+    · obtain ⟨a, i, h⟩ := hE hm; simp [h, Part.isEntry]
+    · obtain ⟨a, i, h⟩ := hH hm; simp [h, Part.isHeader]
+    · rcases hD hm with h | h <;> simp [h, Part.isDecoration]
 
 /-- The table, or a note for more than `maxElements` elements. -/
 def tableFigure (M : FinMagma) : Diagram :=
@@ -192,14 +288,25 @@ def tableFigure (M : FinMagma) : Diagram :=
 /-- Within the cap the table is drawn faithfully. -/
 theorem tableFigure_faithful (M : FinMagma) (h : M.n ≤ maxElements) :
     M.FaithfulTable M.tableFigure := by
-  sorry
+  unfold tableFigure
+  rw [Diagram.capped_of (by simpa using h)]
+  exact M.table_faithful
 
 /-- The entry written in cell `(i, j)` of a faithful table is the name of `i * j`, and every cell
 of the table has its entry. -/
 theorem entries_table {M : FinMagma} {d : Diagram} (h : M.FaithfulTable d) (i j : Nat)
     (s : String) : ((i, j), s) ∈ d.entries ↔
       ∃ (hi : i < M.n) (hj : j < M.n), s = M.name (M.mul ⟨i, hi⟩ ⟨j, hj⟩) := by
-  sorry
+  rw [h.2.1, entryTexts, List.mem_map]
+  simp only [cellPairs, List.mem_flatMap, List.mem_range, List.mem_map, Prod.mk.injEq]
+  constructor
+  · rintro ⟨⟨i', j'⟩, ⟨a, ha, b, hb, h⟩, h'⟩
+    simp only [Prod.mk.injEq] at h h'
+    obtain ⟨rfl, rfl⟩ := h
+    obtain ⟨⟨rfl, rfl⟩, rfl⟩ := h'
+    exact ⟨ha, hb, by simp [prod, ha, hb]⟩
+  · rintro ⟨hi, hj, rfl⟩
+    exact ⟨(i, j), ⟨i, hi, j, hj, rfl⟩, by simp [prod, hi, hj]⟩
 
 /-! ### The Cayley graph -/
 
@@ -239,7 +346,30 @@ theorem mem_cayleyArrows (M : FinMagma) (gens : List (Fin M.n)) (a : CDArrow) :
       a.src = g.val ∧ a.tgt = (M.mul g s).val ∧
       (if M.isInvolution s then g.val < (M.mul g s).val ∧ a.style = .line
         else a.style = .plain) ∧ a.label = "" ∧ a.bend = 0 ∧ a.swap = false := by
-  sorry
+  simp only [cayleyArrows, List.mem_flatMap, List.mem_filterMap, List.mem_finRange, true_and]
+  constructor
+  · rintro ⟨⟨s, c⟩, hsc, g, hg⟩
+    rw [List.mem_zipIdx_iff_getElem?] at hsc
+    refine ⟨c, s, g, hsc, ?_⟩
+    split at hg
+    · split at hg
+      · cases hg
+        simp_all
+      · cases hg
+    · cases hg
+      simp_all
+  · rintro ⟨c, s, g, hsc, hink, hsrc, htgt, hst, hl, hb, hsw⟩
+    refine ⟨(s, c), List.mem_zipIdx_iff_getElem?.2 hsc, g, ?_⟩
+    obtain ⟨src, tgt, label, style, bend, swap, k⟩ := a
+    simp only at hink hsrc htgt hst hl hb hsw
+    subst hink hsrc htgt hl hb hsw
+    split
+    · rename_i hinv
+      simp only [hinv, if_true] at hst
+      simp [hst.1, hst.2]
+    · rename_i hinv
+      simp only [hinv, Bool.false_eq_true, if_false] at hst
+      simp [hst]
 
 end FinMagma
 
