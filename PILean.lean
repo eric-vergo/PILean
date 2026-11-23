@@ -20,7 +20,9 @@ import PILean.Exact
 import PILean.Plot.Ticks
 import PILean.Plot.Scale
 import PILean.Plot.Sample
+import PILean.CheckLevel
 import PILean.Plot.Figure
+import PILean.Plot.Check
 import PILean.Plot.Proofs
 import PILean.Plot.Exact
 import PILean.Plane.Basic
@@ -31,6 +33,7 @@ import PILean.Plane.Render
 import PILean.Plane
 import PILean.Exact.Plane
 import PILean.Exact.Algebraic
+import PILean.Exact.Spec
 import PILean.Explorer
 import PILean.Plane.Graph
 import PILean.Graph.Fixed

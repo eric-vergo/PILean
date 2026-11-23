@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400">
   <defs>
     <clipPath id="c0">
-      <path d="M60 57 L615 57 L615 368 L60 368 Z"/>
+      <path d="M60 57 L615 57 L615 351 L60 351 Z"/>
     </clipPath>
   </defs>
   <path d="M0 0 L640 0 L640 400 L0 400 Z" fill="#ffffff"/>
@@ -13,36 +13,37 @@
   <text x="120.313" y="50.725" font-size="11.5" fill="#484850" text-anchor="start" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">grants</text>
   <path d="M172.86 51.93 L172.86 43.93 C172.86 42.83 173.76 41.93 174.86 41.93 L188.86 41.93 C189.97 41.93 190.86 42.83 190.86 43.93 L190.86 51.93 Z" fill="#009e73"/>
   <text x="196.861" y="50.725" font-size="11.5" fill="#484850" text-anchor="start" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">costs</text>
-  <path d="M66 362.5 L609 362.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
-  <path d="M66 303.5 L609 303.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
-  <path d="M66 245.5 L609 245.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
-  <path d="M66 187.5 L609 187.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
-  <path d="M66 129.5 L609 129.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
-  <path d="M66 70.5 L609 70.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M66 345.5 L609 345.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M66 290.5 L609 290.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M66 235.5 L609 235.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M66 180.5 L609 180.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M66 125.5 L609 125.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
+  <path d="M66 71.5 L609 71.5" fill="none" stroke="#eaeaee" stroke-width="1"/>
   <g clip-path="url(#c0)">
-    <path d="M85.51 245.6 L85.51 160.3 C85.51 159.2 86.4 158.3 87.51 158.3 L180.25 158.3 C181.35 158.3 182.25 159.2 182.25 160.3 L182.25 245.6 Z" fill="#0072b2"/>
-    <path d="M85.51 157.8 L85.51 131.2 C85.51 130.1 86.4 129.2 87.51 129.2 L180.25 129.2 C181.35 129.2 182.25 130.1 182.25 131.2 L182.25 157.8 Z" fill="#e69f00"/>
-    <path d="M85.51 246.1 L85.51 307.62 C85.51 308.72 86.4 309.62 87.51 309.62 L180.25 309.62 C181.35 309.62 182.25 308.72 182.25 307.62 L182.25 246.1 Z" fill="#009e73"/>
-    <path d="M221.26 245.6 L221.26 148.66 C221.26 147.56 222.15 146.66 223.26 146.66 L316 146.66 C317.1 146.66 318 147.56 318 148.66 L318 245.6 Z" fill="#0072b2"/>
-    <path d="M221.26 146.16 L221.26 125.38 C221.26 124.28 222.15 123.38 223.26 123.38 L316 123.38 C317.1 123.38 318 124.28 318 125.38 L318 146.16 Z" fill="#e69f00"/>
-    <path d="M221.26 246.1 L221.26 316.35 C221.26 317.45 222.15 318.35 223.26 318.35 L316 318.35 C317.1 318.35 318 317.45 318 316.35 L318 246.1 Z" fill="#009e73"/>
-    <path d="M357.01 245.6 L357.01 166.12 C357.01 165.02 357.9 164.12 359.01 164.12 L451.75 164.12 C452.85 164.12 453.75 165.02 453.75 166.12 L453.75 245.6 Z" fill="#0072b2"/>
-    <path d="M357.01 163.62 L357.01 131.2 C357.01 130.1 357.9 129.2 359.01 129.2 L451.75 129.2 C452.85 129.2 453.75 130.1 453.75 131.2 L453.75 163.62 Z" fill="#e69f00"/>
-    <path d="M357.01 246.1 L357.01 301.8 C357.01 302.9 357.9 303.8 359.01 303.8 L451.75 303.8 C452.85 303.8 453.75 302.9 453.75 301.8 L453.75 246.1 Z" fill="#009e73"/>
-    <path d="M492.76 245.6 L492.76 131.2 C492.76 130.1 493.65 129.2 494.76 129.2 L587.5 129.2 C588.6 129.2 589.5 130.1 589.5 131.2 L589.5 245.6 Z" fill="#0072b2"/>
-    <path d="M492.76 128.7 L492.76 105.01 C492.76 103.91 493.65 103.01 494.76 103.01 L587.5 103.01 C588.6 103.01 589.5 103.91 589.5 105.01 L589.5 128.7 Z" fill="#e69f00"/>
-    <path d="M492.76 246.1 L492.76 322.17 C492.76 323.27 493.65 324.17 494.76 324.17 L587.5 324.17 C588.6 324.17 589.5 323.27 589.5 322.17 L589.5 246.1 Z" fill="#009e73"/>
+    <path d="M85.51 235.4 L85.51 155.2 C85.51 154.1 86.4 153.2 87.51 153.2 L180.25 153.2 C181.35 153.2 182.25 154.1 182.25 155.2 L182.25 235.4 Z" fill="#0072b2"/>
+    <path d="M85.51 152.7 L85.51 127.8 C85.51 126.7 86.4 125.8 87.51 125.8 L180.25 125.8 C181.35 125.8 182.25 126.7 182.25 127.8 L182.25 152.7 Z" fill="#e69f00"/>
+    <path d="M85.51 235.9 L85.51 293.68 C85.51 294.78 86.4 295.68 87.51 295.68 L180.25 295.68 C181.35 295.68 182.25 294.78 182.25 293.68 L182.25 235.9 Z" fill="#009e73"/>
+    <path d="M221.26 235.4 L221.26 144.24 C221.26 143.14 222.15 142.24 223.26 142.24 L316 142.24 C317.1 142.24 318 143.14 318 144.24 L318 235.4 Z" fill="#0072b2"/>
+    <path d="M221.26 141.74 L221.26 122.32 C221.26 121.22 222.15 120.32 223.26 120.32 L316 120.32 C317.1 120.32 318 121.22 318 122.32 L318 141.74 Z" fill="#e69f00"/>
+    <path d="M221.26 235.9 L221.26 301.9 C221.26 303 222.15 303.9 223.26 303.9 L316 303.9 C317.1 303.9 318 303 318 301.9 L318 235.9 Z" fill="#009e73"/>
+    <path d="M357.01 235.4 L357.01 160.68 C357.01 159.58 357.9 158.68 359.01 158.68 L451.75 158.68 C452.85 158.68 453.75 159.58 453.75 160.68 L453.75 235.4 Z" fill="#0072b2"/>
+    <path d="M357.01 158.18 L357.01 127.8 C357.01 126.7 357.9 125.8 359.01 125.8 L451.75 125.8 C452.85 125.8 453.75 126.7 453.75 127.8 L453.75 158.18 Z" fill="#e69f00"/>
+    <path d="M357.01 235.9 L357.01 288.2 C357.01 289.3 357.9 290.2 359.01 290.2 L451.75 290.2 C452.85 290.2 453.75 289.3 453.75 288.2 L453.75 235.9 Z" fill="#009e73"/>
+    <path d="M492.76 235.4 L492.76 127.8 C492.76 126.7 493.65 125.8 494.76 125.8 L587.5 125.8 C588.6 125.8 589.5 126.7 589.5 127.8 L589.5 235.4 Z" fill="#0072b2"/>
+    <path d="M492.76 125.3 L492.76 103.14 C492.76 102.04 493.65 101.14 494.76 101.14 L587.5 101.14 C588.6 101.14 589.5 102.04 589.5 103.14 L589.5 125.3 Z" fill="#e69f00"/>
+    <path d="M492.76 235.9 L492.76 307.38 C492.76 308.48 493.65 309.38 494.76 309.38 L587.5 309.38 C588.6 309.38 589.5 308.48 589.5 307.38 L589.5 235.9 Z" fill="#009e73"/>
   </g>
-  <path d="M66 362.5 L609 362.5" fill="none" stroke="#96969e" stroke-width="1"/>
-  <text x="133.875" y="380.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">Q1</text>
-  <text x="269.625" y="380.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">Q2</text>
-  <text x="405.375" y="380.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">Q3</text>
-  <text x="541.125" y="380.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">Q4</text>
-  <text x="56.5" y="366.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">−40</text>
-  <text x="56.5" y="307.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">−20</text>
-  <text x="56.5" y="249.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">0</text>
-  <text x="56.5" y="191.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">20</text>
-  <text x="56.5" y="133.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">40</text>
-  <text x="56.5" y="74.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">60</text>
-  <text x="27.422" y="212.5" font-size="12" fill="#484850" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif" transform="rotate(-90 27.422 212.5)">balance</text>
+  <path d="M66 345.5 L609 345.5" fill="none" stroke="#96969e" stroke-width="1"/>
+  <text x="133.875" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">Q1</text>
+  <text x="269.625" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">Q2</text>
+  <text x="405.375" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">Q3</text>
+  <text x="541.125" y="363.14" font-size="11" fill="#707078" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">Q4</text>
+  <text x="56.5" y="349.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">−40</text>
+  <text x="56.5" y="294.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">−20</text>
+  <text x="56.5" y="239.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">0</text>
+  <text x="56.5" y="184.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">20</text>
+  <text x="56.5" y="129.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">40</text>
+  <text x="56.5" y="75.46" font-size="11" fill="#707078" text-anchor="end" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">60</text>
+  <text x="337.5" y="378.22" font-size="12" fill="#484850" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">quarter</text>
+  <text x="27.422" y="204" font-size="12" fill="#484850" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif" transform="rotate(-90 27.422 204)">balance</text>
 </svg>

@@ -349,7 +349,8 @@ def layoutChecks : Array (String × Bool) :=
     { items := #[point ⟨0, 0⟩, point ⟨5, 5⟩], view := some ⟨-1, -1, 1, 1⟩, width := 200 }
   let close := base #[point ⟨0, 0⟩, point ⟨0.01, 0⟩, point ⟨3, 3⟩]
   let near := base #[circle ⟨0, 0⟩ 1, point ⟨1.001, 0⟩, point ⟨-2, -2⟩]
-  let declared := base #[circle ⟨0, 0⟩ 1, point ⟨1.001, 0⟩ |>.incident .outside "the circle",
+  let declared := base #[circle ⟨0, 0⟩ 1 |>.named "the circle",
+    point ⟨1.001, 0⟩ |>.incident .outside "the circle",
     point ⟨-2, -2⟩]
   let faintInk := base #[segment ⟨0, 0⟩ ⟨1, 1⟩ |>.color ⟨235, 235, 235, 255⟩]
   let darkOnly := base #[label "navy" ⟨0, 0⟩ |>.color ⟨20, 20, 90, 255⟩, point ⟨1, 1⟩]
@@ -370,7 +371,7 @@ def layoutChecks : Array (String × Bool) :=
     ("checks: a point too near a circle with no incidence recorded",
       (kinds near).contains .undecidedIncidence),
     ("checks: an incidence recorded satisfies the check",
-      !(kinds declared).contains .undecidedIncidence),
+      (kinds declared).isEmpty),
     ("checks: a colour of too little contrast", (kinds faintInk).contains .lowContrast),
     ("checks: a colour that fails only in the dark twin",
       (darkOnly.problems.any fun p => p.kind == .lowContrast && has p.message "dark twin") &&
@@ -395,7 +396,7 @@ def layoutChecks : Array (String × Bool) :=
       diskIncidence? ((1 : Rat), (0 : Rat)) ((0 : Rat), (0 : Rat)) (1 : Rat) == some .on),
     ("exact incidence: the title records it",
       match Plane.Exact.pointNearDisk zeta windowCentre windowRadius "the window" with
-      | .shape _ l i => l.incidence.isSome && i.title == "inside the window"
+      | .shape _ l i => l.incidences == #[(.inside, "the window")] && i.title == "inside the window"
       | _ => false)]
 
 /-- The checks of explorers. -/
@@ -410,8 +411,10 @@ def explorerChecks : Array (String × Bool) :=
     ("two", { items := #[point ⟨0, 0⟩, point ⟨2, 1⟩] })]
   #[("explorer: a slider of seven frames, well formed", x.valid && x.frames.size == 7 &&
       x.values == 7 && x.steps == 1),
-    ("explorer: an SVG and a PNG, the SVG carrying every frame",
-      outs.map (·.format.name) == #["svg", "png"] && fs.frames.size == 7 &&
+    ("explorer: the poster's SVG carrying every frame and its PNG, then an SVG per frame",
+      outs.map (·.format.name) == #["svg", "png"] ++ Array.replicate 7 "svg" &&
+      outs.map (·.name) == #["", ""] ++ (List.range 7).toArray.map (s!"-frame-{·}") &&
+      fs.frames.size == 7 &&
       fs.axisValues == x.axisValues && fs.axisName == "r"),
     ("explorer: every frame is inert", fs.frames.all fun f => Svg.isInert f.document),
     ("explorer: the slider's frames share one frame (scale and size)",
@@ -446,7 +449,7 @@ def extensionChecks : Array (String × Bool) :=
     pl.points.all fun q => distToBox q hub ≥ 5
   let webNodes := g.nodes.mapIdx fun i n =>
     ({ id := s!"n{i}", name := n.label, lines := #[n.label] } : PILean.Graph.WebNode)
-  let item := Plane.graph Examples.PlaneFigures.ringGraph Examples.PlaneFigures.ringPositions
+  let item := Plane.Exact.graph Examples.PlaneFigures.ringGraph Examples.PlaneFigures.ringPositions
   let lv := item.leaves
   #[("plot: equal aspect gives as many pixels per unit across as down",
       (ppx - ppy).abs ≤ 1),
@@ -582,23 +585,23 @@ def styleChecks : Array (String × Bool) :=
           (QSqrt.le (⟨7 / 2, 1 / 2⟩ : QSqrt5) ⟨b.hi * b.hi, 0⟩)),
     ("F: the circles' crossings are the lens's corners ±(ζ - ζ⁴), within 2^-k",
       match cc with
-      | some (p, q) =>
+      | .two p q =>
         let c := Zeta5.pow 1 - Zeta5.pow 4
         [10, 40].all (fun k => (PlanePoint.re p k).radius * 2 ^ k ≤ 1 &&
           (PlanePoint.im p k).radius * 2 ^ k ≤ 1) &&
         nearPt (PlanePoint.toPoint p) (PlanePoint.toPoint c) 1e-12 &&
         nearPt (PlanePoint.toPoint q) (PlanePoint.toPoint (-c)) 1e-12
-      | none => false),
+      | _ => false),
     ("F: a line meets a circle; midpoints and feet",
       (match lc with
-        | some (p, q) => nearPt (PlanePoint.toPoint p) ⟨0, -2⟩ 1e-12 &&
+        | .two p q => nearPt (PlanePoint.toPoint p) ⟨0, -2⟩ 1e-12 &&
             nearPt (PlanePoint.toPoint q) ⟨0, 2⟩ 1e-12
-        | none => false) &&
+        | _ => false) &&
       footQ (3, 4) (0, 0) (1, 0) == (3, 0) &&
       nearPt (PlanePoint.toPoint (midpoint (Zeta5.pow 0) (Zeta5.pow 0 + Zeta5.pow 0))) ⟨1.5, 0⟩
         1e-12 &&
-      nearPt (PlanePoint.toPoint (foot ((3 : Rat), (4 : Rat)) ((0 : Rat), (0 : Rat))
-        ((1 : Rat), (0 : Rat)))) ⟨3, 0⟩ 1e-12),
+      ((foot ((3 : Rat), (4 : Rat)) ((0 : Rat), (0 : Rat)) ((1 : Rat), (0 : Rat))).map
+        fun f => nearPt (PlanePoint.toPoint f) ⟨3, 0⟩ 1e-12).getD false),
     ("G: the narrow rendition, labels at full size, as outputs -narrow",
       narrowOuts.map (·.name) == #["", "", "-narrow", "-narrow"] &&
       (ref.narrow.map fun n => n.frame.width == 360 && n.style.plane.labelSize == 15).getD false &&

@@ -168,14 +168,41 @@ line. The function behind it is `PILean.Trust.infoLines`.
 `ToOutputs.outputs : α → Array Output`, each `Output` with a file-name suffix (`name`: `""`,
 `"-dark"`, `"-poster"`), a `Format` (`svg`, `png`, `apng`, `gif`), the bytes (a function of
 `Unit`, so nothing is computed before it is called; it can fail with a message) and `spec`, the
-canonical encoding of what is drawn.
+canonical encoding of what is drawn. An SVG output can also give the same picture as nodes for a
+page that puts it inline (`inline`), and the problems the figure's checks report (`problems`;
+see "Checks" below).
 
 | Type | Outputs |
 |---|---|
 | `Plot.Figure` | SVG; PNG |
-| `Plane.Figure` | SVG; PNG |
+| `Plane.Figure` | SVG; PNG; and, with a narrow width, SVG and PNG with the suffix `-narrow` |
+| `Explorer` | the poster's SVG (with every frame for a page that shows them inline) and PNG; then each frame `k` (from 0, in the order of `Explorer.frames`) as an SVG with the suffix `-frame-k` |
 | `Graph` (default layered layout, light style, scale 1), or `GraphFigure` (graph, layout options, style, PNG scale) | SVG; PNG |
 | `Animation` | animated SVG; APNG (file extension `png`); GIF; poster frame (PNG, suffix `-poster`) |
+
+### Checks
+
+A plot's labelling checks (`PILean.Plot.Check`) and a plane figure's layout checks
+(`PILean.Plane.Check`) report problems at the level of the figure's `checks` field: as warnings,
+which `pilean-build` prints and the Verso adapters report (the `problems` of the first SVG output
+of the figure), or, at the level `fail`, as errors: every output of the figure fails, and
+`pilean-build` exits with status 1. An explorer, and an animation made from plane figures
+(`Plane.animation`, `Explorer.toAnimation`), carry the problems of their frames' figures, named by
+frame, at the same levels.
+
+### Inline pictures
+
+A page may put a picture inline instead of linking its file. For every output whose `inline` is
+a picture `i`, `i.document` (`Svg.document` of its size and nodes) is byte for byte the output's
+bytes before the source record is added, and so exactly what the output's `spec` covers; this
+holds for plots, plane figures (and their narrow renditions) and every frame of an explorer, and
+the tests check it for every picture of the gallery. Each frame of an explorer is a file of its
+own, with its manifest entry, SHA-256 and fingerprint, so a site check can compare every inline
+`svg` element of a page with the file it was made from (after taking off what the page adds: the
+theme `style` element, the id prefix, declaration links and the page's root attributes) and that
+file with the manifest. The theme rules a page adds are keyed on the picture's light colours
+(`InlineSvg.darkColours`); a plane figure whose colours that keying would get wrong is reported by
+its checks (`darkThemeClash`).
 
 ### The specification encoding
 
@@ -183,12 +210,15 @@ The specification of an output is the SVG document that PILean's deterministic w
 (`Svg.render`) makes from the figure's drawing, as UTF-8, before any source information is added:
 
 * SVG outputs: the SVG document of the output itself, with text as `<text>` (as shapes when the
-  text engine's strings are not plain text, such as LeAnTeX's).
+  text engine's strings are not plain text, such as LeAnTeX's, and, by default, for plane figures,
+  `Plane.Figure.textAsShapes`).
 * PNG outputs of a figure or a graph: the SVG document with text drawn as shapes, which is the
   drawing the PNG is rasterised from (the rasteriser itself is not part of the specification; it
   is covered by the renderer's identity, see "The fingerprint").
 * An animation's APNG and GIF: the animated SVG document, which holds every frame; the poster:
   the SVG document of the poster frame.
+* An explorer: the poster's SVG and PNG as for a figure; each frame's SVG, the SVG document of
+  that frame.
 
 The specification covers what is drawn: the sampled values of a function (the points the figure
 takes), data, colours, sizes, text and layout. It does not cover the function's code, nor

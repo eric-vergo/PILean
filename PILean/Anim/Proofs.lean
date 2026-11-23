@@ -44,9 +44,10 @@ theorem exactTime_succ (i : Nat) :
   push_cast
   grind
 
-/-- Frame `i` is the rasterised drawing at the time `time i`. -/
+/-- Frame `i` is the rasterised drawing at the time `time i`, composited in the animation's colour
+space. -/
 theorem image_eq (i : Nat) :
-    a.image i = (a.frame (a.time i)).toImage a.width a.height a.text a.background := rfl
+    a.image i = (a.frame (a.time i)).toImage a.width a.height a.text a.background a.space := rfl
 
 /-- The frame sequence has one frame for each of the `frameCount` frames. -/
 theorem frameSeq_size : a.frameSeq.frames.size = a.frameCount := by
@@ -54,7 +55,8 @@ theorem frameSeq_size : a.frameSeq.frames.size = a.frameCount := by
 
 /-- Frame `i` of the frame sequence is the drawing at the time `time i`. -/
 theorem frameSeq_getElem (i : Nat) (h : i < a.frameSeq.frames.size) :
-    a.frameSeq.frames[i] = (a.frame (a.time i)).toImage a.width a.height a.text a.background := by
+    a.frameSeq.frames[i] =
+      (a.frame (a.time i)).toImage a.width a.height a.text a.background a.space := by
   simp [frameSeq, image_eq]
 
 /-- The animated PNG and the GIF are written from the frame sequence. -/

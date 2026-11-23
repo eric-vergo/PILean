@@ -48,6 +48,9 @@ def norm (p : Point) : Float := (p.x * p.x + p.y * p.y).sqrt
 /-- The distance between two points. -/
 def dist (p q : Point) : Float := (p - q).norm
 
+/-- Whether both coordinates are finite (neither infinite nor NaN). -/
+def isFinite (p : Point) : Bool := p.x.isFinite && p.y.isFinite
+
 end Point
 
 /-- An affine transform: `x' = a x + c y + e`, `y' = b x + d y + f`, as SVG's

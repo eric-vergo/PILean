@@ -17,6 +17,8 @@ import PILeanTest.GraphOrder
 import PILeanTest.GraphQuality
 import PILeanTest.GraphDot
 import PILeanTest.Exact
+import PILeanTest.Enclosures
+import PILeanTest.FigureChecks
 import PILeanTest.Plane
 import PILeanTest.GraphRoutes
 import PILeanTest.Trust
@@ -111,6 +113,7 @@ def main (args : List String) : IO UInt32 := do
     (← GraphQuality.ioChecks) ++ GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
+    Enclosures.checks ++ FigureChecks.checks ++ (← FigureChecks.ioChecks) ++
     PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
     Axioms.coverageChecks driverModules
   for (name, ok) in checks do

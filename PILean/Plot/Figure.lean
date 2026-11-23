@@ -7,6 +7,7 @@ import PILean.Plot.Sample
 import PILean.Canvas
 import PILean.Style
 import PILean.Sort
+import PILean.CheckLevel
 
 /-!
 # Figures
@@ -137,6 +138,9 @@ structure Panel where
   /-- Whether one unit takes as many pixels across as down (both axes linear): the plot area is
   narrowed or shortened, centred in its cell, to make it so. -/
   equalAspect : Bool := false
+  /-- Whether the panel is bare on purpose: without axis labels, and with several series that
+  neither a legend nor direct labels name (`PILean.Plot.Check` does not ask for them). -/
+  bare : Bool := false
   deriving Inhabited
 
 /-- A figure. -/
@@ -159,18 +163,17 @@ structure Figure where
   legend : Bool := true
   /-- The style. -/
   style : Style := Style.light
+  /-- How the labelling checks (`PILean.Plot.Check`) are applied when the figure is rendered. -/
+  checks : CheckLevel := .warn
   deriving Inhabited
 
 /-! ### Data -/
-
-/-- Whether both coordinates of a point are finite. -/
-def finitePoint (p : Point) : Bool := finite p.x && finite p.y
 
 /-- The bins of a histogram: their edges and counts. The bin width is a nice number near
 `(max - min) / k` for `k` the given count or `⌈√n⌉` (between 5 and 60). -/
 def histogramBins (values : Array Float) (bins : Option Nat) : Array (Float × Float × Nat) :=
   Id.run do
-  let vs := values.filter finite
+  let vs := values.filter Float.isFinite
   if vs.isEmpty then return #[]
   let lo := vs.foldl min (vs[0]?.getD 0)
   let hi := vs.foldl max (vs[0]?.getD 0)
@@ -203,7 +206,7 @@ def Series.points : Series → Array Point
   | .errorBars _ ps err _ => (ps.zip err).foldl (fun acc (p, (l, h)) =>
       (acc.push ⟨p.x, p.y - l⟩).push ⟨p.x, p.y + h⟩) #[]
   | .histogram _ vs bins density _ =>
-      let total := (vs.filter finite).size.toFloat
+      let total := (vs.filter Float.isFinite).size.toFloat
       (histogramBins vs bins).foldl (fun acc (a, b, c) =>
         let h := if density then c.toFloat / (total * (b - a)) else c.toFloat
         (acc.push ⟨a, 0⟩).push ⟨b, h⟩) #[]
@@ -211,7 +214,7 @@ def Series.points : Series → Array Point
       let mut out : Array Point := #[⟨0, 0⟩]
       for i in [0:cats.size] do
         let vals := groups.map fun (_, vs) => (vs[i]?).getD 0
-        let vals := vals.filter finite
+        let vals := vals.filter Float.isFinite
         let (t, b) := if stacked then
             (vals.foldl (fun a v => a + max 0 v) 0, vals.foldl (fun a v => a + min 0 v) 0)
           else (vals.foldl max 0, vals.foldl min 0)
@@ -223,8 +226,8 @@ def Series.points : Series → Array Point
 position left out); a function series has no vertical extent of its own here. -/
 def Series.extent (s : Series) (xk yk : ScaleKind) :
     Option (Float × Float) × Option (Float × Float) :=
-  let okX := fun (v : Float) => finite v && (xk != .log || v > 0)
-  let okY := fun (v : Float) => finite v && (yk != .log || v > 0)
+  let okX := fun (v : Float) => Float.isFinite v && (xk != .log || v > 0)
+  let okY := fun (v : Float) => Float.isFinite v && (yk != .log || v > 0)
   match s with
   | .function _ _ x0 x1 _ _ => (extentOf (#[x0, x1].filter okX), none)
   | _ =>
@@ -242,10 +245,10 @@ def unionExt : Option (Float × Float) → Option (Float × Float) → Option (F
 the extreme 2 % at each end when they lie far beyond the rest. -/
 def functionExtent (f : Float → Float) (x0 x1 : Float) (yk : ScaleKind) :
     Option (Float × Float) := Id.run do
-  if !(finite x0 && finite x1) || x1 < x0 then return none
+  if !(Float.isFinite x0 && Float.isFinite x1) || x1 < x0 then return none
   let n := 400
   let ys := ((List.range (n + 1)).toArray.map fun i =>
-    f (x0 + (x1 - x0) * i.toFloat / n.toFloat)).filter fun v => finite v && (yk != .log || v > 0)
+    f (x0 + (x1 - x0) * i.toFloat / n.toFloat)).filter fun v => v.isFinite && (yk != .log || v > 0)
   if ys.isEmpty then return none
   let s := ys.sortStable (· < ·)
   let at_ := fun (q : Float) => (s[(q * (s.size - 1).toFloat).round.toUInt64.toNat]?).getD 0
@@ -501,7 +504,7 @@ def polylinesWith (pos : Point → Option Point) (ps : Array Point) : Array (Arr
 /-- The position of a data point on a laid-out panel: `none` when it is not finite or has no
 position. -/
 def PanelLayout.pos (l : PanelLayout) (p : Point) : Option Point :=
-  if finitePoint p then l.toPx p else none
+  if p.isFinite then l.toPx p else none
 
 /-- Polylines through the points that have positions, broken where one has none. -/
 def PanelLayout.polylines (l : PanelLayout) (ps : Array Point) : Array (Array Point) :=
@@ -560,7 +563,7 @@ def drawBars (st : Style) (l : PanelLayout) (cats : Array String)
     let mut negAcc : Float := 0
     for h : j in [0:groups.size] do
       let v := (groups[j].2[i]?).getD 0
-      if !finite v || v == 0 then continue
+      if !Float.isFinite v || v == 0 then continue
       let c := (colors[j]?).getD (st.seriesColor (index + j)).1
       let (b0, b1) := if stacked then
           if v ≥ 0 then (posAcc, posAcc + v) else (negAcc + v, negAcc)
@@ -629,7 +632,7 @@ def drawSeries (st : Style) (l : PanelLayout) (s : Series) (index : Nat) : Array
   | .bars cats groups stacked colors => return drawBars st l cats groups stacked colors index
   | .histogram _ vs bins density c =>
     let c := c.getD c0
-    let total := (vs.filter finite).size.toFloat
+    let total := (vs.filter Float.isFinite).size.toFloat
     return (histogramBins vs bins).filterMap fun (x0, x1, k) =>
       let hgt := if density then k.toFloat / (total * (x1 - x0)) else k.toFloat
       match l.toPx ⟨x0, 0⟩, l.toPx ⟨x1, hgt⟩ with

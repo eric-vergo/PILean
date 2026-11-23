@@ -32,15 +32,16 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Geometry` | `Point`, `Affine`, `Box` | done |
 | `PILean.Path` | `PathCmd`, `Path`, shapes, circular arcs (`arc`, `arcTo`, `arcError`), `transform`, `flatten`, `bounds` | done |
 | `PILean.Svg` | the SVG document model and writer | done |
-| `PILean.Plot.Ticks`, `Scale`, `Sample`, `Figure`, `Proofs` | nice ticks (multipliers proved ascending and inside their interval), linear and logarithmic scales with minor ticks, adaptive sampling of functions, the `Figure` model (panels, axes, series, legends, annotations) drawn on the canvas | done |
+| `PILean.Plot.Ticks`, `Scale`, `Sample`, `Figure`, `Check`, `Proofs` | nice ticks (multipliers proved ascending and inside their interval), linear and logarithmic scales with minor ticks, adaptive sampling of functions, the `Figure` model (panels, axes, series, legends, annotations) drawn on the canvas | done |
 | `PILean.Raster` | anti-aliased scanline fill by area coverage in integers (non-zero and even-odd), clipping to rectangles and paths, the stroker (joins, caps, miter limit, dashes), gradients, compositing in linear light, group opacity, `Draw` (in the spirit of `ImageDraw`), Gaussian blur and drop shadows, SVG nodes drawn | done |
 | `PILean.Image` | `Image` (mode, size, pixels in a `ByteArray`), `getpixel`, `putpixel`, crop, paste with a mask, alpha compositing, convert, flips and quarter turns, resize (nearest, bilinear, box, Lanczos) | done |
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`, `pHYs` (written); the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Anim` | a `FrameSeq` (equally sized RGBA frames, a rational delay each, a loop count) and its codecs. APNG: writer (frame differencing to the changed rectangle, equal frames merged, delays as reduced fractions) and reader (composes `dispose_op` and `blend_op`, any PNG colour type, caps on size, frames and bytes). GIF89a: writer (LZW, one global palette by median cut or the exact colours, optional Floyd–Steinberg dithering, differencing with a transparent index, delays in centiseconds with exact cumulative time, loop extension) and reader (global and local tables, interlacing, disposal 0–3, transparency, caps) | done |
 | `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips, metadata through `Shape.tagged` and `ShapeInfo`; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark`, with the plane colours and sizes `PlaneStyle` | done |
 | `PILean.Plane` (`Basic`, `Frame`, `Draw`, `Check`, `Render`, `Graph`) | plane figures: elements in world coordinates (`Geom`: points, lines, arcs, regions of disks, ticks, labels, …), looks by role (`Look`, `Tone`, named roles), items with metadata (`Item`), builders and modifiers; the frame (`Frame`, one scale, `y` up) fitted to the items' reaches (`Frame.fit`), clipping (`clipLine`); the figure (`Figure`) drawn on the canvas; layout checks and automatic label placement; outputs (sRGB images, outlined text, narrow renditions); graphs inside plane figures, step animations | done |
+| `PILean.CheckLevel` | how strictly a figure's checks apply (`ignore`, `warn`, `fail`), shared by plots and plane figures | done |
 | `PILean.Explorer` | families of frames (a parameter axis, a step sequence, or both) for web pages, their poster files and animations | done |
-| `PILean.Exact.Plane`, `PILean.Exact.Algebraic` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn; exact incidence with a disk; ℚ(√d), ℤ[ζ₅], exact square roots, constructions with certified enclosures | done |
+| `PILean.Exact.Plane`, `PILean.Exact.Algebraic`, `PILean.Exact.Spec` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn; exact incidence with a disk; ℚ(√d), ℤ[ζ₅], exact square roots, constructions with certified enclosures; what an item of a figure is in exact terms (`IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`), for specifications | done |
 | `PILean.Graph.Fixed` | graphs at given positions (page, world or exact), edges straight or bent around nodes | done |
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
@@ -478,6 +479,10 @@ outputs are written from that drawing.
   note; constants get an interval around them; huge values are clamped in the output (and
   labelled with powers of ten); a function's automatic range leaves out extreme tails (2 % each side)
   when they are more than twelve times the central spread away.
+* **Labelling checks** (`PILean.Plot.Check`). A panel whose axes have no label, or with several
+  series that neither the legend nor direct labels name, is reported in the scheme of the plane
+  checks (`Figure.checks`: `ignore`, `warn`, `fail`); a panel bare on purpose says so
+  (`Panel.bare`). Every plot of the gallery and of the manual is labelled.
 * **Style.** `Style` holds every visual constant; `Style.light` and `Style.dark`. The palette is
   Okabe and Ito's, ordered so that adjacent colours stay apart under colour-vision deficiencies;
   both palettes pass a palette validator's checks of lightness band, chroma, CVD and
@@ -498,8 +503,9 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   them (a marker's radius, half a stroke, an arrowhead, an angle mark's radius, a label's box).
   `Frame.fit` takes the largest scale at which every reach fits inside the padding across the
   page (bisection over the scale: when no label is wider than the page, the scales that fit form
-  an interval from 0), centres the drawing, and makes the page as tall as the reaches need, in
-  whole pixels. With `view`, a given world box is fitted instead. Lines and rays reach the two
+  an interval from 0; extents wider than the page are first shrunk until they fit, so a label
+  too wide for the page does not collapse the scale), centres the drawing, and makes the page as
+  tall as the reaches need, in whole pixels. With `view`, a given world box is fitted instead. Lines and rays reach the two
   points that define them and are drawn to the edge of the page (Liang and Barsky's clipping).
 * **Pixel sizes.** Stroke widths, marker radii, arrowheads, label sizes and offsets and angle
   marks are in pixels at every scale; only world lengths (radii of circles, disks, arcs) scale.
@@ -525,26 +531,58 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   instance; the laws that can be stated without them (radii between 0 and `2⁻ᵏ`) are the classes
   `LawfulRealValue` and `LawfulPlanePoint`. A representation that needs a context (a cyclotomic
   ring with its tables) gives the instance on a type that carries it. The tests have worked
-  instances for Gaussian rationals, ℚ(√5) and ℤ[ζ₅] (integer coefficient arrays), whose balls
-  are checked exactly by squaring rationals.
+  instances for Gaussian rationals, ℚ(√5) and ℤ[ζ₅] (integer coefficient arrays, compared by
+  their normal form), whose balls are checked exactly by squaring rationals.
+* **No made-up enclosures.** Ball arithmetic is exact rational arithmetic, so sums and products
+  of enclosures are enclosures; an operation that is not defined on every number of its input's
+  ball says so in its result: `RatBall.inv` and `RatBall.div` are `none` on a ball that holds 0
+  (a fallback ball there is the alternative rejected: it is not an enclosure, and a construction
+  built on it can report a point outside a disk it lies in). The constructions (`foot`, `circleCircle`, `lineCircle`) decide,
+  from balls at 64 to 512 bits, that a divisor is at least some `m > 0` (`positiveBound?`) and at
+  every working precision divide by the part of the divisor's ball above `m`
+  (`RatBall.invAbove`), so a low precision gives a wide ball, never a wrong one; they decide the
+  sign under a square root the same way, and answer what the balls do not decide with `none` or
+  `Meeting.undecided` (tangency is decided only for data whose balls have radius 0, rationals and
+  integers, where the deciding number is exactly 0). The square root is `√(max x 0)`, total. Refinement says when it did not reach the
+  radius asked (`refine`, `Enclosed.meetsPrecision`).
+* **Specifications that speak about the items.** A figure's theorem says which item is which
+  exact object, in which colour, with which title and recorded incidences
+  (`Plane.Exact.IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`), so that the exact facts about the
+  points (that `E` is on the left circle) are facts about the items that draw them; the strict
+  figure link (`figure_proves`: the figure's constant occurs in the theorem) holds for each.
 * **Regions, fills, markers, ticks.** The intersection, union and difference of two disks are
   regions bounded by exact circular arcs of their circles (`regionArcs`, `Path.arcTo`); a shape's
   tint (colour, opacity) and outline are styled apart; markers are dots, rings, squares, diamonds
   or crosses on a halo; a tick crosses a line with a length in pixels, resolved at fitting.
 * **One colour space for tints.** The image of a plane figure is composited in sRGB, as browsers
   composite an SVG's `fill-opacity`, so a tint (and a tint over a tint) has the same colour in
-  the PNG and in the SVG shown by a browser. Plots and graphs keep the rasteriser's linear light
-  (their goldens are unchanged). The rule is tested by sampling the PNG inside a tint against
+  the PNG and in the SVG shown by a browser. Plots and graphs keep the rasteriser's linear light.
+  Animations and explorers made from plane figures (`Plane.animation`, `Plane.slider`,
+  `Plane.stepper`) keep the figure's sRGB and its text as shapes (`Animation.srgb`,
+  `Animation.textAsShapes`). The rule is tested by sampling the PNG inside a tint against
   the expected sRGB composite in both themes. Pre-blended opaque fills were the alternative; they
   would need the overlap regions of every pair of translucent shapes computed, and give the same
   colours.
 * **Checks** (`PILean.Plane.Check`): overlapping labels, labels over lines or markers they do not
-  name, things beyond the page, markers that read as one, points too near a curve to be seen on
-  it or off it unless their incidence is recorded (exactly, for exact points), colours of too
-  little contrast against what they are drawn on (the page and the tints beneath), in both
-  themes. A figure's `checks` level makes builds warn or fail. Automatic placement (`auto`, and
-  `across` a segment for a piece's label) takes the least offset and the first side that clears,
-  chosen twice (the second time in the frame the first placement gives).
+  name (a label is attached only to the marker at its point, so a label centred on a line is
+  reported), things beyond the page, markers that read as one, points too near an element to be
+  seen on it or off it unless they record their incidence relative to that element, colours of
+  too little contrast against what they are drawn on (at their alpha; at a label's centre, a
+  marker's, and along every stroke, over the page and the fills beneath), in both themes, numbers
+  that are not finite, degenerate polygons, polylines and segments, roles the style does not name, and colours the inline dark theme would
+  restyle wrongly. A recorded incidence names its element by title (`Item.named`) and is held to
+  it: a point recorded on an element but drawn away from it, or on the wrong side of a region, is
+  itself a problem, and a record against one element does not excuse a point from another. A
+  figure's `checks` level makes builds warn or fail. Automatic placement (`auto`, and `across` a
+  segment for a piece's label) takes the least offset and the first side that clears, 3 pixels
+  from strokes and markers where it can, chosen twice (the second time in the frame the first
+  placement gives).
+* **Dark colours of inline pictures.** A page that shows a picture inline restyles it in its dark
+  theme by its light colour values (`Style.darkColourPairs`). Classes on every drawn shape, keyed
+  on its role, are the alternative rejected: they would change the drawing that the proofs
+  describe and every file. The check `darkThemeClash` reports instead each element whose colour would come out
+  other than its dark twin's: a fixed colour equal to a style colour, or roles that share a light
+  colour with different dark ones.
 * **Text and small screens.** SVG text is drawn as shapes by default (`textAsShapes`), so every
   viewer shows the lettering the layout measured; `narrowWidth` renders the figure a second time
   at a narrower page with labels and markers at their full pixel size, for small screens. For
@@ -571,6 +609,12 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   which 121 KB are the pictures: a plane frame of a few dozen elements is 10 to 14 KB of inline
   SVG, about 4 KB of it its theme rules. Frames share no definitions (plane figures have none to
   share).
+* **Explorers as files.** Every frame of an `Explorer` is an output of its own (an SVG named
+  `-frame-k`), so every picture a page shows inline is a file in the manifest with its
+  fingerprint, the inline picture byte for byte the file before its source record; the poster's
+  SVG and PNG come first. Every frame keeps the problems of its figure's checks, which a build
+  reports frame by frame, or which stop the explorer when a frame's level is `fail`;
+  `Explorer.toAnimation` gives every step the same number of frames (`Explorer.stepTiming`).
 * **Arcs** (`Path.arc`): at most a quarter turn per cubic, control points on the tangents at
   `(4/3) tan(δ/4) r`, radial error at most `r (2/27) sin⁶(δ/4) / cos²(δ/4)` (Goldapp 1991), at most
   `2.73 × 10⁻⁴ r`; the tests sample the curves against this bound.

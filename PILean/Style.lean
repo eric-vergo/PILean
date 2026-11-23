@@ -273,11 +273,7 @@ def darkColourPairs (s : Style) : Array (String × String) :=
   match s.darkTwin? with
   | none => #[]
   | some d =>
-    let hex := fun (c : Rgba) =>
-      let h := fun (v : UInt8) =>
-        let ds := Nat.toDigits 16 v.toNat
-        String.ofList (List.replicate (2 - ds.length) '0' ++ ds)
-      "#" ++ h c.r ++ h c.g ++ h c.b
+    let hex := Rgba.rgbHex
     let pairs : Array (Rgba × Rgba) :=
       #[(s.background, d.background), (s.inkPrimary, d.inkPrimary),
         (s.inkSecondary, d.inkSecondary), (s.inkMuted, d.inkMuted), (s.axis, d.axis),

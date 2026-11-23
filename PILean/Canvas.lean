@@ -254,15 +254,17 @@ def Shape.toSvg (s : Shape) (width height : Float) (family : String)
     | some e => .shapes e
     | none => .native family))
 
-/-- A shape drawn as an RGBA image of `w × h` pixels on `bg`, text as shapes from `engine`. -/
-def Shape.toImage (s : Shape) (w h : Nat) (engine : TextEngine) (bg : Rgba := ⟨0, 0, 0, 0⟩) :
-    Image :=
-  (Raster.Svg.rasterize w h (s.render (.shapes engine)) bg).toImage .rgba
+/-- A shape drawn as an RGBA image of `w × h` pixels on `bg`, text as shapes from `engine`,
+composited in `space` (linear light, or sRGB as browsers composite SVG). -/
+def Shape.toImage (s : Shape) (w h : Nat) (engine : TextEngine) (bg : Rgba := ⟨0, 0, 0, 0⟩)
+    (space : Raster.Space := .linear) : Image :=
+  (Raster.Svg.rasterize w h (s.render (.shapes engine)) bg space).toImage .rgba
 
 /-- A shape as PNG bytes (see `Shape.toImage`). -/
 def Shape.toPng (s : Shape) (w h : Nat) (engine : TextEngine) (bg : Rgba := ⟨0, 0, 0, 0⟩)
-    (md : Png.Metadata := {}) : Except Png.PngError ByteArray :=
-  (s.toImage w h engine bg).writePng md
+    (md : Png.Metadata := {}) (space : Raster.Space := .linear) :
+    Except Png.PngError ByteArray :=
+  (s.toImage w h engine bg space).writePng md
 
 /-- A rectangle path. -/
 def rect (x y w h : Float) : Path := Path.rect x y w h

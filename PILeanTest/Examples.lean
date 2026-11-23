@@ -119,7 +119,7 @@ def bands : Figure where
 def groupedBars : Figure where
   title := "Grouped bars"
   panels := #[{
-      y := { label := "count" },
+      x := { label := "day" }, y := { label := "count" },
       series := #[.bars #["Mon", "Tue", "Wed", "Thu", "Fri"]
       #[("north", #[12, 15, 9, 17, 14]), ("south", #[8, 11, 13, 10, 16]),
         ("east", #[5, 7, 6, 9, 8])]] }]
@@ -128,7 +128,7 @@ def groupedBars : Figure where
 def stackedBars : Figure where
   title := "Stacked bars"
   panels := #[{
-      y := { label := "balance" },
+      x := { label := "quarter" }, y := { label := "balance" },
       series := #[.bars #["Q1", "Q2", "Q3", "Q4"]
       #[("income", #[30, 34, 28, 40]), ("grants", #[10, 8, 12, 9]),
         ("costs", #[-22, -25, -20, -27])] (stacked := true)] }]
@@ -202,12 +202,16 @@ def awkward : Figure where
   columns := 2
   legend := false
   panels := #[
-    { title := "no data", series := #[.line "nothing" #[]] },
-    { title := "constant", series := #[.line "flat" ((List.range 10).toArray.map fun i =>
+    { title := "no data", x := { label := "x" }, y := { label := "y" },
+      series := #[.line "nothing" #[]] },
+    { title := "constant", x := { label := "i" }, y := { label := "value" },
+      series := #[.line "flat" ((List.range 10).toArray.map fun i =>
         ⟨i.toFloat, 5⟩) (markers := true)] },
-    { title := "huge values", series := #[.line "big" ((List.range 10).toArray.map fun i =>
+    { title := "huge values", x := { label := "i" }, y := { label := "value" },
+      series := #[.line "big" ((List.range 10).toArray.map fun i =>
         ⟨i.toFloat, 1e9 * (i.toFloat + 1)⟩)] },
-    { title := "gaps (NaN, ∞)", series := #[.line "broken" ((List.range 21).toArray.map fun i =>
+    { title := "gaps (NaN, ∞)", x := { label := "i" }, y := { label := "sin(i/3)" },
+      series := #[.line "broken" ((List.range 21).toArray.map fun i =>
         ⟨i.toFloat, if i == 7 then 0 / 0 else if i == 14 then 1 / 0 else (i.toFloat / 3).sin⟩)
         (markers := true)] }]
 
@@ -334,7 +338,7 @@ path commands and the SVG interpolates them. -/
 def waveFigure (t : Float) : Figure :=
   let xs := (List.range 241).toArray.map fun i => i.toFloat / 240 * 4 * pi
   let wave := fun (x : Float) => (x - 2 * pi * t / 2).sin * (-(x / 8)).exp
-  { title := "A travelling wave", width := 640, height := 360, legend := false,
+  { title := "A travelling wave", width := 640, height := 360,
     panels := #[{
       x := { label := "x", domain := some (0, 4 * pi) },
       y := { label := "u(x, t)", domain := some (-1.2, 1.2) },
@@ -355,7 +359,7 @@ def barsFigure (t : Float) : Figure :=
   let k := 0.02 + 0.98 * e
   { title := "Growing bars", width := 640, height := 360,
     panels := #[{
-      y := { label := "count", domain := some (0, 20) },
+      x := { label := "day" }, y := { label := "count", domain := some (0, 20) },
       series := #[.bars #["Mon", "Tue", "Wed", "Thu", "Fri"]
         #[("north", #[12, 15, 9, 17, 14].map (· * k)), ("south", #[8, 11, 13, 10, 16].map (· * k))]
         ] }] }
@@ -408,37 +412,130 @@ def animations : Array (String × Animation) :=
 
 namespace PlaneFigures
 
-open PILean.Plane
+open PILean.Plane PILean.Exact
 
-/-- The golden ratio. -/
-def phi : Float := (1 + Float.sqrt 5) / 2
+/-- `E = ζ - ζ²`, `ζ = e^{2πi/5}`, exact in ℤ[ζ₅]. -/
+def chordEnd : Zeta5 := Zeta5.pow 1 - Zeta5.pow 2
+
+/-- The centre `-1` of the left disk. -/
+def leftCentre : Zeta5 := Zeta5.ofInt (-1)
+
+/-- The centre `1` of the right disk. -/
+def rightCentre : Zeta5 := Zeta5.ofInt 1
+
+/-- `3 + φ` in ℚ(√5), `φ` the golden ratio. -/
+def threePlusPhi : QSqrt5 := ⟨7 / 2, 1 / 2⟩
 
 /-- The critical radius `√(3 + φ)`. -/
-def critical : Float := Float.sqrt (3 + phi)
+def critical : SqrtOf QSqrt5 := ⟨threePlusPhi⟩
 
-/-- `E = ζ - ζ²`, `ζ = e^{2πi/5}`. -/
-def chordEnd : Point := rootOfUnity 5 1 - rootOfUnity 5 2
+/-- `ζ - ζ⁴ = 2i sin 72°`, where the two circles cross (and its negative). -/
+def crossing : Zeta5 := Zeta5.pow 1 - Zeta5.pow 4
 
-/-- Two closed disks of the critical radius about `-1` and `1`, the chord between `-E` and `E`
-where their boundaries meet, and a mark for a clockwise turn of 72° about the left centre. -/
+/-! The items of `disks`, each by name, so that its specification can say which is which. -/
+
+namespace Disks
+
+/-- The closed disk of radius `√(3 + φ)` about `-1`, in accent 0, titled by its circle. -/
+def leftDisk : Item :=
+  Plane.Exact.disk leftCentre critical |>.accent 0 |>.named "the left circle" |>.describedBy
+    "the closed disk of radius √(3 + φ) about −1"
+
+/-- The closed disk of radius `√(3 + φ)` about `1`, in accent 1, titled by its circle. -/
+def rightDisk : Item :=
+  Plane.Exact.disk rightCentre critical |>.accent 1 |>.named "the right circle" |>.describedBy
+    "the closed disk of radius √(3 + φ) about 1"
+
+/-- The chord from `-E` to `E`, through `0`. -/
+def chord : Item :=
+  Plane.Exact.segment (-chordEnd) chordEnd |>.width 3 |>.named "the chord"
+    |>.declRef `PILeanTest.Examples.PlaneFigures.chordEnd
+
+/-- The point `E`, on the left circle, in the left disk's colour. -/
+def pointE : Item := Plane.Exact.point chordEnd |>.accent 0 |>.incident .on "the left circle"
+
+/-- The point `-E`, on the right circle, in the right disk's colour. -/
+def pointNegE : Item :=
+  Plane.Exact.point (-chordEnd) |>.accent 1 |>.incident .on "the right circle"
+
+/-- The point `0`, the chord's midpoint. -/
+def pointZero : Item := Plane.Exact.point Zeta5.zero |>.incident .on "the chord"
+
+/-- The upper crossing `ζ - ζ⁴` of the circles, as an open ring. -/
+def upperCrossing : Item :=
+  Plane.Exact.point crossing |>.marker .ring |>.faint |>.incident .on "the left circle"
+    |>.incident .on "the right circle"
+
+/-- The lower crossing `-(ζ - ζ⁴)` of the circles, as an open ring. -/
+def lowerCrossing : Item :=
+  Plane.Exact.point (-crossing) |>.marker .ring |>.faint |>.incident .on "the left circle"
+    |>.incident .on "the right circle"
+
+/-- The items, in drawing order. -/
+def items : Array Item :=
+  #[leftDisk, rightDisk, chord,
+    angleMark ⟨-1, 0⟩ (deg 18) (deg 18 - deg 72) (some 46) |>.faint,
+    label "72°" (⟨-1, 0⟩ + polar 0.68 (deg (-18))) .right (some 2) |>.size 12,
+    upperCrossing, lowerCrossing, pointNegE, pointE,
+    Plane.Exact.point leftCentre, Plane.Exact.point rightCentre, pointZero,
+    Plane.Exact.label "−E" (-chordEnd) .belowLeft |>.accent 1,
+    Plane.Exact.label "E" chordEnd .aboveRight |>.accent 0,
+    Plane.Exact.label "−1" leftCentre .auto, Plane.Exact.label "+1" rightCentre .auto,
+    Plane.Exact.label "0" Zeta5.zero .below]
+
+end Disks
+
+/-- Two closed disks of the critical radius `√(3 + φ)` about `-1` and `1`; the chord from `-E` to
+`E` (`E = ζ - ζ²`) through `0`, `E` on the left circle and in its colour, `-E` on the right one
+and in its colour; the circles' crossings `±(ζ - ζ⁴)` as rings; and a mark for a clockwise turn of
+72° about the left centre. Every point is exact in ℤ[ζ₅]. -/
 @[figure]
 def disks : Plane.Figure where
   width := 520
-  items := #[
-    disk ⟨-1, 0⟩ critical |>.accent 0 |>.named "the left disk" |>.describedBy
-      "the closed disk of radius √(3 + φ) about −1",
-    disk ⟨1, 0⟩ critical |>.accent 1 |>.named "the right disk",
-    segment ((-1 : Float) * chordEnd) chordEnd |>.width 3 |>.named "the critical chord"
-      |>.declRef `PILeanTest.Examples.PlaneFigures.chordEnd,
-    angleMark ⟨-1, 0⟩ (deg 18) (deg 18 - deg 72) (some 46) |>.faint,
-    label "72°" (⟨-1, 0⟩ + polar 0.68 (deg (-18))) .right (some 2) |>.size 12,
-    point ((-1 : Float) * chordEnd) |>.accent 0 |>.incident .on "both circles",
-    point chordEnd |>.accent 1 |>.incident .on "both circles",
-    point ⟨-1, 0⟩, point ⟨1, 0⟩, point ⟨0, 0⟩ |>.incident .on "the chord",
-    label "−E" ((-1 : Float) * chordEnd) .belowLeft |>.accent 0,
-    label "E" chordEnd .aboveRight |>.accent 1,
-    label "−1" ⟨-1, 0⟩ .auto, label "+1" ⟨1, 0⟩ .auto, label "0" ⟨0, 0⟩ .below]
+  items := Disks.items
   info := { title := "Two closed disks and the critical chord" }
+
+/-- What `disks` draws and why its records and colours are right. Its items are `Disks.items`;
+the left disk is the closed disk of radius `√(3 + φ)` about `-1` in accent 0, titled "the left
+circle", the right one about `1` in accent 1; the chord runs from `-E` to `E`; the point `E` is in
+accent 0 and records being on the left circle, `-E` is in accent 1 and records being on the right
+one, `0` records being on the chord, and the crossings `±(ζ - ζ⁴)` record being on both circles.
+The records hold, exactly in ℚ(√5): `|E + 1|² = 3 + φ` and `|E - 1|² < 3 + φ` (so `E` is on the
+left circle and inside the right disk), the same for `-E` with the sides exchanged,
+`|ζ - ζ⁴ ± 1|² = 3 + φ` for both crossings, and `0` is the midpoint of `-E` and `E`. -/
+theorem disks_spec :
+    disks.items = Disks.items ∧
+    Plane.Exact.IsDisk Disks.leftDisk leftCentre critical (.accent 0) "the left circle" ∧
+    Plane.Exact.IsDisk Disks.rightDisk rightCentre critical (.accent 1) "the right circle" ∧
+    Plane.Exact.IsSegment Disks.chord (-chordEnd) chordEnd .ink "the chord" ∧
+    Plane.Exact.IsPoint Disks.pointE chordEnd (.accent 0) #[(.on, "the left circle")] ∧
+    Plane.Exact.IsPoint Disks.pointNegE (-chordEnd) (.accent 1) #[(.on, "the right circle")] ∧
+    Plane.Exact.IsPoint Disks.pointZero Zeta5.zero .ink #[(.on, "the chord")] ∧
+    Plane.Exact.IsPoint Disks.upperCrossing crossing .faint
+      #[(.on, "the left circle"), (.on, "the right circle")] ∧
+    Plane.Exact.IsPoint Disks.lowerCrossing (-crossing) .faint
+      #[(.on, "the left circle"), (.on, "the right circle")] ∧
+    (chordEnd - leftCentre).normSq = critical.radicand ∧
+    QSqrt.lt (chordEnd - rightCentre).normSq critical.radicand = true ∧
+    (-chordEnd - rightCentre).normSq = critical.radicand ∧
+    QSqrt.lt (-chordEnd - leftCentre).normSq critical.radicand = true ∧
+    (crossing - leftCentre).normSq = critical.radicand ∧
+    (crossing - rightCentre).normSq = critical.radicand ∧
+    (-crossing - leftCentre).normSq = critical.radicand ∧
+    (-crossing - rightCentre).normSq = critical.radicand ∧
+    (-chordEnd + chordEnd == Zeta5.zero) = true := by
+  refine ⟨rfl, ?_⟩
+  repeat' apply And.intro
+  all_goals first
+    | decide +kernel
+    | simp [Plane.Exact.IsDisk, Plane.Exact.IsSegment, Plane.Exact.IsPoint, Disks.leftDisk,
+        Disks.rightDisk, Disks.chord, Disks.pointE, Disks.pointNegE, Disks.pointZero,
+        Disks.upperCrossing, Disks.lowerCrossing, Plane.Exact.disk, Plane.Exact.segment,
+        Plane.Exact.point, Plane.disk, Plane.segment, Plane.point, Item.accent, Item.tone,
+        Item.faint, Item.marker, Item.width, Item.named, Item.describedBy, Item.declRef,
+        Item.incident, Item.mapLook, Item.mapInfo, and_assoc, exists_and_left, exists_eq_left']
+
+figure_proves disks disks_spec
 
 /-- Every kind of element: a line and a ray clipped to the frame, a dashed circle, an arc with an
 arrowhead, a sector, a regular pentagon, a tinted triangle, a polyline, arrows, angle marks both
@@ -450,8 +547,8 @@ def constructions : Plane.Figure where
   items := #[
     line ⟨-3, -1.8⟩ ⟨3, 1.4⟩ |>.faint |>.dashed,
     ray ⟨0, 0⟩ ⟨1, -0.4⟩ |>.faint,
-    circle ⟨0, 0⟩ 1.6 |>.faint |>.dashed #[2, 4] |>.width 1.5,
-    sector ⟨0, 0⟩ 1.6 (deg 20) (deg 70) |>.accent 2,
+    circle ⟨0, 0⟩ 1.6 |>.faint |>.dashed #[2, 4] |>.width 1.5 |>.named "the circle",
+    sector ⟨0, 0⟩ 1.6 (deg 20) (deg 70) |>.accent 2 |>.named "the sector",
     arc ⟨0, 0⟩ 1.9 (deg 100) (deg 170) |>.accent 1 |>.withArrow,
     regularPolygon ⟨-1.9, -1.1⟩ 0.6 5 (pi / 2) |>.accent 0 |>.filled,
     polygon #[⟨1.4, -1.6⟩, ⟨2.8, -1.6⟩, ⟨2.1, -0.4⟩] |>.accent 1 |>.filled,
@@ -459,16 +556,19 @@ def constructions : Plane.Figure where
     arrow ⟨0, 0⟩ (polar 1.6 (deg 45)) |>.width 2.5,
     angleMark ⟨0, 0⟩ 0 (deg 45) none |>.accent 2,
     angleMark ⟨-1.9, -1.1⟩ (deg 90) (deg 18) (some 30) |>.faint,
-    point ⟨0, 0⟩, point (polar 1.6 (deg 45)) |>.accent 2 |>.incident .on "the circle",
+    point ⟨0, 0⟩, point (polar 1.6 (deg 45)) |>.accent 2 |>.incident .on "the circle"
+      |>.incident .on "the sector",
     label "N" ⟨2.3, 1.3⟩ .above |>.size 12, label "S" ⟨2.3, 1.3⟩ .below |>.size 12,
     label "E" ⟨2.3, 1.3⟩ .right |>.size 12, label "W" ⟨2.3, 1.3⟩ .left |>.size 12,
     point ⟨2.3, 1.3⟩ |>.faint,
     label "O" ⟨0, 0⟩ .belowLeft, label "P" (polar 1.6 (deg 45)) .aboveRight |>.accent 2]
   info := { title := "The elements of a plane figure" }
 
-/-- The vertices of a small graph in a window: a hexagonal ring and its centre. -/
-def ringPositions : Array Point :=
-  #[⟨0, 0⟩] ++ (List.range 6).toArray.map fun k => polar 1 (2 * pi * k.toFloat / 6)
+/-- The vertices of a small graph in a window, exact in ℚ(√3)²: the centre and a hexagonal ring of
+radius 1, `(cos 60°k, sin 60°k)`. -/
+def ringPositions : Array (QSqrt 3 × QSqrt 3) :=
+  #[(⟨0, 0⟩, ⟨0, 0⟩), (⟨1, 0⟩, ⟨0, 0⟩), (⟨1 / 2, 0⟩, ⟨0, 1 / 2⟩), (⟨-1 / 2, 0⟩, ⟨0, 1 / 2⟩),
+    (⟨-1, 0⟩, ⟨0, 0⟩), (⟨-1 / 2, 0⟩, ⟨0, -1 / 2⟩), (⟨1 / 2, 0⟩, ⟨0, -1 / 2⟩)]
 
 /-- A ring of six around a centre, as a graph. -/
 def ringGraph : PILean.Graph :=
@@ -476,27 +576,32 @@ def ringGraph : PILean.Graph :=
     ([(0, 1), (0, 3), (0, 5)] ++ (List.range 6).map fun k => (k + 1, (k + 1) % 6 + 1))
     (directed := false)
 
-/-- A graph among other geometry (`Plane.graph`): its vertices at given points, a window disk
-around some of them, clear of every vertex. -/
+/-- The centre of the window, `(7/20, 0)`. -/
+def windowCentre : Rat × Rat := (7 / 20, 0)
+
+/-- The window disk of radius `r` over the ring, each vertex recording where it stands relative to
+the window, decided exactly (`Exact.diskIncidence?`; every squared distance here is rational). -/
+def windowAt (r : Rat) : Plane.Figure :=
+  { width := 420,
+    items := #[Plane.Exact.disk windowCentre r |>.accent 0 |>.named "the window"
+        |>.describedBy s!"the closed disk of radius {r} about 7/20",
+      Plane.Exact.graph ringGraph ringPositions (node := fun i it =>
+        match ringPositions[i]?.bind fun p => diskIncidence? p windowCentre r with
+        | some rel => it.incident rel "the window"
+        | none => it)] }
+
+/-- A graph among other geometry (`Plane.graph`): its vertices at given exact points, a window disk
+over some of them, every vertex clear of its boundary and recording on which side it is. -/
 @[figure]
-def graphInWindow : Plane.Figure where
-  width := 420
-  items := #[disk ⟨0.35, 0⟩ 1.3 |>.accent 0 |>.named "the window",
-    Plane.graph ringGraph ringPositions]
-  info := { title := "A graph in a window" }
+def graphInWindow : Plane.Figure :=
+  { windowAt 1 with info := { title := "A graph in a window" } }
 
-
-/-- The window disk at radius `r` over the ring: an explorer frame. -/
-def windowAt (r : Float) : Plane.Figure :=
-  { width := 420, items := #[disk ⟨0.35, 0⟩ r |>.accent 0 |>.named s!"the window, r = {r}",
-      Plane.graph ringGraph ringPositions] }
-
-/-- The window of `graphInWindow` as its radius grows from 1.2 to 1.8 in steps of 1/10: a
-parameter axis. -/
+/-- The window of `graphInWindow` as its radius grows from 6/5 to 9/5 in steps of 1/10: a
+parameter axis; each vertex records, exactly, on which side of the window it is. -/
 @[figure]
 def windowRadius : Explorer :=
   Plane.slider "r" ((List.range 7).toArray.map fun k =>
-    (s!"{12 + k}/10", windowAt (1.2 + k.toFloat / 10)))
+    (s!"{12 + k}/10", windowAt ((12 + k : Nat) / 10)))
 
 /-- The plane figures of the gallery by name. -/
 def figures : Array (String × Plane.Figure) :=

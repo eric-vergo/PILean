@@ -66,6 +66,16 @@ structure Animation where
   text : TextEngine
   /-- The largest number of keyframes an interpolated SVG animation stores. -/
   svgKeyframes : Nat := 30
+  /-- Whether raster frames are composited in sRGB, as browsers composite SVG (plane figures),
+  rather than in linear light (plots). -/
+  srgb : Bool := false
+  /-- Whether SVG text is drawn as shapes from `text`, the lettering raster frames show. -/
+  textAsShapes : Bool := false
+  /-- Problems of the drawings a build reports (the layout checks of the figures the frames are
+  drawn from), as warnings, or as errors that stop the rendering when `problemsFail`. -/
+  problems : Unit → Array String := fun _ => #[]
+  /-- Whether `problems` stop the animation from being rendered. -/
+  problemsFail : Bool := false
 
 namespace Animation
 
@@ -86,9 +96,15 @@ def time (i : Nat) : Float := Exact.toFloat (a.exactTime i)
 /-- The poster frame's time. -/
 def poster : Float := a.posterTime.getD (a.time (a.frameCount - 1))
 
+/-- The colour space raster frames are composited in. -/
+def space : Raster.Space := if a.srgb then .srgb else .linear
+
+/-- The text mode of the SVG outputs. -/
+def svgMode : TextMode := TextMode.forSvg a.text a.fontFamily a.textAsShapes
+
 /-- Frame `i` as an RGBA image. -/
 def image (i : Nat) : Image :=
-  (a.frame (a.time i)).toImage a.width a.height a.text a.background
+  (a.frame (a.time i)).toImage a.width a.height a.text a.background a.space
 
 /-- The frames as a frame sequence for the raster writers. -/
 def frameSeq : FrameSeq :=
@@ -106,11 +122,11 @@ def toGif (dither : Bool := false) : Except Anim.AnimError ByteArray := a.frameS
 def posterSvg : String :=
   let bg := Shape.path (rect 0 0 a.width.toFloat a.height.toFloat) (some (.solid a.background))
   Svg.document a.width.toFloat a.height.toFloat
-    ((Shape.group #[bg, a.frame a.poster]).render (.forSvg a.text a.fontFamily))
+    ((Shape.group #[bg, a.frame a.poster]).render a.svgMode)
 
 /-- The poster frame as a PNG. -/
 def posterPng : Except Png.PngError ByteArray :=
-  (a.frame a.poster).toPng a.width a.height a.text a.background
+  (a.frame a.poster).toPng a.width a.height a.text a.background (space := a.space)
 
 end Animation
 
@@ -226,7 +242,7 @@ def toSvg : String := Id.run do
   let n := a.frameCount
   let w := a.width.toFloat
   let h := a.height.toFloat
-  let mode := TextMode.forSvg a.text a.fontFamily
+  let mode := a.svgMode
   let trees := a.frameTrees mode
   let durS := n.toFloat / (max a.fps 1).toFloat
   let dur := fmtNum durS 4 ++ "s"

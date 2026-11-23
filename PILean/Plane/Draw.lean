@@ -152,12 +152,14 @@ def arrowTo (e : Env) (l : Look) (a b : Point) : Array Shape :=
 
 /-- An arc on the page with centre `c` and radius `r` (pixels) from world angle `θ₀` to `θ₁`,
 with an arrowhead at `θ₁` when `head`: the arc stops at the head's base, and the head points along
-the arc's direction there. -/
+the arc's direction there. A sweep of more than a full turn is drawn as the full turn that ends
+at `θ₁` (an arc is at most one turn, `Path.arc`), so the head stays on the arc's end. -/
 def arcShapes (e : Env) (l : Look) (c : Point) (r θ₀ θ₁ : Float) (head : Bool) : Array Shape :=
+  let sign : Float := if θ₁ ≥ θ₀ then 1 else -1
+  let θ₀ := if (θ₁ - θ₀).abs > 2 * pi then θ₁ - sign * 2 * pi else θ₀
   if !head || r ≤ 0 then #[e.strokePath l (screenArc c r θ₀ θ₁)]
   else
     let len := e.ps.arrowLength
-    let sign : Float := if θ₁ ≥ θ₀ then 1 else -1
     let back := min ((θ₁ - θ₀).abs) (len * 0.8 / r)
     let tip : Point := ⟨c.x + r * θ₁.cos, c.y - r * θ₁.sin⟩
     -- the direction of travel on the page at the end: the world tangent `sign (-sin, cos)`,
@@ -173,7 +175,10 @@ end Env
 abbrev WorldArc := Point × Float × Float × Float
 
 /-- The arcs (world centre, radius and angles) bounding the region two disks make, one array for
-each closed boundary (see the module docstring); a reversed full circle bounds a hole. -/
+each closed boundary (see the module docstring); a reversed full circle bounds a hole. Nothing
+when a centre or a radius is not finite (`Figure.problems` reports such an element). The half
+angles of the arcs come from `acos` of a cosine clamped to `[-1, 1]`, so that disks within rounding
+of touching, outside or inside, keep their arcs (of zero or full width). -/
 def regionArcs (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ : Point) (r₂ : Float) :
     Array (Array WorldArc) :=
   let full := fun (c : Point) (r : Float) => (#[(c, r, 0, 2 * pi)] : Array WorldArc)
@@ -181,7 +186,10 @@ def regionArcs (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ : Point) (r�
   let v := c₂ - c₁
   let d := v.norm
   let φ := Float.atan2 v.y v.x
-  if !(r₁ > 0) || !(r₂ > 0) then
+  let clampedAcos := fun (x : Float) => Float.acos (max (-1) (min 1 x))
+  if !(c₁.x.isFinite && c₁.y.isFinite && c₂.x.isFinite && c₂.y.isFinite && r₁.isFinite &&
+      r₂.isFinite) then #[]
+  else if !(r₁ > 0) || !(r₂ > 0) then
     match op with
     | .intersection => #[]
     | .union => (if r₁ > 0 then #[full c₁ r₁] else #[]) ++ (if r₂ > 0 then #[full c₂ r₂] else #[])
@@ -197,8 +205,8 @@ def regionArcs (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ : Point) (r�
     | .union => if r₁ ≥ r₂ then #[full c₁ r₁] else #[full c₂ r₂]
     | .difference => if r₁ > r₂ then #[full c₁ r₁, hole c₂ r₂] else #[]
   else
-    let h₁ := Float.acos ((d * d + r₁ * r₁ - r₂ * r₂) / (2 * d * r₁))
-    let h₂ := Float.acos ((d * d + r₂ * r₂ - r₁ * r₁) / (2 * d * r₂))
+    let h₁ := clampedAcos ((d * d + r₁ * r₁ - r₂ * r₂) / (2 * d * r₁))
+    let h₂ := clampedAcos ((d * d + r₂ * r₂ - r₁ * r₁) / (2 * d * r₂))
     match op with
     | .intersection => #[#[(c₁, r₁, φ - h₁, φ + h₁), (c₂, r₂, φ + pi - h₂, φ + pi + h₂)]]
     | .union => #[#[(c₁, r₁, φ + h₁, φ + 2 * pi - h₁), (c₂, r₂, φ + pi + h₂, φ + 3 * pi - h₂)]]
@@ -243,6 +251,7 @@ def drawGeom (e : Env) (l : Look) : Geom → Array Shape
     let p := ((Path.empty.moveTo q).arcTo q r (-θ₀) (-θ₁)).close
     #[.path p (if l.filled then some (e.tint l) else none) (e.outlineOf l)]
   | .polygon vs =>
+    if vs.isEmpty then #[] else
     #[.path (Path.polyline (vs.map e.frame.toScreen)).close
       (if l.filled then some (e.tint l) else none) (e.outlineOf l)]
   | .polyline vs =>
@@ -250,6 +259,7 @@ def drawGeom (e : Env) (l : Look) : Geom → Array Shape
       let qs := vs.map e.frame.toScreen
       #[e.strokePath l (Path.polyline qs.pop)] ++
         e.arrowTo l (qs[qs.size - 2]!) (qs[qs.size - 1]!)
+    else if vs.isEmpty then #[]
     else #[e.strokePath l (Path.polyline (vs.map e.frame.toScreen))]
   | .angleMark c θ₀ θ₁ radius =>
     e.arcShapes l (e.frame.toScreen c) (radius.getD e.ps.angleRadius) θ₀ θ₁ true

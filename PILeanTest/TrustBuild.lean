@@ -23,7 +23,7 @@ open PILean PILean.Trust
 /-- A small tagged figure of a function plot. -/
 @[figure] def sampleFigure : Plot.Figure :=
   { title := "T", width := 160, height := 100,
-    panels := #[{ series := #[.function "x²" (fun x => x * x) (-1) 1] }] }
+    panels := #[{ bare := true, series := #[.function "x²" (fun x => x * x) (-1) 1] }] }
 
 /-- A small tagged graph. -/
 @[figure] def sampleGraph : Graph := Graph.ofPairs [(0, 1), (1, 2)]

@@ -68,10 +68,11 @@ def inWindow (j : Nat) : Bool :=
 def stepLabel (j : Nat) : String := #["1", "ζ", "ζ²", "ζ³", "ζ⁴"].getD j ""
 
 /-- The items of step `j`: the segment from the origin to `ζʲ` (accent 0 when `ζʲ` is in the window,
-faint otherwise) and its label, outside the circle in the direction of the step. -/
+faint otherwise), titled `the step to` and its label, and its label, outside the circle in the
+direction of the step. -/
 def stepItems (j : Nat) : Array Item :=
   let t : Tone := if inWindow j then .accent 0 else .faint
-  #[(Plane.Exact.segment Zeta5.zero (Zeta5.pow j)).tone t,
+  #[(Plane.Exact.segment Zeta5.zero (Zeta5.pow j)).tone t |>.named s!"the step to {stepLabel j}",
     (Plane.Exact.label (stepLabel j) (Zeta5.pow j) (.toward (2 * pi * j.toFloat / 5))).tone t]
 
 /-- The window disk. -/
@@ -160,23 +161,58 @@ def houseStyle : Style :=
         ⟨"s2", ⟨162, 28, 175, 255⟩, ⟨239, 166, 247, 255⟩⟩,
         ⟨"s3", ⟨13, 107, 99, 255⟩, ⟨94, 224, 200, 255⟩⟩] } }
 
-/-- A piece of the chord in a role, with its label beside it. -/
-def piece (a b : Zeta5) (role label : String) : Array Item :=
-  #[Plane.Exact.segment a b |>.role role |>.width 6,
-    Plane.Exact.labelBeside label a b |>.role role |>.size 14]
+/-- The left circle: the closed disk of radius `R` about `-1`, outlined, untinted. -/
+def leftCircle : Item :=
+  Plane.Exact.disk left R |>.noFill |>.width 1.5 |>.named "the left circle"
+
+/-- The right circle: the closed disk of radius `R` about `1`, outlined, untinted. -/
+def rightCircle : Item :=
+  Plane.Exact.disk right R |>.noFill |>.width 1.5 |>.named "the right circle"
+
+/-- The lens: the intersection of the two closed disks, a region of its own in the role
+`lens`. -/
+def lens : Item :=
+  Plane.Exact.lens left right R R |>.role "lens" |>.fillOpacity 0.14 |>.named "the lens"
+
+/-- The piece of the chord from `a` to `b` in a role, with a title. -/
+def piece (a b : Zeta5) (role title : String) : Item :=
+  Plane.Exact.segment a b |>.role role |>.width 6 |>.named title
+
+/-- The label of a piece, beside it, in its role. -/
+def pieceLabel (a b : Zeta5) (role label : String) : Item :=
+  Plane.Exact.labelBeside label a b |>.role role |>.size 14
+
+/-- The first piece, from `-E` to `-F`. -/
+def pieceS1 : Item := piece (-E) (-F) "s1" "the piece S₁"
+
+/-- The second piece, from `-F` to `-G`. -/
+def pieceS2 : Item := piece (-F) (-G) "s2" "the piece S₂"
+
+/-- The third piece, from `-G` to `E`, through `0`. -/
+def pieceS3 : Item := piece (-G) E "s3" "the piece S₃"
+
+/-- The point `0`, on the third piece. -/
+def pointZero : Item := Plane.Exact.point Zeta5.zero |>.incident .on "the piece S₃"
+
+/-- The point `E`, on the left circle and so on the lens's boundary. -/
+def pointE : Item :=
+  Plane.Exact.point E |>.incident .on "the left circle" |>.incident .on "the lens"
+
+/-- The point `-E`, on the right circle and so on the lens's boundary. -/
+def pointNegE : Item :=
+  Plane.Exact.point (-E) |>.incident .on "the right circle" |>.incident .on "the lens"
+
+/-- A corner `c` of the lens, on both circles. -/
+def cornerPoint (c : Zeta5) : Item :=
+  Plane.Exact.point c |>.incident .on "the left circle" |>.incident .on "the right circle"
+    |>.incident .on "the lens"
 
 /-- The items of the reference figure. -/
 def items : Array Item :=
-  #[Plane.Exact.disk left R |>.noFill |>.width 1.5 |>.named "the left disk",
-    Plane.Exact.disk right R |>.noFill |>.width 1.5 |>.named "the right disk",
-    Plane.Exact.lens left right R R |>.role "lens" |>.fillOpacity 0.14 |>.named "the lens"] ++
-  piece (-E) (-F) "s1" "S₁" ++ piece (-F) (-G) "s2" "S₂" ++ piece (-G) E "s3" "S₃" ++
-  #[Plane.Exact.point left, Plane.Exact.point right,
-    Plane.Exact.point Zeta5.zero |>.incident .on "the chord",
-    Plane.Exact.point E |>.incident .on "the left circle",
-    Plane.Exact.point (-E) |>.incident .on "the right circle",
-    Plane.Exact.point corner |>.incident .on "both circles",
-    Plane.Exact.point (-corner) |>.incident .on "both circles",
+  #[leftCircle, rightCircle, lens, pieceS1, pieceLabel (-E) (-F) "s1" "S₁", pieceS2,
+    pieceLabel (-F) (-G) "s2" "S₂", pieceS3, pieceLabel (-G) E "s3" "S₃",
+    Plane.Exact.point left, Plane.Exact.point right, pointZero, pointE, pointNegE,
+    cornerPoint corner, cornerPoint (-corner),
     Plane.Exact.label "−1" left .auto, Plane.Exact.label "+1" right .auto,
     Plane.Exact.label "0" Zeta5.zero .auto, Plane.Exact.label "E" E .auto,
     Plane.Exact.label "−E" (-E) .auto]
@@ -193,16 +229,49 @@ def reference : Plane.Figure where
   items := Reference.items
   info := { title := "Two disks, their lens and the chord in three pieces" }
 
-/-- What the reference figure holds, and the incidences its points record, decided exactly in
-ℚ(√5): `E` is on the left circle and `-E` on the right one (`|E + 1|² = |-E - 1|² = 3 + φ`), and
-the corners are on both (`|ζ - ζ⁴ ± 1|² = 3 + φ`). -/
+open Reference in
+/-- What the reference figure draws and why its records are right. Its items are
+`Reference.items`: the left and right circles (the closed disks of radius `R = √(3 + φ)` about
+`-1` and `1`), the lens (their intersection) in the role `lens`, the chord's pieces from `-E` to
+`-F`, from `-F` to `-G` and from `-G` to `E` in the roles `s1`, `s2`, `s3` (`F = φ⁻¹ E`,
+`G = φ⁻³ E`), the point `0` recorded on the third piece, `E` on the left circle and the lens, `-E`
+on the right circle and the lens, and the corners `±(ζ - ζ⁴)` on both circles and the lens. The
+records hold, exactly in ℚ(√5): `|E + 1|² = 3 + φ` and `|E - 1|² < 3 + φ` (`E` is on the left
+circle and inside the right disk, so on the lens's boundary), the same for `-E` with the sides
+exchanged, `|ζ - ζ⁴ ± 1|² = 3 + φ` for both corners; and `φ⁻¹ = ζ + ζ⁴` is real and between 0
+and 1, so `-G = -φ⁻³ E` lies between `-E` and `0` and the third piece passes through `0`. -/
 theorem reference_spec :
     reference.items = Reference.items ∧
-    (Reference.E + Reference.right).normSq = Reference.threePlusPhi ∧
-    (-Reference.E - Reference.right).normSq = Reference.threePlusPhi ∧
-    (Reference.corner + Reference.right).normSq = Reference.threePlusPhi ∧
-    (Reference.corner - Reference.right).normSq = Reference.threePlusPhi := by
-  refine ⟨rfl, ?_, ?_, ?_, ?_⟩ <;> decide +kernel
+    Plane.Exact.IsDisk leftCircle left R .ink "the left circle" ∧
+    Plane.Exact.IsDisk rightCircle right R .ink "the right circle" ∧
+    Plane.Exact.IsRegion Reference.lens .intersection left right R R (.role "lens") "the lens" ∧
+    Plane.Exact.IsSegment pieceS1 (-E) (-F) (.role "s1") "the piece S₁" ∧
+    Plane.Exact.IsSegment pieceS2 (-F) (-G) (.role "s2") "the piece S₂" ∧
+    Plane.Exact.IsSegment pieceS3 (-G) E (.role "s3") "the piece S₃" ∧
+    Plane.Exact.IsPoint pointZero Zeta5.zero .ink #[(.on, "the piece S₃")] ∧
+    Plane.Exact.IsPoint pointE E .ink #[(.on, "the left circle"), (.on, "the lens")] ∧
+    Plane.Exact.IsPoint pointNegE (-E) .ink #[(.on, "the right circle"), (.on, "the lens")] ∧
+    Plane.Exact.IsPoint (cornerPoint corner) corner .ink
+      #[(.on, "the left circle"), (.on, "the right circle"), (.on, "the lens")] ∧
+    Plane.Exact.IsPoint (cornerPoint (-corner)) (-corner) .ink
+      #[(.on, "the left circle"), (.on, "the right circle"), (.on, "the lens")] ∧
+    (E - left).normSq = R.radicand ∧ QSqrt.lt (E - right).normSq R.radicand = true ∧
+    (-E - right).normSq = R.radicand ∧ QSqrt.lt (-E - left).normSq R.radicand = true ∧
+    (corner - left).normSq = R.radicand ∧ (corner - right).normSq = R.radicand ∧
+    (-corner - left).normSq = R.radicand ∧ (-corner - right).normSq = R.radicand ∧
+    (phiInv.conj == phiInv) = true ∧ QSqrt.lt ⟨0, 0⟩ phiInv.realPart = true ∧
+    QSqrt.lt phiInv.realPart ⟨1, 0⟩ = true ∧ (G == phiInv * phiInv * phiInv * E) = true := by
+  refine ⟨rfl, ?_⟩
+  repeat' apply And.intro
+  all_goals first
+    | decide +kernel
+    | simp [Plane.Exact.IsDisk, Plane.Exact.IsSegment, Plane.Exact.IsPoint,
+        Plane.Exact.IsRegion, leftCircle, rightCircle, Reference.lens, piece, pieceS1, pieceS2,
+        pieceS3, pointZero, pointE, pointNegE, cornerPoint, Plane.Exact.disk, Plane.Exact.lens,
+        Plane.Exact.segment, Plane.Exact.point, Plane.disk, Plane.lens, Plane.segment,
+        Plane.point, Item.noFill, Item.width, Item.role, Item.tone, Item.fillOpacity,
+        Item.named, Item.incident, Item.mapLook, Item.mapInfo, and_assoc, exists_and_left,
+        exists_eq_left']
 
 figure_proves reference reference_spec
 
