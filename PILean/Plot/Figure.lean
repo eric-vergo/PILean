@@ -21,11 +21,12 @@ axes, series and annotations. `Figure.draw` lays it out as a drawing on the vect
 * **Axes**: linear or logarithmic (`ScaleKind`), domains from the data widened to whole ticks
   or given, major ticks with labels, minor ticks, a grid, an axis label.
 * **Panels** in a grid of `columns`, with shared horizontal or vertical axes: one domain for all
-  panels, tick labels only on the outer panels.
+  panels, tick labels only on the outer panels; a panel with `equalAspect` gives one unit as
+  many pixels across as down (its plot area narrowed or shortened, centred).
 * **Legend**: one row (wrapped when long) under the title, each series' label after a swatch of
   its mark, drawn when a figure has more than one labelled series.
 * **Annotations**: text at a point, horizontal and vertical reference lines with labels, a
-  labelled point.
+  labelled point, shaded horizontal and vertical bands with labels (drawn under the series).
 * **Craft**: plot areas on whole pixels and one-pixel lines on pixel centres; text measured with
   the style's text engine; nothing drawn in a series colour but the series' marks.
 
@@ -101,6 +102,12 @@ inductive Annotation where
   | vline (x : Float) (label : String := "")
   /-- A point, marked and labelled. -/
   | point (at_ : Point) (label : String)
+  /-- A shaded horizontal band from `lo` to `hi` on the vertical axis, across the panel, drawn
+  under the series, labelled at its top left; in the style's muted ink unless a colour is given
+  (drawn at the style's `areaOpacity`). -/
+  | hband (lo hi : Float) (label : String := "") (color : Option Rgba := none)
+  /-- A shaded vertical band from `lo` to `hi` on the horizontal axis, likewise. -/
+  | vband (lo hi : Float) (label : String := "") (color : Option Rgba := none)
   deriving Inhabited
 
 /-- An axis. -/
@@ -125,8 +132,11 @@ structure Panel where
   y : Axis := {}
   /-- The series, drawn in order. -/
   series : Array Series := #[]
-  /-- The annotations, drawn over the series. -/
+  /-- The annotations, drawn over the series (bands under them). -/
   notes : Array Annotation := #[]
+  /-- Whether one unit takes as many pixels across as down (both axes linear): the plot area is
+  narrowed or shortened, centred in its cell, to make it so. -/
+  equalAspect : Bool := false
   deriving Inhabited
 
 /-- A figure. -/
@@ -353,6 +363,19 @@ def Figure.gridTop (fig : Figure) : Float := Id.run do
     top := top + rws.size.toFloat * lineHeight st st.legendSize * 1.25 + st.titleGap * 0.5
   return top
 
+/-- The part of a plot area, centred in it and with whole-pixel edges, in which spans `dx` across
+and `dy` down take the same number of pixels per unit (the area itself for spans that are not
+positive and finite). -/
+def equalAspectArea (a : Box) (dx dy : Float) : Box :=
+  if !(dx > 0) || !(dy > 0) || dx.isInf || dy.isInf then a
+  else
+    let k := min (a.width / dx) (a.height / dy)
+    let w := (k * dx).round
+    let h := (k * dy).round
+    let x0 := (a.x0 + (a.width - w) / 2).round
+    let y0 := (a.y0 + (a.height - h) / 2).round
+    ⟨x0, y0, x0 + w, y0 + h⟩
+
 /-- The figure's panels laid out. -/
 def Figure.layout (fig : Figure) : Array PanelLayout := Id.run do
   let st := fig.style
@@ -441,6 +464,10 @@ def Figure.layout (fig : Figure) : Array PanelLayout := Id.run do
     let pad := st.plotPadding
     let sy := sy.padded (if zeroBased.getD i false then 0 else pad) pad area.height
     let sx := if cats.isEmpty && points.getD i false then sx.padded pad pad area.width else sx
+    let p := fig.panels[i]!
+    let area := if p.equalAspect && cats.isEmpty && sx.kind == .linear && sy.kind == .linear then
+        equalAspectArea area (sx.hi - sx.lo) (sy.hi - sy.lo)
+      else area
     let pl : PanelLayout :=
       { area, sx, sy, categories := cats, xLabels := showX, yLabels := showY, hasData }
     out := out.push pl
@@ -727,7 +754,35 @@ def drawFrame (st : Style) (l : PanelLayout) (p : Panel) : Array Shape × Array 
       st.inkMuted .middle)
   return (grid, front)
 
-/-- The shapes of a panel's annotations. -/
+/-- The shaded bands of a panel (`Annotation.hband`, `vband`), drawn under its series. -/
+def drawBands (st : Style) (l : PanelLayout) (p : Panel) : Array Shape := Id.run do
+  let a := l.area
+  let mut out := #[]
+  let fill := fun (c : Option Rgba) =>
+    let c := c.getD st.inkMuted
+    Fill.solid { c with a := (max 0 (min 1 st.areaOpacity) * c.a.toFloat).round.toUInt8 }
+  for n in p.notes do
+    match n with
+    | .hband lo hi label c =>
+      if let (some y0, some y1) := (l.sy.map a.y1 a.y0 lo, l.sy.map a.y1 a.y0 hi) then
+        let (t, b) := (max a.y0 (min y0 y1), min a.y1 (max y0 y1))
+        if b > t then
+          out := out.push (.path (rect a.x0 t a.width (b - t)) (some (fill c)) none)
+          if !label.isEmpty then
+            out := out.push (.text label ⟨a.x0 + 5, t + st.noteSize + 2⟩ st.noteSize
+              st.inkSecondary .start)
+    | .vband lo hi label c =>
+      if let (some x0, some x1) := (l.sx.map a.x0 a.x1 lo, l.sx.map a.x0 a.x1 hi) then
+        let (lft, rgt) := (max a.x0 (min x0 x1), min a.x1 (max x0 x1))
+        if rgt > lft then
+          out := out.push (.path (rect lft a.y0 (rgt - lft) a.height) (some (fill c)) none)
+          if !label.isEmpty then
+            out := out.push (.text label ⟨lft + 5, a.y0 + st.noteSize + 2⟩ st.noteSize
+              st.inkSecondary .start)
+    | _ => pure ()
+  return out
+
+/-- The annotations of a panel other than bands (`drawBands`), drawn over the series. -/
 def drawNotes (st : Style) (l : PanelLayout) (p : Panel) : Array Shape := Id.run do
   let a := l.area
   let mut out := #[]
@@ -756,6 +811,7 @@ def drawNotes (st : Style) (l : PanelLayout) (p : Panel) : Array Shape := Id.run
         out := out.push (.path (circle q (st.markerRadius + 2)) none
           (some { ink := st.inkPrimary, width := 1.25 }))
         out := out.push (.text label ⟨q.x + 9, q.y - 8⟩ st.noteSize st.inkPrimary .start)
+    | .hband .. | .vband .. => pure ()
   return out
 
 /-- The legend's swatch for an entry at `x` on the line through `mid`. -/
@@ -794,7 +850,7 @@ def Figure.draw (fig : Figure) : Shape := Id.run do
       top := top + lineHeight st st.legendSize * 1.25
   for (p, l) in fig.panels.zip fig.layout do
     let (grid, front) := drawFrame st l p
-    out := out ++ grid
+    out := out ++ grid ++ drawBands st l p
     let pad := st.markerRadius + st.lineWidth + 1
     let clip := rect (l.area.x0 - pad) (l.area.y0 - pad) (l.area.width + 2 * pad)
       (l.area.height + 2 * pad)
