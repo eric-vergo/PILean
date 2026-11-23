@@ -26,10 +26,16 @@ directly.
   (`TextMode.native`), or shapes from a `TextEngine` (`TextMode.shapes`), which is how text
   reaches images. Its position is its anchor point on the baseline.
 * Ids of clips and gradients are numbered in drawing order, so the output is deterministic.
+* **Metadata** (`ShapeInfo`, `Shape.tagged`): an accessible title and description, CSS classes, a
+  stable id and the name of a Lean declaration, attached to a shape. SVG writes them as a `g`
+  with `id`, `class` and `data-lean-decl` attributes and `title` and `desc` children; an image
+  draws the shape alone (the rasteriser skips `title` and `desc`). Ids and classes are reduced to
+  ASCII letters, digits, `_`, `-` and `.`, so that what a caller passes cannot become markup or a
+  link; titles and descriptions are text, escaped by the writer.
 
 ## Main definitions
 
-* `Fill`, `Line`, `Shape`, `TextMode`.
+* `Fill`, `Line`, `ShapeInfo`, `Shape`, `TextMode`.
 * `Shape.render`, `Shape.toSvg`, `Shape.toImage`, `Shape.toPng`.
 -/
 
@@ -59,6 +65,54 @@ structure Line where
   dash : Array Float := #[]
   deriving Inhabited
 
+/-- Metadata of a shape, all optional (empty strings are left out): an accessible title and
+description, CSS classes separated by spaces, a stable id, and the name of the Lean declaration
+the shape shows. -/
+structure ShapeInfo where
+  /-- The accessible name, written as a `title` child. -/
+  title : String := ""
+  /-- The accessible description, written as a `desc` child. -/
+  description : String := ""
+  /-- CSS classes, separated by spaces. -/
+  cssClass : String := ""
+  /-- A stable id, unique within the document if the page refers to it. -/
+  id : String := ""
+  /-- The full name of a Lean declaration, written as `data-lean-decl`. -/
+  leanDecl : String := ""
+  deriving BEq, Inhabited, Repr
+
+/-- Whether every field of the metadata is empty. -/
+def ShapeInfo.isEmpty (i : ShapeInfo) : Bool :=
+  i.title.isEmpty && i.description.isEmpty && i.cssClass.isEmpty && i.id.isEmpty &&
+    i.leanDecl.isEmpty
+
+/-- The metadata of `j` where it has a field, else that of `i`; classes are joined. -/
+def ShapeInfo.merge (i j : ShapeInfo) : ShapeInfo where
+  title := if j.title.isEmpty then i.title else j.title
+  description := if j.description.isEmpty then i.description else j.description
+  cssClass := if i.cssClass.isEmpty then j.cssClass else if j.cssClass.isEmpty then i.cssClass
+    else i.cssClass ++ " " ++ j.cssClass
+  id := if j.id.isEmpty then i.id else j.id
+  leanDecl := if j.leanDecl.isEmpty then i.leanDecl else j.leanDecl
+
+/-- An identifier reduced to ASCII letters, digits, `_`, `-` and `.`: every other character
+becomes `_`. -/
+def safeToken (s : String) : String :=
+  s.map fun c => if (c.isAlphanum && c.val < 128) || c == '_' || c == '-' || c == '.' then c
+    else '_'
+
+/-- The attributes and children of the metadata in SVG: `id`, `class` (each class through
+`safeToken`) and `data-lean-decl`, and the `title` and `desc` elements; empty fields are left
+out. -/
+def ShapeInfo.svgParts (i : ShapeInfo) : Array (String × String) × Array Svg.Node :=
+  let classes := (i.cssClass.split (· == ' ')).toList.map (·.toString) |>.filter (!·.isEmpty)
+  let attrs := (if i.id.isEmpty then #[] else #[("id", safeToken i.id)]) ++
+    (if classes.isEmpty then #[] else #[("class", " ".intercalate (classes.map safeToken))]) ++
+    (if i.leanDecl.isEmpty then #[] else #[("data-lean-decl", i.leanDecl)])
+  let kids := (if i.title.isEmpty then #[] else #[Svg.el "title" #[] #[.text i.title]]) ++
+    (if i.description.isEmpty then #[] else #[Svg.el "desc" #[] #[.text i.description]])
+  (attrs, kids)
+
 /-- A drawing. -/
 inductive Shape where
   /-- A path with an optional fill and stroke, at an opacity. -/
@@ -72,6 +126,9 @@ inductive Shape where
   group's coordinates). -/
   | group (children : Array Shape) (transform : Affine := Affine.id) (opacity : Float := 1)
       (clip : Option Path := none)
+  /-- A shape with metadata (see `ShapeInfo`): in SVG a `g` carrying it around the shape's
+  nodes, in an image the shape alone. -/
+  | tagged (info : ShapeInfo) (child : Shape)
   deriving Inhabited
 
 /-- How text is written. -/
@@ -172,6 +229,11 @@ def renderAt (mode : TextMode) : Nat → Affine → Shape → StateM RenderState
         attrs := attrs.push ("clip-path", s!"url(#{id})")
       if opacity < 1 then attrs := attrs.push ("opacity", fmtNum (max 0 opacity) 3)
       return if attrs.isEmpty then inner else #[el "g" attrs inner]
+    | .tagged info child => do
+      let inner ← renderAt mode fuel m child
+      if info.isEmpty then return inner
+      let (attrs, kids) := info.svgParts
+      return #[el "g" attrs (kids ++ inner)]
 where
   /-- A gradient's geometry under a transformation. -/
   transformPaint (m : Affine) : Raster.Paint → Raster.Paint
