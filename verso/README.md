@@ -75,7 +75,9 @@ figures page and on each element of an inline picture that names a declaration (
 
 * `ideil` (the default): `lean:decl/<Name>` links, for an editor that shows the site beside the
   code. In the source line they are shown only when the page's root has `data-lean-links`
-  (plain names otherwise); in an inline picture each such element is a link.
+  (plain names otherwise); in an inline picture each such element is a link, which does nothing
+  in an ordinary browser but is still a tab stop: a site published for browsers should use
+  `site` or `none`.
 * `site`: a link to the declaration's place in the built site: the row of the Lean panel of the
   Blueprint entry that names it (`(lean := "...")`), else an inline Lean block that defines it,
   else the figure it draws (on the figures page; under the figure itself the name is not a link
@@ -97,10 +99,13 @@ A link is never put inside another.
 * With `inline := true`, the picture is an `svg` element of the page (its narrow rendition on
   screens up to 560 px wide, when it has one): the titles of its elements show on hover, the
   elements that name a declaration link to it (see "Links to Lean"), and one picture serves both
-  themes through a `style` element inside it. A content policy must allow those `style`
-  elements, with `style-src 'unsafe-inline'` or the hash of each; nothing else of a figure needs
-  inline style except a `width :=`, which is a `style` attribute (`style-src-attr`). No script is
-  needed for an inline picture.
+  themes through a `style` element inside it. No script is needed for an inline picture.
+* Content policy: the figures' stylesheets are `<style>` elements in the page's head (as Verso
+  writes the CSS of its extensions), and each inline picture has its own `style` element; a
+  policy must allow all of them, with `style-src 'unsafe-inline'` or the hash of each `<style>`
+  element of the page (the example's browser check serves the pages so). A `width :=` is a
+  `style` attribute (`style-src-attr`); Verso's own math markup has some too. Scripts come from
+  the site's files only.
 * An explorer: every frame is in the page. The site's script `pilean-explorer.js` (a file of the
   site, loaded deferred; no network, no `eval`, no `innerHTML`) shows one frame at a time with a
   slider for the parameter (named "Value of <axis> in Figure <n>", its value said by the slider
@@ -113,7 +118,9 @@ A link is never put inside another.
   reset and the arrows pan. Frames of different sizes keep their own view. Every control is at
   least 44 by 44 pixels. With reduced motion there is no play button. Without script the frames
   are a grid in their order, as many columns as fit, each with its value and step under it, the
-  frame shown first with script outlined, and nothing in it is focusable.
+  frame shown first with script outlined; nothing in it is focusable but the links of its
+  pictures, in the link modes that have them. The play button is a toggle (`aria-pressed`); keys
+  with Ctrl, ⌘ or Alt held are left to the browser.
 * "Figure 1.2" and the caption, numbered as the Blueprint numbers its blocks
   (`verso.blueprint.numbering`, `verso.blueprint.subNumberingPrefix`), with a counter of its own.
 * A source line: the declaration that made the picture and its file and line; the fingerprint

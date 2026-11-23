@@ -31,7 +31,8 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   value and its step caption as data attributes (`data-value-text`, `data-step-text`) and shows
   them under the picture. Without script the frames are a grid in their order, as many columns as
   fit, each picture with its value and step under it, the frame shown first with script outlined;
-  nothing is focusable and no control is shown. The script `pilean-explorer.js` (`explorerJs`, a
+  no control is shown and nothing is focusable but the links of the pictures (in the link modes
+  that have links). The script `pilean-explorer.js` (`explorerJs`, a
   file of the site; no network, no `eval`, no `innerHTML`; it runs under a content policy that
   allows the site's own scripts only) marks the root `pilean-explorer-live`, shows the controls (a
   slider for the parameter axis, previous, play and next for the steps, zoom in, zoom out and
@@ -41,7 +42,8 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   the wheel and a one-finger swipe scroll the page; Ctrl or ⌘ with the wheel (what a trackpad
   pinch sends) zooms about the pointer, and the wheel events that follow within 400 ms keep
   zooming, so a gesture under way does not turn into a scroll; two fingers pinch and pan; a mouse
-  drag pans; on the focused view `+`, `-` and `0` zoom and reset and the arrows pan.
+  drag pans; on the focused view `+`, `-` and `0` zoom and reset and the arrows pan (with Ctrl, ⌘
+  or Alt held, keys are left to the browser).
 * **Announcements.** One polite status region per explorer says the step after previous or next
   (`Step 2 of 4: …`); the slider says its value itself (`aria-valuetext`); nothing is announced
   when the page loads or while the steps play. A reader who asks for reduced motion gets no play
@@ -306,10 +308,7 @@ def explorerJs : String := r##"// PILean explorers: one frame at a time, a slide
     function stop() {
       if (timer) { clearInterval(timer); timer = null; }
       if (status) status.setAttribute("aria-live", "polite");
-      if (play) {
-        play.setAttribute("aria-pressed", "false");
-        play.setAttribute("aria-label", "Play the steps");
-      }
+      if (play) play.setAttribute("aria-pressed", "false");
     }
     if (slider) {
       slider.addEventListener("input", function () { vi = Number(slider.value); show(); });
@@ -325,7 +324,6 @@ def explorerJs : String := r##"// PILean explorers: one frame at a time, a slide
         else {
           if (status) status.setAttribute("aria-live", "off");
           play.setAttribute("aria-pressed", "true");
-          play.setAttribute("aria-label", "Pause the steps");
           timer = setInterval(function () { sj = (sj + 1) % steps; show(); }, 1400);
         }
       }
@@ -385,6 +383,7 @@ def explorerJs : String := r##"// PILean explorers: one frame at a time, a slide
     view.addEventListener("pointerup", up);
     view.addEventListener("pointercancel", up);
     view.addEventListener("keydown", function (ev) {
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       var c = centre(), step = rel.w / 10, done = true;
       switch (ev.key) {
         case "+": case "=": zoomAbout(c.x, c.y, 1.25); break;
@@ -454,6 +453,7 @@ a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
 .pilean-explorer-controls {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
   gap: 0.4rem 0.9rem; margin-top: 0.5rem; font-size: 0.92em; max-width: 100%;
+  text-align: center;
 }
 .pilean-explorer-controls[hidden] { display: none; }
 .pilean-explorer-axis {

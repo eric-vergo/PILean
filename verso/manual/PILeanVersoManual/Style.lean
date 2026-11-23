@@ -86,6 +86,7 @@ html[data-theme="dark"] .pilean-figure-has-dark .pilean-figure-dark { display: b
 .pilean-source-item {
   display: inline-flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: baseline;
   gap: 0.35em;
   min-width: 0;

@@ -245,6 +245,13 @@ def control_checks(c, browser, base, shots):
     box2 = view_box(page, "radius")
     c.check("+ zooms the view and 0 resets it",
             width_of(box1) < width_of(box0) and box2 == box0, f"{box0} / {box1} / {box2}")
+    page.evaluate("""() => { window.__prevented = [];
+      window.addEventListener('keydown', e => window.__prevented.push(e.defaultPrevented)); }""")
+    for key in ["Control+=", "Control+0", "Meta+=", "Alt+ArrowLeft"]:
+        page.keyboard.press(key)
+    kept = page.evaluate("window.__prevented")
+    c.check("keys with Ctrl, Meta or Alt are left to the browser",
+            view_box(page, "radius") == box0 and kept and not any(kept), str(kept))
     label = view.get_attribute("aria-label") or ""
     help_id = view.get_attribute("aria-describedby") or ""
     helped = page.evaluate("(id) => !!document.getElementById(id)", help_id) if help_id else False
@@ -503,6 +510,32 @@ CENTRED = """(sel) => {
       e.getBoundingClientRect().width > 0);
     if (fr.left < box.left - 0.5 || fr.right > box.right + 0.5)
       out.push([f.id, 'figure', fr.left, fr.right, box.left, box.right]);
+    // Every line of the caption's text is centred too.
+    for (const cap of f.querySelectorAll('figcaption')) {
+      const cr = cap.getBoundingClientRect();
+      const rows = [];
+      const boxes = [];
+      const walk = document.createTreeWalker(cap, NodeFilter.SHOW_TEXT);
+      for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+        const p = n.parentElement;
+        if (!n.textContent.trim() || !p.getClientRects().length) continue;
+        if (p.closest('svg, .pilean-fingerprint, .bp_math')) continue;
+        const r = document.createRange(); r.selectNodeContents(n);
+        boxes.push(...r.getClientRects());
+      }
+      for (const e of cap.querySelectorAll('.bp_math, svg, .pilean-fingerprint'))
+        if (!e.parentElement.closest('svg, .bp_math')) boxes.push(...e.getClientRects());
+      for (const q of boxes) {
+        if (q.width < 1) continue;
+        const mid = (q.top + q.bottom) / 2;
+        const row = rows.find(w => mid > w.top && mid < w.bottom);
+        if (row) { row.l = Math.min(row.l, q.left); row.r = Math.max(row.r, q.right); }
+        else rows.push({top: q.top, bottom: q.bottom, l: q.left, r: q.right});
+      }
+      for (const {l, r} of rows)
+        if (Math.abs((l - cr.left) - (cr.right - r)) > 3)
+          out.push([f.id, 'caption line', Math.round(l - cr.left), Math.round(cr.right - r)]);
+    }
     for (const e of parts) {
       const r = e.getBoundingClientRect();
       const l = r.left - fr.left, rt = fr.right - r.right;
