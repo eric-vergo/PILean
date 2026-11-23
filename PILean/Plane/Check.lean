@@ -25,15 +25,18 @@ of `PILean.Graph.Check`), measured on the page, in pixels:
   of the element's defining points (the end of a segment, a vertex, the end of an arc) is not
   reported.
 * `lowContrast`: a colour an element uses is below `textContrast` (labels) or `graphicContrast`
-  (everything else) against the background, in the figure's style and, for a figure in the default
-  light colours, in its dark twin (`Style.dark`'s background and `PlaneStyle.dark`).
+  (everything else) against what it is drawn on: the background with the tints of the earlier
+  elements that cover the label's centre or the marker's (composited in sRGB), in the figure's
+  style and, for a figure in the default light colours, in its dark twin (`Style.dark`'s
+  background, `PlaneStyle.dark`, and the dark colours of its roles).
 
 The geometry of an element is that of its drawing (`drawGeom`): its paths flattened to within a
 quarter pixel, so arcs, arrowheads and clipped lines are checked as drawn.
 
-`Figure.autoPlaced` uses the same geometry to place the labels whose placement is `auto`: each in
-turn takes the first of the eight sides (`Placement.compass`) where its box stays on the page and
-meets no other label and nothing it is not attached to.
+`Figure.autoPlaced` uses the same geometry to place the labels whose placement is `auto` (the eight
+sides, `Placement.compass`) or `across` a line (either side of it): each in turn takes the least
+offset, and at it the first side, where its box stays on the page and meets no other label and
+nothing it is not attached to. `Figure.problems` checks the finished figure again.
 
 ## Main definitions
 
@@ -109,6 +112,13 @@ structure Problem where
   deriving Inhabited, Repr
 
 /-! ### Page geometry -/
+
+/-- `c` (with its alpha) over the opaque `bg`, mixed in sRGB: what a browser shows for a
+translucent fill, and what PILean's images of plane figures show. -/
+def srgbOver (c bg : Rgba) : Rgba :=
+  let a := c.a.toFloat / 255
+  let mix := fun (x y : UInt8) => (a * x.toFloat + (1 - a) * y.toFloat).round.toUInt8
+  ⟨mix c.r bg.r, mix c.g bg.g, mix c.b bg.b, 255⟩
 
 /-- The distance from `q` to the segment from `a` to `b`. -/
 def distToSegment (q a b : Point) : Float :=
@@ -203,6 +213,8 @@ def Leaf.name (lf : Leaf) (i : Nat) : String :=
     | .polygon .. => s!"polygon (element {i})"
     | .polyline .. => s!"polyline (element {i})"
     | .angleMark .. => s!"angle mark (element {i})"
+    | .tick .. => s!"tick (element {i})"
+    | .disks .. => s!"region (element {i})"
 
 /-- The least distance from `q` to a set of segments (a very large number for none). -/
 def distToSegments (q : Point) (segs : Array (Point × Point)) : Float :=
@@ -231,6 +243,29 @@ def Leaf.centred (lf : Leaf) : Bool :=
   | _ => false
 
 /-! ### The checks -/
+
+/-- Whether the page point `q` is inside a closed polyline (even-odd). -/
+def insidePolyline (q : Point) (pl : Polyline) : Bool := Id.run do
+  let ps := pl.points
+  let mut inside := false
+  for i in [0:ps.size] do
+    let a := ps[i]!
+    let b := ps[(i + 1) % ps.size]!
+    if (a.y > q.y) != (b.y > q.y) then
+      let x := a.x + (q.y - a.y) * (b.x - a.x) / (b.y - a.y)
+      if q.x < x then inside := !inside
+  return inside
+
+/-- The tints an element lies on at the page point `q`: the fills of the earlier elements whose
+filled outline holds `q`, composited in sRGB over the background, in drawing order (the colour
+browsers and PILean's images of plane figures show there). -/
+def backgroundAt (e : Env) (before : Array Leaf) (q : Point) : Rgba :=
+  before.foldl (init := e.style.background) fun bg lf =>
+    (drawGeom e lf.look lf.geom).foldl (init := bg) fun bg s => match s with
+      | .path p (some (.solid c)) _ _ =>
+        let holds := (p.flatten 0.25).foldl (fun b pl => if insidePolyline q pl then !b else b) false
+        if holds && c.a < 255 then srgbOver c bg else bg
+      | _ => bg
 
 /-- The styles a figure's colours are checked in: its own, and its dark twin when it has the
 default light colours (named for the messages). -/
@@ -301,48 +336,69 @@ def problemsOf (fig : Figure) (o : CheckOptions := {}) : Array Problem := Id.run
         out := out.push ⟨.undecidedIncidence, #[i, j],
           s!"{leaves[i]!.name i} is {d} pixels from {leaves[j]!.name j}: a reader cannot see \
             whether it is on it; record where it is (Item.incident)"⟩
-  -- contrast
+  -- contrast, against what each element is drawn on
   let mut seen : Array (String × String) := #[]
   for (themeName, st) in checkedStyles fig.style do
+    let et : Env := { e with style := st }
     for i in [0:n] do
       let lf := leaves[i]!
       let c := lf.look.tone.resolve st.plane
       let isText := (labels[i]!).isSome
       let need := if isText then o.textContrast else o.graphicContrast
-      let r := contrast c st.background
-      let key := (Svg.rgbHex c ++ (if isText then "t" else "g"), themeName)
+      let spot := match labels[i]!, markers[i]! with
+        | some (b, _), _ => some (⟨(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2⟩ : Point)
+        | none, some (q, _) => some q
+        | none, none => none
+      let under := match spot with
+        | some q => backgroundAt et (leaves.extract 0 i) q
+        | none => st.background
+      let r := contrast c under
+      let key := (Svg.rgbHex c ++ Svg.rgbHex under ++ (if isText then "t" else "g"), themeName)
       if r < need && !seen.contains key then
         seen := seen.push key
         out := out.push ⟨.lowContrast, #[i],
-          s!"{lf.name i}: the colour {Svg.rgbHex c} has contrast {r} against the background in \
-            {themeName}, below {need}"⟩
+          s!"{lf.name i}: the colour {Svg.rgbHex c} has contrast {r} against {Svg.rgbHex under}, \
+            what it is drawn on in {themeName}, below {need}"⟩
   return out
 
 /-! ### Automatic placement of labels -/
 
-/-- Whether an element is a label placed `auto`. -/
+/-- Whether an element is a label placed `auto` or `across`. -/
 def Leaf.isAuto (lf : Leaf) : Bool :=
   match lf.geom with
-  | .label _ _ .auto _ => true
+  | .label _ _ .auto _ | .label _ _ (.across _) _ => true
   | _ => false
 
-/-- The item with the placements of its `auto` labels replaced, in drawing order, by those of
-the list (an `auto` label left over when the list runs out stays `auto`). -/
-def Item.replaceAuto : Item → StateM (List Placement) Item
-  | .shape (.label s p .auto off) l i => do
-    match ← get with
-    | pl :: rest => set rest; pure (.shape (.label s p pl off) l i)
-    | [] => pure (.shape (.label s p .auto off) l i)
+/-- The sides an automatic placement tries, in order. -/
+def Placement.candidates : Placement → Array Placement
+  | .auto => Placement.compass
+  | .across θ => #[.toward (θ + pi / 2), .toward (θ - pi / 2)]
+  | p => #[p]
+
+/-- The item with its automatic labels' placements and offsets replaced, in drawing order, by
+those of the list (one left over when the list runs out keeps its own). -/
+def Item.replaceAuto : Item → StateM (List (Placement × Float)) Item
+  | .shape (.label s p pl off) l i => do
+    if pl == .auto || (match pl with | .across _ => true | _ => false) then
+      match ← get with
+      | (q, o) :: rest => set rest; pure (.shape (.label s p q (some o)) l i)
+      | [] => pure (.shape (.label s p pl off) l i)
+    else pure (.shape (.label s p pl off) l i)
   | .shape g l i => pure (.shape g l i)
   | .group xs i => do
     let ys ← xs.attach.mapM fun ⟨x, _⟩ => x.replaceAuto
     pure (.group ys i)
 
-/-- The placements chosen for the `auto` labels of a figure, in drawing order (see the module
-docstring). -/
-def chooseAutoPlacements (fig : Figure) (o : CheckOptions := {}) : List Placement := Id.run do
-  let e := fig.env
-  let leaves := fig.leaves
+/-- How much farther than its own offset an automatic label may be pushed to clear (pixels). -/
+def autoReach : Nat := 12
+
+/-- The sides and offsets chosen for the automatic labels of `leaves` in the frame of `e`, in
+drawing order: for each label in turn, the least offset (from its own, in whole pixels up to
+`autoReach` more) and, at that offset, the first side (`Placement.candidates`) where its box stays
+on the page and meets no other label and nothing it is not attached to; the first side at its own
+offset when none clears. -/
+def chooseAutoPlacements (e : Env) (leaves : Array Leaf) (o : CheckOptions := {}) :
+    List (Placement × Float) := Id.run do
   let segs := leaves.map (strokeSegments e)
   let markers := leaves.map (markerOf e)
   let page : Box := ⟨0, 0, e.frame.width, e.frame.height⟩
@@ -350,36 +406,49 @@ def chooseAutoPlacements (fig : Figure) (o : CheckOptions := {}) : List Placemen
   for i in [0:leaves.size] do
     if !leaves[i]!.isAuto then
       if let some (b, _) := labelOf e leaves[i]! then boxes := boxes.push b
-  let mut chosen : Array Placement := #[]
+  let mut chosen : Array (Placement × Float) := #[]
   for i in [0:leaves.size] do
     let lf := leaves[i]!
-    let .label s p .auto off := lf.geom | continue
-    let mut pick : Placement := .aboveRight
-    for pl in Placement.compass do
-      let some (b, q) := labelOf e { lf with geom := .label s p pl off } | continue
-      let onPage := b.x0 ≥ page.x0 && b.y0 ≥ page.y0 && b.x1 ≤ page.x1 && b.y1 ≤ page.y1
-      let clearOfLabels := boxes.all fun c => !boxesOverlap b c o.labelTolerance
-      let clearOfItems := (List.range leaves.size).all fun j =>
-        (labelOf e leaves[j]!).isSome ||
-          !boxMeets b segs[j]! markers[j]! ||
-            attachedTo q false segs[j]! markers[j]! o.attachTolerance
-      if onPage && clearOfLabels && clearOfItems then
-        pick := pl
-        break
-    if let some (b, _) := labelOf e { lf with geom := .label s p pick off } then
+    let .label s p pl off := lf.geom | continue
+    if !lf.isAuto then continue
+    let cands := pl.candidates
+    let base := off.getD e.ps.labelOffset
+    let fits := fun (q : Placement) (d : Float) =>
+      match labelOf e { lf with geom := .label s p q (some d) } with
+      | none => false
+      | some (b, at_) =>
+        b.x0 ≥ page.x0 && b.y0 ≥ page.y0 && b.x1 ≤ page.x1 && b.y1 ≤ page.y1 &&
+          boxes.all (fun c => !boxesOverlap b c o.labelTolerance) &&
+          (List.range leaves.size).all fun j =>
+            (labelOf e leaves[j]!).isSome || !boxMeets b segs[j]! markers[j]! ||
+              attachedTo at_ false segs[j]! markers[j]! o.attachTolerance
+    let mut pick : Placement × Float := (cands[0]!, base)
+    let mut found := false
+    for k in [0:autoReach + 1] do
+      if found then break
+      for q in cands do
+        if fits q (base + k.toFloat) then
+          pick := (q, base + k.toFloat)
+          found := true
+          break
+    if let some (b, _) := labelOf e { lf with geom := .label s p pick.1 (some pick.2) } then
       boxes := boxes.push b
     chosen := chosen.push pick
   return chosen.toList
 
-/-- The figure with every `auto` label given a side (see the module docstring); the figure itself
-when it has no `auto` label. -/
+/-- The figure with every automatic label given a side and an offset (see `chooseAutoPlacements`),
+chosen in the figure's frame and chosen again in the frame of the result (a label's box changes
+the frame's scale); the figure itself when it has no automatic label. -/
 def Figure.autoPlaced (fig : Figure) (o : CheckOptions := {}) : Figure :=
   if fig.leaves.all (!·.isAuto) then fig
   else
-    let picks := chooseAutoPlacements fig o
-    { fig with items := (fig.items.mapM Item.replaceAuto).run' picks }
+    let place := fun (env : Env) =>
+      let picks := chooseAutoPlacements env fig.leaves o
+      { fig with items := (fig.items.mapM Item.replaceAuto).run' picks }
+    let first := place fig.env
+    place first.env
 
-/-- A figure without `auto` labels is drawn as it is. -/
+/-- A figure without automatic labels is drawn as it is. -/
 theorem Figure.autoPlaced_of_noAuto (fig : Figure) (o : CheckOptions)
     (h : fig.leaves.all (!·.isAuto) = true) : fig.autoPlaced o = fig := by
   simp [Figure.autoPlaced, h]

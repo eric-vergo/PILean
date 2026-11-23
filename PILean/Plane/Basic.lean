@@ -67,6 +67,9 @@ inductive Tone where
   | faint
   /-- A fixed colour, the same in every style. -/
   | color (c : Rgba)
+  /-- A named role of the style (`PlaneStyle.roles`), in its light or dark colour; the ink when
+  the style does not name it. -/
+  | role (name : String)
   deriving BEq, Inhabited, Repr
 
 /-- The colour of a tone in a style. -/
@@ -75,6 +78,31 @@ def Tone.resolve (p : PlaneStyle) : Tone → Rgba
   | .accent i => p.accent i
   | .faint => p.faint
   | .color c => c
+  | .role n => (p.role? n).getD p.ink
+
+/-- The shape of a point's marker. -/
+inductive MarkerShape where
+  /-- A filled disc. -/
+  | dot
+  /-- An open circle. -/
+  | ring
+  /-- A filled square. -/
+  | square
+  /-- A filled diamond. -/
+  | diamond
+  /-- A cross of two strokes. -/
+  | cross
+  deriving BEq, Inhabited, Repr
+
+/-- How two disks combine into a region bounded by arcs of their circles. -/
+inductive RegionOp where
+  /-- The points in both (a lens when the circles cross). -/
+  | intersection
+  /-- The points in either. -/
+  | union
+  /-- The points in the first and not in the second. -/
+  | difference
+  deriving BEq, Inhabited, Repr
 
 /-- Where a label stands relative to its point: centred on it, on one of eight sides, or in a
 direction (radians, counterclockwise from the positive `x` axis, in world coordinates). -/
@@ -100,8 +128,12 @@ inductive Placement where
   /-- In the direction `θ`. -/
   | toward (θ : Float)
   /-- The first of the eight sides, from above right round the compass, where the label collides
-  with nothing (`Figure.autoPlaced`); above right when every side collides. -/
+  with nothing, at the least offset that clears (`Figure.autoPlaced`); above right when every side
+  collides. -/
   | auto
+  /-- Beside a line in the direction `θ` (radians): on its left or, if that collides, its right
+  side, at the least offset that clears (`Figure.autoPlaced`); a label for a piece of a segment. -/
+  | across (θ : Float)
   deriving BEq, Inhabited, Repr
 
 /-- The unit direction of a placement on screen (`y` down); `(0, 0)` for `center`. -/
@@ -117,6 +149,7 @@ def Placement.screenDir : Placement → Point
   | .belowRight => ⟨0.7071067811865476, 0.7071067811865476⟩
   | .toward θ => ⟨θ.cos, -θ.sin⟩
   | .auto => ⟨0.7071067811865476, -0.7071067811865476⟩
+  | .across θ => ⟨-θ.sin, -θ.cos⟩
 
 /-- The eight sides `Placement.auto` tries, in order. -/
 def Placement.compass : Array Placement :=
@@ -179,6 +212,12 @@ inductive Geom where
   /-- The text `s` attached to the point `at_`, placed `offset` *pixels* (the style's
   `labelOffset` when `none`) away from it in the direction of `place`. -/
   | label (s : String) (at_ : Point) (place : Placement) (offset : Option Float)
+  /-- A tick mark at `p` across the direction `dir` (a world vector along the line or curve it
+  marks), `length` *pixels* long (the style's `tickLength` when `none`), resolved when the figure
+  is fitted. -/
+  | tick (p dir : Point) (length : Option Float)
+  /-- The region two closed disks make (`RegionOp`), bounded by arcs of their circles. -/
+  | disks (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ : Point) (r₂ : Float)
   deriving Inhabited, Repr
 
 /-- How an element is drawn. `none` takes the style's value. -/
@@ -189,8 +228,25 @@ structure Look where
   width : Option Float := none
   /-- The dash pattern in pixels (empty for solid). -/
   dash : Array Float := #[]
-  /-- Whether a polygon or sector is tinted inside (a disk always is). -/
+  /-- Whether a polygon or sector is tinted inside (a disk and a region of disks are unless
+  `noFill`). -/
   filled : Bool := false
+  /-- Whether a disk or a region of disks is left untinted. -/
+  noFill : Bool := false
+  /-- The colour of the tint, when it is not the item's own (`tone`). -/
+  fill : Option Tone := none
+  /-- The opacity of the tint, when it is not the style's `fillOpacity`. -/
+  fillOpacity : Option Float := none
+  /-- Whether a closed shape's outline is drawn. -/
+  outline : Bool := true
+  /-- The shape of a point's marker. -/
+  marker : MarkerShape := .dot
+  /-- Whether a marker has a halo of the background colour, so that it stays legible on a line. -/
+  halo : Bool := true
+  /-- The weight of a label (1 is regular). -/
+  weight : Option Float := none
+  /-- Whether a label is slanted (drawn as shapes; SVG text in a font family is upright). -/
+  italic : Bool := false
   /-- Whether an arc or a segment ends in an arrowhead (an arrow and an angle mark always do). -/
   arrowHead : Bool := false
   /-- The radius of a point's marker or the size of a label, in pixels. -/
@@ -270,6 +326,31 @@ def label (s : String) (p : Point) (place : Placement := .center) (offset : Opti
 /-- Items drawn together. -/
 def group (items : Array Item) : Item := .group items
 
+/-- The text `s` beside the segment from `a` to `b`, at its middle, on whichever side is clear
+(`Placement.across`): a label for a piece of a chord. -/
+def labelBeside (s : String) (a b : Point) (offset : Option Float := none) : Item :=
+  let v := b - a
+  label s (a.mid b) (.across (Float.atan2 v.y v.x)) offset
+
+/-- A tick mark at `p` across the direction `dir`, `length` pixels long. -/
+def tick (p dir : Point) (length : Option Float := none) : Item := .shape (.tick p dir length)
+
+/-- A tick mark across the segment from `a` to `b` at the fraction `t` of the way. -/
+def tickOn (a b : Point) (t : Float) (length : Option Float := none) : Item :=
+  tick (a.lerp b t) (b - a) length
+
+/-- The intersection of two closed disks (a lens when their circles cross), tinted. -/
+def lens (c₁ : Point) (r₁ : Float) (c₂ : Point) (r₂ : Float) : Item :=
+  .shape (.disks .intersection c₁ r₁ c₂ r₂)
+
+/-- The union of two closed disks, tinted. -/
+def diskUnion (c₁ : Point) (r₁ : Float) (c₂ : Point) (r₂ : Float) : Item :=
+  .shape (.disks .union c₁ r₁ c₂ r₂)
+
+/-- The first closed disk without the second, tinted. -/
+def diskDifference (c₁ : Point) (r₁ : Float) (c₂ : Point) (r₂ : Float) : Item :=
+  .shape (.disks .difference c₁ r₁ c₂ r₂)
+
 /-! ### Modifiers -/
 
 namespace Item
@@ -309,6 +390,33 @@ def filled (b : Bool := true) (it : Item) : Item := it.mapLook ({ · with filled
 /-- The item ending in an arrowhead (segments and arcs). -/
 def withArrow (it : Item) : Item := it.mapLook ({ · with arrowHead := true })
 
+/-- The item in a named role of the style (`PlaneStyle.roles`). -/
+def role (name : String) (it : Item) : Item := it.tone (.role name)
+
+/-- The item's tint in another colour than its outline. -/
+def fillTone (t : Tone) (it : Item) : Item := it.mapLook ({ · with fill := some t })
+
+/-- The item's tint at an opacity of its own. -/
+def fillOpacity (a : Float) (it : Item) : Item := it.mapLook ({ · with fillOpacity := some a })
+
+/-- The item without its outline (a tinted region alone). -/
+def noOutline (it : Item) : Item := it.mapLook ({ · with outline := false })
+
+/-- The item without its tint (a disk or region outlined alone). -/
+def noFill (it : Item) : Item := it.mapLook ({ · with noFill := true, filled := false })
+
+/-- The point drawn with another marker. -/
+def marker (m : MarkerShape) (it : Item) : Item := it.mapLook ({ · with marker := m })
+
+/-- The marker with or without its halo of the background colour. -/
+def halo (b : Bool) (it : Item) : Item := it.mapLook ({ · with halo := b })
+
+/-- The label in bold (weight 1.4). -/
+def bold (it : Item) : Item := it.mapLook ({ · with weight := some 1.4 })
+
+/-- The label slanted. -/
+def italic (it : Item) : Item := it.mapLook ({ · with italic := true })
+
 /-- The item with a marker radius or label size in pixels. -/
 def size (s : Float) (it : Item) : Item := it.mapLook ({ · with size := some s })
 
@@ -319,6 +427,13 @@ def incident (rel : Incidence) (what : String) (it : Item) : Item :=
   let words := s!"{rel.text} {what}"
   (it.mapLook ({ · with incidence := some (rel, what) })).mapInfo fun i =>
     { i with title := if i.title.isEmpty then words else s!"{i.title}, {words}" }
+
+/-- A label for a point item, in the point's colour (the label follows the role of what it names):
+the text `s` at the point, placed `place`; for any other item, an ink label at the origin. -/
+def labelFor (it : Item) (s : String) (place : Placement := .auto) : Item :=
+  match it with
+  | .shape (.point p) l _ => (Plane.label s p place).tone l.tone
+  | _ => Plane.label s ⟨0, 0⟩ place
 
 /-- The item with an accessible name (an SVG `title`). -/
 def named (t : String) (it : Item) : Item := it.mapInfo ({ · with title := t })

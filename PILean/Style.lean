@@ -27,21 +27,35 @@ dark surfaces; both are built from the same rules:
 **Plane figures** (`PILean.Plane`) take their colours from `Style.plane`, a `PlaneStyle`: an ink
 for points, lines and labels, three accents, a faint colour for construction lines, the
 opacity of tinted fills, and the sizes of strokes, markers, arrowheads and labels in pixels. The
-background is the style's `background`. Light and dark values meet the WCAG contrast
-requirements on their backgrounds (checked by the tests with `contrast`): the ink at least 7:1
-and every accent and the faint colour at least 4.5:1 on the background, so that each can colour
-a label; on a fill tinted with any accent at `fillOpacity` (mixed in linear light, as PILean
-draws it, and in sRGB, as a browser does), the ink at least 7:1, the accents at least 4.5:1 and
-the faint colour at least 3:1. The accents are Okabe and Ito's blue, vermilion and bluish green,
-darkened (light) or lightened (dark) to meet these ratios.
+background is the style's `background`. A figure can name further colour roles (`PlaneRole`:
+`"left"`, `"chord"`), each with a light and a dark colour, so that its dark twin needs nothing
+more. Light and dark values meet the WCAG contrast requirements on their backgrounds (checked by
+the tests with `contrast`): the ink at least 7:1 and every accent and the faint colour at least
+4.5:1 on the background, so that each can colour a label; on a fill tinted with one accent at
+`fillOpacity` (mixed in sRGB, as both PILean's images of plane figures and browsers composite),
+the ink at least 7:1, that accent at least 4.5:1 and the faint colour at least 3:1. The accents are
+Okabe and Ito's blue, vermilion and bluish green, darkened (light) or lightened (dark) to meet
+these ratios. A figure's own colours are checked where they are drawn (`PILean.Plane.Check`).
 
 ## Main definitions
 
 * `Style`, `Style.light`, `Style.dark`, `Style.seriesColor`.
-* `PlaneStyle`, `PlaneStyle.light`, `PlaneStyle.dark`, `PlaneStyle.accent`.
+* `PlaneRole`, `PlaneStyle`, `PlaneStyle.light`, `PlaneStyle.dark`, `PlaneStyle.accent`,
+  `PlaneStyle.role?`.
 -/
 
 namespace PILean
+
+/-- A named colour role of plane figures (`"left"`, `"chord"`, `"region"`) with its colour for
+light and for dark surfaces. -/
+structure PlaneRole where
+  /-- The role's name. -/
+  name : String
+  /-- The colour on light surfaces. -/
+  light : Rgba
+  /-- The colour on dark surfaces. -/
+  dark : Rgba
+  deriving Inhabited, BEq, Repr
 
 /-- The colours and sizes of plane figures (see the module docstring). Lengths are in pixels,
 whatever the scale of the figure. -/
@@ -70,6 +84,12 @@ structure PlaneStyle where
   labelOffset : Float := 6
   /-- The radius of an angle mark. -/
   angleRadius : Float := 24
+  /-- The length of a tick mark across a line. -/
+  tickLength : Float := 9
+  /-- Named colour roles, each with a light and a dark colour (`Tone.role`). -/
+  roles : Array PlaneRole := #[]
+  /-- Whether these are the colours for dark surfaces (roles then take their dark colour). -/
+  onDark : Bool := false
   deriving Inhabited, BEq
 
 namespace PlaneStyle
@@ -81,20 +101,26 @@ def light : PlaneStyle := {}
 def dark : PlaneStyle :=
   { ink := ⟨236, 236, 240, 255⟩,
     accents := #[⟨104, 182, 236, 255⟩, ⟨244, 142, 82, 255⟩, ⟨64, 192, 146, 255⟩],
-    faint := ⟨140, 144, 154, 255⟩, fillOpacity := 0.06 }
+    faint := ⟨140, 144, 154, 255⟩, fillOpacity := 0.1, onDark := true }
 
 /-- Accent `i`, wrapping round the accents (the ink when there are none). -/
 def accent (p : PlaneStyle) (i : Nat) : Rgba :=
   (p.accents[i % max p.accents.size 1]?).getD p.ink
 
-/-- Whether two plane styles have the same colours and fill opacity (sizes are not compared). -/
+/-- The colour of the role `name` (light or dark as the style is), if the style has it. -/
+def role? (p : PlaneStyle) (name : String) : Option Rgba :=
+  (p.roles.find? (·.name == name)).map fun r => if p.onDark then r.dark else r.light
+
+/-- Whether two plane styles have the same colours, fill opacity and surface (sizes and roles,
+which carry both colours, are not compared). -/
 def sameColours (a b : PlaneStyle) : Bool :=
   a.ink == b.ink && a.accents == b.accents && a.faint == b.faint &&
-    a.fillOpacity == b.fillOpacity
+    a.fillOpacity == b.fillOpacity && a.onDark == b.onDark
 
-/-- `p` with the colours and fill opacity of `q`, its sizes kept. -/
+/-- `p` with the colours, fill opacity and surface of `q`; its sizes and roles kept. -/
 def withColoursOf (p q : PlaneStyle) : PlaneStyle :=
-  { p with ink := q.ink, accents := q.accents, faint := q.faint, fillOpacity := q.fillOpacity }
+  { p with ink := q.ink, accents := q.accents, faint := q.faint, fillOpacity := q.fillOpacity,
+           onDark := q.onDark }
 
 end PlaneStyle
 

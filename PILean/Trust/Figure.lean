@@ -145,23 +145,29 @@ def planeBytes (fig : Plane.Figure) (bytes : Unit → Except String ByteArray) :
   let ps := if fig.checks == .fail then fig.checkMessages else #[]
   if ps.isEmpty then bytes () else .error ("layout problems: " ++ "; ".intercalate ps.toList)
 
+/-- The SVG and PNG outputs of one plane figure, named with `suffix`; the SVG carries the
+figure's layout warnings when `warn`. -/
+def planeOutputs (fig : Plane.Figure) (suffix : String) (warn : Bool) : Array Output :=
+  let g := fig.autoPlaced
+  #[{ name := suffix, format := .svg, bytes := fun _ => planeBytes fig fun _ => .ok fig.toSvg.toUTF8,
+      spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
+      inline := fun _ => some
+        { width := g.frame.width.round, height := g.frame.height.round, nodes := fig.svgNodes },
+      problems := fun _ => if warn && fig.checks == .warn then fig.checkMessages else #[] },
+    { name := suffix, format := .png,
+      bytes := fun _ => planeBytes fig fun _ => match fig.toPng with
+        | some b => .ok b
+        | none => .error "the figure has no pixels",
+      spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
+
 /-- Plane figures: the SVG (with the layout problems the figure's `checks` level reports as
-warnings), and the PNG when the figure has pixels. A figure whose `checks` level is `fail` and
-that has layout problems cannot be rendered. -/
+warnings) and the PNG, and the same at the narrow width (suffix `-narrow`) when the figure has
+one. A figure whose `checks` level is `fail` and that has layout problems cannot be rendered. -/
 instance : ToOutputs Plane.Figure where
   outputs fig :=
-    let g := fig.autoPlaced
-    #[{ name := "", format := .svg, bytes := fun _ => planeBytes fig fun _ => .ok fig.toSvg.toUTF8,
-        spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
-        inline := fun _ => some
-          { width := g.frame.width.round, height := g.frame.height.round,
-            nodes := fig.svgNodes },
-        problems := fun _ => if fig.checks == .warn then fig.checkMessages else #[] },
-      { name := "", format := .png,
-        bytes := fun _ => planeBytes fig fun _ => match fig.toPng with
-          | some b => .ok b
-          | none => .error "the figure has no pixels",
-        spec := (fig.toSvg (outlines := true)).toUTF8, textEngine := fig.style.text.id }]
+    planeOutputs fig "" true ++ match fig.narrow with
+      | some n => planeOutputs n "-narrow" true
+      | none => #[]
 
 /-- An explorer frame for a page. -/
 def _root_.PILean.ExplorerFrame.inline (f : ExplorerFrame) : InlineSvg :=

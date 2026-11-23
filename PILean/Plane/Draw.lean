@@ -94,17 +94,48 @@ def width (e : Env) (l : Look) : Float := l.width.getD e.ps.lineWidth
 def stroke (e : Env) (l : Look) : Line :=
   { ink := e.ink l, width := e.width l, cap := "round", join := "round", dash := l.dash }
 
-/-- The tint of a look: its colour at the style's fill opacity. -/
+/-- The tint of a look: its fill colour (its own colour unless `fill` names another) at its fill
+opacity (the style's unless it has its own). -/
 def tint (e : Env) (l : Look) : Fill :=
-  let c := e.ink l
-  let a := (max 0 (min 1 e.ps.fillOpacity) * c.a.toFloat).round.toUInt8
+  let c := (l.fill.getD l.tone).resolve e.ps
+  let a := (max 0 (min 1 (l.fillOpacity.getD e.ps.fillOpacity)) * c.a.toFloat).round.toUInt8
   .solid { c with a }
 
-/-- The marker of a point at a page position. -/
+/-- The outline of a closed shape: its stroke, unless the look leaves it out. -/
+def outlineOf (e : Env) (l : Look) : Option Line := if l.outline then some (e.stroke l) else none
+
+/-- The outline of a marker of radius `r` at `q` (a square, a diamond or a cross; a circle
+otherwise). -/
+def markerPath (m : MarkerShape) (q : Point) (r : Float) : Path :=
+  match m with
+  | .square => Path.rect (q.x - r * 0.9) (q.y - r * 0.9) (1.8 * r) (1.8 * r)
+  | .diamond => (Path.polyline #[⟨q.x, q.y - 1.25 * r⟩, ⟨q.x + 1.25 * r, q.y⟩,
+      ⟨q.x, q.y + 1.25 * r⟩, ⟨q.x - 1.25 * r, q.y⟩]).close
+  | .cross =>
+    let k := r * 1.1
+    (((Path.empty.moveTo ⟨q.x - k, q.y - k⟩).lineTo ⟨q.x + k, q.y + k⟩).moveTo
+      ⟨q.x - k, q.y + k⟩).lineTo ⟨q.x + k, q.y - k⟩
+  | _ => Canvas.circle q r
+
+/-- The marker of a point at a page position: its shape (`Look.marker`) in its colour, on a halo
+of the background colour (`Look.halo`). A ring and a cross are strokes, the others fills. -/
 def marker (e : Env) (l : Look) (q : Point) : Array Shape :=
   let r := l.size.getD e.ps.markerRadius
-  #[.path (Canvas.circle q (r + e.ps.markerRing)) (some (.solid e.style.background)),
-    .path (Canvas.circle q r) (some (.solid (e.ink l)))]
+  let ring := e.ps.markerRing
+  let c := e.ink l
+  let bg := e.style.background
+  let w := max 1.5 (r / 2)
+  let m := l.marker
+  let haloShape : Shape := match m with
+    | .dot => .path (markerPath m q (r + ring)) (some (.solid bg)) none 1
+    | .ring => .path (markerPath m q (r + w / 2 + ring)) (some (.solid bg)) none 1
+    | .cross => .path (markerPath m q r) none (some { ink := bg, width := w + 2 * ring, cap := "round" }) 1
+    | _ => .path (markerPath m q r) none (some { ink := bg, width := 2 * ring, join := "round" }) 1
+  let body : Shape := match m with
+    | .ring => .path (markerPath m q r) none (some { ink := c, width := w }) 1
+    | .cross => .path (markerPath m q r) none (some { ink := c, width := w, cap := "round" }) 1
+    | _ => .path (markerPath m q r) (some (.solid c)) none 1
+  if l.halo then #[haloShape, body] else #[body]
 
 /-- A stroked page path. -/
 def strokePath (e : Env) (l : Look) (p : Path) : Shape := .path p none (some (e.stroke l))
@@ -137,6 +168,51 @@ def arcShapes (e : Env) (l : Look) (c : Point) (r θ₀ θ₁ : Float) (head : B
 
 end Env
 
+/-- An arc in world coordinates: its centre, radius, and the angles it runs from and to. -/
+abbrev WorldArc := Point × Float × Float × Float
+
+/-- The arcs (world centre, radius and angles) bounding the region two disks make, one array for
+each closed boundary (see the module docstring); a reversed full circle bounds a hole. -/
+def regionArcs (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ : Point) (r₂ : Float) :
+    Array (Array WorldArc) :=
+  let full := fun (c : Point) (r : Float) => (#[(c, r, 0, 2 * pi)] : Array WorldArc)
+  let hole := fun (c : Point) (r : Float) => (#[(c, r, 2 * pi, 0)] : Array WorldArc)
+  let v := c₂ - c₁
+  let d := v.norm
+  let φ := Float.atan2 v.y v.x
+  if !(r₁ > 0) || !(r₂ > 0) then
+    match op with
+    | .intersection => #[]
+    | .union => (if r₁ > 0 then #[full c₁ r₁] else #[]) ++ (if r₂ > 0 then #[full c₂ r₂] else #[])
+    | .difference => if r₁ > 0 then #[full c₁ r₁] else #[]
+  else if d ≥ r₁ + r₂ then
+    match op with
+    | .intersection => #[]
+    | .union => #[full c₁ r₁, full c₂ r₂]
+    | .difference => #[full c₁ r₁]
+  else if d ≤ (r₁ - r₂).abs then
+    match op with
+    | .intersection => if r₁ ≤ r₂ then #[full c₁ r₁] else #[full c₂ r₂]
+    | .union => if r₁ ≥ r₂ then #[full c₁ r₁] else #[full c₂ r₂]
+    | .difference => if r₁ > r₂ then #[full c₁ r₁, hole c₂ r₂] else #[]
+  else
+    let h₁ := Float.acos ((d * d + r₁ * r₁ - r₂ * r₂) / (2 * d * r₁))
+    let h₂ := Float.acos ((d * d + r₂ * r₂ - r₁ * r₁) / (2 * d * r₂))
+    match op with
+    | .intersection => #[#[(c₁, r₁, φ - h₁, φ + h₁), (c₂, r₂, φ + pi - h₂, φ + pi + h₂)]]
+    | .union => #[#[(c₁, r₁, φ + h₁, φ + 2 * pi - h₁), (c₂, r₂, φ + pi + h₂, φ + 3 * pi - h₂)]]
+    | .difference => #[#[(c₁, r₁, φ + h₁, φ + 2 * pi - h₁), (c₂, r₂, φ + pi + h₂, φ + pi - h₂)]]
+
+/-- The page path of a region of two disks: each boundary its arcs (`Path.arcTo`, exact circular
+arcs), closed. -/
+def regionPath (f : Frame) (op : RegionOp) (c₁ : Point) (r₁ : Float) (c₂ : Point) (r₂ : Float) :
+    Path :=
+  (regionArcs op c₁ r₁ c₂ r₂).foldl (init := Path.empty) fun p arcs =>
+    let p := match arcs[0]? with
+      | some (c, r, θ, _) => p.moveTo (f.toScreen (c + polar r θ))
+      | none => p
+    (arcs.foldl (fun p (c, r, θ₀, θ₁) => p.arcTo (f.toScreen c) (f.scale * r) (-θ₀) (-θ₁)) p).close
+
 /-- The shapes of an element with a look, drawn through the environment's frame. -/
 def drawGeom (e : Env) (l : Look) : Geom → Array Shape
   | .point p => e.marker l (e.frame.toScreen p)
@@ -157,17 +233,17 @@ def drawGeom (e : Env) (l : Look) : Geom → Array Shape
   | .arrow a b => e.arrowTo l (e.frame.toScreen a) (e.frame.toScreen b)
   | .circle c r => #[e.strokePath l (Canvas.circle (e.frame.toScreen c) (e.frame.scale * r))]
   | .disk c r =>
-    #[.path (Canvas.circle (e.frame.toScreen c) (e.frame.scale * r)) (some (e.tint l))
-      (some (e.stroke l))]
+    #[.path (Canvas.circle (e.frame.toScreen c) (e.frame.scale * r))
+      (if l.noFill then none else some (e.tint l)) (e.outlineOf l)]
   | .arc c r θ₀ θ₁ => e.arcShapes l (e.frame.toScreen c) (e.frame.scale * r) θ₀ θ₁ l.arrowHead
   | .sector c r θ₀ θ₁ =>
     let q := e.frame.toScreen c
     let r := e.frame.scale * r
     let p := ((Path.empty.moveTo q).arcTo q r (-θ₀) (-θ₁)).close
-    #[.path p (if l.filled then some (e.tint l) else none) (some (e.stroke l))]
+    #[.path p (if l.filled then some (e.tint l) else none) (e.outlineOf l)]
   | .polygon vs =>
     #[.path (Path.polyline (vs.map e.frame.toScreen)).close
-      (if l.filled then some (e.tint l) else none) (some (e.stroke l))]
+      (if l.filled then some (e.tint l) else none) (e.outlineOf l)]
   | .polyline vs =>
     if l.arrowHead && vs.size ≥ 2 then
       let qs := vs.map e.frame.toScreen
@@ -180,7 +256,22 @@ def drawGeom (e : Env) (l : Look) : Geom → Array Shape
     let size := l.size.getD e.ps.labelSize
     let (_, base) := labelBox e.style s size (offset.getD e.ps.labelOffset) place
     let q := e.frame.toScreen p
-    #[.text s (q + base) size (e.ink l) .middle]
+    let b := q + base
+    let txt := Shape.text s b size (e.ink l) .middle (l.weight.getD 1)
+    if l.italic then
+      -- a slant of about 12°, about the baseline point
+      #[.group #[txt] (((Affine.translate b.x b.y).comp { c := -0.21 }).comp
+        (Affine.translate (-b.x) (-b.y)))]
+    else #[txt]
+  | .tick p dir len =>
+    let q := e.frame.toScreen p
+    let d := unitOf (e.frame.toScreen (p + dir) - q)
+    let n : Point := ⟨-d.y, d.x⟩
+    let h := len.getD e.ps.tickLength / 2
+    #[e.strokePath { l with dash := #[] } (Path.polyline #[q - h * n, q + h * n])]
+  | .disks op c₁ r₁ c₂ r₂ =>
+    #[.path (regionPath e.frame op c₁ r₁ c₂ r₂) (if l.noFill then none else some (e.tint l))
+      (e.outlineOf l)]
 
 /-- An item's shapes: its element's (`drawGeom`) or its items' in order, inside a
 `Shape.tagged` when it has metadata. -/
@@ -232,6 +323,11 @@ def geomReaches (st : Style) (l : Look) : Geom → Array Reach
   | .label s p place offset =>
     let size := l.size.getD st.plane.labelSize
     #[⟨p, (labelBox st s size (offset.getD st.plane.labelOffset) place).1⟩]
+  | .tick p _ len => #[Reach.around p (len.getD st.plane.tickLength / 2 + 1)]
+  | .disks op c₁ r₁ c₂ r₂ =>
+    let w := l.width.getD st.plane.lineWidth / 2
+    ((regionArcs op c₁ r₁ c₂ r₂).flatMap fun arcs => arcs.flatMap fun (c, r, θ₀, θ₁) =>
+      arcExtremes c r θ₀ θ₁).map (Reach.around · w)
 
 /-- The reaches of an item and of every item in it. -/
 def itemReaches (st : Style) : Item → Array Reach
@@ -256,6 +352,13 @@ structure Figure where
   info : ShapeInfo := {}
   /-- How the layout checks are applied when the figure is rendered (`PILean.Plane.Check`). -/
   checks : CheckLevel := .warn
+  /-- Whether SVG output draws text as shapes from the style's text engine, so that every viewer
+  shows the lettering the layout measured (with `false`, SVG text in the style's font family,
+  which a browser sets in a font of its own). -/
+  textAsShapes : Bool := true
+  /-- A second, narrower page width at which the figure is also rendered (labels and markers
+  keep their pixel sizes), for small screens; `none` for none. -/
+  narrowWidth : Option Float := none
   deriving Inhabited
 
 namespace Figure

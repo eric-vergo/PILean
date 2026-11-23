@@ -43,6 +43,10 @@ structure ExplorerFrame where
   height : Float
   /-- The style: `background`, `fontFamily` and `text` are used. -/
   style : Style := {}
+  /-- Whether the image is composited in sRGB (plane figures) rather than linear light (plots). -/
+  srgb : Bool := false
+  /-- Whether SVG text is drawn as shapes. -/
+  textAsShapes : Bool := false
   deriving Inhabited
 
 namespace ExplorerFrame
@@ -51,18 +55,18 @@ namespace ExplorerFrame
 def ofPlane (fig : Plane.Figure) : ExplorerFrame :=
   let g := fig.autoPlaced
   { drawing := g.draw, width := g.frame.width.round, height := g.frame.height.round,
-    style := fig.style }
+    style := fig.style, srgb := true, textAsShapes := fig.textAsShapes }
 
 /-- The frame of a plot. -/
 def ofPlot (fig : Plot.Figure) : ExplorerFrame :=
   { drawing := fig.draw, width := fig.width, height := fig.height, style := fig.style }
 
 /-- The frame's SVG nodes, text as SVG text (or as shapes, see `TextMode.forSvg`). -/
-def svgNodes (f : ExplorerFrame) (outlines : Bool := false) : Array Svg.Node :=
-  f.drawing.render (.forSvg f.style.text f.style.fontFamily outlines)
+def svgNodes (f : ExplorerFrame) (outlines : Option Bool := none) : Array Svg.Node :=
+  f.drawing.render (.forSvg f.style.text f.style.fontFamily (outlines.getD f.textAsShapes))
 
 /-- The frame as an SVG document. -/
-def toSvg (f : ExplorerFrame) (outlines : Bool := false) : String :=
+def toSvg (f : ExplorerFrame) (outlines : Option Bool := none) : String :=
   Svg.document f.width f.height (f.svgNodes outlines)
 
 /-- The frame as PNG bytes, text drawn by the style's engine; `none` for a frame of no pixels. -/
@@ -70,7 +74,7 @@ def toPng (f : ExplorerFrame) : Option ByteArray :=
   let w := f.width.round.toUInt64.toNat
   let h := f.height.round.toUInt64.toNat
   let im := (Raster.Svg.rasterize w h (f.drawing.render (.shapes f.style.text))
-    f.style.background).toImage .rgb
+    f.style.background (space := if f.srgb then .srgb else .linear)).toImage .rgb
   match im.writePng with
   | .ok b => some b
   | .error _ => none
