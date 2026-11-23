@@ -361,7 +361,9 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
     path, standing := (fig.standing.word, fig.standing.theorems),
     files := verdicts.map fun (f, v) =>
       (f.built.entry.path, f.built.entry.bytes, f.built.entry.sha256, v.text) }
-  (pageStatedRef.modify (·.insert decl stated) : IO _)
+  -- one page per file in the multi-page output; the single-page output, whose traversal gives
+  -- every part the empty path, is not what the check after the build reads
+  unless path.isEmpty do (pageStatedRef.modify (·.insert decl stated) : IO _)
   let cls := if hasDark then "pilean-figure-page pilean-figure-has-dark" else "pilean-figure-page"
   pure <| el "div" cls (.seq #[
       el "div" "pilean-page-picture" (el "div" "pilean-figure-frame" picture),
