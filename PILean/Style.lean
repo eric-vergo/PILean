@@ -24,12 +24,79 @@ dark surfaces; both are built from the same rules:
   1-pixel hairlines on pixel centres; 2-pixel data lines with round joins; 3-pixel markers with
   a ring of the page colour; margins on an 8-pixel grid.
 
+**Plane figures** (`PILean.Plane`) take their colours from `Style.plane`, a `PlaneStyle`: an ink
+for points, lines and labels, three accents, a faint colour for construction lines, the
+opacity of tinted fills, and the sizes of strokes, markers, arrowheads and labels in pixels. The
+background is the style's `background`. Light and dark values meet the WCAG contrast
+requirements on their backgrounds (checked by the tests with `contrast`): the ink at least 7:1
+and every accent and the faint colour at least 4.5:1 on the background, so that each can colour
+a label; on a fill tinted with any accent at `fillOpacity` (mixed in linear light, as PILean
+draws it, and in sRGB, as a browser does), the ink at least 7:1, the accents at least 4.5:1 and
+the faint colour at least 3:1. The accents are Okabe and Ito's blue, vermilion and bluish green,
+darkened (light) or lightened (dark) to meet these ratios.
+
 ## Main definitions
 
 * `Style`, `Style.light`, `Style.dark`, `Style.seriesColor`.
+* `PlaneStyle`, `PlaneStyle.light`, `PlaneStyle.dark`, `PlaneStyle.accent`.
 -/
 
 namespace PILean
+
+/-- The colours and sizes of plane figures (see the module docstring). Lengths are in pixels,
+whatever the scale of the figure. -/
+structure PlaneStyle where
+  /-- Points, lines, outlines and labels. -/
+  ink : Rgba := ⟨24, 24, 27, 255⟩
+  /-- The accent colours, in order (`PlaneStyle.accent` wraps round). -/
+  accents : Array Rgba := #[⟨0, 104, 166, 255⟩, ⟨180, 68, 0, 255⟩, ⟨0, 120, 82, 255⟩]
+  /-- Construction lines and inactive elements. -/
+  faint : Rgba := ⟨116, 116, 126, 255⟩
+  /-- The opacity of the tint that fills disks, sectors and filled polygons. -/
+  fillOpacity : Float := 0.12
+  /-- The width of lines and outlines. -/
+  lineWidth : Float := 2
+  /-- The radius of a point's marker. -/
+  markerRadius : Float := 3.5
+  /-- The ring of background colour around a marker. -/
+  markerRing : Float := 1.25
+  /-- The length of an arrowhead. -/
+  arrowLength : Float := 10
+  /-- The half-width of an arrowhead at its base. -/
+  arrowHalfWidth : Float := 4.5
+  /-- The size of labels. -/
+  labelSize : Float := 15
+  /-- The gap between a label and the point it labels. -/
+  labelOffset : Float := 6
+  /-- The radius of an angle mark. -/
+  angleRadius : Float := 24
+  deriving Inhabited, BEq
+
+namespace PlaneStyle
+
+/-- The plane colours for light surfaces. -/
+def light : PlaneStyle := {}
+
+/-- The plane colours for dark surfaces (the background of `Style.dark`). -/
+def dark : PlaneStyle :=
+  { ink := ⟨236, 236, 240, 255⟩,
+    accents := #[⟨104, 182, 236, 255⟩, ⟨244, 142, 82, 255⟩, ⟨64, 192, 146, 255⟩],
+    faint := ⟨140, 144, 154, 255⟩, fillOpacity := 0.06 }
+
+/-- Accent `i`, wrapping round the accents (the ink when there are none). -/
+def accent (p : PlaneStyle) (i : Nat) : Rgba :=
+  (p.accents[i % max p.accents.size 1]?).getD p.ink
+
+/-- Whether two plane styles have the same colours and fill opacity (sizes are not compared). -/
+def sameColours (a b : PlaneStyle) : Bool :=
+  a.ink == b.ink && a.accents == b.accents && a.faint == b.faint &&
+    a.fillOpacity == b.fillOpacity
+
+/-- `p` with the colours and fill opacity of `q`, its sizes kept. -/
+def withColoursOf (p q : PlaneStyle) : PlaneStyle :=
+  { p with ink := q.ink, accents := q.accents, faint := q.faint, fillOpacity := q.fillOpacity }
+
+end PlaneStyle
 
 /-- The visual constants of plots and graphs (see the module docstring). Every length is in
 pixels. -/
@@ -130,6 +197,8 @@ structure Style where
   edgeWidth : Float := 1.25
   /-- Corner radius of node boxes. -/
   nodeRadius : Float := 5
+  /-- The colours and sizes of plane figures. -/
+  plane : PlaneStyle := PlaneStyle.light
   deriving Inhabited
 
 namespace Style
@@ -146,7 +215,7 @@ def dark : Style :=
     palette := #[⟨61, 143, 217, 255⟩, ⟨191, 130, 0, 255⟩, ⟨20, 163, 127, 255⟩,
       ⟨226, 103, 44, 255⟩, ⟨199, 111, 168, 255⟩, ⟨157, 144, 32, 255⟩],
     nodeFill := ⟨34, 37, 43, 255⟩, nodeStroke := ⟨120, 126, 138, 255⟩,
-    edge := ⟨112, 118, 130, 255⟩ }
+    edge := ⟨112, 118, 130, 255⟩, plane := PlaneStyle.dark }
 
 /-- The colour of series `i` (wrapping round the palette) and whether it is dashed (from the
 second round on). -/
