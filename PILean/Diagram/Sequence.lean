@@ -408,7 +408,7 @@ structure CellPlot where
   /-- Whether a marked cell is filled opaque (`Ink.solid 0`, for cells without text) rather than
   tinted (`Ink.tint 0`). -/
   solid : Bool := false
-  /-- The key of a cell drawn with a ring around it (the start of a spiral); none for no ring. -/
+  /-- The key of a cell drawn with a ring inside it (the start of a spiral); none for no ring. -/
   ringed : Option Nat := none
   /-- What a marked cell means, written beside a sample of its fill below the cells (a legend);
   empty for none. -/
@@ -445,14 +445,14 @@ def cellMarks (solid : Bool) (c : NumberCell) : List Mark :=
 def headingMarks (P : CellPlot) : List Mark :=
   P.headings.zipIdx.map fun ((s, p), i) => { part := .header 0 i, shape := .text s p .center }
 
-/-- The decorations: a ring around the cell `ringed` (accent 1, `note 0`) and, with a legend, a
+/-- The decorations: a ring inside the cell `ringed` (accent 1, `note 0`) and, with a legend, a
 sample of a marked cell's fill (`note 1`) and the legend's text to its right (`note 2`), a unit
 below the lowest cell, at the left of the leftmost. -/
 def decorationMarks (P : CellPlot) : List Mark :=
   let ring := match P.ringed.bind (fun k => P.cells.find? (·.key == k)) with
     | some c =>
       let centre : QPoint := ((c.pos.1 : Rat) + 1 / 2, (c.pos.2 : Rat) + 1 / 2)
-      [{ part := .note 0, ink := .accent 1, shape := .circle centre (11 / 16) }]
+      [{ part := .note 0, ink := .accent 1, shape := .circle centre (5 / 16) }]
     | none => []
   let x0 : Rat := P.cells.foldl (fun m c => min m c.pos.1) ((P.cells.headD default).pos.1)
   let y0 : Rat := P.cells.foldl (fun m c => min m c.pos.2) ((P.cells.headD default).pos.2)

@@ -1767,5 +1767,6 @@
       <title>cell (441, 0)</title>
       <path d="M333.64 347 L347 347 L347 333.64 L333.64 333.64 Z" fill="none" stroke="#8c909a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </g>
+    <path d="M185.01 180 C185.01 182.77 182.77 185.01 180 185.01 C177.23 185.01 174.99 182.77 174.99 180 C174.99 177.23 177.23 174.99 180 174.99 C182.77 174.99 185.01 177.23 185.01 180 Z" fill="none" stroke="#f48e52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>
