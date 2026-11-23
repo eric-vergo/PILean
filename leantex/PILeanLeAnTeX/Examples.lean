@@ -9,8 +9,8 @@ import PILeanLeAnTeX.Engine
 
 Figures whose titles, axis labels, legend entries, node labels and plane-figure labels are
 LaTeX, typeset by LeAnTeX through `PILeanLeAnTeX.engine`. They are functions of the engine, which
-is read from font files at run time; `lake exe pilean-leantex-gallery` writes them to `examples/` and `lake
-test` compares them with those files.
+is read from font files at run time; `lake exe pilean-leantex-gallery` writes them to `examples/`
+and `lake test` compares them with those files.
 -/
 
 namespace PILeanLeAnTeX.Examples

@@ -245,7 +245,8 @@ open Canvas Exact
 
 /-- Every shape of a marker is a filled circle centred at the marker's position. -/
 theorem Env.marker_centred (e : Env) (l : Look) (q : Point) :
-    ∀ s ∈ e.marker l q, ∃ (r : Float) (f : Fill), s = .path (Canvas.circle q r) (some f) none 1 := by
+    ∀ s ∈ e.marker l q,
+      ∃ (r : Float) (f : Fill), s = .path (Canvas.circle q r) (some f) none 1 := by
   intro s hs
   simp only [Env.marker, List.mem_toArray, List.mem_cons, List.not_mem_nil, or_false] at hs
   rcases hs with rfl | rfl
@@ -371,8 +372,10 @@ theorem figure_points_draw (fig : Figure) (ps : List α)
 frame's images of `(0, 0)` and `(1, 2)`. -/
 example (fig : Figure) (h : fig.items = #[point ((0, 0) : Int × Int), point ((1, 2) : Int × Int)]) :
     fig.draw = .tagged fig.info (.group (#[fig.background] ++
-      #[fig.env.marker {} (fig.env.frame.toScreen ⟨Exact.toFloat (0 : Int), Exact.toFloat (0 : Int)⟩),
-        fig.env.marker {} (fig.env.frame.toScreen ⟨Exact.toFloat (1 : Int), Exact.toFloat (2 : Int)⟩)
+      #[fig.env.marker {}
+          (fig.env.frame.toScreen ⟨Exact.toFloat (0 : Int), Exact.toFloat (0 : Int)⟩),
+        fig.env.marker {}
+          (fig.env.frame.toScreen ⟨Exact.toFloat (1 : Int), Exact.toFloat (2 : Int)⟩)
         ].flatten)) :=
   figure_points_draw (α := Int × Int) fig [(0, 0), (1, 2)] h
 

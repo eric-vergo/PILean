@@ -61,7 +61,8 @@ def arcs : Array (String × Bool) :=
       Path.arcPieceCount (-3.2) == 3 && Path.arcPieceCount 6.3 == 4 &&
       Path.arcPieceCount 100 == 4 && Path.arcPieceCount 0 == 1),
     ("arc: no pieces for a sweep or radius that is not finite",
-      Path.arcPieceCount ((0 : Float) / 0) == 0 && (Path.arc c 2 0 ((1 : Float) / 0)).cmds.isEmpty &&
+      Path.arcPieceCount ((0 : Float) / 0) == 0 &&
+      (Path.arc c 2 0 ((1 : Float) / 0)).cmds.isEmpty &&
       (Path.arc c ((0 : Float) / 0) 0 1).cmds.isEmpty),
     ("arc: the quarter-turn error bound is 2.73e-4 of the radius",
       near (Path.arcError 1 1.5707963267948966) 2.7253e-4 1e-7),
@@ -72,7 +73,8 @@ def arcs : Array (String × Bool) :=
         let b' := a + max (-tau) (min tau (b - a))
         match (p.cmds[0]? : Option PathCmd), (p.cmds.back? : Option PathCmd) with
         | some (.move s), some (.cubic _ _ e) =>
-          nearPt s ⟨c.x + 2 * a.cos, c.y + 2 * a.sin⟩ && nearPt e ⟨c.x + 2 * b'.cos, c.y + 2 * b'.sin⟩
+          nearPt s ⟨c.x + 2 * a.cos, c.y + 2 * a.sin⟩ &&
+            nearPt e ⟨c.x + 2 * b'.cos, c.y + 2 * b'.sin⟩
         | _, _ => false),
     ("arc: within the stated error of the circle, and near it (not far below the bound)",
       sweeps.all fun (a, b) =>
@@ -254,7 +256,8 @@ def figures : Array (String × Bool) :=
     ("figure: the page width is the given width",
       disks.frame.width == 520 && disks.pixelSize.1 == 520),
     ("figure: a given view is fitted",
-      let f : Plane.Figure := { items := #[], view := some ⟨0, 0, 4, 2⟩, width := 420, padding := 10 }
+      let f : Plane.Figure :=
+        { items := #[], view := some ⟨0, 0, 4, 2⟩, width := 420, padding := 10 }
       near f.frame.scale 100 1e-6 && f.frame.height == 220),
     ("figure: stroke widths stay in pixels at every scale",
       let items := #[segment ⟨0, 0⟩ ⟨1, 0⟩, point ⟨0, 1⟩]
@@ -318,7 +321,8 @@ def exact : Array (String × Bool) :=
         nearPt (PlanePoint.toPoint (Zeta5.pow j)) (rootOfUnity 5 j) 1e-15),
     ("Z[ζ5]: sums of large coefficients within 2^-k",
       let z : Zeta5 := ⟨#[100, -2000, 37, 999]⟩
-      ks.all fun k => (PlanePoint.im z k).radius * 2 ^ k ≤ 1 && (PlanePoint.re z k).radius * 2 ^ k ≤ 1),
+      ks.all fun k =>
+        (PlanePoint.im z k).radius * 2 ^ k ≤ 1 && (PlanePoint.re z k).radius * 2 ^ k ≤ 1),
     ("exact figure: the steps in the window are 1, ζ and ζ⁴",
       (List.range 5).filter inWindow == [0, 1, 4]),
     ("exact figure: each point's marker is centred at the frame's image of its conversion",

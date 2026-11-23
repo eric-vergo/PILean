@@ -12,8 +12,8 @@ import PILean.Trust.Sha256
 `rendererId` names the code that turns a figure into bytes: the SHA-256 of the source text of
 every PILean module this module imports, directly or not (the plots, plane figures, graphs,
 animations, the SVG writer, the rasteriser, the lettering, the PNG, APNG and GIF writers and the
-source records), and of the Lean version the library is compiled with. The texts are read when this module is
-compiled (`include_str`), so the identity changes with any change to that code, comments
+source records), and of the Lean version the library is compiled with. The texts are read when
+this module is compiled (`include_str`), so the identity changes with any change to that code, comments
 included, and nobody has to remember to change it: Lake recompiles this module whenever one of
 those files changes, because they are its imports.
 

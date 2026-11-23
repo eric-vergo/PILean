@@ -89,7 +89,8 @@ def Reach.finite (r : Reach) : Bool :=
 between `pad` and `size - pad`, at scale `s`: `(lo, hi)`, empty when `lo > hi`. `coord` gives a
 reach's world coordinate along the axis, `sign` is `1` across and `-1` down (the page's `y`
 grows downwards), `lowOff` and `highOff` its offsets. -/
-def originRange (rs : Array Reach) (s size pad sign : Float) (coord lowOff highOff : Reach → Float) :
+def originRange (rs : Array Reach) (s size pad sign : Float)
+    (coord lowOff highOff : Reach → Float) :
     Float × Float :=
   rs.foldl (init := (-1e300, 1e300)) fun (lo, hi) r =>
     let c := sign * s * coord r

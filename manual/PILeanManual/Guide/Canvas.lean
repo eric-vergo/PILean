@@ -55,8 +55,8 @@ from the common shapes ({name}`PILean.Path.rect`, {name}`PILean.Path.roundedRect
 {name}`PILean.Path.ellipse`, {name}`PILean.Path.polyline`, and the circular arcs
 {name}`PILean.Path.arc` and {name}`PILean.Path.arcTo`: cubic pieces of at most a quarter turn,
 within {name}`PILean.Path.arcError` of the circle, at most 0.0273 % of the radius). A path can be
-transformed ({name}`PILean.Path.transform`; Béziers are affine invariant, so only the points move), bounded
-and flattened:
+transformed ({name}`PILean.Path.transform`; Béziers are affine invariant, so only the points
+move), bounded and flattened:
 
 ```lean (name := pathEx)
 def wave : Path :=
