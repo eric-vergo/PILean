@@ -253,7 +253,7 @@ is drawn that way.
 | Figure | Theorem | Light | Dark |
 |---|---|---|---|
 | The Cayley table of `DihedralGroup 4` | cell `(a, b)` holds `a * b`; a group, not commutative; the elements whose row equals their column are `Subgroup.center`, `{1, r 2}` | ![](examples/dihedral-table.svg) | ![](examples/dihedral-table-dark.svg) |
-| Its Cayley graph for `r` and `s` | every arrow joins `g` to `g * r 1` or `g * sr 0`; twelve arrows | ![](examples/dihedral-cayley.svg) | ![](examples/dihedral-cayley-dark.svg) |
+| Its Cayley graph for `r` and `s` | every arrow joins `g` to `g * r 1` or `g * sr 0`; twelve arrows; every element has both | ![](examples/dihedral-cayley.svg) | ![](examples/dihedral-cayley-dark.svg) |
 | Its subgroups | the drawn elements are all the subgroups of `DihedralGroup 4`, each once; edges are `⋖`; a dot is in colour iff its subgroup is `Normal` | ![](examples/dihedral-subgroups.svg) | ![](examples/dihedral-subgroups-dark.svg) |
 | A square of reductions in `Type` | the square is a `CommSq` of `ZMod 12 → ZMod 6 → ZMod 2` and `ZMod 12 → ZMod 4 → ZMod 2` | ![](examples/comm-square.svg) | ![](examples/comm-square-dark.svg) |
 | `0 → A ↣ B ↠ C → 0` | for every short complex of a preadditive category with a zero object, the marks hold and it is exact iff it is `ShortExact` | ![](examples/short-exact.svg) | ![](examples/short-exact-dark.svg) |

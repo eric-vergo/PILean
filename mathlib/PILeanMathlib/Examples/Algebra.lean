@@ -21,7 +21,8 @@ that states, with Mathlib's definitions, what it draws.
   `DihedralGroup 4`; the table is a group; it is not symmetric, since the group is not
   commutative; and the elements whose row equals their column are those of
   `Subgroup.center (DihedralGroup 4)`, which are `1` and `r 2`.
-* `d4CayleyFigure_spec`: every drawn arrow joins `g` to `g * r` or `g * s`.
+* `d4CayleyFigure_spec`: every drawn arrow joins `g` to `g * r` or `g * s`, and every element
+  has both.
 * `d4SubgroupsFigure_spec`: the drawn elements are the subgroups of `DihedralGroup 4`, each once,
   an edge joins `H` to `K` exactly when `H ⋖ K`, and a dot is in colour exactly when its
   subgroup is normal.
@@ -104,12 +105,18 @@ figure_proves d4TableFigure d4TableFigure_spec
 
 /-- **The Cayley graph of the dihedral group of order 8.** Every arrow the figure draws, from
 element `i` to element `j`, has `d4 j = d4 i * r 1` or `d4 j = d4 i * sr 0`; there are twelve,
-eight for `r` and one line for each of the four pairs `{g, g s}`. -/
+eight for `r` and one line for each of the four pairs `{g, g s}`; and every element has its
+arrows: one to `g * r 1`, and a line joining it to `g * sr 0`. -/
 theorem d4CayleyFigure_spec :
     (∀ k i j, (k, i, j) ∈ d4CayleyFigure.arrows →
       ∃ (hi : i < 8) (hj : j < 8), d4 ⟨j, hj⟩ = d4 ⟨i, hi⟩ * .r 1 ∨
         d4 ⟨j, hj⟩ = d4 ⟨i, hi⟩ * .sr 0) ∧
-    d4CayleyFigure.arrows.length = 12 := by
+    d4CayleyFigure.arrows.length = 12 ∧
+    (List.finRange 8).all (fun i =>
+      d4CayleyFigure.arrows.any (fun (_, a, b) => a == i.val && b == (d4Index (d4 i * .r 1)).val) &&
+      d4CayleyFigure.arrows.any (fun (_, a, b) =>
+        (a == i.val && b == (d4Index (d4 i * .sr 0)).val) ||
+          (b == i.val && a == (d4Index (d4 i * .sr 0)).val))) = true := by
   have e : d4CayleyFigure.arrows = (d4Table.cayley d4Generators d4Positions).arrowTriples := by
     have h := CommDiagram.builder_faithful (d4Table.cayley d4Generators d4Positions)
       (by decide +kernel)
@@ -117,7 +124,10 @@ theorem d4CayleyFigure_spec :
     unfold d4CayleyFigure FinMagma.cayleyFigure
     rw [Diagram.capped_of (by decide +kernel)]
     rfl
-  refine ⟨fun k i j hk => ?_, by rw [e]; decide +kernel⟩
+  refine ⟨fun k i j hk => ?_, by rw [e]; decide +kernel, ?_⟩
+  swap
+  · rw [e]
+    decide +kernel
   rw [e] at hk
   simp only [CommDiagram.arrowTriples, List.mem_map, Prod.mk.injEq] at hk
   obtain ⟨⟨a, k'⟩, ha, -, rfl, rfl⟩ := hk
