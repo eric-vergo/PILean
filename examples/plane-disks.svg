@@ -18,7 +18,7 @@
     </g>
     <path d="M225.31 167.79 C230.57 183.97 226.46 201.74 214.63 213.97" fill="none" stroke="#74747e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M208.6 219.21 L212.98 209.16 L219.03 215.83 Z" fill="#74747e"/>
-    <text x="243.277" y="201.722" font-size="12" fill="#74747e" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">72°</text>
+    <path d="M235.369 193.79 L239.929 193.79 L237.049 201.254 M242.167 195.179 C242.47 194.341 243.228 193.757 244.11 193.679 C244.993 193.602 245.841 194.045 246.284 194.816 C246.727 195.588 246.685 196.547 246.177 197.277 L242.029 201.254 L246.709 201.254 M249.997 193.922 C250.594 193.922 251.077 194.406 251.077 195.002 C251.077 195.599 250.594 196.082 249.997 196.082 C249.401 196.082 248.917 195.599 248.917 195.002 C248.917 194.406 249.401 193.922 249.997 193.922 Z" fill="none" stroke="#18181b" stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round"/>
     <g>
       <title>on both circles</title>
       <path d="M177.05 210.49 C177.05 213.12 174.93 215.24 172.3 215.24 C169.68 215.24 167.55 213.12 167.55 210.49 C167.55 207.87 169.68 205.74 172.3 205.74 C174.93 205.74 177.05 207.87 177.05 210.49 Z" fill="#ffffff"/>
@@ -38,10 +38,10 @@
       <path d="M264.75 182 C264.75 184.62 262.62 186.75 260 186.75 C257.38 186.75 255.25 184.62 255.25 182 C255.25 179.38 257.38 177.25 260 177.25 C262.62 177.25 264.75 179.38 264.75 182 Z" fill="#ffffff"/>
       <path d="M263.5 182 C263.5 183.93 261.93 185.5 260 185.5 C258.07 185.5 256.5 183.93 256.5 182 C256.5 180.07 258.07 178.5 260 178.5 C261.93 178.5 263.5 180.07 263.5 182 Z" fill="#18181b"/>
     </g>
-    <text x="160.425" y="226.422" font-size="15" fill="#0068a6" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">−E</text>
-    <text x="357.407" y="147.845" font-size="15" fill="#b44400" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">E</text>
-    <text x="193.597" y="174.015" font-size="15" fill="#18181b" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">−1</text>
-    <text x="338.439" y="173" font-size="15" fill="#18181b" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">+1</text>
-    <text x="260" y="199.1" font-size="15" fill="#18181b" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif">0</text>
+    <path d="M153.69 221.472 L159.39 221.472 M167.46 216.507 L162.51 216.507 L162.51 225.837 L167.46 225.837 M162.51 221.172 L166.86 221.172" fill="none" stroke="#0068a6" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M360.107 137.93 L355.157 137.93 L355.157 147.26 L360.107 147.26 M355.157 142.595 L359.507 142.595" fill="none" stroke="#b44400" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M186.547 169.065 L192.247 169.065 M196.507 166.515 L199.357 164.1 L199.357 173.43" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M331.389 168.05 L337.089 168.05 M334.239 170.9 L334.239 165.2 M341.349 165.5 L344.199 163.085 L344.199 172.415" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M260 189.035 C261.574 189.035 262.85 191.191 262.85 193.85 C262.85 196.509 261.574 198.665 260 198.665 C258.426 198.665 257.15 196.509 257.15 193.85 C257.15 191.191 258.426 189.035 260 189.035 Z" fill="none" stroke="#18181b" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>

@@ -8,16 +8,12 @@ import PILean.Trust.Attr
 /-!
 # Worked instances of the exact plane interface
 
-Three representations of exact numbers with instances of `Exact.RealValue` and
+Representations of exact numbers with instances of `Exact.RealValue` and
 `Exact.PlanePoint`, to show that the interface fits representations other than the rationals:
 
 * `GaussQ`: Gaussian rationals `a + b i`, exact (radius 0), with a proof of the laws.
-* `QSqrt5`: numbers `a + b √5` of the field ℚ(√5), with the golden ratio `φ`; their balls come
-  from `Exact.sqrtBall` and are checked exactly by squaring (`QSqrt5.certifies`).
-* `Zeta5`: elements of the ring ℤ[ζ₅] (`ζ₅ = e^{2πi/5}`) as arrays of four integer coefficients
-  in the basis `1, ζ, ζ², ζ³`, the representation of a cyclotomic ring by integer coefficient
-  arrays. The real part lies in ℚ(√5); the imaginary part is a combination of
-  `sin 72° = √(10 + 2√5) / 4` and `sin 144° = √(10 - 2√5) / 4`, enclosed by nested square roots.
+* `QSqrt5` and `Zeta5`, the library's ℚ(√5) and ℤ[ζ₅] (`PILean.Exact.Algebraic`), whose balls the
+  tests check exactly by squaring.
 
 `zetaSteps` is a gallery figure drawn from exact points of ℤ[ζ₅]: the unit steps `ζʲ`, a window
 disk with a rational centre and radius, and the steps that end in the window decided exactly in
@@ -50,136 +46,10 @@ instance : LawfulPlanePoint GaussQ where
   re_le _ k := by show (0 : Rat) * 2 ^ k ≤ 1; simp; decide
   im_le _ k := by show (0 : Rat) * 2 ^ k ≤ 1; simp; decide
 
-/-! ### The field ℚ(√5) -/
+/-! ### ℚ(√5) and ℤ[ζ₅]
 
-/-- The number `a + b √5`. -/
-structure QSqrt5 where
-  /-- The rational part. -/
-  a : Rat
-  /-- The coefficient of `√5`. -/
-  b : Rat := 0
-  deriving BEq, Repr, Inhabited
-
-namespace QSqrt5
-
-/-- The sum. -/
-def add (x y : QSqrt5) : QSqrt5 := ⟨x.a + y.a, x.b + y.b⟩
-
-/-- The difference. -/
-def sub (x y : QSqrt5) : QSqrt5 := ⟨x.a - y.a, x.b - y.b⟩
-
-/-- The product: `(a + b√5)(c + d√5) = (ac + 5bd) + (ad + bc)√5`. -/
-def mul (x y : QSqrt5) : QSqrt5 := ⟨x.a * y.a + 5 * x.b * y.b, x.a * y.b + x.b * y.a⟩
-
-/-- The golden ratio `φ = (1 + √5) / 2`. -/
-def phi : QSqrt5 := ⟨1 / 2, 1 / 2⟩
-
-/-- The absolute value of a rational. -/
-def absQ (q : Rat) : Rat := if q < 0 then -q else q
-
-/-- Whether `a + b √5 ≥ 0`, decided exactly: by the signs of `a` and `b` and, when they differ, by
-comparing `a²` with `5 b²`. -/
-def nonneg (x : QSqrt5) : Bool :=
-  if x.a ≥ 0 && x.b ≥ 0 then true
-  else if x.a ≤ 0 && x.b ≤ 0 then x.a == 0 && x.b == 0
-  else if x.a > 0 then x.a * x.a ≥ 5 * x.b * x.b
-  else 5 * x.b * x.b ≥ x.a * x.a
-
-/-- Whether `x ≤ y`, exactly. -/
-def le (x y : QSqrt5) : Bool := nonneg (sub y x)
-
-/-- The bits needed above `|q|`: `log₂ ⌈|q|⌉ + 1`. -/
-def bitsAbove (q : Rat) : Nat := ((absQ q).ceil.toNat).log2 + 1
-
-/-- The ball at precision `k`: `a + b · sqrtBall 5 k'` with `k'` large enough that `|b|` times the
-radius of the ball of `√5` is at most `2⁻ᵏ`. -/
-def ball (x : QSqrt5) (k : Nat) : RatBall :=
-  ((sqrtBall 5 (k + bitsAbove x.b + 1)).smul x.b).add ⟨x.a, 0⟩
-
-/-- Whether a ball holds `a + b √5`, checked exactly: with `t = (v - a) / b` for each end `v`, the
-lower end's `t` is at most `√5` and the upper end's at least `√5` (reversed for `b < 0`), each
-decided by squaring; for `b = 0` the ball holds `a`. -/
-def certifies (x : QSqrt5) (r : RatBall) : Bool :=
-  let belowRoot := fun (t : Rat) => t ≤ 0 || t * t ≤ 5
-  let aboveRoot := fun (t : Rat) => t ≥ 0 && t * t ≥ 5
-  if x.b == 0 then r.contains x.a
-  else
-    let tl := (r.lo - x.a) / x.b
-    let th := (r.hi - x.a) / x.b
-    if x.b > 0 then belowRoot tl && aboveRoot th else belowRoot th && aboveRoot tl
-
-end QSqrt5
-
-/-- A number of ℚ(√5) as a real value. -/
-instance : RealValue QSqrt5 where
-  ball := QSqrt5.ball
-
-/-- A pair of numbers of ℚ(√5) as a point. -/
-instance : PlanePoint (QSqrt5 × QSqrt5) where
-  re p k := QSqrt5.ball p.1 k
-  im p k := QSqrt5.ball p.2 k
-
-/-! ### The ring ℤ[ζ₅] -/
-
-/-- An element `c₀ + c₁ ζ + c₂ ζ² + c₃ ζ³` of ℤ[ζ₅], `ζ = e^{2πi/5}` (missing coefficients are
-0). -/
-structure Zeta5 where
-  /-- The coefficients in the basis `1, ζ, ζ², ζ³`. -/
-  c : Array Int
-  deriving BEq, Repr, Inhabited
-
-namespace Zeta5
-
-/-- Coefficient `i`. -/
-def coeff (z : Zeta5) (i : Nat) : Int := z.c.getD i 0
-
-/-- The sum. -/
-def add (x y : Zeta5) : Zeta5 := ⟨(List.range 4).toArray.map fun i => x.coeff i + y.coeff i⟩
-
-/-- The negation. -/
-def neg (x : Zeta5) : Zeta5 := ⟨(List.range 4).toArray.map fun i => -x.coeff i⟩
-
-/-- `0`. -/
-def zero : Zeta5 := ⟨#[0, 0, 0, 0]⟩
-
-/-- `ζʲ`: `ζ⁴ = -1 - ζ - ζ² - ζ³`, and `ζ⁵ = 1`. -/
-def pow (j : Nat) : Zeta5 :=
-  match j % 5 with
-  | 0 => ⟨#[1, 0, 0, 0]⟩
-  | 1 => ⟨#[0, 1, 0, 0]⟩
-  | 2 => ⟨#[0, 0, 1, 0]⟩
-  | 3 => ⟨#[0, 0, 0, 1]⟩
-  | _ => ⟨#[-1, -1, -1, -1]⟩
-
-/-- The real part, in ℚ(√5): `cos 72° = (√5 - 1)/4`, `cos 144° = cos 216° = -(1 + √5)/4`. -/
-def realPart (z : Zeta5) : QSqrt5 :=
-  let c1 : Rat := z.coeff 1
-  let c23 : Rat := z.coeff 2 + z.coeff 3
-  ⟨z.coeff 0 - c1 / 4 - c23 / 4, c1 / 4 - c23 / 4⟩
-
-/-- A ball around `√X` for `X` in the ball `x` (`x.lo ≥ 0`): from the lower end's square root's
-lower end to the upper end's square root's upper end. -/
-def sqrtOfBall (x : RatBall) (k : Nat) : RatBall :=
-  RatBall.ofBounds (sqrtBall x.lo k).lo (sqrtBall x.hi k).hi
-
-/-- A ball around `sin 72° = √(10 + 2√5) / 4` (`plus`) or `sin 144° = √(10 - 2√5) / 4`. -/
-def sinBall (plus : Bool) (k : Nat) : RatBall :=
-  (sqrtOfBall (QSqrt5.ball ⟨10, if plus then 2 else -2⟩ (k + 2)) (k + 2)).smul (1 / 4)
-
-/-- The imaginary part's ball: `c₁ sin 72° + (c₂ - c₃) sin 144°`, at a precision raised by the
-size of the coefficients. -/
-def imBall (z : Zeta5) (k : Nat) : RatBall :=
-  let c1 : Rat := z.coeff 1
-  let d : Rat := z.coeff 2 - z.coeff 3
-  let k' := k + QSqrt5.bitsAbove c1 + QSqrt5.bitsAbove d + 2
-  ((sinBall true k').smul c1).add ((sinBall false k').smul d)
-
-end Zeta5
-
-/-- An element of ℤ[ζ₅] as a point of the complex plane. -/
-instance : PlanePoint Zeta5 where
-  re z k := QSqrt5.ball z.realPart k
-  im z k := Zeta5.imBall z k
+The worked instances for ℚ(√5) and ℤ[ζ₅] are the library's (`PILean.Exact.Algebraic`): `QSqrt5`
+and `Zeta5`, used here and checked in `PILeanTest.Plane`. -/
 
 /-! ### A figure from exact points -/
 
@@ -192,7 +62,7 @@ def windowRadius : Rat := 39 / 40
 /-- Whether `ζʲ` lies in the window, decided exactly: `|ζʲ - 1/2|² = 5/4 - Re ζʲ ≤ (39/40)²`,
 that is `Re ζʲ ≥ 5/4 - 1521/1600`, compared in ℚ(√5). -/
 def inWindow (j : Nat) : Bool :=
-  QSqrt5.le ⟨5 / 4 - windowRadius * windowRadius, 0⟩ (Zeta5.pow j).realPart
+  QSqrt.le (⟨5 / 4 - windowRadius * windowRadius, 0⟩ : QSqrt5) (Zeta5.pow j).realPart
 
 /-- The labels of the steps. -/
 def stepLabel (j : Nat) : String := #["1", "ζ", "ζ²", "ζ³", "ζ⁴"].getD j ""
@@ -242,5 +112,98 @@ theorem zetaSteps_spec :
   refine ⟨rfl, fun j => Plane.Exact.pointNearDisk_eq .., by decide +kernel⟩
 
 figure_proves zetaSteps zetaSteps_spec
+
+/-! ### The reference figure of the diagrammatic house style
+
+Two closed disks of radius `R = √(3 + φ)` about `-1` and `1` as plain outlines, the lens where they
+overlap as a region of its own with a strong outline, the chord from `-E` to `E` (`E = ζ - ζ²`) in
+three pieces of three role colours with small labels beside them, round markers with halos, the
+lens's corners `±(ζ - ζ⁴)`; every point exact in ℤ[ζ₅], the radius an exact square root, light and
+dark from the roles, and a narrow rendition at 360 pixels. -/
+
+namespace Reference
+
+/-- `E = ζ - ζ²`. -/
+def E : Zeta5 := Zeta5.pow 1 - Zeta5.pow 2
+
+/-- `φ⁻¹ = ζ + ζ⁴ = -1 - ζ² - ζ³`. -/
+def phiInv : Zeta5 := ⟨#[-1, 0, -1, -1]⟩
+
+/-- `F = φ⁻¹ E`, where the first piece ends. -/
+def F : Zeta5 := phiInv * E
+
+/-- `G = φ⁻³ E`, where the second piece ends. -/
+def G : Zeta5 := phiInv * phiInv * phiInv * E
+
+/-- The lens's upper corner `ζ - ζ⁴`. -/
+def corner : Zeta5 := Zeta5.pow 1 - Zeta5.pow 4
+
+/-- The centres `-1` and `1`. -/
+def left : Zeta5 := Zeta5.ofInt (-1)
+
+/-- The centre `1`. -/
+def right : Zeta5 := Zeta5.ofInt 1
+
+/-- `3 + φ` in ℚ(√5). -/
+def threePlusPhi : QSqrt5 := ⟨7 / 2, 1 / 2⟩
+
+/-- The radius `R = √(3 + φ)`. -/
+def R : SqrtOf QSqrt5 := ⟨threePlusPhi⟩
+
+/-- The house style: the default colours with four named roles, thicker lines, larger markers
+with wider halos. -/
+def houseStyle : Style :=
+  { Style.light with plane := { PlaneStyle.light with
+      lineWidth := 2.5, markerRadius := 4.5, markerRing := 2, labelSize := 15,
+      roles := #[⟨"lens", ⟨154, 69, 0, 255⟩, ⟨245, 184, 61, 255⟩⟩,
+        ⟨"s1", ⟨29, 78, 216, 255⟩, ⟨143, 176, 252, 255⟩⟩,
+        ⟨"s2", ⟨162, 28, 175, 255⟩, ⟨239, 166, 247, 255⟩⟩,
+        ⟨"s3", ⟨13, 107, 99, 255⟩, ⟨94, 224, 200, 255⟩⟩] } }
+
+/-- A piece of the chord in a role, with its label beside it. -/
+def piece (a b : Zeta5) (role label : String) : Array Item :=
+  #[Plane.Exact.segment a b |>.role role |>.width 6,
+    Plane.Exact.labelBeside label a b |>.role role |>.size 14]
+
+/-- The items of the reference figure. -/
+def items : Array Item :=
+  #[Plane.Exact.disk left R |>.noFill |>.width 1.5 |>.named "the left disk",
+    Plane.Exact.disk right R |>.noFill |>.width 1.5 |>.named "the right disk",
+    Plane.Exact.lens left right R R |>.role "lens" |>.fillOpacity 0.14 |>.named "the lens"] ++
+  piece (-E) (-F) "s1" "S₁" ++ piece (-F) (-G) "s2" "S₂" ++ piece (-G) E "s3" "S₃" ++
+  #[Plane.Exact.point left, Plane.Exact.point right,
+    Plane.Exact.point Zeta5.zero |>.incident .on "the chord",
+    Plane.Exact.point E |>.incident .on "the left circle",
+    Plane.Exact.point (-E) |>.incident .on "the right circle",
+    Plane.Exact.point corner |>.incident .on "both circles",
+    Plane.Exact.point (-corner) |>.incident .on "both circles",
+    Plane.Exact.label "−1" left .auto, Plane.Exact.label "+1" right .auto,
+    Plane.Exact.label "0" Zeta5.zero .auto, Plane.Exact.label "E" E .auto,
+    Plane.Exact.label "−E" (-E) .auto]
+
+end Reference
+
+/-- The reference figure of the diagrammatic house style (see the section's docstring). -/
+@[figure]
+def reference : Plane.Figure where
+  width := 720
+  narrowWidth := some 360
+  padding := 24
+  style := Reference.houseStyle
+  items := Reference.items
+  info := { title := "Two disks, their lens and the chord in three pieces" }
+
+/-- What the reference figure holds, and the incidences its points record, decided exactly in
+ℚ(√5): `E` is on the left circle and `-E` on the right one (`|E + 1|² = |-E - 1|² = 3 + φ`), and
+the corners are on both (`|ζ - ζ⁴ ± 1|² = 3 + φ`). -/
+theorem reference_spec :
+    reference.items = Reference.items ∧
+    (Reference.E + Reference.right).normSq = Reference.threePlusPhi ∧
+    (-Reference.E - Reference.right).normSq = Reference.threePlusPhi ∧
+    (Reference.corner + Reference.right).normSq = Reference.threePlusPhi ∧
+    (Reference.corner - Reference.right).normSq = Reference.threePlusPhi := by
+  refine ⟨rfl, ?_, ?_, ?_, ?_⟩ <;> decide +kernel
+
+figure_proves reference reference_spec
 
 end PILeanTest.PlaneExact

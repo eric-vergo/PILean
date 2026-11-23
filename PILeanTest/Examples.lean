@@ -431,7 +431,7 @@ def disks : Plane.Figure where
     segment ((-1 : Float) * chordEnd) chordEnd |>.width 3 |>.named "the critical chord"
       |>.declRef `PILeanTest.Examples.PlaneFigures.chordEnd,
     angleMark ⟨-1, 0⟩ (deg 18) (deg 18 - deg 72) (some 46) |>.faint,
-    label "72°" (⟨-1, 0⟩ + polar 0.68 (deg (-18))) .right (some 2) |>.faint |>.size 12,
+    label "72°" (⟨-1, 0⟩ + polar 0.68 (deg (-18))) .right (some 2) |>.size 12,
     point ((-1 : Float) * chordEnd) |>.accent 0 |>.incident .on "both circles",
     point chordEnd |>.accent 1 |>.incident .on "both circles",
     point ⟨-1, 0⟩, point ⟨1, 0⟩, point ⟨0, 0⟩ |>.incident .on "the chord",
@@ -501,14 +501,22 @@ def windowRadius : Explorer :=
 /-- The plane figures of the gallery by name. -/
 def figures : Array (String × Plane.Figure) :=
   #[("plane-disks", disks), ("plane-constructions", constructions),
-    ("plane-exact", PILeanTest.PlaneExact.zetaSteps), ("plane-graph", graphInWindow)]
+    ("plane-exact", PILeanTest.PlaneExact.zetaSteps), ("plane-graph", graphInWindow),
+    ("plane-reference", PILeanTest.PlaneExact.reference)]
 
 end PlaneFigures
 
-/-- The plane gallery: file name and figure; each figure light and dark. -/
+/-- A plane figure in its dark twin's style: `Style.dark` with the figure's sizes and roles. -/
+def darkPlane (f : Plane.Figure) : Plane.Figure :=
+  { f with style := { Style.dark with plane := f.style.plane.withColoursOf PlaneStyle.dark } }
+
+/-- The plane gallery: file name and figure; each figure light and dark, and at its narrow width
+when it has one (`-narrow`). -/
 def planes : Array (String × Plane.Figure) :=
-  PlaneFigures.figures.map (fun (n, f) => (n ++ ".svg", f)) ++
-    PlaneFigures.figures.map (fun (n, f) => (n ++ "-dark.svg", { f with style := Style.dark }))
+  let named := PlaneFigures.figures.flatMap fun (n, f) =>
+    #[(n, f)] ++ (match f.narrow with | some g => #[(n ++ "-narrow", g)] | none => #[])
+  named.map (fun (n, f) => (n ++ ".svg", f)) ++
+    named.map (fun (n, f) => (n ++ "-dark.svg", darkPlane f))
 
 /-! ### Raster pictures
 

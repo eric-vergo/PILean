@@ -205,24 +205,19 @@ def metadata : Array (String × Bool) :=
       has fig.toSvg "<title>the origin</title>" &&
         has fig.toSvg "data-lean-decl=\"PILean.Plane.point\"")]
 
-/-- The contrast of `c` against `bg` with `tint` laid over it at opacity `a`, mixed in linear light
-(`Rgba.over`, as PILean draws) and in sRGB (as a browser does): the smaller of the two. -/
+/-- The contrast of `c` against `bg` with `tint` laid over it at opacity `a`, mixed in sRGB (as
+browsers and PILean's images of plane figures composite). -/
 def contrastOnTint (c tint bg : Rgba) (a : Float) : Float :=
-  let alpha := (a * 255).round.toUInt8
-  let lin := Rgba.over { tint with a := alpha } bg
-  let mix := fun (x y : UInt8) => (a * x.toFloat + (1 - a) * y.toFloat).round.toUInt8
-  let srgb : Rgba := ⟨mix tint.r bg.r, mix tint.g bg.g, mix tint.b bg.b, 255⟩
-  min (contrast c lin) (contrast c srgb)
+  contrast c (srgbOver { tint with a := (a * 255).round.toUInt8 } bg)
 
 /-- Whether a plane palette meets the requirements of `PILean.Style` on a background: the ink at
 least 7:1, every accent and the faint colour at least 4.5:1 on the background; on a fill tinted
-with any accent, the ink at least 7:1, the accents at least 4.5:1, the faint colour at least
+with one accent, the ink at least 7:1, that accent at least 4.5:1, the faint colour at least
 3:1. -/
 def meetsContrast (p : PlaneStyle) (bg : Rgba) : Bool :=
   contrast p.ink bg ≥ 7 && p.accents.all (contrast · bg ≥ 4.5) && contrast p.faint bg ≥ 4.5 &&
     p.accents.all fun t =>
-      contrastOnTint p.ink t bg p.fillOpacity ≥ 7 &&
-      p.accents.all (contrastOnTint · t bg p.fillOpacity ≥ 4.5) &&
+      contrastOnTint p.ink t bg p.fillOpacity ≥ 7 && contrastOnTint t t bg p.fillOpacity ≥ 4.5 &&
       contrastOnTint p.faint t bg p.fillOpacity ≥ 3
 
 /-- The checks of the plane palette. -/
@@ -303,14 +298,15 @@ def exact : Array (String × Bool) :=
     ("Q(√5): drawn near its value",
       near (RealValue.toFloat gold) 1.618033988749895 1e-15),
     ("Q(√5): the sign is decided exactly",
-      QSqrt5.nonneg ⟨-2, 1⟩ && !QSqrt5.nonneg ⟨-3, 1⟩ && QSqrt5.nonneg ⟨3, -1⟩ &&
-      !QSqrt5.nonneg ⟨2, -1⟩),
+      QSqrt.nonneg (⟨-2, 1⟩ : QSqrt5) && !QSqrt.nonneg (⟨-3, 1⟩ : QSqrt5) &&
+      QSqrt.nonneg (⟨3, -1⟩ : QSqrt5) && !QSqrt.nonneg (⟨2, -1⟩ : QSqrt5)),
     ("Z[ζ5]: the balls of sin 72° and sin 144° are certified",
       [true, false].all fun plus => ks.all fun k =>
         let b := Zeta5.sinBall plus k
         let c : Rat := if plus then 2 else -2
         -- (4 lo)² ≤ 10 ± 2√5 ≤ (4 hi)², each side compared in Q(√5)
-        QSqrt5.le ⟨16 * b.lo * b.lo, 0⟩ ⟨10, c⟩ && QSqrt5.le ⟨10, c⟩ ⟨16 * b.hi * b.hi, 0⟩ &&
+        QSqrt.le (⟨16 * b.lo * b.lo, 0⟩ : QSqrt5) ⟨10, c⟩ &&
+          QSqrt.le (⟨10, c⟩ : QSqrt5) ⟨16 * b.hi * b.hi, 0⟩ &&
           b.lo ≥ 0),
     ("Z[ζ5]: the real parts are certified, every radius within 2^-k",
       zeta.all fun z => ks.all fun k =>
@@ -478,6 +474,140 @@ def extensionChecks : Array (String × Bool) :=
       (lv.filter fun lf => match lf.geom with | .point _ => true | _ => false).size == 7 &&
       (lv.filter fun lf => match lf.geom with | .segment .. => true | _ => false).size == 9)]
 
+/-- Whether two colours differ by at most `tol` levels in each channel. -/
+def nearColour (a b : Rgba) (tol : Nat := 1) : Bool :=
+  let d := fun (x y : UInt8) => if x ≥ y then (x - y).toNat else (y - x).toNat
+  d a.r b.r ≤ tol && d a.g b.g ≤ tol && d a.b b.b ≤ tol
+
+/-- The checks of compositing, regions, fills, markers, ticks, roles, exact constructions, the
+narrow rendition and placement beside segments. -/
+def styleChecks : Array (String × Bool) :=
+  -- A: the image's pixel inside a tint is the sRGB composite, light and dark
+  let tintItems := #[disk ⟨0, 0⟩ 1 |>.accent 0 |>.noOutline, point ⟨1.6, 1.6⟩ |>.halo false,
+    point ⟨-1.6, -1.6⟩ |>.halo false]
+  let tinted := fun (st : Style) => ({ items := tintItems, width := 200, style := st } : Plane.Figure)
+  let pixelOk := fun (st : Style) =>
+    let f := tinted st
+    let q := f.frame.toScreen ⟨0, 0⟩
+    let px := f.toImage.getpixel q.x.toUInt64.toNat q.y.toUInt64.toNat
+    let c := st.plane.accent 0
+    let expect := srgbOver { c with a := (st.plane.fillOpacity * 255).round.toUInt8 } st.background
+    nearColour px expect 1
+  -- B: the lens of two unit disks a unit apart
+  let lensF : Plane.Figure := { items := #[lens ⟨0, 0⟩ 1 ⟨1, 0⟩ 1], width := 200 }
+  let lensPath := match drawGeom lensF.env {} (.disks .intersection ⟨0, 0⟩ 1 ⟨1, 0⟩ 1) with
+    | #[.path p _ _ _] => some p
+    | _ => none
+  let corner := lensF.frame.toScreen ⟨0.5, 0.8660254037844386⟩
+  let arcs := regionArcs .intersection ⟨0, 0⟩ 1 ⟨1, 0⟩ 1
+  -- E: a role in both themes
+  let leftRole : PlaneRole := ⟨"left", ⟨1, 2, 3, 255⟩, ⟨4, 5, 6, 255⟩⟩
+  let roles : PlaneStyle := { PlaneStyle.light with roles := #[leftRole] }
+  -- F: exact algebra
+  let E : Zeta5 := Zeta5.pow 1 - Zeta5.pow 2
+  let root : SqrtOf QSqrt5 := ⟨⟨7 / 2, 1 / 2⟩⟩
+  let cc := circleCircle (Zeta5.ofInt (-1)) (Zeta5.ofInt 1) root root
+  let lc := lineCircle ((0 : Rat), (-3 : Rat)) ((0 : Rat), (3 : Rat)) ((0 : Rat), (0 : Rat))
+    (2 : Rat)
+  -- G: the narrow rendition
+  let ref := PILeanTest.PlaneExact.reference
+  let narrowOuts := PILean.Trust.ToOutputs.outputs ref
+  -- J: a label beside a segment
+  let besideItems := #[segment ⟨0, 0⟩ ⟨3, 1⟩, labelBeside "piece" ⟨0, 0⟩ ⟨3, 1⟩,
+    point ⟨0, 0⟩, point ⟨3, 1⟩]
+  let beside : Plane.Figure := { items := besideItems, width := 300 }
+  #[("A: an image's tint is the sRGB composite (light)", pixelOk Style.light),
+    ("A: an image's tint is the sRGB composite (dark)", pixelOk Style.dark),
+    ("B: the lens is two exact arcs, closed, through the circles' crossings",
+      arcs.size == 1 && arcs[0]!.size == 2 &&
+      (match lensPath with
+        | some p => (p.cmds.filter fun c => match c with | .cubic .. => true | _ => false).size ≥ 2 &&
+            (p.flatten 0.1).any fun pl => pl.points.any fun q => (q - corner).norm < 0.6
+        | none => false)),
+    ("B: disjoint, nested and crossing disks combine",
+      (regionArcs .intersection ⟨0, 0⟩ 1 ⟨5, 0⟩ 1).isEmpty &&
+      (regionArcs .union ⟨0, 0⟩ 1 ⟨5, 0⟩ 1).size == 2 &&
+      (regionArcs .difference ⟨0, 0⟩ 2 ⟨0.2, 0⟩ 0.5).size == 2 &&
+      (regionArcs .union ⟨0, 0⟩ 1 ⟨1, 0⟩ 1).size == 1),
+    ("C: fill and outline styled apart",
+      let lk : Look :=
+        { tone := .accent 0, fill := some (.accent 1), fillOpacity := some 0.3, outline := false }
+      match drawGeom lensF.env lk (.disk ⟨0, 0⟩ 1) with
+      | #[.path _ (some (.solid c)) none _] => c.r == (PlaneStyle.light.accent 1).r &&
+          c.a == (0.3 * 255 : Float).round.toUInt8
+      | _ => false),
+    ("D: every marker shape draws, with and without a halo, centred on its point",
+      [MarkerShape.dot, .ring, .square, .diamond, .cross].all fun m => [true, false].all fun h =>
+        let sh := lensF.env.marker { marker := m, halo := h } ⟨50, 50⟩
+        sh.size == (if h then 2 else 1) && sh.all fun s => match s with
+          | .path p _ _ _ => match p.bounds with
+            | some b => nearPt ⟨(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2⟩ ⟨50, 50⟩ 1e-6
+            | none => false
+          | _ => false),
+    ("D: a tick is its pixel length across its line at every scale",
+      [200, 800].all fun (w : Float) =>
+        let its := #[segment ⟨0, 0⟩ ⟨1, 0⟩, tickOn ⟨0, 0⟩ ⟨1, 0⟩ 0.5 (some 10)]
+        let f : Plane.Figure := { items := its, width := w }
+        match drawGeom f.env {} (.tick ⟨0.5, 0⟩ ⟨1, 0⟩ (some 10)) with
+        | #[.path p _ _ _] => match p.cmds.toList with
+          | [.move a, .line b] => near (a - b).norm 10 1e-9 && near a.x b.x 1e-9
+          | _ => false
+        | _ => false),
+    ("E: a role takes its light colour, and its dark one on dark surfaces",
+      (Tone.role "left").resolve roles == ⟨1, 2, 3, 255⟩ &&
+      (Tone.role "left").resolve (roles.withColoursOf PlaneStyle.dark) == ⟨4, 5, 6, 255⟩ &&
+      (Tone.role "missing").resolve roles == roles.ink),
+    ("E: a label follows the role of the point it names",
+      match Item.labelFor (point ⟨0, 0⟩ |>.role "left") "P" with
+      | .shape (.label ..) l _ => l.tone == .role "left"
+      | _ => false),
+    ("E: bold and italic labels draw",
+      let f : Plane.Figure := { items := #[label "x" ⟨0, 0⟩ |>.bold |>.italic, point ⟨1, 1⟩] }
+      Svg.isInert f.toSvg && f.toPng.isSome),
+    ("E: the reference figure meets contrast where each colour is drawn, light and dark",
+      ref.problems.isEmpty),
+    ("F: ℚ(√5) arithmetic: φ² = φ + 1, norm and conjugate",
+      QSqrt5.phi * QSqrt5.phi == QSqrt5.phi + ⟨1, 0⟩ && QSqrt5.phi.norm == -1 &&
+      QSqrt5.phi.conj == ⟨1 / 2, -1 / 2⟩),
+    ("F: ℤ[ζ5] arithmetic: ζ · ζ⁴ = 1, the conjugate of ζ is ζ⁴, |E + 1|² = 3 + φ",
+      Zeta5.pow 1 * Zeta5.pow 4 == Zeta5.ofInt 1 && (Zeta5.pow 1).conj == Zeta5.pow 4 &&
+      (E + Zeta5.ofInt 1).normSq == ⟨7 / 2, 1 / 2⟩ && (Zeta5.pow 2).normSq == ⟨1, 0⟩),
+    ("F: an exact square root, certified by squaring",
+      [0, 8, 30, 64].all fun k =>
+        let b := RealValue.ball root k
+        b.radius * 2 ^ k ≤ 1 && (QSqrt.le (⟨b.lo * b.lo, 0⟩ : QSqrt5) ⟨7 / 2, 1 / 2⟩) &&
+          (QSqrt.le (⟨7 / 2, 1 / 2⟩ : QSqrt5) ⟨b.hi * b.hi, 0⟩)),
+    ("F: the circles' crossings are the lens's corners ±(ζ - ζ⁴), within 2^-k",
+      match cc with
+      | some (p, q) =>
+        let c := Zeta5.pow 1 - Zeta5.pow 4
+        [10, 40].all (fun k => (PlanePoint.re p k).radius * 2 ^ k ≤ 1 &&
+          (PlanePoint.im p k).radius * 2 ^ k ≤ 1) &&
+        nearPt (PlanePoint.toPoint p) (PlanePoint.toPoint c) 1e-12 &&
+        nearPt (PlanePoint.toPoint q) (PlanePoint.toPoint (-c)) 1e-12
+      | none => false),
+    ("F: a line meets a circle; midpoints and feet",
+      (match lc with
+        | some (p, q) => nearPt (PlanePoint.toPoint p) ⟨0, -2⟩ 1e-12 &&
+            nearPt (PlanePoint.toPoint q) ⟨0, 2⟩ 1e-12
+        | none => false) &&
+      footQ (3, 4) (0, 0) (1, 0) == (3, 0) &&
+      nearPt (PlanePoint.toPoint (midpoint (Zeta5.pow 0) (Zeta5.pow 0 + Zeta5.pow 0))) ⟨1.5, 0⟩
+        1e-12 &&
+      nearPt (PlanePoint.toPoint (foot ((3 : Rat), (4 : Rat)) ((0 : Rat), (0 : Rat))
+        ((1 : Rat), (0 : Rat)))) ⟨3, 0⟩ 1e-12),
+    ("G: the narrow rendition, labels at full size, as outputs -narrow",
+      narrowOuts.map (·.name) == #["", "", "-narrow", "-narrow"] &&
+      (ref.narrow.map fun n => n.frame.width == 360 && n.style.plane.labelSize == 15).getD false &&
+      (ref.narrow.map (·.problems.isEmpty)).getD false),
+    ("I: SVG text is drawn as shapes by default",
+      !has ref.toSvg "<text" && has (ref.toSvg (outlines := false)) "<text"),
+    ("J: a label beside a segment clears it, at the least offset",
+      beside.problems.isEmpty &&
+      (beside.autoPlaced.leaves.any fun lf => match lf.geom with
+        | .label _ _ (.toward _) (some _) => true
+        | _ => false))]
+
 /-- The specification helper for figures of exact points can be used: a figure of two integer
 points satisfies it by `rfl`. -/
 def twoPoints : Plane.Figure :=
@@ -490,6 +620,6 @@ theorem twoPoints_spec : Plane.Exact.DrawsExactPoints twoPoints [((0, 0) : Int �
 /-- The checks. -/
 def checks : Array (String × Bool) :=
   arcs ++ frames ++ labels ++ metadata ++ palette ++ figures ++ exact ++ layoutChecks ++
-    explorerChecks ++ extensionChecks
+    explorerChecks ++ extensionChecks ++ styleChecks
 
 end PILeanTest.PlaneChecks
