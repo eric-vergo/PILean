@@ -20,6 +20,7 @@ import PILeanManual.Api.PILean.Anim.Quantize
 import PILeanManual.Api.PILean.Canvas
 import PILeanManual.Api.PILean.Color
 import PILeanManual.Api.PILean.Exact
+import PILeanManual.Api.PILean.Exact.Plane
 import PILeanManual.Api.PILean.Geometry
 import PILeanManual.Api.PILean.Graph.Check
 import PILeanManual.Api.PILean.Graph.Compound
@@ -43,6 +44,10 @@ import PILeanManual.Api.PILean.Image.Basic
 import PILeanManual.Api.PILean.Image.Ops
 import PILeanManual.Api.PILean.Image.Proofs
 import PILeanManual.Api.PILean.Path
+import PILeanManual.Api.PILean.Plane
+import PILeanManual.Api.PILean.Plane.Basic
+import PILeanManual.Api.PILean.Plane.Draw
+import PILeanManual.Api.PILean.Plane.Frame
 import PILeanManual.Api.PILean.Plot.Exact
 import PILeanManual.Api.PILean.Plot.Figure
 import PILeanManual.Api.PILean.Plot.Proofs
@@ -116,7 +121,6 @@ The modules, by the folder they are in:
   {ref "api-PILean"}[`PILean`],
   {ref "api-PILean.Canvas"}[`PILean.Canvas`],
   {ref "api-PILean.Color"}[`PILean.Color`],
-  {ref "api-PILean.Exact"}[`PILean.Exact`],
   {ref "api-PILean.Geometry"}[`PILean.Geometry`],
   {ref "api-PILean.Path"}[`PILean.Path`],
   {ref "api-PILean.Sort"}[`PILean.Sort`],
@@ -134,6 +138,9 @@ The modules, by the folder they are in:
   {ref "api-PILean.Anim.Lzw"}[`PILean.Anim.Lzw`],
   {ref "api-PILean.Anim.Proofs"}[`PILean.Anim.Proofs`],
   {ref "api-PILean.Anim.Quantize"}[`PILean.Anim.Quantize`]
+* *Exact*:
+  {ref "api-PILean.Exact"}[`PILean.Exact`],
+  {ref "api-PILean.Exact.Plane"}[`PILean.Exact.Plane`]
 * *Graph*:
   {ref "api-PILean.Graph.Check"}[`PILean.Graph.Check`],
   {ref "api-PILean.Graph.Compound"}[`PILean.Graph.Compound`],
@@ -157,6 +164,11 @@ The modules, by the folder they are in:
   {ref "api-PILean.Image.Basic"}[`PILean.Image.Basic`],
   {ref "api-PILean.Image.Ops"}[`PILean.Image.Ops`],
   {ref "api-PILean.Image.Proofs"}[`PILean.Image.Proofs`]
+* *Plane*:
+  {ref "api-PILean.Plane"}[`PILean.Plane`],
+  {ref "api-PILean.Plane.Basic"}[`PILean.Plane.Basic`],
+  {ref "api-PILean.Plane.Draw"}[`PILean.Plane.Draw`],
+  {ref "api-PILean.Plane.Frame"}[`PILean.Plane.Frame`]
 * *Plot*:
   {ref "api-PILean.Plot.Exact"}[`PILean.Plot.Exact`],
   {ref "api-PILean.Plot.Figure"}[`PILean.Plot.Figure`],
@@ -245,6 +257,8 @@ The modules, by the folder they are in:
 
 {include 1 PILeanManual.Api.PILean.Exact}
 
+{include 1 PILeanManual.Api.PILean.Exact.Plane}
+
 {include 1 PILeanManual.Api.PILean.Geometry}
 
 {include 1 PILeanManual.Api.PILean.Graph.Check}
@@ -290,6 +304,14 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.Image.Proofs}
 
 {include 1 PILeanManual.Api.PILean.Path}
+
+{include 1 PILeanManual.Api.PILean.Plane}
+
+{include 1 PILeanManual.Api.PILean.Plane.Basic}
+
+{include 1 PILeanManual.Api.PILean.Plane.Draw}
+
+{include 1 PILeanManual.Api.PILean.Plane.Frame}
 
 {include 1 PILeanManual.Api.PILean.Plot.Exact}
 

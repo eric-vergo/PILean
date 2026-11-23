@@ -6,6 +6,7 @@ import VersoManual
 import PILeanManual.Guide.Colour
 import PILeanManual.Guide.Canvas
 import PILeanManual.Guide.Plots
+import PILeanManual.Guide.Plane
 import PILeanManual.Guide.Graphs
 import PILeanManual.Guide.Animations
 import PILeanManual.Guide.Raster
@@ -20,14 +21,16 @@ tag := "guide"
 %%%
 
 The library part by part: colours and the style record; geometry, paths and the vector canvas;
-every kind of plot; graphs and their layouts; animations; raster images, the image writers and the
-readers with their bounds; text engines; and the optional packages beside the core.
+every kind of plot; plane figures; graphs and their layouts; animations; raster images, the image
+writers and the readers with their bounds; text engines; and the optional packages beside the core.
 
 {include 1 PILeanManual.Guide.Colour}
 
 {include 1 PILeanManual.Guide.Canvas}
 
 {include 1 PILeanManual.Guide.Plots}
+
+{include 1 PILeanManual.Guide.Plane}
 
 {include 1 PILeanManual.Guide.Graphs}
 

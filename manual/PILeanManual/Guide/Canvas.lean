@@ -52,8 +52,10 @@ A {name}`PILean.Path` is a list of commands: move, line, quadratic and cubic Bé
 a value, built with {name}`PILean.Path.moveTo`, {name}`PILean.Path.lineTo`,
 {name}`PILean.Path.quadTo`, {name}`PILean.Path.cubicTo` and {name}`PILean.Path.close`, or taken
 from the common shapes ({name}`PILean.Path.rect`, {name}`PILean.Path.roundedRect`,
-{name}`PILean.Path.ellipse`, {name}`PILean.Path.polyline`). A path can be transformed
-({name}`PILean.Path.transform`; Béziers are affine invariant, so only the points move), bounded
+{name}`PILean.Path.ellipse`, {name}`PILean.Path.polyline`, and the circular arcs
+{name}`PILean.Path.arc` and {name}`PILean.Path.arcTo`: cubic pieces of at most a quarter turn,
+within {name}`PILean.Path.arcError` of the circle, at most 0.0273 % of the radius). A path can be
+transformed ({name}`PILean.Path.transform`; Béziers are affine invariant, so only the points move), bounded
 and flattened:
 
 ```lean (name := pathEx)
@@ -120,6 +122,12 @@ def shapes : PILeanManual.Drawing where
 
 :::figure PILeanManual.CanvasGuide.shapes (alt := "From left to right: a rounded square filled with a gradient from blue to green, a band of an orange disc cut out by a rotated clip rectangle with the caption 'a clipped, rotated disc' under it, and a dashed S-shaped curve.")
 :::
+
+A shape can carry metadata ({name}`PILean.Canvas.ShapeInfo`, through
+{name}`PILean.Canvas.Shape.tagged`): an accessible title and description, CSS classes, an id and
+the name of a Lean declaration. SVG writes them as a `g` with `title` and `desc` children and
+`class`, `id` and `data-lean-decl` attributes; an image draws the shape alone. Ids and classes
+are reduced to ASCII letters, digits, `_`, `-` and `.`.
 
 Text in a drawing is a placeholder that the output resolves ({name}`PILean.Canvas.TextMode`): SVG
 text in a font family, or shapes from a text engine, which is how text reaches images
