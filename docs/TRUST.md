@@ -23,14 +23,18 @@ the Lean object it shows, and what stays tested or trusted, is on
 | `version` | the version of PILean (`PILean.version`) | yes |
 | `fingerprint` | 64 lowercase hexadecimal digits (a SHA-256) | no |
 | `standing` | `linked` or `illustration`: the figure's standing as the build recorded it ("Standing" below; `proved` reads as `linked`) | no |
-| `theorems` | for a linked figure, the theorems linked to it, by full name, separated by single spaces (`proves` reads as `theorems`) | with `standing` `linked` only |
+| `theorems` | for a linked figure, the theorems linked to it, by full name, as a JSON array of strings with JSON's escapes and no spaces between the items, such as `["A.b","C.«d e»"]` (`theoremsText`); a value that does not begin with `[` is read in the earlier form, names separated by single spaces, and so is the earlier key `proves` | with `standing` `linked` only |
 
 A record can be written only if every value is at most 4096 bytes of UTF-8 and has only
 characters XML 1.0 can carry (so no NUL and no other control character except tab, line feed and
 carriage return), a fingerprint has the form above, and the standing is well formed: none,
-`illustration` without `theorems`, or `linked` with a non-empty `theorems` of names without white
-space (`Source.validate`, `standingOk`; the readers refuse anything else, after reading `proved`
-as `linked` and `proves` as `theorems`, and refuse a record with both `theorems` and `proves`).
+`illustration` without `theorems`, or `linked` with a non-empty list of distinct, non-empty names
+(`Source.validate`, `standingOk`; the readers refuse anything else, after reading `proved` as
+`linked` and `proves` as `theorems`, and refuse a record with both `theorems` and `proves`). A
+name may hold any character a record can carry, a space or a quote included (Lean writes a name
+whose component needs it between `«` and `»`); in the JSON array each name is one string, so the
+list is read back exactly. A name as Lean writes it never begins with `[`, so a value in the
+earlier form is never taken for an array.
 
 ## Writing
 
@@ -339,11 +343,13 @@ refuses a figure so marked. `figure_proves` is another name for the command `fig
 * `figures%` sets the standing on every output of a figure (`Output.standing`;
   `FigureEntry.standing` reads it), so a build writes it into every file's source record
   (`standing`, `theorems`) and into the manifest (the keys `standing` and `theorems`, format
-  `pilean-manifest-2`), and `pilean-info` prints it. It is not part of the fingerprint, which
+  `pilean-manifest-3`), and `pilean-info` prints it. It is not part of the fingerprint, which
   identifies the drawing and the declaration; it is part of the file, so the file's SHA-256 in the
-  manifest covers it. The readers also take the records and manifests (format
-  `pilean-manifest-1`) that wrote the standing `proved` and the key `proves`: `proved` reads as
-  `linked` and `proves` as `theorems` (`readStanding`).
+  manifest covers it. The readers also take the records and manifests of the earlier writers:
+  manifests of the format `pilean-manifest-2`, whose `theorems` is one string of names separated
+  by single spaces, and of the format `pilean-manifest-1` and records that wrote the standing
+  `proved` and the key `proves`: `proved` reads as `linked` and `proves` as `theorems`
+  (`readStanding`).
 * `pilean-build --require-standing` (with or without `--check`) fails, before rendering anything,
   if a figure is an illustration without the marking, naming each such figure: a project can
   require that every picture either has a linked theorem or is openly marked.
@@ -450,7 +456,7 @@ pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standi
 
 ### The manifest
 
-`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-2","files":[ ... ]}`, with one
+`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-3","files":[ ... ]}`, with one
 line for each output, sorted by `path`, every object with the keys in this order:
 
 | Key | Meaning |
@@ -463,7 +469,7 @@ line for each output, sorted by `path`, every object with the keys in this order
 | `module`, `decl`, `file`, `line`, `column`, `version` | the source record |
 | `repo`, `commit` | only if the build was given them |
 | `darkColours`, `darkOpacities` | for a file a page can put inline: the theme's colour pairs |
-| `standing`, `theorems` | the standing and the theorems recorded in the file ("Standing"; a manifest of the format `pilean-manifest-1` has `proves`, read as `theorems`) |
+| `standing`, `theorems` | the standing recorded in the file, and its theorems as a JSON array of strings ("Standing"; a manifest of the format `pilean-manifest-2` has one string of names separated by single spaces, and one of the format `pilean-manifest-1` has it under `proves`, read as `theorems`; `Manifest.parse` reads all three and refuses an array in the earlier formats and a string in this one) |
 
 Strings are escaped as in JSON (`\"`, `\\`, `\n`, `\r`, `\t`, `\u00XX` for other control
 characters).

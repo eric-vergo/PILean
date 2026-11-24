@@ -113,6 +113,7 @@ def rendererSources : Array (String × String) :=
     ("PILean.Text.LetteringSymbols", include_str "../Text/LetteringSymbols.lean"),
     ("PILean.Text.LetteringTypo", include_str "../Text/LetteringTypo.lean"),
     ("PILean.Trust.Figure", include_str "../Trust/Figure.lean"),
+    ("PILean.Trust.Json", include_str "../Trust/Json.lean"),
     ("PILean.Trust.Provenance", include_str "../Trust/Provenance.lean"),
     ("PILean.Trust.Sha256", include_str "../Trust/Sha256.lean"),
     ("PILean.Version", include_str "../Version.lean")]

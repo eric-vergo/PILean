@@ -124,10 +124,11 @@ def theoremsText (ts : Array String) : String :=
   "[" ++ ",".intercalate (ts.toList.map fun t => "\"" ++ Json.escape t ++ "\"") ++ "]"
 
 /-- The theorems in the form earlier writers gave them: names separated by single spaces, each
-non-empty and without white space. Fails on any other text. -/
+non-empty, without white space and not beginning with `[` (as no name Lean writes does). Fails on
+any other text. -/
 def theoremsOfSpaced (v : String) : Except String (Array String) :=
   let ts := (v.splitOn " ").toArray
-  if v.isEmpty || ts.any (fun t => t.isEmpty || t.any Char.isWhitespace) then
+  if v.isEmpty || ts.any (fun t => t.isEmpty || t.any Char.isWhitespace || t.startsWith "[") then
     .error "the theorems are not names separated by single spaces"
   else .ok ts
 

@@ -167,10 +167,13 @@ line.
 tag := "trust-manifest"
 %%%
 
-`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-2","files":[…]}`, with one
+`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-3","files":[…]}`, with one
 line per output, sorted by path: the path, the format, the size, the SHA-256 of the file's bytes,
 the fingerprint recorded in it, the source record's fields, and the repository and commit when
-the build was given them.
+the build was given them. The theorems of a linked figure are a JSON array of strings, so a name
+written with `«` and `»` that holds a space or a quote is read back as it is; the readers also
+take the earlier formats, `pilean-manifest-2` (one string of names separated by single spaces)
+and `pilean-manifest-1` (the same under the key `proves`).
 
 # `pilean-verify`
 %%%

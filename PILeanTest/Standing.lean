@@ -214,7 +214,7 @@ def checks : Array (String × Bool) :=
         (Source.ofFields r.fields).toOption == some r && r.validate matches .ok _),
     ("standing: a list of theorems that is empty, has an empty or a repeated name, or is not a \
         list of strings is refused",
-      ["[]", "[\"\"]", "[\"A\",\"A\"]", "[\"A\",1]", "[\"A\"", "[[\"A\"]]", "{}"].all fun v =>
+      ["[]", "[\"\"]", "[\"A\",\"A\"]", "[\"A\",1]", "[\"A\"", "[[\"A\"]]"].all fun v =>
         Source.ofFields (valid.fields ++ #[("standing", "linked"), ("theorems", v)])
           matches .error _),
     ("standing: under the earlier key, only the earlier form is read",

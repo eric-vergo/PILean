@@ -42,14 +42,76 @@ equality of rationals is `=`. All the theorems about values are statements about
 The theorem of a gallery picture that has one names the picture: `provedFunction_spec` begins by
 saying that the series of the figure `provedFunction` are `cubicSeries` and `parabolaSeries` and
 no other, and then says what the points of those series are. So changing what the theorem states
-of the figure breaks its proof, and a figure that no longer satisfies its theorem does not build;
-what the theorem does not state (a label it does not mention, a frame it does not pin) can change
-without breaking it, which is why each theorem below says which parts of its figure it pins.
+of the figure breaks its proof, and a figure that no longer satisfies its theorem does not build.
+Every theorem linked to a figure of the gallery and of the examples begins by writing the whole
+figure out, so nothing of the figure's value can change without breaking it ("What a gallery
+theorem pins" below).
 
 Many of these theorems are short: the series constructors are defined to hold the converted
 samples, so `Series.ofExact_points` holds by unfolding the definition. They are stated as theorems
 so that the specification of a picture can be read without reading the code, and so that a
 change to the code that broke it would be caught.
+
+## What a gallery theorem pins
+
+`figure_links` checks names only: a theorem that names its figure and says little of it is still
+linked. The gallery's and the examples' theorems say more, and a check makes sure of it. Each one
+begins with the figure written out, `fig = …`, followed by every definition of the gallery's own
+modules that the written-out figure uses, `c = …` or `∀ x, c x = …`, then every definition those
+use, and so on, until what is left are definitions of the libraries (PILean, LeAnTeX, Mathlib, Lean).
+`#assert_figures_pinned A B …` (`PILean/Trust/Attr.lean`, `figurePinProblem?`) checks this for
+every theorem linked to a figure declared in a module whose name starts with `A`, `B`, …: it
+walks the links of the environment, not a list of names, finds the equations among the
+statement's conjuncts (under its leading quantifiers), and fails if one of those definitions has
+none, if an equation's right-hand side mentions a variable of the statement, or if equations lead
+back to the definition they give. Each package runs it in its build: the core's test modules
+(`PILeanTest/Axioms.lean`), the Mathlib package (`PILeanMathlib/Axioms.lean`, with the core's
+figures it states again in Mathlib's terms), the LeAnTeX package's test driver, the Verso example
+and the Verso manual example (their test modules), and the manual (`manual/Main.lean`).
+
+What this guarantees: each such theorem being proved, its figure is equal to a term built from the
+libraries' definitions alone, and the statement writes that term out. Any change to a definition
+of the gallery's modules that changes the figure's value, in any field, makes the statement false,
+and the theorem does not build. For each kind of figure the fields a reader sees are therefore all
+pinned:
+
+| Kind | Fields a reader sees | Pinned |
+|---|---|---|
+| Plot (`Plot.Figure`) | title, accessible description, width, height, each panel's axis names, scales, domains and ticks, each series' name (the legend's text), points, line, dash, marker and colour role | all |
+| Plane figure (`Plane.Figure`) | title and description, width, narrow width, padding, view, the style set by the figure (such as the reference figure's house style: its widths, marker sizes and role colours), every item with its exact data, colour or role, title, description, width, marker, dash, fill and recorded incidences, every label with its text, point, placement, colour and size | all |
+| Diagram (`Diagram.Diagram`, the combinatorial, algebraic and number-theoretic kinds) | title, description, width, every mark (part, exact shape, text, colour role), and through the data the names of vertices, objects, arrows, sets, sequences, cells and headings | all |
+| Graph (`Graph`) | the node labels, the edges | all |
+| Animation (`Animation`) | width, height, frame rate, duration, loops, the drawing at every time (so every frame's content: the shapes, their colours, sizes and positions), the text engine | all |
+| Explorer (`Explorer`) | the parameters' names, values and the labels the slider writes, the frame at every point of the grid (each frame's figure in full), the poster | all |
+
+Nothing of a gallery figure is left unpinned on purpose. What no theorem states, by design, is
+the libraries' own code, which the written-out figure names: how the builders and modifiers make
+marks and items, the colour values of the library's styles (`Style.light`, `Style.dark` and the
+roles' defaults), the lettering and LeAnTeX's typesetting, the layouts, and the drawing in
+floating point down to the pixels. A change there can change a picture without breaking a
+gallery theorem; it is tested (the goldens in `examples/`, compared byte for byte by `lake test`),
+not proved.
+
+What it does not guarantee: that the statement says what its reader expects; the equations tie the
+statement to the figure, and the other conjuncts say what the figure means, which is still the
+reader's to judge. The check sorts definitions by module: a definition of a module outside the
+named prefixes counts as library code. A recursive definition cannot be written out by an
+equation that mentions it, so the gallery gives such definitions in a closed form proved equal
+to them (the logarithm's and the arctangent's partial sums as finite sums, the integer square
+root's bisection as an iteration, the harmonic numbers as Mathlib's `harmonic`, the triangular
+numbers as `n (n + 1) / 2`) or by their values (the Collatz stopping times). `figure_links` does
+not require any of this of a project's own figures; the command is there for a project that
+wants it. The five figures of `PILeanTest/Standing.lean` and three of the Verso manual example
+are linked to empty statements on purpose, to show what a link does not say, and are left out of
+the check.
+
+`lake test` compiles changed copies of the gallery's modules for these fields as well (what the
+clock's frames draw, a series' name, an axis's name, a width, an accessible description, the
+house style's marker size, a narrow width, a layout's radius, a title; in the Mathlib package
+the sine's legend and axis and the Petersen graph's width and layout; in the LeAnTeX package the
+figure's width and title) and requires each to fail inside its theorem
+(`PILeanTest/SpecMutations.lean`, `visibleMutations`; `PILeanMathlibTest/Mutations.lean`;
+`PILeanLeAnTeXTest/Main.lean`).
 
 ## Where floating point begins
 
@@ -215,9 +277,10 @@ not rational-valued.
   classical fact that `√d` is then irrational, used here, not proved in the core.
 * What the plane specifications do not pin: how the builders and modifiers draw (the library's
   code; `Plane.drawItem_point`, `Plane.Exact.IsPoint.draw` and the theorems above for points and
-  segments), the figure's width, frame and style (the style's colour values), the layout, the
-  label placement for `auto`, the fonts and lettering (LeAnTeX's typesetting for its example),
-  the rendering to SVG and the pixels.
+  segments), the colour values of the library's styles, the fitting of the frame, the label
+  placement for `auto`, the fonts and lettering (LeAnTeX's typesetting for its example), the
+  rendering to SVG and the pixels. The figure's own fields (width, narrow width, padding, view,
+  title, description, the style it sets) are written out ("What a gallery theorem pins").
 * Not proved: the fitting of the frame, label placement, the layout checks (among them the
   numerical check of each recorded incidence against the element it names), arcs and regions,
   and the rasteriser (tested); that the balls of ℚ(√d), ℤ[ζ₅], square roots and the constructions
@@ -523,10 +586,11 @@ the kernel evaluates only the caps, the layouts and the finite checks named belo
   `Submodule.span ℤ {(1, 0), (1/2, 7/8)}` in `[-3, 3] × [-2, 2]`, each once, all in the ink; the
   parallelogram is `0, ω₁, ω₁ + ω₂, ω₂` in accent 0.
 
-Every one of these theorems also pins the figure's title (its accessible name, which states the
-object and the range) and its style; the Ulam spiral's positions are `ulamWalk 441`, and the
-residue table's headings are written out with their positions. The colours a style gives the
-colour roles, and the page width and point radius, are not pinned (they are the layout).
+Every one of these theorems also writes out the whole figure ("What a gallery theorem pins"), so
+its title (its accessible name, which states the object and the range), width and style; the Ulam
+spiral's positions are `ulamWalk 441`, and the residue table's headings are written out with their
+positions. The colours a style gives the colour roles and the radius of the points, which the
+library's layout computes, are library code.
 
 `lake test` in `mathlib/` joins the figures' module and the theorems' module into one file,
 compiles copies with a datum changed (a value, a range, a name, the curve, a marking, a text, a

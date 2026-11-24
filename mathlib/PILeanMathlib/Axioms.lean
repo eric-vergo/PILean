@@ -43,9 +43,10 @@ remembering to list it.
 `PILeanMathlib` is one of the modules this file imports (or this file), so that no module of the
 library is outside the check.
 
-`#assert_figures_pinned PILeanMathlib.Examples` fails unless every theorem linked to a figure of
-the examples writes out the whole figure, with every definition of the examples it is built from
-(`PILean.Trust.figurePinProblem?`); the definitions of the library and of Mathlib are its
+`#assert_figures_pinned PILeanMathlib.Examples PILeanTest` fails unless every theorem linked to a
+figure of the examples, or to a figure of the core's tests (which the examples state again in
+Mathlib's terms), writes out the whole figure, with every definition of those modules it is built
+from (`PILean.Trust.figurePinProblem?`); the definitions of the libraries and of Mathlib are its
 vocabulary.
 
 The commands are PILean's (`PILean.Trust.Attr`), the same that check PILean itself.
@@ -78,8 +79,9 @@ run_cmd do
 
 #assert_standard_axioms PILeanMathlib
 
--- Every theorem linked to a figure of the examples writes out the whole figure, with every
--- definition of the examples it is built from.
-#assert_figures_pinned PILeanMathlib.Examples
+-- Every theorem linked to a figure of the examples, or to a figure of the core's tests that the
+-- examples state in Mathlib's terms, writes out the whole figure, with every definition of the
+-- examples and of the core's tests it is built from.
+#assert_figures_pinned PILeanMathlib.Examples PILeanTest
 
 end PILeanMathlib

@@ -33,8 +33,20 @@ each value written as its number); at every point of the grid the diagram draws 
 faithfully (`CommDiagram.Faithful`), its title names `ℤ/n` and `a`, its elements are named by
 their numbers, and the frame draws an arrow from `s` to `t` exactly when `s < n`, `t < n`,
 `t = s + a` in `ZMod n`, and, when `2 a = 0` in `ZMod n` (the generator is an involution, its
-pairs drawn as lines), `s < t`. -/
+pairs drawn as lines), `s < t`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cayleyExplorer_zmod :
+    moduli = ({
+      name := "n", values := #[5, 6, 7, 8, 9, 10, 11, 12],
+      label := toString } : ExplorerParam Nat) ∧
+    generators = ({ name := "a", values := #[1, 2, 3, 4], label := toString } : ExplorerParam Nat) ∧
+    (∀ (n a : Nat), cayleyDiagram n a = (
+      { (zmod n).cayleyFigure (generator n a) (FinMagma.circlePositions n) with
+        title := s!"The Cayley graph of ℤ/{n} for the generator {a}", width := 300 } : Diagram)) ∧
+    (∀ (n : Nat), zmod n = ({ n, mul := fun a b => a + b } : FinMagma)) ∧
+    (∀ (n a : Nat), generator n a =
+      (if h : 0 < n then [⟨a % n, Nat.mod_lt _ h⟩] else [] : List (Fin n))) ∧
     cayleyExplorer = Explorer.family₂ moduli generators cayleyFrame ∧
     moduli.values = #[5, 6, 7, 8, 9, 10, 11, 12] ∧ generators.values = #[1, 2, 3, 4] ∧
     moduli.name = "n" ∧ generators.name = "a" ∧
@@ -46,8 +58,8 @@ theorem cayleyExplorer_zmod :
       (cayleyData n a).objects.toList = (List.range n).map toString ∧
       ∀ s t : ℕ, (s, t) ∈ (cayleyDiagram n a).arrows.map (fun x => (x.2.1, x.2.2)) ↔
         s < n ∧ t < n ∧ (t : ZMod n) = s + a ∧ (((2 * a : ℕ) : ZMod n) = 0 → s < t) := by
-  obtain ⟨_, _, _, _, _, hx, h1, h2, h3, h4, h5, h6, h7, h⟩ := cayleyExplorer_spec
-  refine ⟨hx, h1, h2, h3, h4, h5, h6, h7, fun n hn a ha => ⟨(h n hn a ha).1, (h n hn a ha).2.1,
+  obtain ⟨p1, p2, p3, p4, p5, hx, h1, h2, h3, h4, h5, h6, h7, h⟩ := cayleyExplorer_spec
+  refine ⟨p1, p2, p3, p4, p5, hx, h1, h2, h3, h4, h5, h6, h7, fun n hn a ha => ⟨(h n hn a ha).1, (h n hn a ha).2.1,
     (h n hn a ha).2.2.1, fun s t => ?_⟩⟩
   have hn0 : 0 < n := by simp only [moduli] at hn; revert hn; decide +revert
   rw [(h n hn a ha).2.2.2]
@@ -86,8 +98,18 @@ named `x` and `y`, each value written as its number); at every point `(x, y)` of
 diagram draws its lattice faithfully (`PlaneLattice.Faithful`), its title names the second
 period, a point `p` of the plane is drawn (at some position, in some colour) exactly when it is
 in `Submodule.span ℤ {(1, 0), (x, y)}` and in the window `[-3, 3] × [-2, 2]`, and no point is
-drawn twice. -/
+drawn twice.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem latticeExplorer_span :
+    periodX = ({
+      name := "x", values := #[0, 1 / 4, 1 / 2, 3 / 4], label := toString } : ExplorerParam Rat) ∧
+    periodY = ({
+      name := "y", values := #[1 / 2, 3 / 4, 1], label := toString } : ExplorerParam Rat) ∧
+    (∀ (x y : Rat), latticeDiagram x y = ({ (lattice x y).figure with
+      title := s!"The lattice ℤ(1, 0) + ℤ({x}, {y})" } : Diagram)) ∧
+    (∀ (x y : Rat), lattice x y = ({
+      w1 := (1, 0), w2 := (x, y), lo := (-3, -2), hi := (3, 2) } : PlaneLattice)) ∧
     latticeExplorer = Explorer.family₂ periodX periodY latticeFrame ∧
     periodX.values = #[0, 1 / 4, 1 / 2, 3 / 4] ∧ periodY.values = #[1 / 2, 3 / 4, 1] ∧
     periodX.name = "x" ∧ periodY.name = "y" ∧
@@ -100,8 +122,8 @@ theorem latticeExplorer_span :
         p ∈ Submodule.span ℤ {((1 : ℚ), (0 : ℚ)), (x, y)} ∧
           -3 ≤ p.1 ∧ p.1 ≤ 3 ∧ -2 ≤ p.2 ∧ p.2 ≤ 2) ∧
       ((latticeDiagram x y).dots.map (·.2.1)).Nodup := by
-  obtain ⟨_, _, _, _, hx, h1, h2, h3, h4, h5, h6, h7, h⟩ := latticeExplorer_spec
-  refine ⟨hx, h1, h2, h3, h4, h5, h6, h7, fun x hxm y hym => ?_⟩
+  obtain ⟨p1, p2, p3, p4, hx, h1, h2, h3, h4, h5, h6, h7, h⟩ := latticeExplorer_spec
+  refine ⟨p1, p2, p3, p4, hx, h1, h2, h3, h4, h5, h6, h7, fun x hxm y hym => ?_⟩
   obtain ⟨-, hdet, hf, ht⟩ := h x hxm y hym
   refine ⟨hf, ht, fun p => ?_, (lattice x y).nodup_dots hdet hf⟩
   rw [(lattice x y).mem_dots_iff hdet hf]

@@ -24,8 +24,19 @@ data (written out) faithfully, with the one multiplicity it writes, and its titl
 function; with `p` and `q` the numerator and the denominator read as polynomials over ℚ and then
 over ℂ, every supplied zero `(z, m)` has `rootMultiplicity z p = m`, every supplied pole `(z, m)`
 has `rootMultiplicity z q = m`, and every complex root of `p` (of `q`) is a supplied zero
-(pole). -/
+(pole).
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem rationalFigure_roots :
+    rationalFigure = (rationalData.figure : Diagram) ∧
+    rationalData = ({
+      name := "f(z) = (z² + 1)(z − 1/2)² / ((z² − 2z + 2)(z + 3/2))"
+      num := [1 / 4, -1, 5 / 4, -1, 1]
+      den := [3, -1, -1 / 2, 1]
+      zeros := [((0, 1), 1), ((0, -1), 1), ((1 / 2, 0), 2)]
+      poles := [((1, 1), 1), ((1, -1), 1), ((-3 / 2, 0), 1)]
+      lo := (-2, -3 / 2)
+      hi := (2, 3 / 2) } : RationalPlot) ∧
     rationalData.zeros = [((0, 1), 1), ((0, -1), 1), ((1 / 2, 0), 2)] ∧
     rationalData.poles = [((1, 1), 1), ((1, -1), 1), ((-3 / 2, 0), 1)] ∧
     rationalData.num = [1 / 4, -1, 5 / 4, -1, 1] ∧ rationalData.den = [3, -1, -1 / 2, 1] ∧
@@ -39,8 +50,8 @@ theorem rationalFigure_roots :
     (∀ zm ∈ rationalData.poles, (ofCoeffsC rationalData.den).rootMultiplicity (toC zm.1) = zm.2) ∧
     (∀ w : ℂ, (ofCoeffsC rationalData.num).IsRoot w → ∃ zm ∈ rationalData.zeros, w = toC zm.1) ∧
     (∀ w : ℂ, (ofCoeffsC rationalData.den).IsRoot w → ∃ zm ∈ rationalData.poles, w = toC zm.1) := by
-  obtain ⟨_, _, h1, h2, h3, h4, hv, hc, hf, hl, ht⟩ := rationalFigure_spec
-  exact ⟨h1, h2, h3, h4, hf, hl, ht, fun zm h => RationalPlot.zero_rootMultiplicity hv h,
+  obtain ⟨p1, p2, h1, h2, h3, h4, hv, hc, hf, hl, ht⟩ := rationalFigure_spec
+  exact ⟨p1, p2, h1, h2, h3, h4, hf, hl, ht, fun zm h => RationalPlot.zero_rootMultiplicity hv h,
     fun zm h => RationalPlot.pole_rootMultiplicity hv h,
     fun w hw => RationalPlot.zeros_complete hv hc hw,
     fun w hw => RationalPlot.poles_complete hv hc hw⟩
