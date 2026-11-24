@@ -197,7 +197,8 @@ def planeMutations : Array PILeanTest.SpecMutations.SpecMutation :=
       edits := [("width := 480", "width := 520")] },
     { file, anchor := "def planeDisks : Plane.Figure", spec := "planeDisks_spec",
       what := "the figure gains a title",
-      edits := [("items := planeItems }", "items := planeItems, info := { title := \"Two disks\" } }")] }]
+      edits := [("items := planeItems }",
+        "items := planeItems, info := { title := \"Two disks\" } }")] }]
 
 end PILeanLeAnTeXTest
 

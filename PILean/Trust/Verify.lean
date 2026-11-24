@@ -73,12 +73,12 @@ def ManifestEntry.matches (m : ManifestEntry) (s : Source) : Bool :=
     s.fingerprint == some m.fingerprint && s.standing == m.standing && s.theorems == m.theorems
 
 /-- What a line of `pilean-verify` adds after the path of a file that agrees with its manifest:
-the standing the file records, as recorded (` [recorded: linked to T₁ T₂]`,
-` [recorded: illustration]`), or nothing for a file that records none. It repeats what the file
-and the manifest say; `pilean-verify` checks no theorem. -/
+the standing the file records, as recorded (` [recorded: linked to T₁, T₂]`, the names separated
+by a comma and a space, `[recorded: illustration]`), or nothing for a file that records none. It
+repeats what the file and the manifest say; `pilean-verify` checks no theorem. -/
 def recordedStanding (m : ManifestEntry) : String :=
   match m.standing, m.theorems with
-  | some "linked", some ts => s!" [recorded: linked to {ts}]"
+  | some "linked", some ts => s!" [recorded: linked to {", ".intercalate ts.toList}]"
   | some w, _ => s!" [recorded: {w}]"
   | none, _ => ""
 

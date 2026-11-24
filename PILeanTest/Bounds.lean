@@ -407,6 +407,10 @@ def cases : Array Case :=
     { name := "graph: 10000 nodes with ten self-loops each, bundled", kind := "graph",
       bytes := pure .empty, argv := some #["graph", "loops", "10000", "bundled"],
       expect := "ok 10000 nodes", maxRss := 512 <<< 20, maxUserMs := 20000 },
+    { name := "probe: a file that cannot be read is refused, with status 1", kind := "png",
+      bytes := pure .empty, argv := some #["png", "no-such-file-pilean-probe"],
+      expect := "error the file no-such-file-pilean-probe cannot be read", maxRss := baseRss,
+      maxUserMs := 5000 },
     { name := "graph: 20000 nodes, 40000 random edges", kind := "graph", bytes := pure .empty,
       argv := some #["graph", "sparse", "20000"], expect := "ok 20000 nodes",
       maxRss := 512 <<< 20, maxUserMs := 40000 },
@@ -415,16 +419,23 @@ def cases : Array Case :=
         fun i => s!"n{i};") ++ "}").toUTF8,
       expect := "ok 200000 nodes 0 routes", maxRss := 1280 <<< 20, maxUserMs := 30000 }]
 
-/-- Whether a run of a case passed: it exited with status 0 and the expected answer, and its peak
-memory and CPU time were both measured and within the case's bounds. A measurement that is
-missing fails the case: a bound that was not checked is not a bound that held. -/
+/-- The exit status `pilean-probe` gives for a case's answer: 0 for an accepting one (`ok …`), 1
+for a refusal or an error (`error …`). -/
+def expectedStatus (c : Case) : UInt32 := if c.expect.startsWith "ok" then 0 else 1
+
+/-- Whether a run of a case passed: it exited with the status of its answer (`expectedStatus`) and
+the expected answer, and its peak memory and CPU time were both measured and within the case's
+bounds. A measurement that is missing fails the case: a bound that was not checked is not a bound
+that held. A refusal that exits with status 0, or with any status but 1 (a crash, a signal), fails
+too. -/
 def withinBounds (c : Case) (run : Run) : Bool :=
-  run.status == some 0 && run.out.startsWith c.expect &&
+  run.status == some (expectedStatus c) && run.out.startsWith c.expect &&
     (run.rss.map (fun m => decide (m ≤ c.maxRss))).getD false &&
     (run.userMs.map (fun t => decide (t ≤ c.maxUserMs))).getD false
 
 /-- Checks of `withinBounds` and of the parsers of `/usr/bin/time` on made-up runs: a run with
-either measurement missing, or with an empty time report, fails. -/
+either measurement missing, or with an empty time report, fails, and so does a run whose exit
+status is not that of its answer. -/
 def verdictChecks : Array (String × Bool) :=
   let c : Case :=
     { name := "x", kind := "png", bytes := pure .empty, expect := "ok", maxRss := 100,
@@ -435,6 +446,15 @@ def verdictChecks : Array (String × Bool) :=
     ("bounds: a run without a memory measurement fails",
       !withinBounds c { good with rss := none }),
     ("bounds: a run without a CPU time fails", !withinBounds c { good with userMs := none }),
+    ("bounds: a refusal passes with status 1 only",
+      let e := { c with expect := "error" }
+      let refused := { good with out := "error too large" }
+      withinBounds e { refused with status := some 1 } &&
+        !withinBounds e { refused with status := some 0 } &&
+        !withinBounds e { refused with status := some 2 } &&
+        !withinBounds e { refused with status := none }),
+    ("bounds: an accepting answer with status 1 fails",
+      !withinBounds c { good with status := some 1 }),
     ("bounds: a run over either bound fails",
       !withinBounds c { good with rss := some 101 } &&
         !withinBounds c { good with userMs := some 101 }),

@@ -88,10 +88,10 @@ entry without outputs. -/
 def FigureEntry.standing (e : FigureEntry) : Standing :=
   ((e.outputs ())[0]?.map (·.standing)).getD (.illustration false)
 
-/-- The standing and the theorems as a source record and a manifest write them: the word of
-`Standing.word`, and for a linked figure its theorems separated by single spaces. -/
-def Standing.fields (s : Standing) : Option String × Option String :=
-  (some s.word, if s.theorems.isEmpty then none else some (" ".intercalate s.theorems.toList))
+/-- The standing and the theorems as a source record and a manifest keep them: the word of
+`Standing.word`, and for a linked figure its theorems, in order. -/
+def Standing.fields (s : Standing) : Option String × Option (Array String) :=
+  (some s.word, if s.theorems.isEmpty then none else some s.theorems)
 
 /-- The `Source` record written into the file of an output: the recorded source, the library
 version, the fingerprint of the output's specification, the output's standing with its theorems

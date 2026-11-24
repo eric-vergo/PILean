@@ -212,7 +212,7 @@ def hostileSource : Source :=
   { module := "Ünïcode.Mod", decl := "Ünïcode.Mod.fig (𝔽) \\ ) (", file := "Ü/Mod.lean",
     line := 12, column := 3, repo := some "https://example.org/r?x=1&y=(2)",
     commit := some "0123abcd", version := "0.1.0", fingerprint := some (String.ofList
-      (List.replicate 64 'a')), standing := some "linked", theorems := some "A.b C.d" }
+      (List.replicate 64 'a')), standing := some "linked", theorems := some #["A.b", "C.«d e»"] }
 
 /-- A plain source. -/
 def plainSource : Source :=

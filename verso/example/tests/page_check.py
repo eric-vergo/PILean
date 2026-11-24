@@ -95,7 +95,9 @@ def main(site):
         standing = p.root.get("data-pilean-standing")
         theorems = p.root.get("data-pilean-theorems") or ""
         for e in entries:
-            if e.get("standing") != standing or (e.get("theorems") or "") != theorems:
+            # the manifest lists the theorems as an array; the page's attribute joins them with
+            # single spaces
+            if e.get("standing") != standing or " ".join(e.get("theorems") or []) != theorems:
                 problems.append(f"{where}: states {standing} {theorems!r}, {e['path']} records "
                                 f"{e.get('standing')} {e.get('theorems')!r}")
         text = " ".join(" ".join(p.text).split())

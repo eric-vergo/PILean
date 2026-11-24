@@ -158,7 +158,8 @@ def main (args : List String) : IO UInt32 := do
     PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
     (← SpecMutations.ioChecks) ++ Axioms.coverageChecks driverModules ++ Diagrams.checks ++ AlgebraDiagrams.checks ++
     NumberDiagrams.checks ++
-    Standing.checks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++ Explorers.checks ++
+    Standing.checks ++ Standing.manifestChecks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++
+    Explorers.checks ++
     ComplexDiagrams.checks ++ standingChecks ++
     (← PdfChecks.goldenChecks (args == ["--update"]))
   for (name, ok) in checks do

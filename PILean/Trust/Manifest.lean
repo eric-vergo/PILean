@@ -24,12 +24,17 @@ namespace PILean.Trust
 /-- The name of the manifest file in the output directory. -/
 def manifestName : String := "manifest.json"
 
-/-- The value of the manifest's `format` key. -/
-def manifestFormat : String := "pilean-manifest-2"
+/-- The value of the manifest's `format` key. In this format the theorems of a linked figure are
+a JSON array of strings. -/
+def manifestFormat : String := "pilean-manifest-3"
 
-/-- The format of the manifests an earlier writer made, which `Manifest.parse` reads too: the same
-entries, with the standing of a figure with a linked theorem written `proved` and its theorems
-under the key `proves` (read as `linked` and `theorems`). -/
+/-- The earlier format of the manifests, which `Manifest.parse` reads too: the same entries, with
+the theorems of a linked figure as one string of names separated by single spaces. -/
+def spacedManifestFormat : String := "pilean-manifest-2"
+
+/-- The format of the manifests the first writer made, which `Manifest.parse` reads too: as
+`spacedManifestFormat`, with the standing of a figure with a linked theorem written `proved` and
+its theorems under the key `proves` (read as `linked` and `theorems`). -/
 def oldManifestFormat : String := "pilean-manifest-1"
 
 /-- The most entries of a build or of a manifest. -/
@@ -99,8 +104,8 @@ structure ManifestEntry where
   darkOpacities : Array (String × String) := #[]
   /-- The figure's standing recorded in the file (`linked` or `illustration`), if it has one. -/
   standing : Option String := none
-  /-- The theorems of a linked figure recorded in the file, separated by single spaces. -/
-  theorems : Option String := none
+  /-- The theorems of a linked figure recorded in the file, by full name, in order. -/
+  theorems : Option (Array String) := none
 deriving BEq, Repr, Inhabited
 
 /-- A character a file name may have: a letter, a digit, `.`, `_`, `-`; all ASCII. -/
@@ -146,7 +151,10 @@ def ManifestEntry.render (m : ManifestEntry) : String :=
     s "file" m.file, n "line" m.line, n "column" m.column, s "version" m.version] ++
     opt "repo" m.repo ++ opt "commit" m.commit ++ pairs "darkColours" m.darkColours ++
     pairs "darkOpacities" m.darkOpacities ++ opt "standing" m.standing ++
-    opt "theorems" m.theorems) ++ "}"
+    (match m.theorems with
+      | some ts => [s!"\"theorems\":[" ++
+          ",".intercalate (ts.toList.map fun t => s!"\"{Json.escape t}\"") ++ "]"]
+      | none => [])) ++ "}"
 
 /-- The manifest text of a list of entries (in the given order). -/
 def Manifest.render (es : Array ManifestEntry) : String :=
@@ -154,12 +162,14 @@ def Manifest.render (es : Array ManifestEntry) : String :=
     (if es.isEmpty then "" else "\n  " ++ ",\n  ".intercalate (es.toList.map (·.render)) ++ "\n") ++
     "]}\n"
 
-/-- The entry a JSON object describes; every key but `repo`, `commit`, the colour pairs,
-`standing` and `theorems` (or `proves`, read as `theorems`) must be there with a string or a
-number as its kind, the hashes in the form of `isFingerprint`, the format one of `svg`, `png`,
+/-- The entry a JSON object of a manifest describes; every key but `repo`, `commit`, the colour
+pairs, `standing` and `theorems` (or `proves`, read as `theorems`) must be there with a string or
+a number as its kind, the hashes in the form of `isFingerprint`, the format one of `svg`, `png`,
 `apng`, `gif`, `pdf`, the path `safePath`, and the standing with its theorems well formed
-(`standingOk`; a standing `proved` reads as `linked`, `readStanding`). -/
-def ManifestEntry.ofJson (j : Json) : Except String ManifestEntry := do
+(`standingOk`; a standing `proved` reads as `linked`, `readStanding`). The theorems are an array
+of strings when `spaced` is false (`manifestFormat`), and one string of names separated by single
+spaces when it is true (the earlier formats, `theoremsOfSpaced`). -/
+def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) : Except String ManifestEntry := do
   let str := fun (k : String) => do
     match j.get? k with
     | some (.str s) => return s
@@ -180,6 +190,17 @@ def ManifestEntry.ofJson (j : Json) : Except String ManifestEntry := do
       | .arr #[.str a, .str b] => return (a, b)
       | _ => throw s!"the key {k} must be a list of pairs of strings"
     | _ => throw s!"the key {k} must be a list of pairs of strings"
+  let theorems ← match j.get? "theorems", j.get? oldTheoremsKey, spaced with
+    | some (.str t), none, true => some <$> theoremsOfSpaced t
+    | none, some (.str t), true => some <$> theoremsOfSpaced t
+    | some (.arr xs), none, false => some <$> xs.mapM fun
+      | .str t => pure t
+      | _ => throw "the key theorems must be a list of strings"
+    | none, none, _ => pure none
+    | some _, some _, _ => throw s!"the keys theorems and {oldTheoremsKey} occur together"
+    | none, some _, false => throw s!"the key {oldTheoremsKey} belongs to an earlier format"
+    | _, _, true => throw "the key theorems must be a string in this format"
+    | _, _, false => throw "the key theorems must be a list of strings"
   let m : ManifestEntry := {
     path := ← str "path", format := ← str "format", bytes := ← num "bytes",
     sha256 := ← str "sha256", fingerprint := ← str "fingerprint", module := ← str "module",
@@ -187,11 +208,7 @@ def ManifestEntry.ofJson (j : Json) : Except String ManifestEntry := do
     version := ← str "version", repo := ← opt "repo", commit := ← opt "commit",
     darkColours := ← pairs "darkColours", darkOpacities := ← pairs "darkOpacities",
     standing := (← opt "standing").map readStanding,
-    theorems := ← match ← opt "theorems", ← opt oldTheoremsKey with
-      | some t, none => pure (some t)
-      | none, some t => pure (some t)
-      | none, none => pure none
-      | some _, some _ => throw s!"the keys theorems and {oldTheoremsKey} occur together" }
+    theorems }
   if !standingOk m.standing m.theorems then
     throw "the standing is not linked with its theorems or illustration without any"
   if !safePath m.path then throw s!"the path {m.path} is not a safe relative path"
@@ -200,21 +217,24 @@ def ManifestEntry.ofJson (j : Json) : Except String ManifestEntry := do
     throw "a hash is not 64 lowercase hexadecimal digits"
   return m
 
-/-- Reads a manifest: its text must be JSON as `Json.parse` reads it, an object with the right
-`format` and a `files` array of at most `maxManifestFiles` entries that `ManifestEntry.ofJson`
-accepts, with no path twice. -/
+/-- Reads a manifest: its text must be JSON as `Json.parse` reads it, an object with a known
+`format` (`manifestFormat`, or one of the earlier `spacedManifestFormat` and `oldManifestFormat`,
+whose theorems are one string of names separated by single spaces) and a `files` array of at
+most `maxManifestFiles` entries that `ManifestEntry.ofJson` accepts, with no path twice. -/
 def Manifest.parse (d : ByteArray) : Except String (Array ManifestEntry) := do
   let j ← Json.parse d
-  match j.get? "format" with
+  let spaced ← match j.get? "format" with
   | some (.str f) =>
-    if f != manifestFormat && f != oldManifestFormat then throw s!"unknown manifest format {f}"
+    if f == manifestFormat then pure false
+    else if f == spacedManifestFormat || f == oldManifestFormat then pure true
+    else throw s!"unknown manifest format {f}"
   | _ => throw "the manifest has no format"
   let some (.arr files) := j.get? "files" | throw "the manifest has no files list"
   if files.size > maxManifestFiles then throw "the manifest lists too many files"
   let mut out : Array ManifestEntry := #[]
   let mut seen : Std.HashSet String := {}
   for f in files do
-    let m ← ManifestEntry.ofJson f
+    let m ← ManifestEntry.ofJson f spaced
     if seen.contains m.path then throw s!"the path {m.path} is listed twice"
     seen := seen.insert m.path
     out := out.push m

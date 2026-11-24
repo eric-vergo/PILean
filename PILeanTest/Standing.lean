@@ -176,7 +176,7 @@ def checks : Array (String × Bool) :=
       unmarkedIllustrations entries == #["PILeanTest.Standing.unmarkedSketch"]),
     ("standing: the source record of a linked figure names its theorem",
       (sourceOf "linkedPath").map (fun s => (s.standing, s.theorems)) ==
-        some (some "linked", some "PILeanTest.Standing.linkedPath_spec") &&
+        some (some "linked", some #["PILeanTest.Standing.linkedPath_spec"]) &&
         (sourceOf "linkedPath").any (·.fields.any (·.1 == "theorems")) &&
         !(sourceOf "linkedPath").any (·.fields.any (·.1 == "proves"))),
     ("standing: the source record of an illustration says so, with no theorem",
@@ -184,7 +184,7 @@ def checks : Array (String × Bool) :=
         some (some "illustration", none)),
     ("standing: a record that claims a link without a theorem cannot be written or read",
       (Source.validate { valid with standing := some "linked" } matches .error _) &&
-        (Source.validate { valid with standing := some "proved", theorems := some "A" }
+        (Source.validate { valid with standing := some "proved", theorems := some #["A"] }
           matches .error _) &&
         (Source.ofFields (valid.fields.push ("standing", "linked")) matches .error _) &&
         (Source.ofFields (valid.fields.push ("standing", "proved")) matches .error _) &&
@@ -198,11 +198,65 @@ def checks : Array (String × Bool) :=
         (Source.ofFields (valid.fields ++
           #[("standing", "linked"), ("proves", "A"), ("proves", "A")]) matches .error _)),
     ("standing: a well-formed record is read back",
+      (Source.ofFields (valid.fields ++
+        #[("standing", "linked"), ("theorems", "[\"A\",\"B\"]")])).toOption ==
+        some { valid with standing := some "linked", theorems := some #["A", "B"] }),
+    ("standing: a record in the earlier form, names separated by spaces, is read",
       (Source.ofFields (valid.fields ++ #[("standing", "linked"), ("theorems", "A B")])).toOption ==
-        some { valid with standing := some "linked", theorems := some "A B" }),
+        some { valid with standing := some "linked", theorems := some #["A", "B"] }),
     ("standing: a record that writes proved and proves reads as linked with its theorems",
       (Source.ofFields (valid.fields ++ #[("standing", "proved"), ("proves", "A B")])).toOption ==
-        some { valid with standing := some "linked", theorems := some "A B" })]
+        some { valid with standing := some "linked", theorems := some #["A", "B"] }),
+    ("standing: names with a space and with quotes are written and read back as they are",
+      let ts := #["A.«b c»", "D.«e \"f\" g»", "H.i"]
+      let r : Source := { valid with standing := some "linked", theorems := some ts }
+      r.fields.contains ("theorems", "[\"A.«b c»\",\"D.«e \\\"f\\\" g»\",\"H.i\"]") &&
+        (Source.ofFields r.fields).toOption == some r && r.validate matches .ok _),
+    ("standing: a list of theorems that is empty, has an empty or a repeated name, or is not a \
+        list of strings is refused",
+      ["[]", "[\"\"]", "[\"A\",\"A\"]", "[\"A\",1]", "[\"A\"", "[[\"A\"]]", "{}"].all fun v =>
+        Source.ofFields (valid.fields ++ #[("standing", "linked"), ("theorems", v)])
+          matches .error _),
+    ("standing: under the earlier key, only the earlier form is read",
+      Source.ofFields (valid.fields ++ #[("standing", "linked"), ("proves", "[\"A\"]")])
+        matches .error _)]
+
+/-- A manifest entry of a linked figure whose theorems' names hold a space and quotes. -/
+def quotedEntry : ManifestEntry :=
+  { path := "M/fig.svg", format := "svg", bytes := 1,
+    sha256 := String.ofList (List.replicate 64 'a'),
+    fingerprint := String.ofList (List.replicate 64 'b'), module := "M", decl := "M.fig",
+    file := "M.lean", line := 1, column := 0, version := "1", standing := some "linked",
+    theorems := some #["M.«fig spec»", "M.«the \"fig\"»", "M.fig_spec"] }
+
+/-- The manifest text of one entry in the format `pilean-manifest-2`, from its rendering in the
+current format with the theorems `ts` written `spaced`. -/
+def spacedManifest (m : ManifestEntry) (spaced : String) : String :=
+  let t := Manifest.render #[{ m with theorems := none }]
+  ((t.replace manifestFormat spacedManifestFormat).replace "\"standing\":\"linked\""
+    s!"\"standing\":\"linked\",\"theorems\":\"{spaced}\"")
+
+/-- Checks of the manifest's list of theorems: names with a space and quotes go through it as
+they are, the earlier format's string of names is read, and a list in the wrong form for its
+format is refused. -/
+def manifestChecks : Array (String × Bool) :=
+  let text := Manifest.render #[quotedEntry]
+  let current := (Manifest.parse text.toUTF8).toOption == some #[quotedEntry]
+  let plain := { quotedEntry with theorems := some #["M.a", "M.b"] }
+  #[("standing: a manifest lists the theorems as a JSON array, names with a space and quotes \
+        as they are",
+      current &&
+        (text.splitOn "\"theorems\":[\"M.«fig spec»\",\"M.«the \\\"fig\\\"»\",").length == 2),
+    ("standing: a manifest of the earlier format, names separated by spaces, is read",
+      (Manifest.parse (spacedManifest plain "M.a M.b").toUTF8).toOption == some #[plain]),
+    ("standing: the earlier format's string of names is not read in the current format",
+      Manifest.parse ((spacedManifest plain "M.a M.b").replace spacedManifestFormat
+        manifestFormat).toUTF8 matches .error _),
+    ("standing: a list of names is not read in the earlier format",
+      Manifest.parse (text.replace manifestFormat spacedManifestFormat).toUTF8 matches .error _),
+    ("standing: a manifest whose list of theorems repeats a name is refused",
+      Manifest.parse (Manifest.render #[{ quotedEntry with
+        theorems := some #["M.a", "M.a"] }]).toUTF8 matches .error _)]
 
 /-- The standing in each format of file, a build with and without `--require-standing`, and the
 lines of `pilean-verify`. -/
@@ -232,8 +286,8 @@ def ioChecks : IO (Array (String × Bool)) := do
   let refused := (Manifest.parse bad) matches .error _
   -- a manifest in the earlier format, with `proved` and `proves`, reads as the current one
   let text := (String.fromUTF8? (Manifest.render manifest).toUTF8).getD ""
-  let old := ((text.replace manifestFormat oldManifestFormat).replace "\"standing\":\"linked\""
-    "\"standing\":\"proved\"").replace "\"theorems\":" "\"proves\":"
+  let old := (((text.replace manifestFormat oldManifestFormat).replace "\"standing\":\"linked\""
+    "\"standing\":\"proved\"").replace "\"theorems\":[\"" "\"proves\":\"").replace "\"]}" "\"}"
   let oldRead := (Manifest.parse old.toUTF8).toOption == some manifest &&
     (old.splitOn "\"proved\"").length > 1
   IO.FS.removeDirAll root

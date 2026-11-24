@@ -11,8 +11,10 @@ import PILean
 limits (zlib: an output cap of 256 MiB; `pdf`: the structural check of PDF files, `Pdf.check`;
 `source`: the source record of any format, `Source.read?`; `dot`: the DOT reader, `Dot.parse`,
 then the layered layout of its graph and its SVG) and prints `ok` with the size of what
-was decoded, or `error` with the reason (also for a file that cannot be read);
-`pilean-probe graph KIND N` lays out a generated graph. The test driver runs it on hostile inputs
+was decoded and exits with status 0, or `error` with the reason and exits with status 1 (also
+for a file that cannot be read); `pilean-probe graph KIND N` lays out a generated graph and exits
+with status 0. A wrong use of the command exits with status 2, so status 0 means an accepting
+verdict and nothing else. The test driver runs it on hostile inputs
 under limits (`PILeanTest.Bounds`); it imports only the library, so what it costs is what the
 reader costs.
 -/
@@ -52,8 +54,9 @@ def hostileGraph (kind : String) (n : Nat) : Graph := Id.run do
     (Array.replicate (n - g.nodes.size) ({ label := "x" } : Graph.Node)) } else g
 
 /-- Decodes the file named by the second argument as the first says (a PNG's line also gives
-the number of text entries it returned), or with `graph KIND N` lays out and draws a hostile
-graph (`hostileGraph`) and prints its size; `graph KIND N SWEEPS WORK` sets two of the layout's
+the number of text entries it returned) and exits with status 0 on `ok`, 1 on `error`, or with
+`graph KIND N` lays out and draws a hostile graph (`hostileGraph`), prints its size and exits with
+status 0; `graph KIND N SWEEPS WORK` sets two of the layout's
 budgets, `graph KIND N orthogonal` routes the edges orthogonally and `graph KIND N bundled` in
 bundles (`Routing.bundled`). -/
 def main (args : List String) : IO UInt32 := do
@@ -76,7 +79,7 @@ def main (args : List String) : IO UInt32 := do
     | .ok b => pure b
     | .error e =>
       IO.println s!"error the file {file} cannot be read: {e}"
-      return 0
+      return 1
   let line := match kind with
     | "png" => match Png.decode bytes with
       | .ok d => s!"ok {d.image.width}x{d.image.height} {d.image.data.size} text {d.text.size}"
@@ -105,4 +108,4 @@ def main (args : List String) : IO UInt32 := do
       | .ok o => s!"ok {o.size}"
       | .error e => s!"error {e}"
   IO.println line
-  return 0
+  return if line.startsWith "ok" then 0 else 1

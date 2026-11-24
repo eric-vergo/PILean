@@ -312,7 +312,8 @@ def sineMutations : Array SpecMutation :=
     { file := f, what := "the sine's x axis is named t", anchor := "def sineFigure : Figure where",
       edits := [("x := { label := \"x\" }", "x := { label := \"t\" }")],
       spec := "sineFigure_spec" },
-    { file := f, what := "the sine's title says 98 samples", anchor := "def sineFigure : Figure where",
+    { file := f, what := "the sine's title says 98 samples",
+      anchor := "def sineFigure : Figure where",
       edits := [("from 97 exact", "from 98 exact")], spec := "sineFigure_spec" }]
 
 /-- The groups of figures and their changes. -/

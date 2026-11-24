@@ -8,6 +8,7 @@ import PILean.Version
 import PILean.Pdf.Read
 import PILean.Pdf.Object
 import PILean.Trust.Sha256
+import PILean.Trust.Json
 
 /-!
 # Source information in images
@@ -109,9 +110,39 @@ structure Source where
   /-- The figure's standing as the build recorded it: `linked` or `illustration`
   (`PILean.Trust.Standing.word`). -/
   standing : Option String := none
-  /-- For a linked figure, the theorems linked to it, by full name, separated by single spaces. -/
-  theorems : Option String := none
+  /-- For a linked figure, the theorems linked to it, by full name (as Lean writes a name, so
+  with `«` and `»` around a component that needs them), in order; written as a JSON array of
+  strings (`theoremsText`). -/
+  theorems : Option (Array String) := none
 deriving BEq, Repr, Inhabited
+
+/-- The theorems of a linked figure as a source record writes them: a JSON array of strings with
+the escapes of JSON (`Json.escape`) and no space between the items, such as
+`["A.b","C.«d e»"]`. Every list of strings has exactly one such text, and `theoremsOfText` reads
+it back. -/
+def theoremsText (ts : Array String) : String :=
+  "[" ++ ",".intercalate (ts.toList.map fun t => "\"" ++ Json.escape t ++ "\"") ++ "]"
+
+/-- The theorems in the form earlier writers gave them: names separated by single spaces, each
+non-empty and without white space. Fails on any other text. -/
+def theoremsOfSpaced (v : String) : Except String (Array String) :=
+  let ts := (v.splitOn " ").toArray
+  if v.isEmpty || ts.any (fun t => t.isEmpty || t.any Char.isWhitespace) then
+    .error "the theorems are not names separated by single spaces"
+  else .ok ts
+
+/-- The theorems a source record's value lists: a value that begins with `[` is a JSON array of
+strings (`theoremsText`, read by `Json.parse`); any other value is the form earlier writers gave
+(`theoremsOfSpaced`). The two cannot be confused: a name as Lean writes it never begins with `[`
+(a component that would is written between `«` and `»`). -/
+def theoremsOfText (v : String) : Except String (Array String) := do
+  if v.startsWith "[" then
+    match ← Json.parse v.toUTF8 with
+    | .arr xs => xs.mapM fun
+      | .str t => pure t
+      | _ => throw "a theorem's name is not a string"
+    | _ => throw "the theorems are not a list"
+  else theoremsOfSpaced v
 
 /-- The fields in writing order as `(key, value)`; absent options are left out. -/
 def Source.fields (s : Source) : Array (String × String) :=
@@ -122,17 +153,18 @@ def Source.fields (s : Source) : Array (String × String) :=
   #[("version", s.version)] ++
   (match s.fingerprint with | some r => #[("fingerprint", r)] | none => #[]) ++
   (match s.standing with | some r => #[("standing", r)] | none => #[]) ++
-  (match s.theorems with | some r => #[("theorems", r)] | none => #[])
+  (match s.theorems with | some ts => #[("theorems", theoremsText ts)] | none => #[])
 
 /-- Whether a recorded standing and list of theorems are well formed: no standing and no
-theorems, `illustration` without theorems, or `linked` with a non-empty list of names separated
-by single spaces, each name non-empty and without white space. -/
-def standingOk (standing theorems : Option String) : Bool :=
+theorems, `illustration` without theorems, or `linked` with a non-empty list of distinct names,
+each non-empty and made of characters XML can carry (`xmlChar`). Any other pair is refused. -/
+def standingOk (standing : Option String) (theorems : Option (Array String)) : Bool :=
   match standing, theorems with
   | none, none => true
   | some "illustration", none => true
   | some "linked", some ts =>
-    !ts.isEmpty && (ts.splitOn " ").all fun t => !t.isEmpty && !t.any Char.isWhitespace
+    !ts.isEmpty && ts.all (fun t => !t.isEmpty && t.all xmlChar) &&
+      ts.toList.eraseDups.length == ts.size
   | _, _ => false
 
 /-- Whether `s` is 64 lowercase hexadecimal digits. -/
@@ -161,8 +193,9 @@ def Source.validate (s : Source) : Except String Unit := do
 ignored, a known key twice is an error, a value above `maxField` bytes or with a character XML
 cannot carry (so one the writers refuse) is an error, `line` and
 `column` are decimal numbers of at most nine digits, a fingerprint is 64 lowercase hexadecimal
-digits, the standing and its theorems are well formed (`standingOk`; a standing `proved` reads as
-`linked` and theorems under the key `proves` as `theorems`, `readStanding`), and `module`, `decl`,
+digits, the theorems are a list in the record's form or in the earlier one (`theoremsOfText`;
+under the earlier key `proves`, in the earlier form only), the standing and its theorems are well
+formed (`standingOk`; a standing `proved` reads as `linked`, `readStanding`), and `module`, `decl`,
 `file`, `line`, `column` and `version` must be present. -/
 def Source.ofFields (kvs : Array (String × String)) : Except String Source := do
   let mut seen : Array String := #[]
@@ -192,8 +225,8 @@ def Source.ofFields (kvs : Array (String × String)) : Except String Source := d
   let v ← req "version"
   let standing := (find "standing").map readStanding
   let theorems ← match find "theorems", find oldTheoremsKey with
-    | some t, none => pure (some t)
-    | none, some t => pure (some t)
+    | some t, none => some <$> theoremsOfText t
+    | none, some t => some <$> theoremsOfSpaced t
     | none, none => pure none
     | some _, some _ => throw s!"the keys theorems and {oldTheoremsKey} occur together"
   if !standingOk standing theorems then
