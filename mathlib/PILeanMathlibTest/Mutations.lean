@@ -40,6 +40,9 @@ structure Group where
   theoremsFile : System.FilePath
   /-- The changes. -/
   mutations : Array SpecMutation
+  /-- Modules of the kind the figures are made with (file and module name), joined before the
+  figures so that a change to the kind is checked too. -/
+  kinds : List (System.FilePath × String) := []
   /-- The theorems of the figures' module (a module of the core, whose figures carry their own
   theorems) inside which a change may fail too; anywhere else in the figures' part an error fails
   the check. -/
@@ -50,14 +53,17 @@ def splitImports (text : String) : List String × List String :=
   let ls := text.splitOn "\n"
   (ls.filter (·.startsWith "import "), ls.filter fun l => !l.startsWith "import ")
 
-/-- The joined file: the imports of both files but the figures' module, the figures' text, the
-theorems' text; and the line (from 1) where the theorems' text begins. -/
-def joined (figuresModule figures theorems : String) : String × Nat :=
-  let (fi, fb) := splitImports figures
+/-- The joined file: the imports of the kinds' files (`kinds`, each a module name and its text),
+of the figures and of the theorems but the joined modules themselves, then the kinds' texts, the
+figures' text, the theorems' text; and the line (from 1) where the theorems' text begins. -/
+def joined (figuresModule figures theorems : String) (kinds : List (String × String) := []) :
+    String × Nat :=
+  let own := figuresModule :: kinds.map (·.1)
+  let parts := kinds.map (splitImports ·.2) ++ [splitImports figures]
   let (ti, tb) := splitImports theorems
-  let imports := (fi ++ ti.filter (· != s!"import {figuresModule}"))
-    |>.eraseDups
-  let head := imports ++ fb
+  let imports := (parts.flatMap (·.1) ++ ti)
+    |>.filter (fun l => !own.any (l == s!"import {·}")) |>.eraseDups
+  let head := imports ++ parts.flatMap (·.2)
   ("\n".intercalate (head ++ tb), head.length + 1)
 
 /-- Whether the change breaks the theorem `m.spec` and nothing in the figures: the changed
@@ -140,7 +146,8 @@ def numberTheoryMutations : Array SpecMutation :=
       spec := "latticeFigure_spec" }]
 
 /-- The changes to the certified plots of real functions that their theorems must catch: a
-bound, an interval, a number of steps, a name, a coefficient or a number of terms changed. -/
+bound, an interval, a number of steps, a name, a coefficient or a number of terms changed, and
+the kind's panel changed (a domain forced on an axis, a logarithmic axis). -/
 def realMutations : Array SpecMutation :=
   let f : System.FilePath := "joined"
   #[{ file := f, what := "the exponential's bound is 1/2000", anchor := "def expPlot :",
@@ -163,7 +170,22 @@ def realMutations : Array SpecMutation :=
       edits := [("(-1) ^ n * x", "1 ^ n * x")], spec := "arctanFigure_spec" },
     { file := f, what := "the square roots have 6 binary digits", anchor := "def sqrtApprox",
       edits := [("(x * 4 ^ 30)", "(x * 4 ^ 6)"), ("/ 2 ^ 30", "/ 2 ^ 6")],
-      spec := "sqrtFigure_spec" }]
+      spec := "sqrtFigure_spec" },
+    { file := f, what := "the kind forces the y axis's domain to (0, 1)",
+      anchor := "def figure (c : CertifiedPlot) : Figure where",
+      edits := [("y := { label := \"y\" }", "y := { label := \"y\", domain := some (0, 1) }")],
+      spec := "expFigure_spec",
+      others := ["cosFigure_spec", "logFigure_spec", "arctanFigure_spec", "sqrtFigure_spec"] },
+    { file := f, what := "the kind draws the x axis logarithmic",
+      anchor := "def figure (c : CertifiedPlot) : Figure where",
+      edits := [("x := { label := \"x\" }", "x := { label := \"x\", scale := .log }")],
+      spec := "expFigure_spec",
+      others := ["cosFigure_spec", "logFigure_spec", "arctanFigure_spec", "sqrtFigure_spec"] },
+    { file := f, what := "the kind names the y axis f(x)",
+      anchor := "def figure (c : CertifiedPlot) : Figure where",
+      edits := [("y := { label := \"y\" }", "y := { label := \"f(x)\" }")],
+      spec := "cosFigure_spec",
+      others := ["expFigure_spec", "logFigure_spec", "arctanFigure_spec", "sqrtFigure_spec"] }]
 
 /-- The changes to the combinatorial figures that their theorems must catch: a label that no
 longer names its object, a mark added, a title that names another object, a colour role. -/
@@ -285,7 +307,9 @@ def groups : Array Group :=
       figuresFile := "PILeanMathlib" / "Examples" / "RealFigures.lean",
       figuresModule := "PILeanMathlib.Examples.RealFigures",
       theoremsFile := "PILeanMathlib" / "Examples" / "Real.lean",
-      mutations := realMutations },
+      mutations := realMutations,
+      kinds := [("PILeanMathlib" / "CertifiedPlot.lean", "PILeanMathlib.CertifiedPlot"),
+        ("PILeanMathlib" / "CertifiedPlotBound.lean", "PILeanMathlib.CertifiedPlotBound")] },
     { what := "combinatorics",
       figuresFile := "PILeanMathlib" / "Examples" / "CombinatoricsFigures.lean",
       figuresModule := "PILeanMathlib.Examples.CombinatoricsFigures",
@@ -315,8 +339,9 @@ def parallel : Nat := 5
 time, breaks its theorem. -/
 def groupChecks (lean : String) (scratch : System.FilePath) (g : Group) :
     IO (Array (String × Bool)) := do
+  let kinds ← g.kinds.mapM fun (f, m) => do return (m, ← IO.FS.readFile f)
   let (text, start) := joined g.figuresModule (← IO.FS.readFile g.figuresFile)
-    (← IO.FS.readFile g.theoremsFile)
+    (← IO.FS.readFile g.theoremsFile) kinds
   let dir := scratch / g.what.replace " " "-"
   IO.FS.createDirAll dir
   let plain := dir / "Plain.lean"

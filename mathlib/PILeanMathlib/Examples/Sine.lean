@@ -71,8 +71,9 @@ theorem abs_sineTaylor_sub_sin_le {x : ℚ} (hx : |(x : ℝ)| ≤ 3) :
   refine (abs_sin_sub_taylor_le 16 x).trans ?_
   gcongr
 
-/-- **The sine figure is within `1 / 2000` of the sine.** The figure `sineFigure` has one panel,
-whose only series is `sineSeries`. The points of `sineSeries` are the exact samples of the
+/-- **The sine figure is within `1 / 2000` of the sine.** The figure `sineFigure` has its title
+and one panel, with the axes `x` and `y`, linear and with no domain set, whose only series is
+`sineSeries`, and no other setting. The points of `sineSeries` are the exact samples of the
 polynomial `sineTaylor` on the grid of 96 steps from `-3` to `3`, converted one by one to floating
 point; and the polyline through those exact samples, as a subset of the real plane, is vertically
 within `1 / 2000` of the graph of the real sine over `[-3, 3]`: it lies over `[-3, 3]`, has a
@@ -82,10 +83,14 @@ point over every abscissa of `[-3, 3]`, and each of its points `(x, y)` has
 The last statement is about the exact samples. The floating-point steps from them to the
 picture are not part of it. -/
 theorem sineFigure_spec :
+    sineFigure = { title := "The sine from 97 exact samples", panels := #[{
+      x := { label := "x", scale := .linear, domain := none },
+      y := { label := "y", scale := .linear, domain := none },
+      series := #[sineSeries] }] } ∧
     sineFigure.panels.map (·.series) = #[#[sineSeries]] ∧
     sineSeries.points = ((Exact.samples sineTaylor lo hi steps).map Exact.toPoint).toArray ∧
     IsVerticallyWithin (Exact.plot sineTaylor lo hi steps) Real.sin (Icc (-3) 3) (1 / 2000) := by
-  refine ⟨by simp [sineFigure], Series.ofExact_points .., ?_⟩
+  refine ⟨rfl, by simp [sineFigure], Series.ofExact_points .., ?_⟩
   have hlo : ((lo : ℚ) : ℝ) = -3 := by norm_num [lo]
   have hhi : ((hi : ℚ) : ℝ) = 3 := by norm_num [hi]
   have h := Exact.isVerticallyWithin_plot (g := sineTaylor) (lo := lo) (hi := hi) (n := steps)
