@@ -76,33 +76,40 @@ def gridMarks (P : LatticePath) : List Mark :=
       { part := .guide, ink := .faint,
         shape := .segment ((x0 : Rat), (y0 : Rat) + j) ((x1 : Rat), (y0 : Rat) + j) }
 
-/-- The diagram: the grid, then each step as a segment in accent 0. -/
+/-- The steps as marks: each step as a segment in accent 0. -/
+def stepMarks (P : LatticePath) : List Mark :=
+  P.stepList.map fun (k, p, q) => { part := .step k, shape := .segment p q, ink := .accent 0 }
+
+/-- The diagram: the grid (`gridMarks`), then the steps (`stepMarks`). -/
 def draw (P : LatticePath) : Diagram where
-  marks := P.gridMarks ++
-    P.stepList.map (fun (k, p, q) =>
-      { part := .step k, shape := .segment p q, ink := .accent 0 })
+  marks := P.gridMarks ++ P.stepMarks
   width := min 520 (36 * ((P.box.2.2.1 - P.box.1).toNat.toFloat + 1) + 24)
 
 /-- The diagram draws the path faithfully: its steps are exactly `stepList`, in order; its
-decorations are exactly the grid (`gridMarks`); and every mark is a step's segment or a guide. -/
+decorations are exactly the grid (`gridMarks`); every mark is a step's segment or a guide; and
+its marks of steps and of decorations are exactly `stepMarks` and `gridMarks`, with their colour
+roles. -/
 def Faithful (P : LatticePath) (d : Diagram) : Prop :=
   d.steps = P.stepList ∧ d.decorations = P.gridMarks.map (fun m => (m.part, m.shape)) ∧
     d.marks.all (fun m => match m.part, m.shape with
       | .step _, .segment _ _ => true
       | .guide, _ => true
-      | _, _ => false) = true
+      | _, _ => false) = true ∧
+    d.marksWhere Part.isStep = P.stepMarks ∧ d.marksWhere Part.isDecoration = P.gridMarks
 
 instance (P : LatticePath) (d : Diagram) : Decidable (P.Faithful d) :=
-  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _))
 
 /-- The diagram of a path is faithful. -/
 theorem draw_faithful (P : LatticePath) : P.Faithful P.draw := by
-  refine ⟨?_, ?_, ?_⟩
-  · simp [Diagram.steps, draw, gridMarks, stepList, List.filterMap_append,
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · simp [Diagram.steps, draw, gridMarks, stepMarks, stepList, List.filterMap_append,
       List.filterMap_map, Function.comp_def]
-  · simp [Diagram.decorations, draw, gridMarks, stepList, List.filterMap_append,
+  · simp [Diagram.decorations, draw, gridMarks, stepMarks, stepList, List.filterMap_append,
       List.filterMap_map, Function.comp_def]
-  · simp [draw, gridMarks, stepList]
+  · simp [draw, gridMarks, stepMarks, stepList]
+  · simp [draw, gridMarks, stepMarks, stepList, Part.isStep, Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
+  · simp [draw, gridMarks, stepMarks, stepList, Part.isDecoration, Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
 
 /-- The figure: the diagram, or a note for more than `maxSteps` steps or a box wider or taller
 than `maxSteps` (the grid's lines). -/
@@ -155,27 +162,31 @@ namespace Polyomino
 def square (c : Nat × Nat) : QPoint × QPoint :=
   (((c.1 : Rat), (c.2 : Rat)), ((c.1 : Rat) + 1, (c.2 : Rat) + 1))
 
-/-- The diagram: each cell's unit square, tinted with accent 1. -/
+/-- The squares of the cells, each tinted with accent 1. -/
+def cellMarks (P : Polyomino) : List Mark :=
+  P.cells.map fun c => { part := .cell c.1 c.2, shape := .rect (square c).1 (square c).2, ink := .tint 1 }
+
+/-- The diagram (`cellMarks`). -/
 def draw (P : Polyomino) : Diagram where
-  marks := P.cells.map fun c =>
-    { part := .cell c.1 c.2, shape := .rect (square c).1 (square c).2, ink := .tint 1 }
+  marks := P.cellMarks
   width := min 520 (36 * ((P.cells.foldl (fun m c => max m c.1) 0) + 1).toFloat + 24)
 
 /-- The diagram draws the polyomino faithfully: its cells are exactly the polyomino's, in order,
-each its unit square, and it has no other mark. -/
+each its unit square, and its marks are exactly `cellMarks` (no other mark, each in its colour
+role). -/
 def Faithful (P : Polyomino) (d : Diagram) : Prop :=
   d.cells = P.cells ∧ d.marks.all (fun m => match m.part, m.shape with
     | .cell x y, .rect lo hi => lo == (square (x, y)).1 && hi == (square (x, y)).2
-    | _, _ => false) = true
+    | _, _ => false) = true ∧ d.marks = P.cellMarks
 
 instance (P : Polyomino) (d : Diagram) : Decidable (P.Faithful d) :=
-  inferInstanceAs (Decidable (_ ∧ _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The diagram of a polyomino is faithful. -/
 theorem draw_faithful (P : Polyomino) : P.Faithful P.draw := by
-  refine ⟨?_, ?_⟩
-  · simp [Diagram.cells, draw, List.filterMap_map, Function.comp_def]
-  · simp [draw]
+  refine ⟨?_, ?_, rfl⟩
+  · simp [Diagram.cells, draw, cellMarks, List.filterMap_map, Function.comp_def]
+  · simp [draw, cellMarks]
 
 /-- The Ferrers board of the row lengths `λ`: row `i` (from the bottom) has the cells
 `(0, i), …, (λᵢ - 1, i)`. -/

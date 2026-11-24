@@ -111,23 +111,28 @@ structure YoungShape where
 
 namespace YoungShape
 
-/-- The diagram: one unit square per cell, row by row, tinted with accent 0. -/
-def draw (Y : YoungShape) : Diagram where
-  marks := (cellList Y.rows).map (cellMark Y.convention (.tint 0))
+/-- The marks of the diagram: one unit square per cell, row by row, tinted with accent 0. -/
+def cellMarks (Y : YoungShape) : List Mark := (cellList Y.rows).map (cellMark Y.convention (.tint 0))
 
-/-- The diagram draws the shape faithfully: its cells are exactly `cellList λ`, in order, and
-each is the unit square of its convention. -/
+/-- The diagram (`cellMarks`). -/
+def draw (Y : YoungShape) : Diagram where
+  marks := Y.cellMarks
+
+/-- The diagram draws the shape faithfully: its cells are exactly `cellList λ`, in order, each
+is the unit square of its convention, and its marks are exactly `cellMarks` (no other mark, each
+in its colour role). -/
 def Faithful (Y : YoungShape) (d : Diagram) : Prop :=
-  d.cells = cellList Y.rows ∧ d.marks.all (placedCell Y.convention) = true
+  d.cells = cellList Y.rows ∧ d.marks.all (placedCell Y.convention) = true ∧
+    d.marks = Y.cellMarks
 
 instance (Y : YoungShape) (d : Diagram) : Decidable (Y.Faithful d) :=
-  inferInstanceAs (Decidable (_ ∧ _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
 
 /-- The diagram of a shape is faithful. -/
 theorem draw_faithful (Y : YoungShape) : Y.Faithful Y.draw := by
-  refine ⟨?_, ?_⟩
-  · simp [Diagram.cells, draw, cellMark, List.filterMap_map, Function.comp_def]
-  · simp [draw, placedCell, cellMark]
+  refine ⟨?_, ?_, rfl⟩
+  · simp [Diagram.cells, draw, cellMarks, cellMark, List.filterMap_map, Function.comp_def]
+  · simp [draw, cellMarks, placedCell, cellMark]
 
 /-- The figure: the diagram, or a note when the shape has more than `maxCells` cells (counted
 up to the cap). -/
@@ -186,31 +191,38 @@ def IsStandard (T : Tableau) : Prop :=
 instance (T : Tableau) : Decidable T.IsStandard :=
   inferInstanceAs (Decidable (_ ∧ _))
 
-/-- The diagram: the unit square of each cell, then its entry at its centre. -/
+/-- The squares of the tableau: the unit square of each cell, in the ink. -/
+def cellMarks (T : Tableau) : List Mark := (cellList T.shape).map (cellMark T.convention .ink)
+
+/-- The entries of the tableau as marks: each cell's entry at its centre. -/
+def entryMarks (T : Tableau) : List Mark :=
+  T.entryTexts.map fun e =>
+    { part := .entry e.1.1 e.1.2, shape := .text e.2 (cellCentre T.convention e.1.1 e.1.2) .center }
+
+/-- The diagram: the unit square of each cell (`cellMarks`), then its entry at its centre
+(`entryMarks`). -/
 def draw (T : Tableau) : Diagram where
-  marks := (cellList T.shape).map (cellMark T.convention .ink) ++
-    T.entryTexts.map fun e =>
-      { part := .entry e.1.1 e.1.2,
-        shape := .text e.2 (cellCentre T.convention e.1.1 e.1.2) .center }
+  marks := T.cellMarks ++ T.entryMarks
 
 /-- The diagram draws the tableau faithfully: its cells are exactly the cells of its shape, in
-order, its written entries are the filling (`entryTexts`), cell by cell, and each mark is where
-the convention puts it. -/
+order, its written entries are the filling (`entryTexts`), cell by cell, each mark is where the
+convention puts it, and its marks are exactly `cellMarks` and then `entryMarks` (no other mark,
+each in its colour role). -/
 def Faithful (T : Tableau) (d : Diagram) : Prop :=
   d.cells = cellList T.shape ∧ d.entries = T.entryTexts ∧
-    d.marks.all (placedCell T.convention) = true
+    d.marks.all (placedCell T.convention) = true ∧ d.marks = T.cellMarks ++ T.entryMarks
 
 instance (T : Tableau) (d : Diagram) : Decidable (T.Faithful d) :=
-  inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _))
 
 /-- The diagram of a tableau is faithful. -/
 theorem draw_faithful (T : Tableau) : T.Faithful T.draw := by
-  refine ⟨?_, ?_, ?_⟩
-  · simp [Diagram.cells, draw, cellMark, List.filterMap_append, List.filterMap_map,
-      Function.comp_def]
-  · simp [Diagram.entries, draw, cellMark, List.filterMap_append, List.filterMap_map,
-      Function.comp_def]
-  · simp [draw, placedCell, cellMark]
+  refine ⟨?_, ?_, ?_, rfl⟩
+  · simp [Diagram.cells, draw, cellMarks, entryMarks, cellMark, List.filterMap_append,
+      List.filterMap_map, Function.comp_def]
+  · simp [Diagram.entries, draw, cellMarks, entryMarks, cellMark, List.filterMap_append,
+      List.filterMap_map, Function.comp_def]
+  · simp [draw, cellMarks, entryMarks, placedCell, cellMark]
 
 /-- The figure: the diagram, or a note for more than `maxCells` cells. -/
 def figure (T : Tableau) : Diagram :=

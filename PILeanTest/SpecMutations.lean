@@ -144,9 +144,10 @@ def checkAll (ms : Array SpecMutation) : IO (Array (String × Bool)) := do
   IO.FS.removeDirAll scratch
   return out
 
-/-- The changes to the data of the gallery's combinatorial diagrams (`PILeanTest/Diagrams.lean`)
-that their specifications must catch: an edge, a cover, a cell, an entry, an incidence, a step or
-a drawing changed. -/
+/-- The changes to the gallery's combinatorial diagrams (`PILeanTest/Diagrams.lean`) that their
+specifications must catch: an edge, a cover, a cell, an entry, an incidence, a step or a drawing
+changed; a label, a set's name or a title that no longer says what is drawn; a mark added (also
+under a decoration's part); a colour role changed. -/
 def diagramMutations : Array SpecMutation :=
   let f : System.FilePath := "PILeanTest" / "Diagrams.lean"
   #[{ file := f, what := "the Petersen graph loses the condition on its last pair",
@@ -178,7 +179,80 @@ def diagramMutations : Array SpecMutation :=
     { file := f, what := "the Dyck word ends with two downs", anchor := "def dyckWord : List Bool",
       edits := [("true, false]", "false, false]")], spec := "dyck_spec" },
     { file := f, what := "the board has the shape (4, 2, 1)", anchor := "def board : Polyomino",
-      edits := [("[4, 3, 1]", "[4, 2, 1]")], spec := "ferrers_spec" }]
+      edits := [("[4, 3, 1]", "[4, 2, 1]")], spec := "ferrers_spec" },
+    { file := f, what := "the vertices are no longer named by their 2-subsets",
+      anchor := "def petersenGraph : FinGraph where",
+      edits := [("s!\"{a}{b}\"", "s!\"{a}{(b + 1) % 5}\"")], spec := "petersen_spec" },
+    { file := f, what := "an eighth line label L8 is written into the Fano plane",
+      anchor := "def fano : Diagram :=",
+      edits := [("title := \"Points and lines of the Fano plane\" }",
+        "title := \"Points and lines of the Fano plane\", marks := fanoPlane.incidenceFigure.marks \
+          ++ [{ part := .vertex 14, shape := .text \"L8\" (0, 3) .center }, \
+          { part := .vertex 14, shape := .dot (0, 3) }] }")], spec := "fano_spec" },
+    { file := f, what := "the points of the Fano plane are named 7, …, 1 (an isomorphic relabelling)",
+      anchor := "def fanoPlane : SetSystem where",
+      edits := [("#[\"1\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\"]",
+        "#[\"7\", \"6\", \"5\", \"4\", \"3\", \"2\", \"1\"]")], spec := "fano_spec" },
+    { file := f, what := "the title of the cycle diagram states the cycles (1 3)(2)(4 5)",
+      anchor := "def permCycles : Diagram :=",
+      edits := [("(1 4)(2)(3 5)", "(1 3)(2)(4 5)")], spec := "permCycles_spec" },
+    { file := f, what := "the labels {1} and {2} of the Boolean lattice are swapped",
+      anchor := "def booleanLattice : FinPoset where",
+      edits := [("\"{1}\", \"{2}\"", "\"{2}\", \"{1}\"")], spec := "cube_spec" },
+    { file := f, what := "a parent link of the tree changed", anchor := "def treeParents :",
+      edits := [("some 3, some 3, some 3, some 7, some 7]", "some 3, some 3, some 3, some 7, some 8]")],
+      spec := "tree_spec" },
+    { file := f, what := "the set 5ℤ is named 7ℤ", anchor := "def multiples : SetSystem",
+      edits := [("\"5ℤ\"]", "\"7ℤ\"]")], spec := "venn_spec" },
+    { file := f, what := "the title of the Dyck path names another word", anchor := "def dyck : Diagram",
+      edits := [("The Dyck path UUDUUDDDUD", "The Dyck path UDUDUDUDUD")], spec := "dyck_spec" },
+    { file := f, what := "a thirteenth box is drawn as a guide beside the Young diagram",
+      anchor := "def young : Diagram :=",
+      edits := [("width := 220 }", "width := 220, marks := shape5331.figure.marks ++ \
+          [{ part := .guide, shape := .rect (5, -1) (6, 0) }] }")], spec := "young_spec" },
+    { file := f, what := "the sets' names are replaced by false claims at other places",
+      anchor := "def venn : Diagram :=",
+      edits := [("title := \"Multiples of 2, 3 and 5 up to 12\" }",
+        "title := \"Multiples of 2, 3 and 5 up to 12\", marks := multiples.vennFigure.marks.map \
+          fun m => match m.part with | .note s => { m with shape := .text s!\"primes {s}\" (5, 5) \
+          .center, ink := .ink } | _ => m }")], spec := "venn_spec" },
+    { file := f, what := "the two-line notation's bar is drawn in accent 0",
+      anchor := "def permTwoLine : Diagram :=",
+      edits := [("in two-line notation\" }", "in two-line notation\", marks := \
+          (perm.figure FinPerm.twoLine).marks.map fun m => if m.part == .guide then \
+          { m with ink := .accent 0 } else m }")], spec := "permTwoLine_spec" },
+    { file := f, what := "a strand of the wiring diagram is drawn in accent 2",
+      anchor := "def permWiring : Diagram :=",
+      edits := [("six inversions\" }", "six inversions\", marks := \
+          (perm.figure FinPerm.wiring).marks.map fun m => if m.part == .strand 0 then \
+          { m with ink := .accent 2 } else m }")], spec := "permWiring_spec" },
+    { file := f, what := "a dot is added under a guide's part in the permutation matrix",
+      anchor := "def permMatrix : Diagram :=",
+      edits := [("width := 200 }", "width := 200, marks := (perm.figure FinPerm.matrix).marks ++ \
+          [{ part := .guide, shape := .rect (0, 0) (1, 1), ink := .faint }] }")],
+      spec := "permMatrix_spec" },
+    { file := f, what := "an entry 7 is written in a cell of the tableau",
+      anchor := "def tableau : Diagram :=",
+      edits := [("width := 200 }", "width := 200, marks := ssyt.figure.marks ++ \
+          [{ part := .entry 0 0, shape := .text \"7\" (cellCentre .french 0 0) .center }] }")],
+      spec := "tableau_spec" },
+    { file := f, what := "the steps of the Dyck path are drawn in the ink",
+      anchor := "def dyck : Diagram :=",
+      edits := [("title := \"The Dyck path UUDUUDDDUD\" }", "title := \"The Dyck path UUDUUDDDUD\", \
+          marks := (LatticePath.ofDyck dyckWord).figure.marks.map fun m => \
+          if m.part.isStep then { m with ink := .ink } else m }")], spec := "dyck_spec" },
+    { file := f, what := "the cells of the board are tinted with accent 0",
+      anchor := "def ferrers : Diagram :=",
+      edits := [("width := 200 }", "width := 200, marks := board.draw.marks.map fun m => \
+          { m with ink := .tint 0 } }")], spec := "ferrers_spec" },
+    { file := f, what := "the binary tree's vertices are named from 0",
+      anchor := "def bst : BinTree where",
+      edits := [("names := #[\"1\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\", \"9\"]",
+        "names := #[\"0\", \"1\", \"2\", \"3\", \"4\", \"5\", \"6\", \"7\", \"8\"]")],
+      spec := "binaryTree_spec" },
+    { file := f, what := "the title of the Ferrers board names another partition",
+      anchor := "def ferrers : Diagram :=",
+      edits := [("(4, 3, 1)\"", "(4, 3, 2)\"")], spec := "ferrers_spec" }]
 
 /-- The changes to the data of the gallery's diagrams of algebra
 (`PILeanTest/AlgebraDiagrams.lean`) that their specifications must catch: a map, an arrow, a

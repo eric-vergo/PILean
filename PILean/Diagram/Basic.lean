@@ -222,6 +222,14 @@ def maxMarks : Nat := 20000
     l.filterMap (fun _ => (none : Option β)) = [] := by
   induction l <;> simp_all
 
+/-- Keeping every element keeps the list (a lemma for `Diagram.marksWhere`). -/
+@[simp] theorem filter_const_true {α : Type} (l : List α) : l.filter (fun _ => true) = l := by
+  induction l <;> simp_all
+
+/-- Keeping no element leaves nothing (a lemma for `Diagram.marksWhere`). -/
+@[simp] theorem filter_const_false {α : Type} (l : List α) : l.filter (fun _ => false) = [] := by
+  induction l <;> simp_all
+
 namespace Diagram
 
 /-- The parts the diagram depicts, in the order of its marks. -/
@@ -260,8 +268,9 @@ def steps (d : Diagram) : List (Nat × QPoint × QPoint) :=
     | _, _ => none
 
 /-- The decorations the diagram draws: `(part, shape)` for each mark whose part is a `guide` or a
-`note` or an `axis` (a part that depicts nothing of the object), in order. A kind's `Faithful` requires them to
-be exactly the builder's, so that nothing is drawn under a decoration's part. -/
+`note` or an `axis` (a part that depicts nothing of the object), in order. Every kind's `Faithful`
+requires the marks of these parts to be exactly the builder's (`marksWhere Part.isDecoration`),
+so that nothing is drawn under a decoration's part. -/
 def decorations (d : Diagram) : List (Part × Shape) :=
   d.marks.filterMap fun m => match m.part with
     | .guide => some (m.part, m.shape)
@@ -317,6 +326,26 @@ def Part.isEntry : Part → Bool
 /-- Whether a part is a heading. -/
 def Part.isHeader : Part → Bool
   | .header .. => true
+  | _ => false
+
+/-- Whether a part is a set of a set system. -/
+def Part.isSet : Part → Bool
+  | .set _ => true
+  | _ => false
+
+/-- Whether a part is an element written in a region. -/
+def Part.isMember : Part → Bool
+  | .member .. => true
+  | _ => false
+
+/-- Whether a part is a strand. -/
+def Part.isStrand : Part → Bool
+  | .strand _ => true
+  | _ => false
+
+/-- Whether a part is a step of a path. -/
+def Part.isStep : Part → Bool
+  | .step _ => true
   | _ => false
 
 /-- Whether a part is a decoration (a guide, an axis or a note). -/
