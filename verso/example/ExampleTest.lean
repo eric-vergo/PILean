@@ -17,6 +17,10 @@ limit), the sizes read from the files, the links and the wrapper's arguments.
 
 open Lean Elab PILean PILean.Trust PILeanVerso
 
+-- Every theorem linked to a figure of the example writes out the whole figure, with every
+-- definition of the example it is built from (`PILean.Trust.figurePinProblem?`).
+#assert_figures_pinned PictureExample
+
 /-- Whether `checkTheorem fig thm` accepts the theorem. -/
 def accepts (fig thm : Name) : CoreM Bool := do
   try

@@ -38,8 +38,18 @@ def trianglePlot : Figure where
 /-- The figure `trianglePlot` has one panel, whose series are a line and markers over
 `trianglePoints` and no other; the points of both are that list converted point for point; and
 every point of the list satisfies the closed form of `two_mul_triangle`: twice its height is
-`n (n + 1)`. -/
+`n (n + 1)`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem trianglePoints_spec :
+    trianglePlot = {
+      title := "Triangular numbers"
+      panels := #[{
+          x := { label := "n" }, y := { label := "0 + 1 + … + n" },
+          series := #[.ofIntPoints "triangle n" trianglePoints,
+            .scatterOfIntPoints "n" trianglePoints] }] } ∧
+    trianglePoints = (List.range 13).map (fun n => (Int.ofNat n, Int.ofNat (triangle n))) ∧
+    (∀ n, triangle n = n * (n + 1) / 2) ∧
     trianglePlot.panels.map (·.series) =
         #[#[.ofIntPoints "triangle n" trianglePoints,
           .scatterOfIntPoints "n" trianglePoints]] ∧
@@ -48,7 +58,8 @@ theorem trianglePoints_spec :
       (Series.scatterOfIntPoints "n" trianglePoints).points =
         (trianglePoints.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       ∀ p ∈ trianglePoints, 2 * p.2 = p.1 * (p.1 + 1) := by
-  refine ⟨by simp [trianglePlot], Series.ofIntPoints_points ..,
+  refine ⟨rfl, rfl, fun n => by have := two_mul_triangle n; omega, by simp [trianglePlot],
+    Series.ofIntPoints_points ..,
     Series.scatterOfIntPoints_points .., fun p hp => ?_⟩
   simp only [trianglePoints, List.mem_map, List.mem_range] at hp
   obtain ⟨n, -, rfl⟩ := hp
@@ -70,12 +81,20 @@ def covers (a b : Nat) : Bool :=
 def divisorGraph : PILean.Graph := Graph.ofRelation divisors12 covers toString
 
 /-- The edges of `divisorGraph` are exactly the covering pairs among the divisors of 12, in
-order, and there are 7 of them. -/
+order, and there are 7 of them.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem covers_count :
-    divisorGraph.edges.toList.map (fun e => (e.src, e.dst)) =
-        Graph.relationPairs divisors12 covers ∧
-      (Graph.relationPairs divisors12 covers).length = 7 :=
-  ⟨Graph.ofRelation_edge_pairs divisors12 covers toString true, by decide +kernel⟩
+    divisorGraph = (Graph.ofRelation divisors12 covers toString : PILean.Graph) ∧
+    divisors12 = ([1, 2, 3, 4, 6, 12] : List Nat) ∧
+    (∀ (a b : Nat), covers a b = (
+      a < b && b % a == 0 &&
+        divisors12.all fun c => !(a < c && c < b && c % a == 0 && b % c == 0) : Bool)) ∧
+    (divisorGraph.edges.toList.map (fun e => (e.src, e.dst)) =
+      Graph.relationPairs divisors12 covers ∧
+    (Graph.relationPairs divisors12 covers).length = 7) := by
+  refine ⟨rfl, rfl, fun _ _ => rfl, ?_⟩
+  exact ⟨Graph.ofRelation_edge_pairs divisors12 covers toString true, by decide +kernel⟩
 
 figure_links divisorGraph covers_count
 

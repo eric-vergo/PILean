@@ -29,6 +29,10 @@ import PILeanTest.SpecMutations
 
 open PILean PILean.Plot PILeanLeAnTeX
 
+-- The theorem linked to the gallery's figure writes out the whole figure, with every definition
+-- of the package it is built from (`PILean.Trust.figurePinProblem?`).
+#assert_figures_pinned PILeanLeAnTeX
+
 namespace PILeanLeAnTeXTest
 
 /-- Whether `s` contains `t`. -/

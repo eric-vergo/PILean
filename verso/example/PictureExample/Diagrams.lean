@@ -42,12 +42,21 @@ def divisorHasse : Diagram :=
 
 /-- The figure draws exactly the seven covers of divisibility among the divisors of 12 (a
 divisor and a prime multiple of it), written out; divisibility is a partial order, so its strict
-order is the transitive closure of those edges. -/
+order is the transitive closure of those edges.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem divisorHasse_spec :
-    divisibility.Faithful divisibility.layout divisorHasse ∧
+    divisorHasse = ({ divisibility.figure with title := "The divisors of 12 under divisibility", width := 240 } : Diagram) ∧
+    divisibility = ({
+      n := 6
+      le i j := divisorsOf12[j]! % divisorsOf12[i]! == 0
+      names := divisorsOf12.map toString } : FinPoset) ∧
+    divisorsOf12 = (#[1, 2, 3, 4, 6, 12] : Array Nat) ∧
+    (divisibility.Faithful divisibility.layout divisorHasse ∧
     divisorHasse.edges = [(0, 1), (0, 2), (1, 3), (1, 4), (2, 4), (3, 5), (4, 5)] ∧
-    divisibility.IsPartialOrder :=
-  ⟨divisibility.builder_faithful (by decide), by decide +kernel,
+    divisibility.IsPartialOrder) := by
+  refine ⟨rfl, rfl, rfl, ?_⟩
+  exact ⟨divisibility.builder_faithful (by decide), by decide +kernel,
     ⟨by decide, by decide, by decide⟩⟩
 
 figure_links divisorHasse divisorHasse_spec
@@ -79,14 +88,26 @@ def reductionSquare : Diagram :=
 
 /-- The figure draws the four arrows of the square, `ℤ/12 → ℤ/6`, `ℤ/12 → ℤ/4`, `ℤ/6 → ℤ/2` and
 `ℤ/4 → ℤ/2` (written out) with their labels; the reductions make the square commute and are
-surjective, as their tips `↠` say. -/
+surjective, as their tips `↠` say.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem reductionSquare_spec :
-    reductions.Faithful reductions.layout reductionSquare ∧
+    reductionSquare = ({ reductions.figure with title := "Reductions of ℤ/12: a commutative square" } : Diagram) ∧
+    reductions = ({
+      objects := #["ℤ/12", "ℤ/6", "ℤ/4", "ℤ/2"]
+      pos := #[(0, 0), (1, 0), (0, -1), (1, -1)]
+      arrows := [{ src := 0, tgt := 1, label := "π₆", style := .epi },
+        { src := 0, tgt := 2, label := "π₄", style := .epi, swap := true },
+        { src := 1, tgt := 3, label := "π₂", style := .epi },
+        { src := 2, tgt := 3, label := "π₂", style := .epi, swap := true }]
+      paths := [(0, [0, 2], [1, 3])] } : CommDiagram) ∧
+    (reductions.Faithful reductions.layout reductionSquare ∧
     reductionSquare.arrows = [(0, 0, 1), (1, 0, 2), (2, 1, 3), (3, 2, 3)] ∧
     reductionSquare.arrowTexts = [(0, "π₆"), (1, "π₄"), (2, "π₂"), (3, "π₂")] ∧
     reductionMaps.Commutes reductions = true ∧
-    reductionMaps.StylesHold reductions = true :=
-  ⟨reductions.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
+    reductionMaps.StylesHold reductions = true) := by
+  refine ⟨rfl, rfl, ?_⟩
+  exact ⟨reductions.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
     by decide +kernel, by decide +kernel⟩
 
 figure_links reductionSquare reductionSquare_spec
@@ -112,9 +133,17 @@ def divisibility6 : FinPoset where
 @[figure]
 def «hasse <b>"&'» : Diagram := { divisibility6.figure with title := "<b>divisors</b> & \"6\"" }
 
-/-- The figure draws exactly the four covers of divisibility among the divisors of 6. -/
-theorem «hasse <b>"&'_spec» : «hasse <b>"&'».edges = [(0, 1), (0, 2), (1, 3), (2, 3)] := by
-  decide +kernel
+/-- The figure draws exactly the four covers of divisibility among the divisors of 6.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
+theorem «hasse <b>"&'_spec» :
+    «hasse <b>"&'» = { divisibility6.figure with title := "<b>divisors</b> & \"6\"" } ∧
+    divisibility6 = {
+      n := 4
+      le i j := #[1, 2, 3, 6][j]! % #[1, 2, 3, 6][i]! == 0
+      names := #["1", "2", "3", "6"] } ∧
+    «hasse <b>"&'».edges = [(0, 1), (0, 2), (1, 3), (2, 3)] :=
+  ⟨rfl, rfl, by decide +kernel⟩
 
 figure_links «hasse <b>"&'» «hasse <b>"&'_spec»
 

@@ -65,13 +65,18 @@ def phiPlot : SeqPlot := { lo := 1, hi := 30, series := [("φ(n)", fun n => phi 
 def phiFigure : Plane.Figure := phiPlot.figure.toPlane
 
 /-- The figure is the plot's diagram, drawn faithfully, and the values are the totient's,
-written out. -/
+written out.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem phiFigure_spec :
-    phiFigure = phiPlot.figure.toPlane ∧ phiPlot.Faithful phiPlot.layout phiPlot.figure ∧
+    phiPlot = ({ lo := 1, hi := 30, series := [("φ(n)", fun n => phi n)] } : SeqPlot) ∧
+    (∀ (n : Nat), phi n = (((List.range n).filter fun a => Nat.gcd n a == 1).length : Nat)) ∧
+    (phiFigure = phiPlot.figure.toPlane ∧ phiPlot.Faithful phiPlot.layout phiPlot.figure ∧
     phiPlot.series.map (fun s => phiPlot.indices.map s.2) =
       [[1, 1, 2, 2, 4, 2, 6, 4, 6, 4, 10, 4, 12, 6, 8, 8, 16, 6, 18, 8, 12, 10, 22, 8, 20, 12, 18,
-        12, 28, 8]] :=
-  ⟨rfl, phiPlot.builder_faithful (by decide +kernel), by decide +kernel⟩
+        12, 28, 8]]) := by
+  refine ⟨rfl, fun _ => rfl, ?_⟩
+  exact ⟨rfl, phiPlot.builder_faithful (by decide +kernel), by decide +kernel⟩
 
 figure_links phiFigure phiFigure_spec
 ```
@@ -109,11 +114,19 @@ def sieve : CellPlot where
 @[figure]
 def sieveFigure : Plane.Figure := sieve.figure.toPlane
 
-/-- The figure is drawn faithfully, and the marked numbers are the primes below 30. -/
+/-- The figure is drawn faithfully, and the marked numbers are the primes below 30.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem sieveFigure_spec :
-    sieveFigure = sieve.figure.toPlane ∧ sieve.Faithful sieve.figure ∧
-    (sieve.cells.filter (·.marked)).map (·.key) = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29] :=
-  ⟨rfl, sieve.builder_faithful (by decide +kernel), by decide +kernel⟩
+    sieve = ({
+      cells := (List.range 30).map fun i =>
+        { key := i + 1, pos := ((i % 10 : Nat), -((i / 10 : Nat) : Int)), marked := isPrime (i + 1),
+          text := toString (i + 1) } } : CellPlot) ∧
+    (∀ (n : Nat), isPrime n = (2 ≤ n && (List.range' 2 (n - 2)).all fun d => n % d != 0 : Bool)) ∧
+    (sieveFigure = sieve.figure.toPlane ∧ sieve.Faithful sieve.figure ∧
+    (sieve.cells.filter (·.marked)).map (·.key) = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29]) := by
+  refine ⟨rfl, fun _ => rfl, ?_⟩
+  exact ⟨rfl, sieve.builder_faithful (by decide +kernel), by decide +kernel⟩
 
 figure_links sieveFigure sieveFigure_spec
 ```
@@ -161,14 +174,26 @@ def gaussian : PlaneLattice :=
 @[figure]
 def gaussianFigure : Plane.Figure := gaussian.figure.toPlane
 
-/-- The figure is drawn faithfully, and the marked points are these twenty-four. -/
+/-- The figure is drawn faithfully, and the marked points are these twenty-four.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem gaussianFigure_spec :
-    gaussianFigure = gaussian.figure.toPlane ∧ gaussian.Faithful gaussian.figure ∧
+    gaussian = (
+      { w1 := (1, 0), w2 := (0, 1), lo := (-3, -3), hi := (3, 3), marked := gaussianPrime,
+        plainInk := .faint } : PlaneLattice) ∧
+    (∀ (a b : Int), gaussianPrime a b = (
+      if a = 0 || b = 0 then
+        let k := (a + b).natAbs
+        isPrime k && k % 4 == 3
+      else isPrime (a.natAbs ^ 2 + b.natAbs ^ 2) : Bool)) ∧
+    (∀ (n : Nat), isPrime n = (2 ≤ n && (List.range' 2 (n - 2)).all fun d => n % d != 0 : Bool)) ∧
+    (gaussianFigure = gaussian.figure.toPlane ∧ gaussian.Faithful gaussian.figure ∧
     gaussian.points.filter (fun (a, b) => gaussian.marked a b) =
       [(-3, -2), (-3, 0), (-3, 2), (-2, -3), (-2, -1), (-2, 1), (-2, 3), (-1, -2), (-1, -1),
         (-1, 1), (-1, 2), (0, -3), (0, 3), (1, -2), (1, -1), (1, 1), (1, 2), (2, -3), (2, -1),
-        (2, 1), (2, 3), (3, -2), (3, 0), (3, 2)] :=
-  ⟨rfl, gaussian.builder_faithful (by decide +kernel), by decide +kernel⟩
+        (2, 1), (2, 3), (3, -2), (3, 0), (3, 2)]) := by
+  refine ⟨rfl, fun _ _ => rfl, fun _ => rfl, ?_⟩
+  exact ⟨rfl, gaussian.builder_faithful (by decide +kernel), by decide +kernel⟩
 
 figure_links gaussianFigure gaussianFigure_spec
 ```

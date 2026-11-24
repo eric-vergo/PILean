@@ -59,15 +59,30 @@ def cubicPlot : Figure where
 /-- The figure `cubicPlot` has one panel, whose series are `cubicSeries` and `cubicSeries'` and
 no other. The points of each are its exact samples converted one by one: 33 points, whose
 abscissae are the grid from `-2` to `2` in steps of `1/8` and whose ordinates are the exact
-values of `cubic` (of `cubic'`). Nothing is said about the curve between two samples. -/
+values of `cubic` (of `cubic'`). Nothing is said about the curve between two samples.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cubicPlot_spec :
-    cubicPlot.panels.map (·.series) = #[#[cubicSeries, cubicSeries']] ∧
+    cubicPlot = ({
+      title := "The cubic x³ − 3x and its derivative"
+      panels := #[{
+          x := { label := "x" }, y := { label := "y" },
+          series := #[cubicSeries, cubicSeries'] }] } : Figure) ∧
+    cubicSeries = (.ofExact "x³ − 3x" cubic lo hi steps : Series) ∧
+    cubicSeries' = (.ofExact "3x² − 3" cubic' lo hi steps (dash := #[5, 4]) : Series) ∧
+    (∀ (x : Rat), cubic x = (x * x * x - 3 * x : Rat)) ∧
+    lo = (-2 : Rat) ∧
+    hi = (2 : Rat) ∧
+    steps = (32 : Nat) ∧
+    (∀ (x : Rat), cubic' x = (3 * x * x - 3 : Rat)) ∧
+    (cubicPlot.panels.map (·.series) = #[#[cubicSeries, cubicSeries']] ∧
     cubicSeries.points = ((Exact.samples cubic lo hi steps).map Exact.toPoint).toArray ∧
     cubicSeries'.points = ((Exact.samples cubic' lo hi steps).map Exact.toPoint).toArray ∧
     cubicSeries.points.size = 33 ∧ cubicSeries'.points.size = 33 ∧
     (∀ p ∈ Exact.samples cubic lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic p.1) ∧
-    ∀ p ∈ Exact.samples cubic' lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic' p.1 :=
-  ⟨by simp [cubicPlot], Series.ofExact_points .., Series.ofExact_points ..,
+    ∀ p ∈ Exact.samples cubic' lo hi steps, p.1 ∈ Exact.grid lo hi steps ∧ p.2 = cubic' p.1) := by
+  refine ⟨rfl, rfl, rfl, fun _ => rfl, rfl, rfl, rfl, fun _ => rfl, ?_⟩
+  exact ⟨by simp [cubicPlot], Series.ofExact_points .., Series.ofExact_points ..,
     Series.ofExact_size .., Series.ofExact_size ..,
     fun _ hp => (Exact.mem_samples ..).1 hp, fun _ hp => (Exact.mem_samples ..).1 hp⟩
 
@@ -101,8 +116,21 @@ def collatzPlot : Figure where
 
 /-- The figure `collatzPlot` has one panel, whose series are a line and markers over
 `collatzData` and no other; the points of both are the computed list point for point: none
-added, dropped or changed. -/
+added, dropped or changed.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem collatzPlot_spec :
+    collatzPlot = {
+      title := "Collatz stopping times"
+      panels := #[{
+          x := { label := "n" }, y := { label := "steps to reach 1" },
+          series := #[.ofIntPoints "steps" collatzData,
+            .scatterOfIntPoints "n" collatzData] }] } ∧
+    collatzData = [(1, 0), (2, 1), (3, 7), (4, 2), (5, 5), (6, 8), (7, 16), (8, 3), (9, 19),
+      (10, 6), (11, 14), (12, 9), (13, 9), (14, 17), (15, 17), (16, 4), (17, 12), (18, 20),
+      (19, 20), (20, 7), (21, 7), (22, 15), (23, 15), (24, 10), (25, 23), (26, 10), (27, 111),
+      (28, 18), (29, 18), (30, 18), (31, 106), (32, 5), (33, 26), (34, 13), (35, 13), (36, 21),
+      (37, 21), (38, 21), (39, 34), (40, 8)] ∧
     collatzPlot.panels.map (·.series) =
         #[#[.ofIntPoints "steps" collatzData, .scatterOfIntPoints "n" collatzData]] ∧
       (Series.ofIntPoints "steps" collatzData).points =
@@ -110,8 +138,8 @@ theorem collatzPlot_spec :
       (Series.scatterOfIntPoints "n" collatzData).points =
         (collatzData.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       (collatzData.map Exact.ofIntPair).map (fun q => (q.1.num, q.2.num)) = collatzData :=
-  ⟨by simp [collatzPlot], Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
-    Series.ofIntPairs_recover _⟩
+  ⟨rfl, by decide +kernel, by simp [collatzPlot], Series.ofIntPoints_points ..,
+    Series.scatterOfIntPoints_points .., Series.ofIntPairs_recover _⟩
 
 figure_links collatzPlot collatzPlot_spec
 
@@ -136,15 +164,23 @@ def divisorGraph : PILean.Graph :=
   Graph.ofRelation divisors24 covers toString
 
 /-- The nodes of `divisorGraph` are the divisors of 24, its edges exactly the covering pairs, each
-once, and its layout draws one route for each edge, in order. -/
+once, and its layout draws one route for each edge, in order.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem divisorGraph_spec (o : Graph.LayeredOptions) (st : Style) :
-    divisorGraph.nodes.toList.map (·.label) = divisors24.map toString ∧
+    divisorGraph = (Graph.ofRelation divisors24 covers toString : PILean.Graph) ∧
+    divisors24 = ([1, 2, 3, 4, 6, 8, 12, 24] : List Nat) ∧
+    (∀ (a b : Nat), covers a b = (
+      a < b && b % a == 0 &&
+        divisors24.all fun c => !(a < c && c < b && c % a == 0 && b % c == 0) : Bool)) ∧
+    (divisorGraph.nodes.toList.map (·.label) = divisors24.map toString ∧
     (∀ i j, (i, j) ∈ Graph.relationPairs divisors24 covers ↔
       ∃ a b, divisors24[i]? = some a ∧ divisors24[j]? = some b ∧ covers a b = true) ∧
     (Graph.relationPairs divisors24 covers).Nodup ∧
     (divisorGraph.layout o st).edges.toList.map (fun e => (e.index, e.src, e.dst)) =
       (List.range (Graph.relationPairs divisors24 covers).length).zip
-        (Graph.relationPairs divisors24 covers) := by
+        (Graph.relationPairs divisors24 covers)) := by
+  refine ⟨rfl, rfl, fun _ _ => rfl, ?_⟩
   refine ⟨?_, fun i j => Graph.mem_relationPairs .., Graph.relationPairs_nodup .., ?_⟩
   · unfold divisorGraph
     exact Graph.ofRelation_node_labels divisors24 covers toString true
@@ -182,14 +218,31 @@ def circleAnimation : Animation :=
 
 /-- Frame `i` of `circleAnimation` is the drawing `circleFrame` at half the time `i / 15` (one
 turn takes two seconds): the time passed is the conversion of that exact rational number, and the
-raster frames are drawn from it. The halving is a floating-point division. -/
+raster frames are drawn from it. The halving is a floating-point division.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem circleAnimation_spec (i : Nat) :
-    circleAnimation.time i = Exact.toFloat (circleAnimation.exactTime i) ∧
+    circleAnimation = (
+      { width := 240, height := 240, fps := 15, duration := 2, loops := 0, frame := fun t =>
+          circleFrame (t / 2), posterTime := some 0.25,
+        text := Style.light.text, fontFamily := Style.light.fontFamily } : Animation) ∧
+    (∀ (t : Float), circleFrame t = (
+      let a := 2 * 3.141592653589793 * t
+      let c : Point := ⟨120 + 80 * a.cos, 120 - 80 * a.sin⟩
+      let ink : Rgba := ⟨41, 98, 255, 255⟩
+      .group #[
+        .path (Canvas.circle ⟨120, 120⟩ 80) none (some { ink := ⟨190, 195, 205, 255⟩, width := 2 }),
+        .path (Path.polyline #[⟨32, 120⟩, ⟨208, 120⟩]) none
+          (some { ink := ⟨210, 214, 222, 255⟩, width := 1.5 }),
+        .path (Path.polyline #[c, ⟨c.x, 120⟩]) none (some { ink, width := 2, dash := #[4, 3] }),
+        .path (Canvas.circle c 9) (some (.solid ink)) none] : Canvas.Shape)) ∧
+    (circleAnimation.time i = Exact.toFloat (circleAnimation.exactTime i) ∧
     circleAnimation.exactTime i = i / 15 ∧
     (∀ h : i < circleAnimation.frameSeq.frames.size, circleAnimation.frameSeq.frames[i] =
       (circleFrame (circleAnimation.time i / 2)).toImage 240 240 Style.light.text
-        ⟨255, 255, 255, 255⟩) :=
-  ⟨Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
+        ⟨255, 255, 255, 255⟩)) := by
+  refine ⟨rfl, fun _ => rfl, ?_⟩
+  exact ⟨Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
     fun h => Animation.frameSeq_getElem _ i h⟩
 
 figure_links circleAnimation circleAnimation_spec

@@ -90,12 +90,23 @@ def maps : FinMaps where
 def squareFigure : Plane.Figure := square.figure.toPlane
 
 /-- The figure is the square's diagram, whose arrows are written out; the reductions commute and
-are surjective, as their tips say. -/
+are surjective, as their tips say.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem squareFigure_spec :
-    squareFigure = square.figure.toPlane ∧
+    square = ({
+      objects := #["ℤ/12", "ℤ/6", "ℤ/4", "ℤ/2"]
+      pos := #[(0, 0), (1, 0), (0, -1), (1, -1)]
+      arrows := [{ src := 0, tgt := 1, label := "π₆", style := .epi },
+        { src := 0, tgt := 2, label := "π₄", style := .epi, swap := true },
+        { src := 1, tgt := 3, label := "π₂", style := .epi },
+        { src := 2, tgt := 3, label := "π₂", style := .epi, swap := true }]
+      paths := [(0, [0, 2], [1, 3])] } : CommDiagram) ∧
+    (squareFigure = square.figure.toPlane ∧
     square.figure.arrows = [(0, 0, 1), (1, 0, 2), (2, 1, 3), (3, 2, 3)] ∧
-    maps.Commutes square = true ∧ maps.StylesHold square = true :=
-  ⟨rfl, by decide +kernel, by decide +kernel, by decide +kernel⟩
+    maps.Commutes square = true ∧ maps.StylesHold square = true) := by
+  refine ⟨rfl, ?_⟩
+  exact ⟨rfl, by decide +kernel, by decide +kernel, by decide +kernel⟩
 
 figure_links squareFigure squareFigure_spec
 ```
@@ -132,11 +143,15 @@ def z5 : FinMagma :=
 @[figure]
 def z5Table : Plane.Figure := z5.tableFigure.toPlane
 
-/-- The table is a group, commutative, and its entries are the sums. -/
+/-- The table is a group, commutative, and its entries are the sums.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem z5Table_spec :
-    z5Table = z5.tableFigure.toPlane ∧ z5.isGroup = true ∧ z5.isCommutative = true ∧
-    z5.FaithfulTable z5.tableFigure :=
-  ⟨rfl, by decide +kernel, by decide +kernel, z5.tableFigure_faithful (by decide)⟩
+    z5 = ({ n := 5, mul := fun a b => ⟨(a.val + b.val) % 5, Nat.mod_lt _ (by decide)⟩ } : FinMagma) ∧
+    (z5Table = z5.tableFigure.toPlane ∧ z5.isGroup = true ∧ z5.isCommutative = true ∧
+    z5.FaithfulTable z5.tableFigure) := by
+  refine ⟨rfl, ?_⟩
+  exact ⟨rfl, by decide +kernel, by decide +kernel, z5.tableFigure_faithful (by decide)⟩
 
 figure_links z5Table z5Table_spec
 ```

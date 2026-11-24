@@ -17,6 +17,12 @@ its backdrop, the reference), the figures page, the same bytes from both builds,
 
 open PILean PILeanVerso Verso.Genre.Manual
 
+-- Every theorem linked to a figure of the example writes out the whole figure, with every
+-- definition of the example it is built from (`PILean.Trust.figurePinProblem?`), except the three
+-- figures whose theorems are weak on purpose, to show that a link is a pointer to a statement.
+#assert_figures_pinned ManualExample except ManualExample.vacuousOr
+  ManualExample.vacuousHypothesis ManualExample.vacuousBound
+
 /-- A true statement about the points the plot uses, which does not name the plot. -/
 theorem aboutPoints : ∀ p ∈ ManualExample.trianglePoints, 0 ≤ p.2 := by
   intro p hp

@@ -344,7 +344,8 @@ def figurePinProblem? (isLocal : Name → Bool) (fig thm : Name) : MetaM (Option
   return none
 
 /-- `#assert_figures_pinned A B … except M N …` fails unless, for every figure declared in a
-module whose name starts with `A`, `B`, …, other than the modules `M`, `N`, …, every theorem
+module whose name starts with `A`, `B`, …, other than the figures and the figures of the modules
+named `M`, `N`, …, every theorem
 linked to it by `figure_links` determines its whole value (`figurePinProblem?`), the local modules
 being those whose names start with `A`, `B`, …; and unless at least one such link is checked. It
 walks the links of the environment, not a list of names. -/
@@ -362,7 +363,7 @@ def elabAssertFiguresPinned : Lean.Elab.Command.CommandElab := fun stx => do
   let mut bad : Array MessageData := #[]
   for (fig, thm) in figureTheoremExt.getState env do
     let m := declModule env fig
-    if !isLocal m || skip.contains m then continue
+    if !isLocal m || skip.contains m || skip.contains fig then continue
     checked := checked + 1
     if let some msg ← Lean.Elab.Command.liftTermElabM (figurePinProblem? isLocal fig thm) then
       bad := bad.push m!"{fig}: {msg}"

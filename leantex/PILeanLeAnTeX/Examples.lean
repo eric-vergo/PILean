@@ -120,9 +120,28 @@ label `$\sqrt{3+\varphi}$` beside it, and the labels `$-1$` and `$+1$`. The reco
 in ℚ(√5): `|E + 1|² = 3 + φ` and `|E - 1|² < 3 + φ`, so `E` is on the left circle and inside the
 right disk, and the same for `-E` with the sides exchanged. Not stated: how the builders and
 modifiers draw, the layout, how LeAnTeX typesets the labels, the fonts, the style's colour values
-and the pixels. -/
+and the pixels.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem planeDisks_spec :
-    chordEnd = Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2 ∧ leftCentre = Exact.Zeta5.ofInt (-1) ∧
+    planeDisks = ({ width := 480, items := planeItems } : Plane.Figure) ∧
+    planeItems = (
+      let z2 := Exact.Zeta5.pow 2
+      #[leftDisk, rightDisk,
+        Plane.Exact.segment (-chordEnd) chordEnd |>.width 3,
+        Plane.Exact.arrow rightCentre (rightCentre + z2) |>.accent 2,
+        pointE, pointNegE, Plane.Exact.point leftCentre, Plane.Exact.point rightCentre,
+        Plane.Exact.label "$E$" chordEnd .auto |>.accent 0,
+        Plane.Exact.label "$-E$" (-chordEnd) .auto |>.accent 1,
+        Plane.Exact.label "$\\zeta^2$" (rightCentre + z2) .auto |>.accent 2,
+        Plane.Exact.segment leftCentre chordEnd |>.faint |>.dashed,
+        Plane.Exact.labelBeside "$\\sqrt{3+\\varphi}$" leftCentre chordEnd |>.faint,
+        Plane.Exact.label "$-1$" leftCentre .auto, Plane.Exact.label "$+1$" rightCentre .auto] : Array Plane.Item) ∧
+    leftDisk = (Plane.Exact.disk leftCentre radius |>.accent 0 |>.named "the left circle" : Plane.Item) ∧
+    rightDisk = (Plane.Exact.disk rightCentre radius |>.accent 1 |>.named "the right circle" : Plane.Item) ∧
+    pointE = (Plane.Exact.point chordEnd |>.accent 0 |>.incident .on "the left circle" : Plane.Item) ∧
+    pointNegE = (Plane.Exact.point (-chordEnd) |>.accent 1 |>.incident .on "the right circle" : Plane.Item) ∧
+    (chordEnd = Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2 ∧ leftCentre = Exact.Zeta5.ofInt (-1) ∧
     rightCentre = Exact.Zeta5.ofInt 1 ∧ radius = ⟨⟨7 / 2, 1 / 2⟩⟩ ∧
     planeDisks.items = #[
       Plane.Exact.disk leftCentre radius |>.accent 0 |>.named "the left circle",
@@ -141,7 +160,8 @@ theorem planeDisks_spec :
     (chordEnd - leftCentre).normSq = radius.radicand ∧
     Exact.QSqrt.lt (chordEnd - rightCentre).normSq radius.radicand = true ∧
     (-chordEnd - rightCentre).normSq = radius.radicand ∧
-    Exact.QSqrt.lt (-chordEnd - leftCentre).normSq radius.radicand = true := by
+    Exact.QSqrt.lt (-chordEnd - leftCentre).normSq radius.radicand = true) := by
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, ?_⟩
   refine ⟨rfl, rfl, rfl, rfl, rfl, ?_⟩
   repeat' apply And.intro
   all_goals decide +kernel

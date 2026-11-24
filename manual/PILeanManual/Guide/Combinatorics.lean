@@ -87,11 +87,16 @@ def cycle7Diagram : Diagram := cycle7.figure
 @[figure]
 def heptagon : Plane.Figure := cycle7Diagram.toPlane
 
-/-- The figure is the diagram of `cycle7`, which draws exactly its seven edges. -/
+/-- The figure is the diagram of `cycle7`, which draws exactly its seven edges.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem heptagon_spec :
-    heptagon = cycle7Diagram.toPlane ∧
-    cycle7Diagram.edges = [(0, 1), (0, 6), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)] :=
-  ⟨rfl, by decide +kernel⟩
+    cycle7Diagram = (cycle7.figure : Diagram) ∧
+    cycle7 = ({ n := 7, adj := fun i j => (i.val + 1) % 7 == j.val || (j.val + 1) % 7 == i.val } : FinGraph) ∧
+    (heptagon = cycle7Diagram.toPlane ∧
+    cycle7Diagram.edges = [(0, 1), (0, 6), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)]) := by
+  refine ⟨rfl, rfl, ?_⟩
+  exact ⟨rfl, by decide +kernel⟩
 
 figure_links heptagon heptagon_spec
 ```
