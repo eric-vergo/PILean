@@ -8,7 +8,6 @@ import PILean.Version
 import PILean.Pdf.Read
 import PILean.Pdf.Object
 import PILean.Trust.Sha256
-import PILean.Trust.Json
 
 /-!
 # Source information in images
@@ -111,17 +110,56 @@ structure Source where
   (`PILean.Trust.Standing.word`). -/
   standing : Option String := none
   /-- For a linked figure, the theorems linked to it, by full name (as Lean writes a name, so
-  with `«` and `»` around a component that needs them), in order; written as a JSON array of
-  strings (`theoremsText`). -/
+  with `«` and `»` around a component that needs them), in order; written as an escaped list
+  (`theoremsText`). -/
   theorems : Option (Array String) := none
 deriving BEq, Repr, Inhabited
 
-/-- The theorems of a linked figure as a source record writes them: a JSON array of strings with
-the escapes of JSON (`Json.escape`) and no space between the items, such as
-`["A.b","C.«d e»"]`. Every list of strings has exactly one such text, and `theoremsOfText` reads
-it back. -/
+/-- The characters a name is escaped from in a source record's list of theorems
+(`theoremsText`): `%`, `,`, `[`, `]`, the backslash (which an inert SVG attribute may not hold,
+`PILean.Svg.Inert`) and the control characters below 32. -/
+def escapedInList (c : Char) : Bool :=
+  c == '%' || c == ',' || c == '[' || c == ']' || c == '\\' || c.val < 32
+
+/-- The two uppercase hexadecimal digits of a number below 256. -/
+def hex2 (n : Nat) : String :=
+  let d := fun (k : Nat) => if k < 10 then Char.ofNat (48 + k) else Char.ofNat (55 + k)
+  String.ofList [d (n / 16 % 16), d (n % 16)]
+
+/-- The theorems of a linked figure as a source record writes them: `[`, the names separated by
+`,`, `]`, each name with every character of `escapedInList` written `%XX` (its code in two
+uppercase hexadecimal digits), such as `[A.b,C.«d e»]`. The text has no backslash, so an SVG
+that carries it stays inert, and every list of names has exactly one such text, which
+`theoremsOfText` reads back. -/
 def theoremsText (ts : Array String) : String :=
-  "[" ++ ",".intercalate (ts.toList.map fun t => "\"" ++ Json.escape t ++ "\"") ++ "]"
+  "[" ++ ",".intercalate (ts.toList.map fun t => t.foldl (init := "") fun out c =>
+    if escapedInList c then out ++ "%" ++ hex2 c.val.toNat else out.push c) ++ "]"
+
+/-- A name of a record's list read back: every `%XX` (two uppercase hexadecimal digits) whose
+character is one of `escapedInList` becomes that character; any other `%`, and any character of
+`escapedInList` written as it is, is an error. -/
+def unescapeListName (t : String) : Except String String := do
+  let cs := t.toList.toArray
+  let hexVal := fun (c : Char) => if '0' ≤ c && c ≤ '9' then some (c.toNat - 48)
+    else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 55) else none
+  let mut out := ""
+  let mut i := 0
+  for _ in [0:cs.size] do
+    if i ≥ cs.size then break
+    let c := cs[i]!
+    if c == '%' then
+      match (cs[i + 1]?.bind hexVal), (cs[i + 2]?.bind hexVal) with
+      | some a, some b =>
+        let d := Char.ofNat (16 * a + b)
+        if !escapedInList d then throw s!"an escape of a character that is not escaped in {t}"
+        out := out.push d
+        i := i + 3
+      | _, _ => throw s!"a malformed escape in {t}"
+    else if escapedInList c then throw s!"a character that must be escaped in {t}"
+    else
+      out := out.push c
+      i := i + 1
+  return out
 
 /-- The theorems in the form earlier writers gave them: names separated by single spaces, each
 non-empty, without white space and not beginning with `[` (as no name Lean writes does). Fails on
@@ -132,17 +170,16 @@ def theoremsOfSpaced (v : String) : Except String (Array String) :=
     .error "the theorems are not names separated by single spaces"
   else .ok ts
 
-/-- The theorems a source record's value lists: a value that begins with `[` is a JSON array of
-strings (`theoremsText`, read by `Json.parse`); any other value is the form earlier writers gave
-(`theoremsOfSpaced`). The two cannot be confused: a name as Lean writes it never begins with `[`
-(a component that would is written between `«` and `»`). -/
+/-- The theorems a source record's value lists: a value that begins with `[` is the list
+`theoremsText` writes (it must end with `]`; `[]` is the empty list); any other value is the form
+earlier writers gave (`theoremsOfSpaced`). The two cannot be confused: a name as Lean writes it
+never begins with `[` (a component that would is written between `«` and `»`). -/
 def theoremsOfText (v : String) : Except String (Array String) := do
   if v.startsWith "[" then
-    match ← Json.parse v.toUTF8 with
-    | .arr xs => xs.mapM fun
-      | .str t => pure t
-      | _ => throw "a theorem's name is not a string"
-    | _ => throw "the theorems are not a list"
+    unless v.endsWith "]" && v.length ≥ 2 do throw "the list of theorems is not closed"
+    let inner := ((v.drop 1).dropEnd 1).toString
+    if inner.isEmpty then return #[]
+    (inner.splitOn ",").toArray.mapM unescapeListName
   else theoremsOfSpaced v
 
 /-- The fields in writing order as `(key, value)`; absent options are left out. -/

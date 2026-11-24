@@ -23,7 +23,7 @@ the Lean object it shows, and what stays tested or trusted, is on
 | `version` | the version of PILean (`PILean.version`) | yes |
 | `fingerprint` | 64 lowercase hexadecimal digits (a SHA-256) | no |
 | `standing` | `linked` or `illustration`: the figure's standing as the build recorded it ("Standing" below; `proved` reads as `linked`) | no |
-| `theorems` | for a linked figure, the theorems linked to it, by full name, as a JSON array of strings with JSON's escapes and no spaces between the items, such as `["A.b","C.«d e»"]` (`theoremsText`); a value that does not begin with `[` is read in the earlier form, names separated by single spaces, and so is the earlier key `proves` | with `standing` `linked` only |
+| `theorems` | for a linked figure, the theorems linked to it, by full name, as a list: `[`, the names separated by `,`, `]`, each name with `%`, `,`, `[`, `]`, the backslash and the control characters written `%XX` (two uppercase hexadecimal digits), such as `[A.b,C.«d e»]` (`theoremsText`); a value that does not begin with `[` is read in the earlier form, names separated by single spaces, and so is the earlier key `proves` | with `standing` `linked` only |
 
 A record can be written only if every value is at most 4096 bytes of UTF-8 and has only
 characters XML 1.0 can carry (so no NUL and no other control character except tab, line feed and
@@ -32,9 +32,11 @@ carriage return), a fingerprint has the form above, and the standing is well for
 (`Source.validate`, `standingOk`; the readers refuse anything else, after reading `proved` as
 `linked` and `proves` as `theorems`, and refuse a record with both `theorems` and `proves`). A
 name may hold any character a record can carry, a space or a quote included (Lean writes a name
-whose component needs it between `«` and `»`); in the JSON array each name is one string, so the
-list is read back exactly. A name as Lean writes it never begins with `[`, so a value in the
-earlier form is never taken for an array.
+whose component needs it between `«` and `»`); the list's escapes make every list of names one
+text and read it back exactly, and refuse an escape that is malformed or not needed and a special
+character written as it is. The list has no backslash, which an inert SVG may not carry in an
+attribute. A name as Lean writes it never begins with `[`, so a value in the earlier form is never
+taken for a list.
 
 ## Writing
 

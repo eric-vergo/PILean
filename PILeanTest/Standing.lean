@@ -199,7 +199,7 @@ def checks : Array (String × Bool) :=
           #[("standing", "linked"), ("proves", "A"), ("proves", "A")]) matches .error _)),
     ("standing: a well-formed record is read back",
       (Source.ofFields (valid.fields ++
-        #[("standing", "linked"), ("theorems", "[\"A\",\"B\"]")])).toOption ==
+        #[("standing", "linked"), ("theorems", "[A,B]")])).toOption ==
         some { valid with standing := some "linked", theorems := some #["A", "B"] }),
     ("standing: a record in the earlier form, names separated by spaces, is read",
       (Source.ofFields (valid.fields ++ #[("standing", "linked"), ("theorems", "A B")])).toOption ==
@@ -207,18 +207,23 @@ def checks : Array (String × Bool) :=
     ("standing: a record that writes proved and proves reads as linked with its theorems",
       (Source.ofFields (valid.fields ++ #[("standing", "proved"), ("proves", "A B")])).toOption ==
         some { valid with standing := some "linked", theorems := some #["A", "B"] }),
-    ("standing: names with a space and with quotes are written and read back as they are",
-      let ts := #["A.«b c»", "D.«e \"f\" g»", "H.i"]
+    ("standing: names with a space, quotes, a comma, brackets, a percent sign and a backslash \
+        are written without a backslash and read back as they are",
+      let ts := #["A.«b c»", "D.«e \"f\" g»", "H.«i, [j] 5% \\k»", "L.m"]
       let r : Source := { valid with standing := some "linked", theorems := some ts }
-      r.fields.contains ("theorems", "[\"A.«b c»\",\"D.«e \\\"f\\\" g»\",\"H.i\"]") &&
-        (Source.ofFields r.fields).toOption == some r && r.validate matches .ok _),
-    ("standing: a list of theorems that is empty, has an empty or a repeated name, or is not a \
-        list of strings is refused",
-      ["[]", "[\"\"]", "[\"A\",\"A\"]", "[\"A\",1]", "[\"A\"", "[[\"A\"]]"].all fun v =>
+      r.fields.contains ("theorems",
+        "[A.«b c»,D.«e \"f\" g»,H.«i%2C %5Bj%5D 5%25 %5Ck»,L.m]") &&
+        (Source.ofFields r.fields).toOption == some r && r.validate matches .ok _ &&
+        !(theoremsText ts).any (· == '\\')),
+    ("standing: a list of theorems that is empty, has an empty or a repeated name, is not closed, \
+        or holds an escape that is malformed or not needed, or a character that needs one, is \
+        refused",
+      ["[]", "[,]", "[A,]", "[A,A]", "[A", "[[A]]", "[A%2]", "[A%41]", "[A%2c]", "[A\\B]",
+        "[A%ZZ]"].all fun v =>
         Source.ofFields (valid.fields ++ #[("standing", "linked"), ("theorems", v)])
           matches .error _),
     ("standing: under the earlier key, only the earlier form is read",
-      Source.ofFields (valid.fields ++ #[("standing", "linked"), ("proves", "[\"A\"]")])
+      Source.ofFields (valid.fields ++ #[("standing", "linked"), ("proves", "[A]")])
         matches .error _)]
 
 /-- A manifest entry of a linked figure whose theorems' names hold a space and quotes. -/
