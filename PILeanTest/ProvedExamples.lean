@@ -289,14 +289,14 @@ theorem cubicSeries_size_let : let _unused := provedFunction; cubicSeries.points
   Series.ofExact_size ..
 
 /--
-error: the statement of PILeanTest.ProvedExamples.provedData_spec does not mention the figure
+error: the statement of PILeanTest.ProvedExamples.provedGraph_spec does not mention the figure
 PILeanTest.ProvedExamples.provedClock. A theorem linked to a figure must be a statement about
 the figure itself: state it of PILeanTest.ProvedExamples.provedClock or of its fields (for
 instance, begin with an equation that says which series, edges or frames
 PILeanTest.ProvedExamples.provedClock holds), not only of definitions it is built from
 -/
 #guard_msgs in
-figure_links provedClock provedData_spec
+figure_links provedClock provedGraph_spec
 
 /--
 error: the statement of PILeanTest.ProvedExamples.cubicSeries_size does not mention the figure

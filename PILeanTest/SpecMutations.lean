@@ -18,7 +18,7 @@ the core's figures are `mutations`; the LeAnTeX package checks its own with the 
 
 * `SpecMutation`, `SpecMutation.apply`, `errorLines`, `specLines`, `check`, `checkAll`,
   `diagramMutations`, `algebraMutations`, `numberMutations`, `explorerMutations`,
-  `complexMutations`, `mutations`,
+  `complexMutations`, `visibleMutations`, `mutations`,
   `ioChecks`.
 -/
 
@@ -409,8 +409,66 @@ def complexMutations : Array SpecMutation :=
     { file := f, what := "the window is narrower", anchor := "def rationalData : RationalPlot",
       edits := [("lo := (-2, -3 / 2)", "lo := (-1, -3 / 2)")], spec := "rationalFigure_spec" }]
 
+/-- The changes to the fields a reader sees that the theorems pin only because they write out
+the whole figure (`PILean.Trust.figurePinProblem?`): what an animation's frames draw, a series'
+name (the legend's text), an axis's name, a width, an accessible description, a style's value, a
+title. -/
+def visibleMutations : Array SpecMutation :=
+  let proved : System.FilePath := "PILeanTest" / "ProvedExamples.lean"
+  let disks : System.FilePath := "PILeanTest" / "Examples.lean"
+  let plane : System.FilePath := "PILeanTest" / "PlaneExact.lean"
+  let explorers : System.FilePath := "PILeanTest" / "Explorers.lean"
+  let diagrams : System.FilePath := "PILeanTest" / "Diagrams.lean"
+  let numbers : System.FilePath := "PILeanTest" / "NumberDiagrams.lean"
+  #[{ file := proved, what := "the clock's dot is orange", anchor := "def clockFrame (t : Float)",
+      edits := [("⟨41, 98, 255, 255⟩", "⟨255, 98, 41, 255⟩")], spec := "provedClock_spec" },
+    { file := proved, what := "the clock's dot is larger", anchor := "def clockFrame (t : Float)",
+      edits := [("Canvas.circle c 12", "Canvas.circle c 16")], spec := "provedClock_spec" },
+    { file := proved, what := "the clock's dot turns the other way",
+      anchor := "def clockFrame (t : Float)",
+      edits := [("100 + 70 * a.sin", "100 - 70 * a.sin")], spec := "provedClock_spec" },
+    { file := proved, what := "the cubic's legend reads x^3 + x",
+      anchor := "def cubicSeries : Series", edits := [("\"x^3 - x\"", "\"x^3 + x\"")],
+      spec := "provedFunction_spec" },
+    { file := proved, what := "the parabola is drawn solid", anchor := "def parabolaSeries : Series",
+      edits := [(" (dash := #[5, 4])", "")], spec := "provedFunction_spec" },
+    { file := proved, what := "the markers' legend reads dots", anchor := "def provedData : Figure",
+      edits := [("\"points\" residues]", "\"dots\" residues]")], spec := "provedData_spec" },
+    { file := proved, what := "the graph's nodes are numbered from 2",
+      anchor := "def provedGraph : PILean.Graph",
+      edits := [("properDivisor toString", "properDivisor (fun n => toString (n + 1))")],
+      spec := "provedGraph_spec" },
+    { file := disks, what := "the disks are drawn 560 pixels wide",
+      anchor := "def disks : Plane.Figure where", edits := [("width := 520", "width := 560")],
+      spec := "disks_spec" },
+    { file := disks, what := "the disks' figure describes three disks",
+      anchor := "def disks : Plane.Figure where",
+      edits := [("info := { title := \"Two closed disks and the critical chord\" }",
+        "info := { title := \"Two closed disks and the critical chord\", \
+          description := \"three disks\" }")], spec := "disks_spec" },
+    { file := disks, what := "the right disk's description names −1",
+      anchor := "def rightDisk : Item :=", edits := [("about 1\"", "about −1\"")],
+      spec := "disks_spec" },
+    { file := plane, what := "the house style's markers are larger", anchor := "def houseStyle : Style",
+      edits := [("markerRadius := 4.5", "markerRadius := 6")], spec := "reference_spec" },
+    { file := plane, what := "the reference figure has no narrow rendition",
+      anchor := "def reference : Plane.Figure where",
+      edits := [("narrowWidth := some 360", "narrowWidth := none")], spec := "reference_spec" },
+    { file := explorers, what := "the Cayley graphs are drawn 360 pixels wide",
+      anchor := "def cayleyDiagram (n a : Nat)", edits := [("width := 300 }", "width := 360 }")],
+      spec := "cayleyExplorer_spec" },
+    { file := diagrams, what := "the Petersen graph is drawn 360 pixels wide",
+      anchor := "def petersen : Diagram :=", edits := [("width := 340 }", "width := 360 }")],
+      spec := "petersen_spec" },
+    { file := diagrams, what := "the Petersen graph's inner star has radius 2/3",
+      anchor := "def petersenLayout : Layout", edits := [("at_ (1 / 2) k", "at_ (2 / 3) k")],
+      spec := "petersen_spec" },
+    { file := numbers, what := "the totient's title says n ≤ 99", anchor := "def totient : Diagram",
+      edits := [("1 ≤ n ≤ 100\"", "1 ≤ n ≤ 99\"")], spec := "totient_spec" }]
+
 /-- The changes to the core's figures with specifications (`PILeanTest.Examples` and
-`PILeanTest.PlaneExact`), with those of the diagrams' galleries and the proved explorers. -/
+`PILeanTest.PlaneExact`), with those of the diagrams' galleries, the proved explorers and the
+fields a reader sees (`visibleMutations`). -/
 def mutations : Array SpecMutation :=
   let disks : System.FilePath := "PILeanTest" / "Examples.lean"
   let plane : System.FilePath := "PILeanTest" / "PlaneExact.lean"
@@ -454,7 +512,8 @@ def mutations : Array SpecMutation :=
       anchor := "def stepPoint (j : Nat) : Item :=",
       edits := [("Plane.Exact.pointNearDisk (Zeta5.pow j) windowCentre windowRadius \"the window\"",
         "Plane.Exact.point (Zeta5.pow j)")], spec := "zetaSteps_spec" }] ++ diagramMutations ++
-    algebraMutations ++ numberMutations ++ explorerMutations ++ complexMutations
+    algebraMutations ++ numberMutations ++ explorerMutations ++ complexMutations ++
+    visibleMutations
 
 /-- The checks of `mutations`. -/
 def ioChecks : IO (Array (String × Bool)) := checkAll mutations

@@ -78,6 +78,48 @@ theorem vacuousBound_spec : vacuousBound.marks.length ≥ 0 := Nat.zero_le _
 
 figure_links vacuousBound vacuousBound_spec
 
+/-- The word of `pinnedPath`: `UD`. -/
+def pinnedWord : List Bool := [true, false]
+
+/-- A figure whose linked theorem writes it out: the Dyck path of `pinnedWord`. -/
+@[figure] def pinnedPath : Diagram := (LatticePath.ofDyck pinnedWord).figure
+
+/-- The figure is the Dyck path of the word `UD`, both written out, so the statement determines
+the figure. -/
+theorem pinnedPath_spec :
+    pinnedPath = (LatticePath.ofDyck pinnedWord).figure ∧ pinnedWord = [true, false] :=
+  ⟨rfl, rfl⟩
+
+figure_links pinnedPath pinnedPath_spec
+
+/-- The figure written out in terms of the word, which is not. -/
+theorem pinnedPath_open : pinnedPath = (LatticePath.ofDyck pinnedWord).figure := rfl
+
+/-- The word's pin mentions the word. -/
+theorem pinnedPath_circular :
+    pinnedPath = (LatticePath.ofDyck pinnedWord).figure ∧ pinnedWord = pinnedWord.take 2 :=
+  ⟨rfl, rfl⟩
+
+/-- The pins depend on a variable of the statement. -/
+theorem pinnedPath_bound (w : List Bool) (h : pinnedWord = w) :
+    pinnedPath = (LatticePath.ofDyck w).figure ∧ pinnedWord = w :=
+  ⟨h ▸ rfl, h⟩
+
+-- A statement determines its figure when it writes out the figure and every definition of the
+-- local modules the value uses; one that leaves a definition open, pins a definition by itself,
+-- or pins through a variable does not, and neither does a statement that names the figure only.
+#guard_msgs in
+run_cmd do
+  let problem := fun (fig thm : Lean.Name) => Lean.Elab.Command.liftTermElabM
+    (figurePinProblem? (`PILeanTest.Standing).isPrefixOf fig thm)
+  if let some m ← problem `PILeanTest.Standing.pinnedPath `PILeanTest.Standing.pinnedPath_spec then
+    throwError "the written-out statement is refused: {m}"
+  for t in [`PILeanTest.Standing.pinnedPath_open, `PILeanTest.Standing.pinnedPath_circular,
+      `PILeanTest.Standing.pinnedPath_bound] do
+    if (← problem `PILeanTest.Standing.pinnedPath t).isNone then throwError "{t} is accepted"
+  if (← problem `PILeanTest.Standing.linkedPath `PILeanTest.Standing.linkedPath_spec).isNone then
+    throwError "a statement about the figure's steps is accepted"
+
 /-- A figure with no linked theorem and no marking: a dot. -/
 @[figure] def unmarkedSketch : Diagram :=
   { marks := [{ part := .guide, shape := .dot (1, 0) }] }
