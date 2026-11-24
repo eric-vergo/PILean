@@ -4,6 +4,8 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Pdf.Read
 import PILean.Png.Inflate
+import Std.Data.HashMap
+import Std.Data.HashSet
 
 /-!
 # A structural check of PDF files
@@ -13,11 +15,14 @@ writes PDF: the header; `startxref` and the cross-reference tables (every sectio
 through `/Prev`); every object in use, at exactly its listed offset with its number and
 generation, its value well formed, a stream's `/Length` (direct or a reference) ending exactly at
 `endstream`, then `endobj`; every reference naming an object in use; `/Size` above every object
-number; the catalog and the page tree (`/Kids`, `/Parent` back to the node, `/Count` the number of
-pages below, at most 32 levels, no node twice); each page's `/MediaBox` (four numbers, inherited
-or not) and its content streams; every content stream, of a page or of a form it draws, decoded
-(no filter, or `FlateDecode` through PILean's inflate, at most `maxDecoded` bytes) and read as
-operators with operands: every operator known to PDF 1.7, the operators PILean writes with the
+number, and `/Size` at most one above the reader's object cap; the catalog and the page tree
+(`/Kids`, `/Parent` back to the node, `/Count` the number of pages below, at most 32 levels, no
+node reached twice anywhere in the tree, so the tree is a tree and its size is linear in the
+file); each page's `/MediaBox` (four numbers, inherited or not) and its content streams; every
+content stream, of a page or of a form it draws, decoded (no filter, or `FlateDecode` through
+PILean's inflate), each stream object decoded once however often it is used, and every use of a
+decoded stream (a page's content, a form, an image) counted against one cap for the whole
+document, `maxDecoded` bytes; each read as operators with operands: every operator known to PDF 1.7, the operators PILean writes with the
 number of operands they take, `q` and `Q` balanced, and every resource a `gs`, `sh` or `Do` names
 present in the resources; image objects of the right size once decoded; shadings of type 2 or 3
 with their coordinates and a function.
@@ -43,10 +48,15 @@ structure Summary where
   contents : Nat
   /-- The number of operators read in them. -/
   operators : Nat
+  /-- The decoded bytes read, each use of a stream counted (at most `maxDecoded`). -/
+  decoded : Nat := 0
   deriving Repr, Inhabited
 
-/-- The most bytes a content stream or an image may decode to. -/
-def maxDecoded : Nat := 256 * 1024 * 1024
+/-- The most decoded bytes the check reads in one document: the content streams of its pages and
+forms and the data of its images, each counted every time it is used. A file PILean writes uses
+each stream once and stays under it (a domain colouring of `DomainColouring.maxPixels` pixels
+decodes to 12 MiB of RGB samples). -/
+def maxDecoded : Nat := 32 * 1024 * 1024
 
 /-- The operators of PDF 1.7 content streams (ISO 32000-1, Annex A). -/
 def knownOperators : Array String :=
@@ -85,8 +95,14 @@ structure CheckState where
   contents : Nat := 0
   /-- Operators read. -/
   operators : Nat := 0
-  /-- Forms whose content has been checked, by object number. -/
-  forms : Array Nat := #[]
+  /-- Forms and images that have been checked, by object number. -/
+  forms : Std.HashSet Nat := {}
+  /-- The nodes of the page tree reached, by object number. -/
+  nodes : Std.HashSet Nat := {}
+  /-- The stream objects decoded, by object number, with their decoded bytes. -/
+  streams : Std.HashMap Nat ByteArray := {}
+  /-- The decoded bytes read so far, each use counted. -/
+  decoded : Nat := 0
 
 /-- The references an object holds, nested at most `fuel` deep. -/
 def refsOf : Nat → Value → Array Nat
@@ -131,16 +147,40 @@ def readObject (lim : Limits) (d : ByteArray) (x : Xref) (n g off : Nat) :
   return (v, some (d.extract q (q + len)))
 
 /-- A stream's data decoded: none or `FlateDecode` as its `/Filter` (and no `/DecodeParms`), at
-most `maxDecoded` bytes. -/
-def decodeStream (n : Nat) (v : Value) (raw : ByteArray) : Except String ByteArray := do
+most `cap` bytes. -/
+def decodeStream (n : Nat) (v : Value) (raw : ByteArray) (cap : Nat := maxDecoded) :
+    Except String ByteArray := do
   if (v.get? "DecodeParms").isSome then throw s!"object {n}: decode parameters are not supported"
   match v.get? "Filter" with
   | none => return raw
   | some (.name "FlateDecode") | some (.arr #[.name "FlateDecode"]) =>
-    match Png.zlibDecompress raw maxDecoded with
+    match Png.zlibDecompress raw cap with
     | .ok b => return b
-    | .error e => throw s!"object {n}: its Flate data is damaged ({e.toString})"
+    | .error e => throw s!"object {n}: its Flate data is damaged or decodes to more than the \
+        document's {maxDecoded} bytes ({e.toString})"
   | some _ => throw s!"object {n}: a filter other than FlateDecode"
+
+/-- Counts `k` decoded bytes read against the document's cap, `maxDecoded`. -/
+def useDecoded (n k : Nat) : StateT CheckState (Except String) Unit := do
+  let st ← get
+  if st.decoded + k > maxDecoded then
+    throw s!"object {n}: the document decodes to more than {maxDecoded} bytes"
+  set { st with decoded := st.decoded + k }
+
+/-- The stream object `n` (already read: its dictionary `v` and raw data `raw`) decoded, once:
+a stream decoded before is taken from the state, and a new one is inflated to at most what is
+left of the document's cap. Each use is counted against the cap (`useDecoded`). -/
+def streamData (n : Nat) (v : Value) (raw : ByteArray) :
+    StateT CheckState (Except String) ByteArray := do
+  let st ← get
+  let data ← match st.streams[n]? with
+    | some b => pure b
+    | none => do
+      let b ← decodeStream n v raw (maxDecoded - st.decoded)
+      modify fun st => { st with streams := st.streams.insert n b }
+      pure b
+  useDecoded n data.size
+  return data
 
 /-- The names a resource dictionary gives in its category `cat` (`ExtGState`, `Shading`,
 `XObject`), with their values (resolved one step). -/
@@ -178,13 +218,27 @@ def contentOps (lim : Limits) (c : ByteArray) : Except String (Array (String × 
   if !operands.isEmpty then throw "operands after the last operator"
   return out
 
+/-- Checks a shading dictionary: type 2 with four coordinates or type 3 with six, a colour space
+and a function (a dictionary of type 2 or 3, or a reference). -/
+def checkShading (v : Value) : Except String Unit := do
+  let ty := (v.get? "ShadingType").bind Value.nat?
+  let coords := match v.get? "Coords" with | some (.arr cs) => cs | _ => #[]
+  match ty with
+  | some 2 => if coords.size != 4 || !coords.all Value.isNum then throw "an axial shading's /Coords"
+  | some 3 => if coords.size != 6 || !coords.all Value.isNum then throw "a radial shading's /Coords"
+  | _ => throw "a shading of a type PILean does not write"
+  if (v.get? "ColorSpace").isNone then throw "a shading without /ColorSpace"
+  match v.get? "Function" with
+  | some (.dict _) | some (.ref _ _) | some (.arr _) => pure ()
+  | _ => throw "a shading without /Function"
+
 mutual
 
 /-- Checks the content `c` of a page or form with resources `res`: the operators (`contentOps`),
 their operand counts and kinds for the fixed ones, `q`/`Q` balanced, and every name of `gs`,
 `sh` and `Do` in the resources; a form drawn by `Do` is checked in turn (`fuel` bounds the depth,
-`forms` the forms already checked). -/
-partial def checkContent (lim : Limits) (d : ByteArray) (x : Xref) (res : Value) (c : ByteArray) :
+`forms` the forms already checked). Structural recursion on `fuel`. -/
+def checkContent (lim : Limits) (d : ByteArray) (x : Xref) (res : Value) (c : ByteArray) :
     Nat → StateT CheckState (Except String) Unit
   | 0 => throw "forms are nested too deeply"
   | fuel + 1 => do
@@ -226,7 +280,7 @@ partial def checkContent (lim : Limits) (d : ByteArray) (x : Xref) (res : Value)
         let .dict _ := v | throw "an ExtGState that is not a dictionary"
       if op == "sh" then
         let v ← resolve lim d x (← named shs)
-        checkShading lim d x v
+        checkShading v
       if op == "Do" then
         let v ← named xos
         let .ref n _ := v | throw "an XObject that is not a reference"
@@ -236,17 +290,18 @@ partial def checkContent (lim : Limits) (d : ByteArray) (x : Xref) (res : Value)
     modify fun st => { st with contents := st.contents + 1 }
 
 /-- Checks an XObject drawn by `Do`: a form (its content checked once, with its resources or the
-caller's) or an image (its decoded data as long as its size, components and bits ask). -/
-partial def checkXObject (lim : Limits) (d : ByteArray) (x : Xref) (n : Nat) :
+caller's) or an image (its decoded data as long as its size, components and bits ask), each
+decoded once (`streamData`). Structural recursion on `fuel`. -/
+def checkXObject (lim : Limits) (d : ByteArray) (x : Xref) (n : Nat) :
     Nat → StateT CheckState (Except String) Unit
   | 0 => throw "forms are nested too deeply"
   | fuel + 1 => do
     if (← get).forms.contains n then return
-    modify fun st => { st with forms := st.forms.push n }
+    modify fun st => { st with forms := st.forms.insert n }
     let some (off, g) := x.find? n | throw s!"object {n} is not in the cross-reference table"
     let (v, raw) ← readObject lim d x n g off
     let some raw := raw | throw s!"object {n}: an XObject that is not a stream"
-    let data ← decodeStream n v raw
+    let data ← streamData n v raw
     match v.get? "Subtype" with
     | some (.name "Form") =>
       let some bbox := v.get? "BBox" | throw s!"object {n}: a form without /BBox"
@@ -273,32 +328,19 @@ partial def checkXObject (lim : Limits) (d : ByteArray) (x : Xref) (n : Nat) :
         checkXObject lim d x k fuel
     | _ => throw s!"object {n}: an XObject that is neither a form nor an image"
 
-/-- Checks a shading dictionary: type 2 with four coordinates or type 3 with six, a colour space
-and a function (a dictionary of type 2 or 3, or a reference). -/
-partial def checkShading (_lim : Limits) (_d : ByteArray) (_x : Xref) (v : Value) :
-    StateT CheckState (Except String) Unit := do
-  let ty := (v.get? "ShadingType").bind Value.nat?
-  let coords := match v.get? "Coords" with | some (.arr cs) => cs | _ => #[]
-  match ty with
-  | some 2 => if coords.size != 4 || !coords.all Value.isNum then throw "an axial shading's /Coords"
-  | some 3 => if coords.size != 6 || !coords.all Value.isNum then throw "a radial shading's /Coords"
-  | _ => throw "a shading of a type PILean does not write"
-  if (v.get? "ColorSpace").isNone then throw "a shading without /ColorSpace"
-  match v.get? "Function" with
-  | some (.dict _) | some (.ref _ _) | some (.arr _) => pure ()
-  | _ => throw "a shading without /Function"
-
 end
 
 /-- Walks the page tree from node `n` (its parent `parent`), at most `fuel` levels, with the
 inherited `/MediaBox` and `/Resources`: the leaves are pages (checked with their content), the
-nodes `/Pages` whose `/Count` is the number of pages below them. Returns that number. -/
-partial def walkPages (lim : Limits) (d : ByteArray) (x : Xref) (n : Nat) (parent : Option Nat)
-    (box res : Option Value) (visited : Array Nat) :
-    Nat → StateT CheckState (Except String) Nat
+nodes `/Pages` whose `/Count` is the number of pages below them. Returns that number. A node
+reached a second time, from anywhere in the tree, is refused (`CheckState.nodes`), so every node
+is read once. Structural recursion on `fuel`. -/
+def walkPages (lim : Limits) (d : ByteArray) (x : Xref) (n : Nat) (parent : Option Nat)
+    (box res : Option Value) : Nat → StateT CheckState (Except String) Nat
   | 0 => throw "the page tree is too deep"
   | fuel + 1 => do
-    if visited.contains n then throw s!"object {n} occurs twice in the page tree"
+    if (← get).nodes.contains n then throw s!"object {n} occurs twice in the page tree"
+    modify fun st => { st with nodes := st.nodes.insert n }
     let some (off, g) := x.find? n | throw s!"object {n} is not in the cross-reference table"
     let (v, _) ← readObject lim d x n g off
     match v.get? "Parent", parent with
@@ -313,7 +355,7 @@ partial def walkPages (lim : Limits) (d : ByteArray) (x : Xref) (n : Nat) (paren
       let mut count := 0
       for k in kids do
         let .ref m _ := k | throw s!"object {n}: a kid that is not a reference"
-        count := count + (← walkPages lim d x m (some n) box res (visited.push n) fuel)
+        count := count + (← walkPages lim d x m (some n) box res fuel)
       if (v.get? "Count").bind Value.nat? != some count then
         throw s!"object {n}: /Count is not the number of pages below it ({count})"
       return count
@@ -337,7 +379,7 @@ partial def walkPages (lim : Limits) (d : ByteArray) (x : Xref) (n : Nat) (paren
         let some (o, h) := x.find? m | throw s!"object {m} is not in the cross-reference table"
         let (sv, raw) ← readObject lim d x m h o
         let some raw := raw | throw s!"page {n}: content object {m} is not a stream"
-        all := all ++ (← decodeStream m sv raw) ++ "\n".toUTF8
+        all := all ++ (← streamData m sv raw) ++ "\n".toUTF8
       checkContent lim d x resV all 16
       modify fun st => { st with pages := st.pages + 1 }
       return 1
@@ -348,6 +390,8 @@ or the first problem found. -/
 def check (d : ByteArray) (lim : Limits := {}) : Except String Summary := do
   let x ← readXref lim d
   let some size := (x.trailer.get? "Size").bind Value.nat? | throw "the trailer has no /Size"
+  if size > lim.maxObjects + 1 then
+    throw s!"/Size {size} is above the reader's cap of {lim.maxObjects} objects"
   -- every object in use, where the table says
   let mut values : Array (Nat × Value) := #[]
   for (n, off, g) in x.entries do
@@ -364,9 +408,9 @@ def check (d : ByteArray) (lim : Limits := {}) : Except String Summary := do
   let some (_, cat) := values.find? (·.1 == root) | throw "the catalog is not in use"
   if ((cat.get? "Type").bind Value.name?) != some "Catalog" then throw "/Root is not a catalog"
   let some (.ref pages _) := cat.get? "Pages" | throw "the catalog has no /Pages"
-  let (n, st) ← (walkPages lim d x pages none none none #[] 32).run {}
+  let (n, st) ← (walkPages lim d x pages none none none 32).run {}
   if n == 0 then throw "the document has no page"
   return { objects := x.entries.size, pages := st.pages, contents := st.contents,
-           operators := st.operators }
+           operators := st.operators, decoded := st.decoded }
 
 end PILean.Pdf

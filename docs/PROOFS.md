@@ -421,8 +421,8 @@ within `1/4000` (`|r − √x| ≤ |r² − x| / √x` with the squares checked 
 points). The bounds are mostly the interpolation term `M h² / 8` with `M` the maximum of `|f''|`
 over the interval, loose where `|f''|` is smaller. `lake test` compiles changed copies (a bound,
 an interval, a number of steps, a name, a coefficient, a number of terms) that must fail inside
-the theorems, and checks in floating point that each bound is under a quarter of a pixel at the
-gallery size.
+the theorems, and checks in floating point that each bound is under a tenth of a pixel in the
+gallery's 640 × 400 pixel picture (at most 0.072 of a pixel; tested, not proved).
 
 ## Combinatorics against Mathlib
 

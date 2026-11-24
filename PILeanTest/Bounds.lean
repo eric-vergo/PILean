@@ -155,6 +155,57 @@ def pdfPages (n : Nat) : ByteArray := Id.run do
     objs := objs.push "<< /Length 3 >>\nstream\nq Q\nendstream".toUTF8
   return Pdf.document objs 1
 
+/-- A PDF file whose page tree is a chain of `depth` nodes, each listing the next twice: a tree
+read naively would have `2 ^ depth` pages. -/
+def pdfPageDag (depth : Nat) : ByteArray := Id.run do
+  let mut objs := #["<< /Type /Catalog /Pages 2 0 R >>".toUTF8]
+  for k in [0:depth] do
+    let me := 2 + k
+    let parent := if k == 0 then "" else s!" /Parent {me - 1} 0 R"
+    objs := objs.push
+      s!"<< /Type /Pages /Kids [{me + 1} 0 R {me + 1} 0 R] /Count {2 ^ (depth - k)}{parent} >>".toUTF8
+  let leaf := 2 + depth
+  objs := objs.push
+    s!"<< /Type /Page /Parent {leaf - 1} 0 R /MediaBox [0 0 10 10] /Contents {leaf + 1} 0 R >>".toUTF8
+  objs := objs.push "<< /Length 13 >>\nstream\n0 0 m 1 1 l S\nendstream".toUTF8
+  return Pdf.document objs 1
+
+/-- A stream object whose Flate data inflates to `n` zero bytes (white space to a content
+reader). -/
+def bombStream (n : Nat) : ByteArray :=
+  let z := zerosZlib n
+  s!"<< /Length {z.size} /Filter /FlateDecode >>\nstream\n".toUTF8 ++ z ++ "\nendstream".toUTF8
+
+/-- A PDF file with one page whose `/Contents` lists the same stream `uses` times, the stream
+inflating to `n` bytes. -/
+def pdfContentsBomb (n uses : Nat) : ByteArray :=
+  let list := " ".intercalate (List.replicate uses "4 0 R")
+  Pdf.document #["<< /Type /Catalog /Pages 2 0 R >>".toUTF8,
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".toUTF8,
+    s!"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents [{list}] >>".toUTF8,
+    bombStream n] 1
+
+/-- A PDF file with `pages` pages that share one content stream inflating to `n` bytes. -/
+def pdfSharedBomb (n pages : Nat) : ByteArray := Id.run do
+  let kids := " ".intercalate ((List.range pages).map fun k => s!"{4 + k} 0 R")
+  let mut objs := #["<< /Type /Catalog /Pages 2 0 R >>".toUTF8,
+    s!"<< /Type /Pages /Kids [{kids}] /Count {pages} >>".toUTF8, bombStream n]
+  for _ in [0:pages] do
+    objs := objs.push "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents 3 0 R >>".toUTF8
+  return Pdf.document objs 1
+
+/-- A PDF file with `pages` pages that share one content stream of `n` bytes of white space and
+one operator pair, stored without a filter: each page's use of it is counted. -/
+def pdfSharedPlain (n pages : Nat) : ByteArray := Id.run do
+  let kids := " ".intercalate ((List.range pages).map fun k => s!"{4 + k} 0 R")
+  let body := (String.ofList (List.replicate n ' ') ++ "q Q").toUTF8
+  let mut objs := #["<< /Type /Catalog /Pages 2 0 R >>".toUTF8,
+    s!"<< /Type /Pages /Kids [{kids}] /Count {pages} >>".toUTF8,
+    s!"<< /Length {body.size} >>\nstream\n".toUTF8 ++ body ++ "\nendstream".toUTF8]
+  for _ in [0:pages] do
+    objs := objs.push "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Contents 3 0 R >>".toUTF8
+  return Pdf.document objs 1
+
 /-! ### Running under limits -/
 
 /-- What a child used. -/
@@ -295,6 +346,32 @@ def cases : Array Case :=
       kind := "pdf", bytes := pure (pdfWith .empty (resources := "<< /A (" ++
         String.ofList (List.replicate (8 <<< 20) 'x') ++ ") >>")),
       expect := "error a string is too long", maxRss := baseRss + (64 <<< 20), maxUserMs := 5000 },
+    { name := "pdf: a page tree whose nodes list their child twice, 20 deep, is refused at once",
+      kind := "pdf", bytes := pure (pdfPageDag 20), expect := "error object 22 occurs twice",
+      maxRss := baseRss + (16 <<< 20), maxUserMs := 1000 },
+    { name := "pdf: a page tree whose nodes list their child twice, 28 deep, is refused at once",
+      kind := "pdf", bytes := pure (pdfPageDag 28), expect := "error object 30 occurs twice",
+      maxRss := baseRss + (16 <<< 20), maxUserMs := 1000 },
+    { name := "pdf: a page listing a 200 MiB stream 50 times is refused at the document's cap",
+      kind := "pdf", bytes := pure (pdfContentsBomb (200 <<< 20) 50),
+      expect := "error object 4: its Flate data is damaged or decodes to more than",
+      maxRss := baseRss + Pdf.maxDecoded + (16 <<< 20), maxUserMs := 1000 },
+    { name := "pdf: 50 pages sharing a 200 MiB stream are refused at the document's cap",
+      kind := "pdf", bytes := pure (pdfSharedBomb (200 <<< 20) 50),
+      expect := "error object 3: its Flate data is damaged or decodes to more than",
+      maxRss := baseRss + Pdf.maxDecoded + (16 <<< 20), maxUserMs := 1000 },
+    { name := "pdf: 40 pages sharing a 1 MiB stream are refused when their uses pass the cap",
+      kind := "pdf", bytes := pure (pdfSharedPlain (1 <<< 20) 40),
+      expect := "error object 3: the document decodes to more than",
+      maxRss := baseRss + (64 <<< 20), maxUserMs := 5000 },
+    { name := "pdf: 20 pages sharing a 1 MiB stream decode it once and count each use",
+      kind := "pdf", bytes := pure (pdfSharedPlain (1 <<< 20) 20),
+      expect := s!"ok pages 20 objects 23 operators 40 decoded {20 * ((1 <<< 20) + 3)}",
+      maxRss := baseRss + (96 <<< 20), maxUserMs := 10000 },
+    { name := "probe: a file that does not exist is a plain error", kind := "pdf",
+      bytes := pure .empty, argv := some #["pdf", "no-such-file.pdf"],
+      expect := "error the file no-such-file.pdf cannot be read", maxRss := baseRss,
+      maxUserMs := 1000 },
     { name := "pdf: 20000 pages are walked in linear time",
       kind := "pdf", bytes := pure (pdfPages 20000), expect := "ok pages 20000",
       maxRss := 512 <<< 20, maxUserMs := 30000 },

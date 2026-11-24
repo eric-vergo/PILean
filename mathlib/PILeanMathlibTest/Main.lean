@@ -68,8 +68,8 @@ def certified : Array (CertifiedPlot × (Float → Float)) :=
 
 /-- The checks on the floating-point points of the certified plots and on their pages: the
 points are `steps + 1`, within `1e-6` of the platform's function, the midpoints of consecutive
-points within the proved bound of it, and the bound is under a quarter of a pixel at the gallery
-size (the number of pixels is printed). -/
+points within the proved bound of it, and the bound is under a tenth of a pixel in the gallery's
+picture (640 × 400 pixels; the bound times the pixels per unit of the vertical axis, printed). -/
 def certifiedChecks : IO (Array (String × Bool)) := do
   let mut out := #[]
   for (c, f) in certified do
@@ -85,7 +85,8 @@ def certifiedChecks : IO (Array (String × Bool)) := do
         ps.all fun p => (p.y - f p.x).abs ≤ 1e-6),
       (s!"{c.name}: the midpoints are within {c.delta} of the platform's function",
         pairs.all fun (p, q) => ((p.y + q.y) / 2 - f ((p.x + q.x) / 2)).abs ≤ d),
-      (s!"{c.name}: the bound is under a quarter of a pixel", ppu > 0 && d * ppu < 0.25)]
+      (s!"{c.name}: the bound is under a tenth of a pixel",
+        ppu > 0 && d * ppu < 0.1 && c.figure.width == 640 && c.figure.height == 400)]
   return out
 
 /-- The golden checks: each file is its file in `examples/` and is drawn the same twice; with

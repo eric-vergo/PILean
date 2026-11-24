@@ -10,10 +10,10 @@ import PILean
 `pilean-probe png|gif|apng|zlib|pdf|source FILE` decodes the file with the reader's default
 limits (zlib: an output cap of 256 MiB; `pdf`: the structural check of PDF files, `Pdf.check`;
 `source`: the source record of any format, `Source.read?`) and prints `ok` with the size of what
-was decoded, or `error` with the reason; `pilean-probe graph KIND N` lays out a generated graph.
-The test driver runs it on hostile inputs under limits (`PILeanTest.Bounds`); it imports only the
-library, so what it
-costs is what the reader costs.
+was decoded, or `error` with the reason (also for a file that cannot be read);
+`pilean-probe graph KIND N` lays out a generated graph. The test driver runs it on hostile inputs
+under limits (`PILeanTest.Bounds`); it imports only the library, so what it costs is what the
+reader costs.
 -/
 
 open PILean
@@ -71,7 +71,11 @@ def main (args : List String) : IO UInt32 := do
   let [kind, file] := args | do
     IO.eprintln "usage: pilean-probe png|gif|apng|zlib|pdf|source FILE"
     return 2
-  let bytes ← IO.FS.readBinFile file
+  let bytes ← match ← (IO.FS.readBinFile file).toBaseIO with
+    | .ok b => pure b
+    | .error e =>
+      IO.println s!"error the file {file} cannot be read: {e}"
+      return 0
   let line := match kind with
     | "png" => match Png.decode bytes with
       | .ok d => s!"ok {d.image.width}x{d.image.height} {d.image.data.size} text {d.text.size}"
@@ -83,7 +87,8 @@ def main (args : List String) : IO UInt32 := do
       | .ok s => s!"ok {s.width}x{s.height} frames {s.frames.size}"
       | .error e => s!"error {repr e}"
     | "pdf" => match Pdf.check bytes with
-      | .ok s => s!"ok pages {s.pages} objects {s.objects} operators {s.operators}"
+      | .ok s => s!"ok pages {s.pages} objects {s.objects} operators {s.operators} decoded \
+        {s.decoded}"
       | .error e => s!"error {e}"
     | "source" => match Trust.Source.read? bytes with
       | .ok s => s!"ok {s.decl}"
