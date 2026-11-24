@@ -229,6 +229,20 @@ figure_links provedFunction provedFunction_self
 ```leanResult emptyLink
 ```
 
+The gallery's theorems and those of the examples say more than the rule asks, and a check makes
+sure of it: each begins with the figure written out, `fig = …`, followed by every definition of
+the gallery's modules that it uses (`c = …`, or `∀ x, c x = …` for a function), and those that
+they use, until only the libraries' definitions are left. The command
+`#assert_figures_pinned A B …` ({name}`PILean.Trust.figurePinProblem?`) fails unless every
+theorem linked to a figure of the modules named `A`, `B`, … is of this form; each package runs it
+in its build. A proved statement of this form determines the figure's whole value: its title,
+description, size, axes, legend, colours by role, every frame of an animation or an explorer and
+every label. A change to the gallery's definitions that changes any of them breaks the theorem.
+What remains outside every theorem is the libraries' own code: how the builders draw, the colour
+values of the library's styles, the lettering and typesetting, and the drawing in floating point
+down to the pixels, which the goldens test. `docs/PROOFS.md` ("What a gallery theorem pins") has
+the fields of each kind of figure.
+
 # What Is Proved
 %%%
 tag := "proofs-proved"
