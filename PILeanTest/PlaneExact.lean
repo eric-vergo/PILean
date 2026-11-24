@@ -312,11 +312,10 @@ and `φ⁻¹ = ζ + ζ⁴` is real and between 0 and 1, so `-G = -φ⁻³ E` lie
 the third piece passes through `0`. Not stated: how the builders and modifiers draw, the layout,
 the fonts, the style's colour values (`houseStyle`) and the pixels. -/
 theorem reference_spec :
-    reference.info.title = "Two disks, their lens and the chord in three pieces" ∧
-    E = Zeta5.pow 1 - Zeta5.pow 2 ∧ phiInv = ⟨#[-1, 0, -1, -1]⟩ ∧ F = phiInv * E ∧
-    G = phiInv * phiInv * phiInv * E ∧ corner = Zeta5.pow 1 - Zeta5.pow 4 ∧
-    left = Zeta5.ofInt (-1) ∧ right = Zeta5.ofInt 1 ∧ R = ⟨⟨7 / 2, 1 / 2⟩⟩ ∧
-    reference.items = #[
+    reference = {
+      width := 720, narrowWidth := some 360, padding := 24, style := houseStyle,
+      info := { title := "Two disks, their lens and the chord in three pieces" },
+      items := #[
       Plane.Exact.disk left R |>.noFill |>.width 1.5 |>.named "the left circle",
       Plane.Exact.disk right R |>.noFill |>.width 1.5 |>.named "the right circle",
       Plane.Exact.lens left right R R |>.role "lens" |>.fillOpacity 0.14 |>.named "the lens",
@@ -336,15 +335,23 @@ theorem reference_spec :
         |>.incident .on "the right circle" |>.incident .on "the lens",
       Plane.Exact.label "−1" left .auto, Plane.Exact.label "+1" right .auto,
       Plane.Exact.label "0" Zeta5.zero .auto, Plane.Exact.label "E" E .auto,
-      Plane.Exact.label "−E" (-E) .auto] ∧
+      Plane.Exact.label "−E" (-E) .auto] } ∧
+    houseStyle = { Style.light with plane := { PlaneStyle.light with
+      lineWidth := 2.5, markerRadius := 4.5, markerRing := 2, labelSize := 15,
+      roles := #[⟨"lens", ⟨154, 69, 0, 255⟩, ⟨245, 184, 61, 255⟩⟩,
+        ⟨"s1", ⟨29, 78, 216, 255⟩, ⟨143, 176, 252, 255⟩⟩,
+        ⟨"s2", ⟨162, 28, 175, 255⟩, ⟨239, 166, 247, 255⟩⟩,
+        ⟨"s3", ⟨13, 107, 99, 255⟩, ⟨94, 224, 200, 255⟩⟩] } } ∧
+    E = Zeta5.pow 1 - Zeta5.pow 2 ∧ phiInv = ⟨#[-1, 0, -1, -1]⟩ ∧ F = phiInv * E ∧
+    G = phiInv * phiInv * phiInv * E ∧ corner = Zeta5.pow 1 - Zeta5.pow 4 ∧
+    left = Zeta5.ofInt (-1) ∧ right = Zeta5.ofInt 1 ∧ R = ⟨⟨7 / 2, 1 / 2⟩⟩ ∧
     (E - left).normSq = R.radicand ∧ QSqrt.lt (E - right).normSq R.radicand = true ∧
     (-E - right).normSq = R.radicand ∧ QSqrt.lt (-E - left).normSq R.radicand = true ∧
     (corner - left).normSq = R.radicand ∧ (corner - right).normSq = R.radicand ∧
     (-corner - left).normSq = R.radicand ∧ (-corner - right).normSq = R.radicand ∧
     (phiInv.conj == phiInv) = true ∧ QSqrt.lt ⟨0, 0⟩ phiInv.realPart = true ∧
     QSqrt.lt phiInv.realPart ⟨1, 0⟩ = true ∧ (G == phiInv * phiInv * phiInv * E) = true := by
-  refine ⟨rfl, ?_⟩
-  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_⟩
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_⟩
   repeat' apply And.intro
   all_goals decide +kernel
 
