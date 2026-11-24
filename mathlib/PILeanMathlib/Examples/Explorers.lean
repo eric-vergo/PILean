@@ -59,8 +59,8 @@ theorem cayleyExplorer_zmod :
       ∀ s t : ℕ, (s, t) ∈ (cayleyDiagram n a).arrows.map (fun x => (x.2.1, x.2.2)) ↔
         s < n ∧ t < n ∧ (t : ZMod n) = s + a ∧ (((2 * a : ℕ) : ZMod n) = 0 → s < t) := by
   obtain ⟨p1, p2, p3, p4, p5, hx, h1, h2, h3, h4, h5, h6, h7, h⟩ := cayleyExplorer_spec
-  refine ⟨p1, p2, p3, p4, p5, hx, h1, h2, h3, h4, h5, h6, h7, fun n hn a ha => ⟨(h n hn a ha).1, (h n hn a ha).2.1,
-    (h n hn a ha).2.2.1, fun s t => ?_⟩⟩
+  refine ⟨p1, p2, p3, p4, p5, hx, h1, h2, h3, h4, h5, h6, h7, fun n hn a ha =>
+    ⟨(h n hn a ha).1, (h n hn a ha).2.1, (h n hn a ha).2.2.1, fun s t => ?_⟩⟩
   have hn0 : 0 < n := by simp only [moduli] at hn; revert hn; decide +revert
   rw [(h n hn a ha).2.2.2]
   simp only [cayleyPairs, List.mem_filterMap, List.mem_range]
