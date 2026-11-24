@@ -317,9 +317,13 @@ horizontal and vertical segments in bundles of parallel lanes, as cables are lai
 * *Room.* The layout reserves the room the routes need: the dummy nodes of a bundled layout stand
   `laneGap` apart (in place of `edgeGap`), so the lanes of long edges beside each other are evenly
   spaced; a channel is `stemLength + radius` (at least `laneGap`) above its first track,
-  `laneGap` per track, and as much and an arrowhead below its last; nothing is squeezed. A lane
-  keeps `clusterGap` (by default twice `laneGap`) from the side of a cluster it stays outside, and
-  the first track of a channel keeps as much from a cluster that ends above it.
+  `laneGap` per track, and as much and an arrowhead below its last; nothing is squeezed. A route
+  keeps `clusterGap` (by default twice `laneGap`) from every cluster that holds neither of its
+  ends: a lane and the corridors a node keeps on its right stand that far from
+  the side of a cluster they stay outside, clusters side by side stand that far apart (so a route
+  inside one keeps it from the other), and the first and last tracks of a channel keep as much
+  from the clusters that end above it and begin below it. The tests check this on the hostile
+  graphs at lane gaps from 3 to 40 (`PILeanTest/GraphBundles.lean`).
 * *Lanes placed.* The coordinate phase keeps a long edge's dummy nodes in one column (the weights 1,
   2 and 8 of Gansner et al.), but in the place the crossing reduction gave them in each layer, and
   that place is often the end of the layer: the lane then runs round the outside of the drawing or

@@ -324,15 +324,22 @@ def hostile : Array (String × Graph) :=
     ("nested clusters", { GraphQuality.awkwardClusters with
       clusters := GraphQuality.awkwardClusters.clusters.push
         { name := "Deep", members := #[1], parent := some 2 } }),
-    ("undirected", { ofEdges 6 [(0, 1), (1, 2), (2, 0), (3, 4), (0, 0)] with directed := false })]
+    ("undirected", { ofEdges 6 [(0, 1), (1, 2), (2, 0), (3, 4), (0, 0)] with directed := false }),
+    ("clusters beside loops and edges against the layers",
+      { ofEdges 12 [(0, 1), (1, 2), (2, 3), (0, 3), (0, 11), (4, 5), (5, 6), (4, 7), (7, 8),
+          (8, 9), (0, 9), (3, 9), (10, 11), (11, 0), (6, 6), (9, 0), (2, 10)] with
+        clusters := #[{ name := "A", members := #[1, 2] }, { name := "B", members := #[5, 6, 7] },
+          { name := "C", members := #[8], parent := some 1 }, { name := "E", members := #[] }] })]
 
 /-- Styles at the ends of their ranges: no radius and no stems (the channel still keeps a lane
-from the boxes), and wide lanes with large radii and long stems; and a style between them with
-wide lanes and generous radii. -/
+from the boxes), and wide lanes with large radii and long stems; a style between them with wide
+lanes and generous radii; and wide lane gaps, whose `clusterGap` (twice the lane gap) is larger
+than the room the stems, corners and corridors take. -/
 def extremeStyles : Array BundleStyle :=
   #[{ radius := 0, stemLength := 0 }, { laneGap := 3, trackGap := 4 },
     { laneGap := 12, radius := 20, stemLength := 30, trackGap := 24 },
-    { laneGap := 8, radius := 10, stemLength := 14, trackGap := 16 }]
+    { laneGap := 8, radius := 10, stemLength := 14, trackGap := 16 }, { laneGap := 20 },
+    { laneGap := 40, radius := 60, stemLength := 50, trackGap := 60 }]
 
 /-- Every problem of the bundled layouts of `g`: from the top down, from left to right, both
 mirrored, and packed. -/

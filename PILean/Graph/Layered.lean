@@ -829,14 +829,19 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let labelRoom := 12 + st.noteSize * 1.2
   let base := separation n bw o.nodeGap (if bundled then bst.laneGap else o.edgeGap) 0 #[]
   let sep0 := borderSeparation bs base bw pad (pad + if lr then labelRoom else 0) 12 16
-  -- bundled routes: a lane keeps `clusterGap` from the side of a cluster it stays outside
+  -- bundled routes: a lane, and the corridors a node keeps on its right (self-loops, ends of
+  -- edges against the layers), keep `clusterGap` from the side of a cluster they stay outside
   let sep := if !bundled then sep0 else fun u v =>
     let lane := fun (w : Nat) => n ≤ w && w < size
+    let corridors := fun (w : Nat) => w < n && loopExtra.getD w 0 > 0
     match bs.part.getD u .node, bs.part.getD v .node with
     | .right _, .node => if lane v then max (sep0 u v) (bst.clusterGap + bw.getD v 0 / 2)
         else sep0 u v
-    | .node, .left _ => if lane u then max (sep0 u v) (bw.getD u 0 / 2 + bst.clusterGap)
+    | .node, .left _ => if lane u || corridors u then
+          max (sep0 u v) (bw.getD u 0 / 2 + bst.clusterGap)
         else sep0 u v
+    -- clusters side by side: a route inside one keeps `clusterGap` from the other
+    | .right _, .left _ => max (sep0 u v) bst.clusterGap
     | _, _ => sep0 u v
   let x0 := assignBreadth total n order bs.up bs.down sep bw
   let x1 := refineBreadth total n chains order bs.up bs.down sep bw x0 o.refine
@@ -966,10 +971,13 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
   let marginAbove := fun (c : Nat) =>
     if c > 0 && bottomNeed.getD (c - 1) 0 > 0 then max marginAbove0 bst.clusterGap
     else marginAbove0
-  let marginBelow := max bst.laneGap (bst.stemLength + bst.radius) + arrowLen
+  let marginBelow0 := max bst.laneGap (bst.stemLength + bst.radius) + arrowLen
+  -- the last track of a channel keeps `clusterGap` from the clusters that begin below it
+  let marginBelow := fun (c : Nat) =>
+    if topNeed.getD c 0 > 0 then max marginBelow0 bst.clusterGap else marginBelow0
   let channelHeight := fun (c : Nat) =>
     let d := depthOf c
-    if d == 0 then 0 else marginAbove c + (d - 1).toFloat * bst.laneGap + marginBelow
+    if d == 0 then 0 else marginAbove c + (d - 1).toFloat * bst.laneGap + marginBelow c
   let mut levels : Array Float := Array.replicate order.size 0
   let mut t : Float := 0
   let mut prev : Float := 0
@@ -1094,7 +1102,7 @@ def layoutPlan (g : Graph) (o : LayeredOptions) (st : Style) : Plan := Id.run do
              let L := order.size
              let firstTrack := (Array.range (L + 1)).map fun c =>
                if c == 0 then
-                 levels.getD 0 0 - thick.getD 0 0 / 2 - topNeed.getD 0 0 - marginBelow -
+                 levels.getD 0 0 - thick.getD 0 0 / 2 - topNeed.getD 0 0 - marginBelow 0 -
                    ((tr.depth.getD 0 0).toFloat - 1) * bst.laneGap
                else
                  levels.getD (c - 1) 0 + thick.getD (c - 1) 0 / 2 + bottomNeed.getD (c - 1) 0 +

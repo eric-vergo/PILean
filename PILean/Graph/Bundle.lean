@@ -28,8 +28,10 @@ lanes (`Routing.bundled`), in the manner of well laid cable trays:
   layout moves a chain's dummy nodes to the free places nearest the stretch between its ends
   (`placeLanes`), so that a lane does not go round the drawing when there is room nearer, and
   closes jogs narrower than a lane (`straightenLanes`, `alignPorts`). A lane never passes
-  through a node, through a cluster box only as the spline routes do, and keeps `clusterGap`
-  from the side of a cluster it does not enter.
+  through a node, through a cluster box only as the spline routes do, and a route keeps
+  `clusterGap` from every cluster that holds neither of its ends (lanes and
+  corridors stand that far from the sides of clusters, clusters side by side that far apart, and
+  the outer tracks of a channel that far from the clusters above and below it; tested at lane gaps from 3 to 40).
 * **Edges against the layers and self-loops** keep the port rule: such an edge leaves its source
   downwards, turns back up a corridor beside the source (room the layout keeps on the node's
   right), runs up the lanes of its dummy nodes, passes up a corridor beside its target, and comes

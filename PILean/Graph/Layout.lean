@@ -59,8 +59,10 @@ structure BundleStyle where
   /-- The least distance between the ends of two runs on one track (and between a jog and any
   other vertical piece of its channel). -/
   trackGap : Float := 12
-  /-- The least distance between a lane and the box of a cluster it does not enter: a vertical
-  lane beside the cluster's side, and the first track of a channel below the cluster. -/
+  /-- The least distance between a route and the box of a cluster that holds neither of its
+  ends: a vertical lane or a node's corridor beside the cluster's side, a route
+  inside a cluster beside it (clusters side by side stand this far apart), and the first and
+  last tracks of a channel below or above it (tested at lane gaps from 3 to 40). -/
   clusterGap : Float := 2 * laneGap
   /-- The most runs of one channel that are placed with the constraints between them (work
   quadratic in the runs); a channel with more gives each run a track of its own, in `O(k log k)`
