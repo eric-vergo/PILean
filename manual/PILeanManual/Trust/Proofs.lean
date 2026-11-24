@@ -99,7 +99,7 @@ tag := "proofs-gallery"
 
 The repository's gallery has four pictures with a theorem, one of each kind, in the module
 {sourceFile}`PILeanTest/ProvedExamples.lean`. The manual draws each from that declaration, and
-the `figure` directive's `proves` option accepts the theorem only under the rule of
+the `figure` directive's `links` option accepts the theorem only under the rule of
 `figure_links` ({ref "proofs-link"}[Linking a Theorem to a Picture]); below each picture is the
 theorem as the library states
 it.

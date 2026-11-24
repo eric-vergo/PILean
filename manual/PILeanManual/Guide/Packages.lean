@@ -74,9 +74,10 @@ The layers of the code and the imports between them.
 
 The options are `alt` (required: what a reader who cannot see the picture needs to know), `label`
 (for `{figref "…"}[]`), `title`, `format` (`svg` by default, `png`, `apng` or `gif`), `width` (a
-CSS length), `backdrop` (a picture of the site the figure is drawn over) and `proves` (a theorem
+CSS length), `backdrop` (a picture of the site the figure is drawn over) and `links` (a theorem
 about the figure, accepted only under the rule of `figure_links`, {ref "proofs-link"}[Linking a
-Theorem to a Picture], and only when a `figure_links` command links the two). An
+Theorem to a Picture], and only when a `figure_links` command links the two; `proves` is the same
+option). An
 empty body takes the declaration's docstring as the caption. The generator wraps `manualMain`,
 and renders the document it is given, which has the figures' pages added:
 

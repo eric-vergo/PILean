@@ -450,7 +450,7 @@ pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standi
 
 ### The manifest
 
-`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-1","files":[ ... ]}`, with one
+`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-2","files":[ ... ]}`, with one
 line for each output, sorted by `path`, every object with the keys in this order:
 
 | Key | Meaning |
@@ -463,7 +463,7 @@ line for each output, sorted by `path`, every object with the keys in this order
 | `module`, `decl`, `file`, `line`, `column`, `version` | the source record |
 | `repo`, `commit` | only if the build was given them |
 | `darkColours`, `darkOpacities` | for a file a page can put inline: the theme's colour pairs |
-| `standing`, `proves` | the standing and the theorems recorded in the file ("Standing") |
+| `standing`, `theorems` | the standing and the theorems recorded in the file ("Standing"; a manifest of the format `pilean-manifest-1` has `proves`, read as `theorems`) |
 
 Strings are escaped as in JSON (`\"`, `\\`, `\n`, `\r`, `\t`, `\u00XX` for other control
 characters).
