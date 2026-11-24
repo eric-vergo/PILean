@@ -55,4 +55,19 @@ The window of radius 0.8, inline.
 Two marks over a picture of the site.
 :::
 
+# Links that say nothing
+
+A link checks that a theorem is proved and names its figure, not what it says. These three
+pictures claim false things and are linked to theorems that say nothing about them; their pages
+say so.
+
+:::figure ManualExample.vacuousOr (alt := "The text: K(5,2) has 16 edges.") (links := ManualExample.vacuousOr_spec)
+:::
+
+:::figure ManualExample.vacuousHypothesis (alt := "An empty diagram titled: All primes are odd.") (links := ManualExample.vacuousHypothesis_spec)
+:::
+
+:::figure ManualExample.vacuousBound (alt := "An empty diagram titled: π = 3.") (links := ManualExample.vacuousBound_spec)
+:::
+
 {figure_list}

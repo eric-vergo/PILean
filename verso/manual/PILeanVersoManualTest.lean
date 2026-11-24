@@ -182,8 +182,8 @@ def main : IO UInt32 := do
     let files ← filesBelow figs
     check (files.contains "manifest.json") "the figures folder has its manifest"
     let svgs := files.filter (·.endsWith ".svg")
-    check (svgs.size == 21)
-      s!"21 SVG files: light, dark, narrow, and the explorers' frames ({svgs.size})"
+    check (svgs.size == 27)
+      s!"27 SVG files: light, dark, narrow, and the explorers' frames ({svgs.size})"
     for f in svgs do
       let t ← IO.FS.readFile (figs / f)
       check (Svg.isInert t) s!"{f} is inert"
@@ -217,10 +217,10 @@ def main : IO UInt32 := do
     check (has list "pilean-figure-index" && has list "Figure 3") "the figures page lists them"
     check (has list "ManualExample.radiusSlider" && has list "ManualExample.wordSteps")
       "the figures page lists the explorers"
-    check ((list.splitOn "pilean-standing pilean-standing-linked").length - 1 == 2 &&
+    check ((list.splitOn "pilean-standing pilean-standing-linked").length - 1 == 5 &&
         (list.splitOn "pilean-standing pilean-standing-illustration").length - 1 == 4)
       "the figures page shows each figure's standing"
-    check ((list.splitOn "class=\"pilean-page-link\"").length - 1 == 6 &&
+    check ((list.splitOn "class=\"pilean-page-link\"").length - 1 == 9 &&
         has numbers "class=\"pilean-page-link\"")
       "the figures page and the source line link each figure's page"
     -- the figures' pages
@@ -237,6 +237,17 @@ def main : IO UInt32 := do
       "the theorem's statement is shown, not its proof"
     check (hasWords tri theoremScopeText && hasWords tri theoremLinkText)
       "the page says what a linked theorem covers"
+    -- theorems that name their figure and say nothing of it: the page says linked, what PILean
+    -- checked and that it did not check what the theorem says, and nothing more
+    for d in ["vacuousOr", "vacuousHypothesis", "vacuousBound"] do
+      let pg ← pageOf s!"ManualExample.{d}"
+      let t := s!"ManualExample.{d}_spec"
+      check (has pg "data-pilean-standing=\"linked\"" && has pg "Linked theorem: " &&
+          has pg s!"data-lean-decl=\"{t}\"" && hasWords pg (linkCheckedText t) &&
+          hasWords pg theoremScopeText && hasWords pg theoremLinkText &&
+          !has pg "Tied to its object" && !has pg "Proved by" && !has pg "proved by" &&
+          !has pg "data-pilean-standing=\"proved\"")
+        s!"the page of {d}, linked to a theorem that says nothing of it, says only what was checked"
     check (has tri "data-lean-decl=\"ManualExample.trianglePoints\"" &&
         has tri "data-lean-decl=\"ManualExample.triangle\"" && has tri "hl lean")
       "the page shows the declarations the figure is built from, highlighted"

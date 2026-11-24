@@ -99,7 +99,9 @@ inline picture is restyled by its own `style` element under the same rules.
 ## The example and the checks
 
 `ManualExample` is a small manual with a plot, a graph, marks over a picture, two explorers, an
-inline figure and the documentation of a declaration a picture links to;
+inline figure, the documentation of a declaration a picture links to, and three pictures that
+claim false things linked to theorems that say nothing of them (their pages say only what PILean
+checked);
 `lake exe pilean-verso-manual-example --output _out` generates it, and `lake test` generates it
 and checks the pages and files (inert SVG, numbers, text alternatives, light and dark pictures,
 the source line, the theorem, the backdrop, the figures page, the explorers' markup, the inline

@@ -13,7 +13,9 @@ import ManualExample.Defs
 * `trianglePlot`: the triangular numbers 0 to 12, from `ManualExample.triangle` (another
   module), linked to `trianglePoints_spec`, which applies `two_mul_triangle` to its points;
 * `divisorGraph`: the divisors of 12 joined by the covering relation of divisibility;
-* `marks`: two numbered marks drawn over a picture of the site (`backdrop`), in each theme.
+* `marks`: two numbered marks drawn over a picture of the site (`backdrop`), in each theme;
+* `vacuousOr`, `vacuousHypothesis`, `vacuousBound`: pictures that say false things, linked to
+  theorems that name them and say nothing about them; their pages show what a link checks.
 -/
 
 namespace ManualExample
@@ -154,5 +156,39 @@ def wordSteps : Explorer :=
 /-- The window of radius 0.8, inline: its points' titles show on hover. -/
 @[figure]
 def windowInline : Plane.Figure := { windowAt 0.8 with narrowWidth := some 280 }
+
+/-! ### Links that say nothing of their figures -/
+
+open PILean.Diagram in
+/-- A picture whose text claims something false. -/
+@[figure]
+def vacuousOr : Diagram :=
+  { marks := [{ part := .note 0, shape := .text "K(5,2) has 16 edges" (0, 0) .center }],
+    title := "The Petersen graph" }
+
+/-- A statement that names `vacuousOr` and holds whatever it draws. -/
+theorem vacuousOr_spec : True ∨ vacuousOr = vacuousOr := Or.inl trivial
+
+figure_links vacuousOr vacuousOr_spec
+
+open PILean.Diagram in
+/-- A picture whose title claims something false. -/
+@[figure]
+def vacuousHypothesis : Diagram := { marks := [], title := "All primes are odd" }
+
+/-- A statement that names `vacuousHypothesis` only in a hypothesis it does not use. -/
+theorem vacuousHypothesis_spec (_h : vacuousHypothesis = vacuousHypothesis) : 1 = 1 := rfl
+
+figure_links vacuousHypothesis vacuousHypothesis_spec
+
+open PILean.Diagram in
+/-- A second picture whose title claims something false. -/
+@[figure]
+def vacuousBound : Diagram := { marks := [], title := "π = 3" }
+
+/-- A statement that names `vacuousBound` and holds of every diagram. -/
+theorem vacuousBound_spec : vacuousBound.marks.length ≥ 0 := Nat.zero_le _
+
+figure_links vacuousBound vacuousBound_spec
 
 end ManualExample
