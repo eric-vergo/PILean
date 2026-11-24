@@ -80,6 +80,20 @@ open PILeanTest
 when it is compiled. -/
 def driverModules : Array Lean.Name := test_modules%
 
+/-- The modules whose figures `pilean-build` renders as the gallery (`PILeanTest.Build`). -/
+def galleryModules : Array String :=
+  #["PILeanTest.Examples", "PILeanTest.ProvedExamples", "PILeanTest.PlaneExact",
+    "PILeanTest.Diagrams", "PILeanTest.AlgebraDiagrams", "PILeanTest.NumberDiagrams",
+    "PILeanTest.Explorers", "PILeanTest.ComplexDiagrams"]
+
+/-- Every figure of the gallery has a standing: linked to a theorem, or marked an illustration, so
+`pilean-build --require-standing` builds it. -/
+def standingChecks : Array (String × Bool) :=
+  let gallery := (figures% : Array PILean.Trust.FigureEntry).filter
+    (galleryModules.contains ·.module)
+  #[("standing: no figure of the gallery is an unmarked illustration",
+      gallery.size > 40 && (PILean.Trust.unmarkedIllustrations gallery).isEmpty)]
+
 /-- Runs the checks; exit status 1 if any fails. -/
 def main (args : List String) : IO UInt32 := do
   let mut failed := 0
@@ -145,7 +159,7 @@ def main (args : List String) : IO UInt32 := do
     (← SpecMutations.ioChecks) ++ Axioms.coverageChecks driverModules ++ Diagrams.checks ++ AlgebraDiagrams.checks ++
     NumberDiagrams.checks ++
     Standing.checks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++ Explorers.checks ++
-    ComplexDiagrams.checks ++
+    ComplexDiagrams.checks ++ standingChecks ++
     (← PdfChecks.goldenChecks (args == ["--update"]))
   for (name, ok) in checks do
     if !ok then IO.eprintln s!"FAIL {name}"; failed := failed + 1

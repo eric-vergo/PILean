@@ -59,7 +59,7 @@ def normals (seed n : Nat) (mean : Float := 0) (sd : Float := 1) : Array Float :
     mean + sd * (s - 6)
 
 /-- Two trigonometric functions and the cardinal sine on `[-2π, 2π]`. -/
-@[figure]
+@[figure illustration]
 def functions : Figure where
   title := "Trigonometric functions"
   panels := #[{
@@ -256,7 +256,7 @@ open PILean.Graph
 
 /-- The modules of a small compiler, which import each other: a directed graph with two
 clusters and a labelled edge. -/
-@[figure]
+@[figure illustration]
 def compiler : PILean.Graph :=
   let names := #["Main", "Cli", "Config", "Log", "Parser", "Lexer", "Ast", "Error", "Eval",
     "Check", "Types", "Env", "Value", "Util", "Pretty"]
@@ -351,7 +351,7 @@ def waveFigure (t : Float) : Figure :=
           (dash := #[4, 4])] }] }
 
 /-- A travelling wave, two seconds, looping. -/
-@[figure]
+@[figure illustration]
 def wave : Animation :=
   { width := 640, height := 360, fps := 30, duration := 2, frame := fun t => (waveFigure t).draw,
     text := Style.light.text, fontFamily := Style.light.fontFamily }
@@ -558,7 +558,7 @@ figure_links disks disks_spec
 /-- Every kind of element: a line and a ray clipped to the frame, a dashed circle, an arc with an
 arrowhead, a sector, a regular pentagon, a tinted triangle, a polyline, arrows, angle marks both
 ways, and labels on all sides of a point. -/
-@[figure]
+@[figure illustration]
 def constructions : Plane.Figure where
   width := 520
   view := some ⟨-3.2, -2.2, 3.2, 2.2⟩
@@ -610,13 +610,13 @@ def windowAt (r : Rat) : Plane.Figure :=
 
 /-- A graph among other geometry (`Plane.graph`): its vertices at given exact points, a window disk
 over some of them, every vertex clear of its boundary and recording on which side it is. -/
-@[figure]
+@[figure illustration]
 def graphInWindow : Plane.Figure :=
   { windowAt 1 with info := { title := "A graph in a window" } }
 
 /-- The window of `graphInWindow` as its radius grows from 6/5 to 9/5 in steps of 1/10: a
 parameter axis; each vertex records, exactly, on which side of the window it is. -/
-@[figure]
+@[figure illustration]
 def windowRadius : Explorer :=
   Plane.slider "r" ((List.range 7).toArray.map fun k =>
     (s!"{12 + k}/10", windowAt ((12 + k : Nat) / 10)))
