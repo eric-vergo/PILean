@@ -110,10 +110,12 @@ def initialLayers (layerAll : Array Nat) (up down : Array (Array Nat)) : Array (
     let count := layerAll.foldl (fun m l => max m (l + 1)) 0
     let mut layers : Array (Array Nat) := Array.replicate count #[]
     let mut seen : Array Bool := Array.replicate size false
+    -- the most steps of one search (computed once: per root it would make the work quadratic)
+    let steps := size + down.foldl (fun s d => s + d.size) 0 + 1
     for root in [0:size] do
       if (up.getD root #[]).isEmpty && !seen.getD root true then
         let mut stack : Array Nat := #[root]
-        for _ in [0:size + (down.foldl (fun s d => s + d.size) 0) + 1] do
+        for _ in [0:steps] do
           match stack.back? with
           | none => break
           | some v =>
@@ -190,10 +192,11 @@ def initialLayersSeeded (layerAll : Array Nat) (up down : Array (Array Nat)) (se
   let (roots, s0) := shuffle ((Array.range size).filter fun v => (up.getD v #[]).isEmpty)
     (seed.toUInt64 * 2654435761 + 97)
   let mut s := s0
+  let steps := size + down.foldl (fun s d => s + d.size) 0 + 1
   for root in roots do
     if !seen.getD root true then
       let mut stack : Array Nat := #[root]
-      for _ in [0:size + (down.foldl (fun s d => s + d.size) 0) + 1] do
+      for _ in [0:steps] do
         match stack.back? with
         | none => break
         | some v =>

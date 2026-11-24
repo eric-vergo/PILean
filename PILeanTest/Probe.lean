@@ -7,9 +7,10 @@ import PILean
 /-!
 # `pilean-probe`
 
-`pilean-probe png|gif|apng|zlib|pdf|source FILE` decodes the file with the reader's default
+`pilean-probe png|gif|apng|zlib|pdf|source|dot FILE` decodes the file with the reader's default
 limits (zlib: an output cap of 256 MiB; `pdf`: the structural check of PDF files, `Pdf.check`;
-`source`: the source record of any format, `Source.read?`) and prints `ok` with the size of what
+`source`: the source record of any format, `Source.read?`; `dot`: the DOT reader, `Dot.parse`,
+then the layered layout of its graph and its SVG) and prints `ok` with the size of what
 was decoded, or `error` with the reason (also for a file that cannot be read);
 `pilean-probe graph KIND N` lays out a generated graph. The test driver runs it on hostile inputs
 under limits (`PILeanTest.Bounds`); it imports only the library, so what it costs is what the
@@ -69,7 +70,7 @@ def main (args : List String) : IO UInt32 := do
       svg {svg.utf8ByteSize} bytes"
     return 0
   let [kind, file] := args | do
-    IO.eprintln "usage: pilean-probe png|gif|apng|zlib|pdf|source FILE"
+    IO.eprintln "usage: pilean-probe png|gif|apng|zlib|pdf|source|dot FILE"
     return 2
   let bytes ← match ← (IO.FS.readBinFile file).toBaseIO with
     | .ok b => pure b
@@ -93,6 +94,13 @@ def main (args : List String) : IO UInt32 := do
     | "source" => match Trust.Source.read? bytes with
       | .ok s => s!"ok {s.decl}"
       | .error e => s!"error {e}"
+    | "dot" => match String.fromUTF8? bytes with
+      | none => "error the file is not UTF-8"
+      | some t => match Graph.Dot.parse t with
+        | .ok d =>
+          let l := d.toGraph.layout d.options
+          s!"ok {l.nodes.size} nodes {l.edges.size} routes svg {(l.toSvg {}).utf8ByteSize} bytes"
+        | .error e => s!"error {e}"
     | _ => match Png.zlibDecompress bytes (1 <<< 28) with
       | .ok o => s!"ok {o.size}"
       | .error e => s!"error {e}"

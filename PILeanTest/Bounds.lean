@@ -21,7 +21,9 @@ The large inputs are generated here, not stored: a zlib stream of zeros made of 
 PNG and PDF files that wrap it, and PDF files of many pages, operators or nested arrays; the
 hostile graphs are made by the probe (`hostileGraph`), which lays each out and writes its SVG, so
 the bounds cover the drawing as well as the layout (the
-100,000 routes of the self-loop case make an SVG of about 36 MB).
+100,000 routes of the self-loop case make an SVG of about 36 MB); a DOT file of as many isolated
+nodes as the DOT reader takes (`Dot.Limits.maxItems`, 200,000) is read, laid out and drawn (an
+SVG of about 104 MB).
 
 ## Main definitions
 
@@ -407,7 +409,11 @@ def cases : Array Case :=
       expect := "ok 10000 nodes", maxRss := 512 <<< 20, maxUserMs := 20000 },
     { name := "graph: 20000 nodes, 40000 random edges", kind := "graph", bytes := pure .empty,
       argv := some #["graph", "sparse", "20000"], expect := "ok 20000 nodes",
-      maxRss := 512 <<< 20, maxUserMs := 40000 }]
+      maxRss := 512 <<< 20, maxUserMs := 40000 },
+    { name := "dot: 200000 isolated nodes (the reader's cap) are laid out in one layer",
+      kind := "dot", bytes := pure ("digraph{" ++ String.join ((List.range 200000).map
+        fun i => s!"n{i};") ++ "}").toUTF8,
+      expect := "ok 200000 nodes 0 routes", maxRss := 1280 <<< 20, maxUserMs := 30000 }]
 
 /-- Whether a run of a case passed: it exited with status 0 and the expected answer, and its peak
 memory and CPU time were both measured and within the case's bounds. A measurement that is

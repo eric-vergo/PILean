@@ -28,7 +28,10 @@ that the writer can give them back.
 The input is untrusted: it is at most `Limits.maxBytes` bytes, at most `maxItems` nodes and
 edges, `maxDepth` nested blocks, `maxAttrs` attributes per item and `maxString` characters per
 ID; anything beyond is an error, never a partial graph. The reader is a single pass over the
-characters with an explicit stack, so its work is linear in the input.
+characters with an explicit stack, so its work is linear in the input. What it returns is at most
+`maxItems` nodes and edges for the layout; the drawing of 200,000 isolated nodes, the most the
+reader takes, is an SVG of about 104 MB, which `lake test` lays out and draws under bounds on CPU
+time and memory (`PILeanTest.Bounds`).
 
 **Write** (`Dot.write`): the graph with its laid out positions, in Graphviz's conventions: points
 (1/72 inch) with the origin at the bottom left, the graph's `bb`, every node's `pos`, `width`
