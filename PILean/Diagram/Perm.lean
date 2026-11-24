@@ -175,8 +175,10 @@ theorem twoLine_faithful (σ : FinPerm) : σ.FaithfulTwoLine σ.twoLine := by
       List.filterMap_append, List.filterMap_map, Function.comp_def]
   · simp [Diagram.texts, twoLine, twoLineEntryMarks, twoLineBar, List.filterMap_append,
       List.filterMap_map, Function.comp_def]
-  · simp [twoLine, twoLineEntryMarks, twoLineBar, Part.isEntry, Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
-  · simp [twoLine, twoLineEntryMarks, twoLineBar, Part.isDecoration, Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
+  · simp [twoLine, twoLineEntryMarks, twoLineBar, Part.isEntry, Function.comp_def,
+      filter_const_true, List.filter_append, List.filter_map, Diagram.marksWhere]
+  · simp [twoLine, twoLineEntryMarks, twoLineBar, Part.isDecoration, Function.comp_def,
+      filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
   · simp [twoLine, twoLineEntryMarks, twoLineBar, Part.isEntry, Part.isDecoration]
 
 /-- The centre of cell `(i, j)` of the matrix, row 0 at the top. -/
@@ -220,9 +222,11 @@ theorem matrix_faithful (σ : FinPerm) : σ.FaithfulMatrix σ.matrix := by
       List.filterMap_map, List.filterMap_flatMap, Function.comp_def]
   · simp [matrix, matrixGrid, matrixDots]
   · simp [matrix, matrixGrid, matrixDots, Part.isCell, List.filter_flatMap, Function.comp_def,
-      filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
+      filter_const_true, filter_const_false, List.filter_append, List.filter_map,
+      Diagram.marksWhere]
   · simp [matrix, matrixGrid, matrixDots, Part.isDecoration, List.filter_flatMap,
-      Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
+      Function.comp_def, filter_const_true, filter_const_false, List.filter_append,
+      List.filter_map, Diagram.marksWhere]
 
 /-- The order of the vertices round the circle: each cycle in turn, from its least element and
 then its images, the cycles in the order of their least elements (at most `n` steps a cycle, so
@@ -330,11 +334,14 @@ theorem wiring_faithful (σ : FinPerm) : σ.FaithfulWiring σ.wiring := by
   · simp [Diagram.texts, wiring, wiringLines, strandMarks, wiringLabels, strand,
       List.filterMap_map, List.filterMap_append, Function.comp_def]
   · simp [wiring, wiringLines, strandMarks, wiringLabels, strand, Part.isStrand,
-      Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
+      Function.comp_def, filter_const_true, filter_const_false, List.filter_append,
+      List.filter_map, Diagram.marksWhere]
   · simp [wiring, wiringLines, strandMarks, wiringLabels, strand, Part.isEntry,
-      Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
+      Function.comp_def, filter_const_true, filter_const_false, List.filter_append,
+      List.filter_map, Diagram.marksWhere]
   · simp [wiring, wiringLines, strandMarks, wiringLabels, strand, Part.isDecoration,
-      Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
+      Function.comp_def, filter_const_false, List.filter_append,
+      List.filter_map, Diagram.marksWhere]
   · simp [wiring, wiringLines, strandMarks, wiringLabels, strand, Part.isStrand, Part.isEntry,
       Part.isDecoration]
 

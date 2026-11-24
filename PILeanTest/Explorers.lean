@@ -72,19 +72,21 @@ def cayleyFrame (n a : Nat) : ExplorerFrame := ExplorerFrame.ofPlane (cayleyDiag
 def cayleyExplorer : Explorer := Explorer.family₂ moduli generators cayleyFrame
 
 /-- **The Cayley graphs, frame by frame.** The explorer is the family of the frames of
-`cayleyDiagram n a` over the grid `n = 5, …, 12`, `a = 1, …, 4`, each value written as its
-number, the frame of `(n, a)` the plane figure of `cayleyDiagram n a`; at every point of the grid the
+`cayleyDiagram n a` over the grid `n = 5, …, 12`, `a = 1, …, 4` (the parameters named `n` and
+`a`), each value written as its number, the frame of `(n, a)` the plane figure of `cayleyDiagram n a`; at every point of the grid the
 diagram draws the Cayley graph faithfully (`CommDiagram.Faithful`: arrows, labels, objects, every
-mark), its title names `ℤ/n` and `a`, and the drawn arrows join exactly the pairs
+mark), its title names `ℤ/n` and `a`, its elements are named by their numbers, and the drawn arrows join exactly the pairs
 `(g, g + a mod n)` for `g < n` (each pair once for an involution). -/
 theorem cayleyExplorer_spec :
     cayleyExplorer = Explorer.family₂ moduli generators cayleyFrame ∧
     moduli.values = #[5, 6, 7, 8, 9, 10, 11, 12] ∧ generators.values = #[1, 2, 3, 4] ∧
+    moduli.name = "n" ∧ generators.name = "a" ∧
     moduli.label = toString ∧ generators.label = toString ∧
     (∀ n a, cayleyFrame n a = ExplorerFrame.ofPlane (cayleyDiagram n a).toPlane) ∧
     ∀ n ∈ moduli.values, ∀ a ∈ generators.values,
       (cayleyData n a).Faithful (cayleyData n a).layout (cayleyDiagram n a) ∧
       (cayleyDiagram n a).title = s!"The Cayley graph of ℤ/{n} for the generator {a}" ∧
+      (cayleyData n a).objects.toList = (List.range n).map toString ∧
       (cayleyDiagram n a).arrows.map (fun x => (x.2.1, x.2.2)) = cayleyPairs n a := by
   -- the caps and the arrows at every point of the grid, checked by the kernel
   have caps : ∀ n ∈ moduli.values, ∀ a ∈ generators.values,
@@ -96,7 +98,10 @@ theorem cayleyExplorer_spec :
   have pairs : ∀ n ∈ moduli.values, ∀ a ∈ generators.values,
       (cayleyData n a).arrowTriples.map (fun x => (x.2.1, x.2.2)) = cayleyPairs n a := by
     decide +kernel
-  refine ⟨rfl, rfl, rfl, rfl, rfl, fun _ _ => rfl, ?_⟩
+  have names : ∀ n ∈ moduli.values, ∀ a ∈ generators.values,
+      (cayleyData n a).objects.toList = (List.range n).map toString := by
+    decide +kernel
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ _ => rfl, ?_⟩
   intro n hn a ha
   obtain ⟨cap, capF⟩ := caps n hn a ha
   have e : (cayleyDiagram n a).marks = (cayleyData n a).figure.marks := by
@@ -108,7 +113,7 @@ theorem cayleyExplorer_spec :
   have hf : (cayleyData n a).Faithful (cayleyData n a).layout (cayleyDiagram n a) := by
     unfold CommDiagram.Faithful Diagram.arrows Diagram.arrowTexts Diagram.marksWhere at h ⊢
     rw [e]; exact h
-  refine ⟨hf, rfl, ?_⟩
+  refine ⟨hf, rfl, names n hn a ha, ?_⟩
   rw [hf.1]
   exact pairs n hn a ha
 
@@ -140,8 +145,8 @@ def latticeFrame (x y : Rat) : ExplorerFrame := ExplorerFrame.ofPlane (latticeDi
 def latticeExplorer : Explorer := Explorer.family₂ periodX periodY latticeFrame
 
 /-- **The lattices, frame by frame.** The explorer is the family of the frames of
-`latticeDiagram x y` over the grid `x = 0, 1/4, 1/2, 3/4`, `y = 1/2, 3/4, 1`, each value written
-as its number, the frame of `(x, y)` the plane figure of `latticeDiagram x y`; at every point of
+`latticeDiagram x y` over the grid `x = 0, 1/4, 1/2, 3/4`, `y = 1/2, 3/4, 1` (the parameters
+named `x` and `y`), each value written as its number, the frame of `(x, y)` the plane figure of `latticeDiagram x y`; at every point of
 the grid the periods are independent, the diagram draws the lattice faithfully
 (`PlaneLattice.Faithful`: the dots are the points `m ω₁ + n ω₂` of the window among the
 candidates, in order, the parallelogram and the axes the builder's, nothing else) and its title
@@ -149,6 +154,7 @@ names the second period. -/
 theorem latticeExplorer_spec :
     latticeExplorer = Explorer.family₂ periodX periodY latticeFrame ∧
     periodX.values = #[0, 1 / 4, 1 / 2, 3 / 4] ∧ periodY.values = #[1 / 2, 3 / 4, 1] ∧
+    periodX.name = "x" ∧ periodY.name = "y" ∧
     periodX.label = toString ∧ periodY.label = toString ∧
     (∀ x y, latticeFrame x y = ExplorerFrame.ofPlane (latticeDiagram x y).toPlane) ∧
     ∀ x ∈ periodX.values, ∀ y ∈ periodY.values,
@@ -161,7 +167,7 @@ theorem latticeExplorer_spec :
       ((lattice x y).det ≠ 0 && (2 * (lattice x y).bound + 1) * (2 * (lattice x y).bound + 1) ≤
         PlaneLattice.maxCandidates) = true := by
     decide +kernel
-  refine ⟨rfl, rfl, rfl, rfl, rfl, fun _ _ => rfl, ?_⟩
+  refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, fun _ _ => rfl, ?_⟩
   intro x hx y hy
   have cap := caps x hx y hy
   have h := (lattice x y).builder_faithful cap

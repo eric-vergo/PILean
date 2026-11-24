@@ -46,6 +46,7 @@ def totient : Diagram := { totientPlot.figure with title := "Euler's totient φ(
 draws no curve. -/
 theorem totient_spec :
     totientPlot.Faithful totientPlot.layout totient ∧
+    totient.title = "Euler's totient φ(n), 1 ≤ n ≤ 100" ∧
     totientPlot.lo = 1 ∧ totientPlot.hi = 100 ∧ totientPlot.names = ["φ(n)"] ∧
     totientPlot.series.map (fun s => totientPlot.indices.map s.2) =
       [[1, 1, 2, 2, 4, 2, 6, 4, 6, 4, 10, 4, 12, 6, 8, 8, 16, 6, 18, 8, 12, 10, 22, 8, 20, 12, 18,
@@ -54,7 +55,7 @@ theorem totient_spec :
         36, 40, 36, 60, 24, 78, 32, 54, 40, 82, 24, 64, 42, 56, 40, 88, 24, 72, 44, 60, 46, 72, 32,
         96, 42, 60, 40]] ∧
     totientPlot.curves.length = 0 := by
-  exact ⟨totientPlot.builder_faithful (by decide +kernel), rfl, rfl, by decide +kernel,
+  exact ⟨totientPlot.builder_faithful (by decide +kernel), rfl, rfl, rfl, by decide +kernel,
     by decide +kernel, rfl⟩
 
 figure_links totient totient_spec
@@ -82,6 +83,7 @@ itself, in ten rows of ten, and the marked ones are exactly the 25 primes below 
 out); it has no heading. -/
 theorem sieve_spec :
     sievePlot.Faithful sieve ∧
+    sieve.title = "The primes up to 100" ∧
     sievePlot.cells.map (·.key) = List.range' 1 100 ∧
     sievePlot.cells.all (fun c => c.text == toString c.key &&
       c.pos == ((((c.key - 1) % 10 : Nat) : Int), -(((c.key - 1) / 10 : Nat) : Int))) = true ∧
@@ -90,7 +92,7 @@ theorem sieve_spec :
         97] ∧
     sievePlot.headings = [] ∧ sievePlot.solid = false ∧ sievePlot.legend = "a prime" ∧
     sievePlot.ringed = none := by
-  exact ⟨sievePlot.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
+  exact ⟨sievePlot.builder_faithful (by decide +kernel), rfl, by decide +kernel, by decide +kernel,
     by decide +kernel, rfl, rfl, rfl, rfl⟩
 
 figure_links sieve sieve_spec
@@ -120,6 +122,7 @@ are the `a + b i` with `|a|, |b| ≤ 4`, the marked ones (in accent 1, the other
 the 32 Gaussian primes among them (written out). -/
 theorem gaussian_spec :
     gaussianLattice.Faithful gaussian ∧
+    gaussian.title = "The Gaussian primes a + bi with |a|, |b| ≤ 4" ∧
     gaussianLattice.w1 = (1, 0) ∧ gaussianLattice.w2 = (0, 1) ∧
     gaussianLattice.lo = (-4, -4) ∧ gaussianLattice.hi = (4, 4) ∧
     gaussianLattice.points = (List.range 9).flatMap (fun (a : Nat) => (List.range 9).map
@@ -130,7 +133,7 @@ theorem gaussian_spec :
         (-1, -4), (-1, -2), (-1, -1), (-1, 1), (-1, 2), (-1, 4), (0, -3), (0, 3), (1, -4),
         (1, -2), (1, -1), (1, 1), (1, 2), (1, 4), (2, -3), (2, -1), (2, 1), (2, 3), (3, -2),
         (3, 0), (3, 2), (4, -1), (4, 1)] := by
-  exact ⟨gaussianLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl,
+  exact ⟨gaussianLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl, rfl,
     by decide +kernel, rfl, by decide +kernel⟩
 
 figure_links gaussian gaussian_spec
@@ -150,6 +153,7 @@ def skew : Diagram :=
 points are `m ω₁ + n ω₂` for the coefficients written out, none marked. -/
 theorem skew_spec :
     skewLattice.Faithful skew ∧
+    skew.title = "The lattice ℤ(3/2, 1/2) + ℤ(1/2, 3/2)" ∧
     skewLattice.w1 = (3 / 2, 1 / 2) ∧ skewLattice.w2 = (1 / 2, 3 / 2) ∧
     skewLattice.lo = (-3, -3) ∧ skewLattice.hi = (3, 3) ∧
     skewLattice.points = [(-3, 3), (-2, 0), (-2, 1), (-2, 2), (-1, -1), (-1, 0), (-1, 1), (-1, 2),
@@ -157,7 +161,7 @@ theorem skew_spec :
       (2, 0), (3, -3)] ∧
     skewLattice.points.all (fun (m, n) => !skewLattice.marked m n) = true ∧
     skewLattice.plainInk = .ink := by
-  exact ⟨skewLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl, by decide +kernel,
+  exact ⟨skewLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     by decide +kernel, rfl⟩
 
 figure_links skew skew_spec

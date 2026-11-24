@@ -109,6 +109,7 @@ being on the step to 1. The steps in the window are exactly `1`, `ζ` and `ζ⁴
 `inWindow`), which is why those are in accent 0. Not stated: how the builders and modifiers draw,
 the layout, the fonts, the style's colour values and the pixels. -/
 theorem zetaSteps_spec :
+    zetaSteps.info.title = "Unit steps of ℤ[ζ₅] and a window" ∧
     windowCentre = (1 / 2, 0) ∧ windowRadius = 39 / 40 ∧
     zetaSteps.items = #[
       Plane.Exact.disk windowCentre windowRadius |>.accent 0 |>.named "the window"
@@ -138,6 +139,7 @@ theorem zetaSteps_spec :
     ((List.range 5).map (fun j => diskIncidence? (Zeta5.pow j) windowCentre windowRadius) ==
       [some .inside, some .inside, some .outside, some .outside, some .inside]) = true ∧
     (List.range 5).filter inWindow = [0, 1, 4] := by
+  refine ⟨rfl, ?_⟩
   refine ⟨rfl, rfl, ?_, by decide +kernel, by decide +kernel⟩
   have h0 : inWindow 0 = true := by decide +kernel
   have h1 : inWindow 1 = true := by decide +kernel
@@ -289,6 +291,7 @@ and `φ⁻¹ = ζ + ζ⁴` is real and between 0 and 1, so `-G = -φ⁻³ E` lie
 the third piece passes through `0`. Not stated: how the builders and modifiers draw, the layout,
 the fonts, the style's colour values (`houseStyle`) and the pixels. -/
 theorem reference_spec :
+    reference.info.title = "Two disks, their lens and the chord in three pieces" ∧
     E = Zeta5.pow 1 - Zeta5.pow 2 ∧ phiInv = ⟨#[-1, 0, -1, -1]⟩ ∧ F = phiInv * E ∧
     G = phiInv * phiInv * phiInv * E ∧ corner = Zeta5.pow 1 - Zeta5.pow 4 ∧
     left = Zeta5.ofInt (-1) ∧ right = Zeta5.ofInt 1 ∧ R = ⟨⟨7 / 2, 1 / 2⟩⟩ ∧
@@ -319,6 +322,7 @@ theorem reference_spec :
     (-corner - left).normSq = R.radicand ∧ (-corner - right).normSq = R.radicand ∧
     (phiInv.conj == phiInv) = true ∧ QSqrt.lt ⟨0, 0⟩ phiInv.realPart = true ∧
     QSqrt.lt phiInv.realPart ⟨1, 0⟩ = true ∧ (G == phiInv * phiInv * phiInv * E) = true := by
+  refine ⟨rfl, ?_⟩
   refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_⟩
   repeat' apply And.intro
   all_goals decide +kernel

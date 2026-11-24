@@ -515,6 +515,7 @@ of `-E` and `E`. Not stated: how the builders and modifiers draw (the library's 
 `Plane.drawItem_point` and `Plane.Exact.IsPoint.draw` for points), the layout, the fonts, the
 style's colour values and the pixels. -/
 theorem disks_spec :
+    disks.info.title = "Two closed disks and the critical chord" ∧
     chordEnd = Zeta5.pow 1 - Zeta5.pow 2 ∧ crossing = Zeta5.pow 1 - Zeta5.pow 4 ∧
     leftCentre = Zeta5.ofInt (-1) ∧ rightCentre = Zeta5.ofInt 1 ∧ critical = ⟨⟨7 / 2, 1 / 2⟩⟩ ∧
     disks.items = #[
@@ -547,6 +548,7 @@ theorem disks_spec :
     (-crossing - leftCentre).normSq = critical.radicand ∧
     (-crossing - rightCentre).normSq = critical.radicand ∧
     (-chordEnd + chordEnd == Zeta5.zero) = true := by
+  refine ⟨rfl, ?_⟩
   refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, ?_⟩
   repeat' apply And.intro
   all_goals decide +kernel

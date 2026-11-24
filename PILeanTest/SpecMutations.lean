@@ -38,6 +38,9 @@ structure SpecMutation where
   edits : List (String × String)
   /-- The name of the specification, as written after `theorem`. -/
   spec : String
+  /-- Other specifications of the same file that the change breaks too (a name shared by two
+  figures): errors are allowed inside their lines as well. -/
+  others : List String := []
 
 /-- The byte position of the first occurrence of `pat` in `s` at or after `start`. -/
 def findFrom (s pat : String) (start : Nat) : Option Nat := Id.run do
@@ -111,6 +114,7 @@ def check (lean : String) (scratch : System.FilePath) (m : SpecMutation) (k : Na
     | .ok t => pure t
     | .error e => return .error e
   let some (lo, hi) := specLines mutated m.spec | return .error s!"no lines for {m.spec}"
+  let others := m.others.filterMap (specLines mutated)
   let stem := (m.file.fileStem.getD "Spec")
   let plain := scratch / s!"{stem}Plain{k}.lean"
   let changed := scratch / s!"{stem}Changed{k}.lean"
@@ -122,8 +126,10 @@ def check (lean : String) (scratch : System.FilePath) (m : SpecMutation) (k : Na
   let (c1, out1) ← compile lean changed
   let errs := errorLines out1 changed.toString
   if c1 == 0 || errs.isEmpty then return .error "the changed copy compiles"
-  if errs.any (fun l => l < lo || l > hi) then
-    return .error s!"an error outside {m.spec} (lines {lo} to {hi}): errors at {errs}"
+  if errs.any (fun l => (l < lo || l > hi) && !others.any fun (a, b) => a ≤ l && l ≤ b) then
+    return .error s!"an error outside {m.spec} (lines {lo} to {hi}) and {m.others}: errors at {errs}"
+  if !errs.any (fun l => lo ≤ l && l ≤ hi) then
+    return .error s!"no error inside {m.spec} (lines {lo} to {hi}): errors at {errs}"
   return .ok ()
 
 /-- The checks of the changes, named `the change breaks SPEC: WHAT`, run side by side; each fails
@@ -256,7 +262,7 @@ def diagramMutations : Array SpecMutation :=
 
 /-- The changes to the data of the gallery's diagrams of algebra
 (`PILeanTest/AlgebraDiagrams.lean`) that their specifications must catch: a map, an arrow, a
-generator, a name or a loop changed. -/
+generator, a name, a label, a title, a colour role or a loop changed. -/
 def algebraMutations : Array SpecMutation :=
   let f : System.FilePath := "PILeanTest" / "AlgebraDiagrams.lean"
   #[{ file := f, what := "the right map of the square reduces modulo 3",
@@ -269,13 +275,43 @@ def algebraMutations : Array SpecMutation :=
       anchor := "def reductionCube : CommDiagram where",
       edits := [("{ src := 1, tgt := 4 }", "{ src := 1, tgt := 6 }")], spec := "cube_spec" },
     { file := f, what := "the names of (1 2) and (2 3) are exchanged", anchor := "def s3 : FinMagma",
-      edits := [("\"(1 2)\", \"(2 3)\"", "\"(2 3)\", \"(1 2)\"")], spec := "cayleyTable_spec" },
+      edits := [("\"(1 2)\", \"(2 3)\"", "\"(2 3)\", \"(1 2)\"")], spec := "cayleyTable_spec",
+      others := ["cayleyGraph_spec"] },
     { file := f, what := "the Cayley graph is drawn for (1 3 2) instead of (1 2 3)",
       anchor := "def cayleyGraph : Diagram :=",
       edits := [("⟨4, by decide +kernel⟩] s3Positions", "⟨5, by decide +kernel⟩] s3Positions")],
       spec := "cayleyGraph_spec" },
     { file := f, what := "the loop is at the first vertex", anchor := "def quiverData : FinQuiver",
-      edits := [("(2, 2, \"ℓ\")", "(0, 0, \"ℓ\")")], spec := "quiver_spec" }]
+      edits := [("(2, 2, \"ℓ\")", "(0, 0, \"ℓ\")")], spec := "quiver_spec" },
+    { file := f, what := "the object ℤ/6 of the square is labelled ℤ/5",
+      anchor := "def reductionSquare : CommDiagram where",
+      edits := [("\"ℤ/12\", \"ℤ/6\"", "\"ℤ/12\", \"ℤ/5\"")], spec := "square_spec" },
+    { file := f, what := "the labels π₆ and π₄ of the square are swapped",
+      anchor := "def reductionSquare : CommDiagram where",
+      edits := [("label := \"π₆\"", "label := \"π₄\""), ("label := \"π₄\", style := .epi, swap",
+        "label := \"π₆\", style := .epi, swap")], spec := "square_spec" },
+    { file := f, what := "the doubling is labelled ·3", anchor := "def exactSequence : CommDiagram",
+      edits := [("\"·2\"", "\"·3\"")], spec := "exact_spec" },
+    { file := f, what := "a vertex of the cube is named ℤ/31", anchor := "def reductionCube :",
+      edits := [("cubeMods.map fun m => s!\"ℤ/{m}\"", "cubeMods.map fun m => s!\"ℤ/{m + 1}\"")],
+      spec := "cube_spec" },
+    { file := f, what := "the 2-cell is labelled β", anchor := "def functors : CommDiagram",
+      edits := [("label := \"α\"", "label := \"β\"")], spec := "twoCell_spec" },
+    { file := f, what := "the title of the Cayley table names S₄", anchor := "def cayleyTable :",
+      edits := [("Cayley table of S₃", "Cayley table of S₄")], spec := "cayleyTable_spec" },
+    { file := f, what := "the generators of the Cayley graph come in the other order",
+      anchor := "def cayleyGraph : Diagram :=",
+      edits := [("[⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions",
+        "[⟨4, by decide +kernel⟩, ⟨1, by decide +kernel⟩] s3Positions")],
+      spec := "cayleyGraph_spec" },
+    { file := f, what := "an arrow of the square is drawn in accent 1",
+      anchor := "def square : Diagram :=",
+      edits := [("a commutative square\" }", "a commutative square\", marks := \
+          reductionSquare.figure.marks.map fun m => if m.part.isArrow then \
+          { m with ink := .accent 1 } else m }")], spec := "square_spec" },
+    { file := f, what := "the quiver's dimension vector is (2, 3, 2)",
+      anchor := "def quiverData : FinQuiver", edits := [("dims := #[2, 3, 1]", "dims := #[2, 3, 2]")],
+      spec := "quiver_spec" }]
 
 /-- The changes to the data of the gallery's plots, grids and lattices
 (`PILeanTest/NumberDiagrams.lean`) that their specifications must catch: a value, a name, the
@@ -310,8 +346,9 @@ def numberMutations : Array SpecMutation :=
       edits := [("hi := (3, 3) }", "hi := (3, 3), marked := fun m n => m == 0 && n == 0 }")],
       spec := "skew_spec" }]
 
-/-- The changes to the proved explorers (`PILeanTest/Explorers.lean`) that their theorems must
-catch: a value of a grid, the generator, the title, the window, the reference pairs. -/
+/-- The changes to the explorers with linked theorems (`PILeanTest/Explorers.lean`) that their
+theorems must catch: a value of a grid, a parameter's name, the generator, the elements' names,
+the title, the window, the reference pairs. -/
 def explorerMutations : Array SpecMutation :=
   let f : System.FilePath := "PILeanTest" / "Explorers.lean"
   #[{ file := f, what := "the moduli reach 13", anchor := "def moduli : ExplorerParam Nat :=",
@@ -341,6 +378,17 @@ def explorerMutations : Array SpecMutation :=
       edits := [("1 / 2, 3 / 4]", "1 / 2, 3 / 4, 1]")], spec := "latticeExplorer_spec" },
     { file := f, what := "the second period's y starts at 0 (dependent periods)",
       anchor := "def periodY :", edits := [("#[1 / 2,", "#[0, 1 / 2,")],
+      spec := "latticeExplorer_spec" },
+    { file := f, what := "the slider's parameter is named m", anchor := "def moduli :",
+      edits := [("name := \"n\"", "name := \"m\"")], spec := "cayleyExplorer_spec" },
+    { file := f, what := "the played parameter is named b", anchor := "def generators :",
+      edits := [("name := \"a\"", "name := \"b\"")], spec := "cayleyExplorer_spec" },
+    { file := f, what := "the elements are named from 1", anchor := "def zmod (n : Nat)",
+      edits := [("mul := fun a b => a + b }",
+        "mul := fun a b => a + b, names := ((List.range n).map fun k => toString (k + 1)).toArray }")],
+      spec := "cayleyExplorer_spec" },
+    { file := f, what := "the second period's coordinates are named y and x",
+      anchor := "def periodX :", edits := [("name := \"x\"", "name := \"y\"")],
       spec := "latticeExplorer_spec" }]
 
 /-- The changes to the zeros and poles of the rational function (`PILeanTest/ComplexDiagrams.lean`)

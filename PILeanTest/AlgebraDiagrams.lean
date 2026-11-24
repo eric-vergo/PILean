@@ -10,10 +10,14 @@ import PILeanTest.Diagrams
 # The gallery of diagrams of algebra, their specifications and their checks
 
 Figures of commutative diagrams, Cayley tables and graphs, and quivers, each with the attribute
-`figure` and a specification linked by `figure_links`: what the figure draws, read back from its
-marks (`Diagram.arrows`, `arrowTexts`, `entries`), is written out and checked by the kernel, and
-the mathematical claims about the data (that the maps commute, that the marks of the arrows'
-styles hold, that the table is a group) are decided. Changing the data breaks the specification
+`figure` and a specification linked by `figure_links`: the kind's `Faithful` predicate (every
+mark is the builder's, nothing added), what the figure draws, read back from its marks
+(`Diagram.arrows`, `arrowTexts`, `entries`), written out, its title, and its names against what
+they stand for (`FinMaps.Names`: object `k` is drawn with the name `ℤ/m` and is the set of `m`
+elements, arrow `k` with the label `πₘ` and is the reduction to it; an element of `S₃` is named by
+the cycles of its permutation) are checked by the kernel, and the mathematical claims about the
+data (that the maps commute, that the marks of the arrows' styles hold, that the table is a group)
+are decided. Changing the data breaks the specification
 (`PILeanTest.SpecMutations`).
 
 `checks` holds what the theorems do not: each predicate refuses diagrams with a planted fault in
@@ -52,16 +56,22 @@ def square : Diagram :=
   { reductionSquare.figure with title := "Reductions of ℤ/12: a commutative square" }
 
 /-- The figure draws the four arrows of the square, `ℤ/12 → ℤ/6`, `ℤ/12 → ℤ/4`, `ℤ/6 → ℤ/2`,
-`ℤ/4 → ℤ/2` (written out) with their labels; the reductions make the square commute and are
-surjective, as their tips `↠` say. -/
+`ℤ/4 → ℤ/2` (written out) with their labels, and nothing else; each object is named `ℤ/m` for the
+set of `m` elements it is and each arrow `πₘ` for the reduction modulo `m` it is
+(`FinMaps.Names`); the reductions make the square commute and are surjective, as their tips `↠`
+say; and its title says so. -/
 theorem square_spec :
     reductionSquare.Faithful reductionSquare.layout square ∧
+    square.title = "Reductions of ℤ/12: a commutative square" ∧
+    reductionMaps.Names reductionSquare [("ℤ/12", 12), ("ℤ/6", 6), ("ℤ/4", 4), ("ℤ/2", 2)]
+      [("π₆", reduction 12 6), ("π₄", reduction 12 4), ("π₂", reduction 6 2),
+        ("π₂", reduction 4 2)] ∧
     square.arrows = [(0, 0, 1), (1, 0, 2), (2, 1, 3), (3, 2, 3)] ∧
     square.arrowTexts = [(0, "π₆"), (1, "π₄"), (2, "π₂"), (3, "π₂")] ∧
     reductionMaps.Commutes reductionSquare = true ∧
     reductionMaps.StylesHold reductionSquare = true := by
-  exact ⟨reductionSquare.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
-    by decide +kernel, by decide +kernel⟩
+  exact ⟨reductionSquare.builder_faithful (by decide +kernel), rfl, by decide +kernel,
+    by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel⟩
 
 figure_links square square_spec
 
@@ -91,17 +101,22 @@ def exactAt (R : FinMaps) (k : Nat) : Bool :=
 def exact : Diagram :=
   { exactSequence.figure with title := "A short exact sequence 0 → ℤ/2 → ℤ/4 → ℤ/2 → 0" }
 
-/-- The figure draws `0 → ℤ/2 ↣ ℤ/4 ↠ ℤ/2 → 0`, left to right (written out); doubling is
-injective and the reduction surjective, as their marks say, and the image of each map is the
-kernel of the next. -/
+/-- The figure draws `0 → ℤ/2 ↣ ℤ/4 ↠ ℤ/2 → 0`, left to right (written out), and nothing else;
+each object is named for the set it is (`0` for the one-element set) and each labelled arrow for
+its map, `·2` for doubling and `π₂` for the reduction (`FinMaps.Names`); doubling is injective and
+the reduction surjective, as their marks say, the image of each map is the kernel of the next,
+and its title says so. -/
 theorem exact_spec :
     exactSequence.Faithful exactSequence.layout exact ∧
+    exact.title = "A short exact sequence 0 → ℤ/2 → ℤ/4 → ℤ/2 → 0" ∧
+    exactMaps.Names exactSequence [("0", 1), ("ℤ/2", 2), ("ℤ/4", 4), ("ℤ/2", 2), ("0", 1)]
+      [("", #[0]), ("·2", #[0, 2]), ("π₂", reduction 4 2), ("", #[0, 0])] ∧
     exact.arrows = [(0, 0, 1), (1, 1, 2), (2, 2, 3), (3, 3, 4)] ∧
     exact.arrowTexts = [(1, "·2"), (2, "π₂")] ∧
     exactMaps.WellTyped exactSequence = true ∧ exactMaps.StylesHold exactSequence = true ∧
     (exactAt exactMaps 0 && exactAt exactMaps 1 && exactAt exactMaps 2) = true := by
-  exact ⟨exactSequence.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
-    by decide +kernel, by decide +kernel, by decide +kernel⟩
+  exact ⟨exactSequence.builder_faithful (by decide +kernel), rfl, by decide +kernel,
+    by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel⟩
 
 figure_links exact exact_spec
 
@@ -135,14 +150,19 @@ def cubeMaps : FinMaps where
 def cube : Diagram :=
   { reductionCube.figure with title := "A cube of reductions of ℤ/30", width := 420 }
 
-/-- The figure draws the twelve edges of the cube (written out), and the reductions make all six
-faces commute. -/
+/-- The figure draws the twelve edges of the cube (written out), and nothing else; each vertex is
+named `ℤ/m` for the set of `m` elements it is and each edge is the reduction between its ends
+(`FinMaps.Names`); the reductions make all six faces commute; and its title says so. -/
 theorem cube_spec :
     reductionCube.Faithful reductionCube.layout cube ∧
+    cube.title = "A cube of reductions of ℤ/30" ∧
+    cubeMaps.Names reductionCube ([30, 15, 10, 6, 5, 3, 2, 1].map fun m => (s!"ℤ/{m}", m))
+      ([(30, 15), (30, 10), (15, 5), (10, 5), (30, 6), (15, 3), (10, 2), (5, 1), (6, 3), (6, 2),
+        (3, 1), (2, 1)].map fun (a, b) => ("", reduction a b)) ∧
     cube.arrows = [(0, 0, 1), (1, 0, 2), (2, 1, 4), (3, 2, 4), (4, 0, 3), (5, 1, 5), (6, 2, 6),
       (7, 4, 7), (8, 3, 5), (9, 3, 6), (10, 5, 7), (11, 6, 7)] ∧
     cubeMaps.Commutes reductionCube = true := by
-  refine ⟨?_, by decide +kernel, by decide +kernel⟩
+  refine ⟨?_, rfl, by decide +kernel, by decide +kernel, by decide +kernel⟩
   have h := reductionCube.builder_faithful (by decide +kernel)
   exact h
 
@@ -167,14 +187,18 @@ def twoCell : Diagram :=
   { functors.figure with title := "A natural transformation α : F ⇒ G" }
 
 /-- The figure draws the arrows `F`, `G : C → D`, `J : D → E` and the loop `T` at `E` with their
-labels, and one 2-cell (written out). -/
+labels, and one 2-cell `α` from `F` to `G` (written out), and nothing else; and its title names
+the transformation. -/
 theorem twoCell_spec :
     functors.Faithful functors.layout twoCell ∧
+    twoCell.title = "A natural transformation α : F ⇒ G" ∧
+    functors.objects = #["C", "D", "E"] ∧
+    functors.twoCells.map (fun c => (c.src, c.tgt, c.label)) = [(0, 1, "α")] ∧
     twoCell.arrows = [(0, 0, 1), (1, 0, 1), (2, 1, 2), (3, 2, 2)] ∧
     twoCell.arrowTexts = [(0, "F"), (1, "G"), (2, "J"), (3, "T")] ∧
     (twoCell.marksWhere Part.isTwoCell).length = 3 := by
-  exact ⟨functors.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
-    by decide +kernel⟩
+  exact ⟨functors.builder_faithful (by decide +kernel), rfl, rfl, rfl, by decide +kernel,
+    by decide +kernel, by decide +kernel⟩
 
 figure_links twoCell twoCell_spec
 
@@ -193,6 +217,20 @@ def compose3 (σ τ : Nat) : Nat :=
   let r := (List.range 3).map fun x => p.getD (q.getD x 0) 0
   (perms3.toList.findIdx? (·.toList == r)).getD 0
 
+/-- The cycle notation of a permutation of `{0, …, n - 1}` in one-line notation, from 1: its
+cycles of length at least 2, each from its least element, in the order of those (`e` for the
+identity). -/
+def cycleText (p : Array Nat) : String :=
+  let orbit := fun (s : Nat) => (List.range p.size).foldl (fun (acc : List Nat) _ =>
+    match acc.getLast? with
+    | some k => let j := p.getD k 0; if j == s || acc.contains j then acc else acc ++ [j]
+    | none => acc) [s]
+  let cycles := (List.range p.size).filterMap fun s =>
+    let o := orbit s
+    if 2 ≤ o.length && o.all (s ≤ ·) then some o else none
+  if cycles.isEmpty then "e"
+  else String.join (cycles.map fun c => "(" ++ " ".intercalate (c.map (toString <| · + 1)) ++ ")")
+
 /-- `S₃` as a table: element `a * b` is the composite `a ∘ b`. -/
 def s3 : FinMagma where
   n := 6
@@ -205,16 +243,19 @@ def cayleyTable : Diagram :=
   { s3.tableFigure with title := "The Cayley table of S₃" }
 
 /-- The figure writes in cell `(a, b)` the name of `a ∘ b`, row by row (written out for the first
-row and the first column), the table is a group and is not commutative, and its centre is the
-identity alone. -/
+row and the first column), and nothing else but the headings and rules; element `k` is named by
+the cycles of the permutation `perms3[k]` it is (`cycleText`); the table is a group and is not
+commutative, and its centre is the identity alone; and its title says so. -/
 theorem cayleyTable_spec :
-    s3.FaithfulTable cayleyTable ∧ s3.isGroup = true ∧ s3.isCommutative = false ∧
+    s3.FaithfulTable cayleyTable ∧ cayleyTable.title = "The Cayley table of S₃" ∧
+    s3.names.toList = perms3.toList.map cycleText ∧
+    s3.isGroup = true ∧ s3.isCommutative = false ∧
     s3.centre = [0] ∧
     (cayleyTable.entries.take 6).map (·.2) = ["e", "(1 2)", "(2 3)", "(1 3)", "(1 2 3)", "(1 3 2)"]
     ∧ (cayleyTable.entries.filter (·.1.2 == 1)).map (·.2) =
       ["(1 2)", "e", "(1 3 2)", "(1 2 3)", "(1 3)", "(2 3)"] := by
-  exact ⟨s3.tableFigure_faithful (by decide +kernel), by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel,
-    by decide +kernel⟩
+  exact ⟨s3.tableFigure_faithful (by decide +kernel), rfl, by decide +kernel, by decide +kernel,
+    by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel⟩
 
 figure_links cayleyTable cayleyTable_spec
 
@@ -233,10 +274,15 @@ def cayleyGraph : Diagram :=
     title := "The Cayley graph of S₃ for (1 2) and (1 2 3)", width := 320 }
 
 /-- The figure draws, in the colour of `(1 2)`, a line joining `g` and `g ∘ (1 2)` for each pair,
-and in the colour of `(1 2 3)` an arrow `g → g ∘ (1 2 3)` for each `g` (written out). -/
+and in the colour of `(1 2 3)` an arrow `g → g ∘ (1 2 3)` for each `g` (written out), and nothing
+else; each vertex is named by its element's cycles; and the title names the two generators by
+their names. -/
 theorem cayleyGraph_spec :
     (s3.cayley [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions).Faithful
       (s3.cayley [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions).layout cayleyGraph ∧
+    cayleyGraph.title = s!"The Cayley graph of S₃ for {s3.name 1} and {s3.name 4}" ∧
+    (s3.cayley [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions).objects.toList =
+      perms3.toList.map cycleText ∧
     cayleyGraph.arrows = [(0, 0, 1), (1, 2, 5), (2, 3, 4), (3, 0, 4), (4, 1, 2), (5, 2, 3),
       (6, 3, 1), (7, 4, 5), (8, 5, 0)] := by
   have e : cayleyGraph.arrows = (s3.cayley [⟨1, by decide⟩, ⟨4, by decide⟩] s3Positions).figure.arrows := by
@@ -245,7 +291,7 @@ theorem cayleyGraph_spec :
     rfl
   have h := CommDiagram.builder_faithful (s3.cayley [⟨1, by decide⟩, ⟨4, by decide⟩] s3Positions)
     (by decide +kernel)
-  refine ⟨?_, ?_⟩
+  refine ⟨?_, by decide +kernel, by decide +kernel, ?_⟩
   · unfold cayleyGraph FinMagma.cayleyFigure
     rw [Diagram.capped_of (by decide +kernel)]
     exact h
@@ -268,15 +314,16 @@ def quiverData : FinQuiver where
 def quiver : Diagram := { quiverData.figure with title := "A quiver with dimension vector (2, 3, 1)" }
 
 /-- The figure draws the five arrows of the quiver with their names and writes the dimension at
-each vertex (written out). -/
+each vertex (written out), and nothing else; and its title gives the dimension vector. -/
 theorem quiver_spec :
     quiverData.Faithful quiverData.layout quiver ∧
+    quiver.title = "A quiver with dimension vector (2, 3, 1)" ∧ quiverData.dims = #[2, 3, 1] ∧
     quiver.arrows = [(0, 0, 1), (1, 0, 1), (2, 1, 2), (3, 2, 0), (4, 2, 2)] ∧
     quiver.arrowTexts = [(0, "a"), (1, "b"), (2, "c"), (3, "d"), (4, "ℓ")] ∧
     (quiver.marksWhere Part.isVertex).map (·.shape) = [.text "2" (0, 0) .center,
       .text "3" (3 / 2, 0) .center, .text "1" (3 / 4, -1) .center] := by
-  exact ⟨quiverData.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
-    by decide +kernel⟩
+  exact ⟨quiverData.builder_faithful (by decide +kernel), rfl, rfl, by decide +kernel,
+    by decide +kernel, by decide +kernel⟩
 
 figure_links quiver quiver_spec
 

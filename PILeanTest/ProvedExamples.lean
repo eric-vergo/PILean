@@ -64,14 +64,18 @@ def provedFunction : Figure where
 /-- The step of the grid is `1/8`. -/
 theorem gridStep_lo_hi : Exact.gridStep lo hi steps = 1 / 8 := by decide +kernel
 
-/-- The figure `provedFunction` has one panel, whose series are `cubicSeries` and
-`parabolaSeries` and no other. The points of each are the exact samples converted one by one, and
+/-- The figure `provedFunction` has its title and one panel, with the axes `x` and `y` and no
+other setting, whose series are `cubicSeries` and `parabolaSeries` and no other. The points of each are the exact samples converted one by one, and
 nothing else: 25 points, the abscissae the grid `-3/2 + k/8` (`k = 0, …, 24`, from `lo` to `hi`)
 in order, the ordinates the exact values of `cubic` (of `parabola`) there; the conversion is
 `Exact.toPoint`. The statement is about the points the series hold: nothing is said here about
 how they are drawn (`Series.ofExact_draw`, under its hypotheses), about the axes, or about the
 curve between two samples. -/
 theorem provedFunction_spec :
+    provedFunction.title = "Two polynomials from exact samples" ∧
+    provedFunction.panels = #[{
+      x := { label := "x" }, y := { label := "y" },
+      series := #[cubicSeries, parabolaSeries] }] ∧
     provedFunction.panels.map (·.series) = #[#[cubicSeries, parabolaSeries]] ∧
     cubicSeries.points = ((Exact.samples cubic lo hi steps).map Exact.toPoint).toArray ∧
     parabolaSeries.points = ((Exact.samples parabola lo hi steps).map Exact.toPoint).toArray ∧
@@ -83,6 +87,7 @@ theorem provedFunction_spec :
       p.1 ∈ Exact.grid lo hi steps ∧ p.2 = parabola p.1) ∧
     Exact.grid lo hi steps = (List.range 25).map (fun k : Nat => (-3 / 2 + k / 8 : Rat)) ∧
     Exact.gridPoint lo hi steps 0 = lo ∧ Exact.gridPoint lo hi steps steps = hi := by
+  refine ⟨rfl, rfl, ?_⟩
   refine ⟨by simp [provedFunction], Series.ofExact_points .., Series.ofExact_points ..,
     Series.ofExact_size .., Series.ofExact_size .., Exact.samples_fst .., Exact.samples_fst ..,
     fun p hp => (Exact.mem_samples ..).1 hp, fun p hp => (Exact.mem_samples ..).1 hp, ?_,
@@ -111,11 +116,15 @@ def provedData : Figure where
       x := { label := "k" }, y := { label := "k^2 mod 17, minus 8" },
       series := #[.ofIntPoints "line" residues, .scatterOfIntPoints "points" residues] }]
 
-/-- The figure `provedData` has one panel, whose series are a line and markers over the list
-`residues` and no other. The points of both are the input list converted point for point: as many
+/-- The figure `provedData` has its title and one panel, with its two axes' names and no other
+setting, whose series are a line and markers over the list `residues` and no other. The points of both are the input list converted point for point: as many
 points as given, in the given order, none added, dropped or changed (the integers are recovered
 from the exact points); floating point enters only through `Exact.toFloat`. -/
 theorem provedData_spec :
+    provedData.title = "Squares modulo 17" ∧
+    provedData.panels = #[{
+      x := { label := "k" }, y := { label := "k^2 mod 17, minus 8" },
+      series := #[.ofIntPoints "line" residues, .scatterOfIntPoints "points" residues] }] ∧
     provedData.panels.map (·.series) =
         #[#[.ofIntPoints "line" residues, .scatterOfIntPoints "points" residues]] ∧
       (Series.ofIntPoints "line" residues).points =
@@ -124,7 +133,7 @@ theorem provedData_spec :
         (residues.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       (residues.map Exact.ofIntPair).map (fun q => (q.1.num, q.2.num)) = residues ∧
       residues.length = 25 :=
-  ⟨by simp [provedData], Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
+  ⟨rfl, rfl, by simp [provedData], Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
     Series.ofIntPairs_recover _, by simp [residues]⟩
 
 /-- The data are not degenerate: the first three are `(0, -8)`, `(1, -7)`, `(2, -4)`. -/
@@ -183,10 +192,14 @@ def provedClock : Animation :=
   { width := 200, height := 200, fps := 10, duration := 1, loops := 1, frame := clockFrame,
     text := Style.light.text, fontFamily := Style.light.fontFamily }
 
-/-- The clock draws its frames with `clockFrame`, and frame `i` is that drawing at the time
+/-- The clock is the animation of its size, rate, duration and loop count, drawn with
+`clockFrame`, and frame `i` is that drawing at the time
 `i / 10`: the time the writers pass is the conversion of the exact rational number `i / 10`, and
 both the raster frames and the SVG frames are built from that drawing at that time. -/
 theorem provedClock_spec (i : Nat) :
+    provedClock = {
+      width := 200, height := 200, fps := 10, duration := 1, loops := 1, frame := clockFrame,
+      text := Style.light.text, fontFamily := Style.light.fontFamily } ∧
     provedClock.frame = clockFrame ∧
     provedClock.time i = Exact.toFloat (provedClock.exactTime i) ∧
     provedClock.exactTime i = i / 10 ∧
@@ -196,7 +209,7 @@ theorem provedClock_spec (i : Nat) :
       (provedClock.frameTrees mode)[i] =
         Svg.el "g" #[] ((clockFrame (provedClock.time i)).render mode)) := by
   have hf : provedClock.frame = clockFrame := rfl
-  refine ⟨hf, Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
+  refine ⟨rfl, hf, Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
     fun h => ?_, fun mode h => ?_⟩
   · rw [Animation.frameSeq_getElem _ i h, hf]
     rfl

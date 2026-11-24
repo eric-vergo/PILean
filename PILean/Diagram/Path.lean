@@ -108,8 +108,11 @@ theorem draw_faithful (P : LatticePath) : P.Faithful P.draw := by
   · simp [Diagram.decorations, draw, gridMarks, stepMarks, stepList, List.filterMap_append,
       List.filterMap_map, Function.comp_def]
   · simp [draw, gridMarks, stepMarks, stepList]
-  · simp [draw, gridMarks, stepMarks, stepList, Part.isStep, Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
-  · simp [draw, gridMarks, stepMarks, stepList, Part.isDecoration, Function.comp_def, filter_const_true, filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
+  · simp [draw, gridMarks, stepMarks, stepList, Part.isStep, Function.comp_def, filter_const_true,
+      filter_const_false, List.filter_append, List.filter_map, Diagram.marksWhere]
+  · simp [draw, gridMarks, stepMarks, stepList, Part.isDecoration, Function.comp_def,
+      filter_const_true, filter_const_false, List.filter_append, List.filter_map,
+      Diagram.marksWhere]
 
 /-- The figure: the diagram, or a note for more than `maxSteps` steps or a box wider or taller
 than `maxSteps` (the grid's lines). -/
@@ -164,7 +167,8 @@ def square (c : Nat × Nat) : QPoint × QPoint :=
 
 /-- The squares of the cells, each tinted with accent 1. -/
 def cellMarks (P : Polyomino) : List Mark :=
-  P.cells.map fun c => { part := .cell c.1 c.2, shape := .rect (square c).1 (square c).2, ink := .tint 1 }
+  P.cells.map fun c =>
+    { part := .cell c.1 c.2, shape := .rect (square c).1 (square c).2, ink := .tint 1 }
 
 /-- The diagram (`cellMarks`). -/
 def draw (P : Polyomino) : Diagram where

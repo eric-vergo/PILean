@@ -697,6 +697,20 @@ def StylesHold (R : FinMaps) (D : CommDiagram) : Bool :=
     | .equality => R.size a.src == R.size a.tgt && (List.range f.size).all fun x => f.getD x 0 == x
     | _ => true
 
+/-- The drawing of `D` names its objects and arrows as `objs` and `arrs` say, each name paired
+with what it stands for in the maps `R`: object `k` is drawn with the name `objs[k].1` and is the
+finite set of `objs[k].2` elements, and arrow `k` is drawn with the label `arrs[k].1` and is the
+table `arrs[k].2`. A theorem that states it pins every name to its object: a name or a label
+written for another object or map breaks it. -/
+def Names (R : FinMaps) (D : CommDiagram) (objs : List (String × Nat))
+    (arrs : List (String × Array Nat)) : Prop :=
+  D.objects.toList = objs.map (·.1) ∧ R.card.toList = objs.map (·.2) ∧
+    D.arrows.map (·.label) = arrs.map (·.1) ∧ R.fn.toList = arrs.map (·.2)
+
+instance (R : FinMaps) (D : CommDiagram) (objs : List (String × Nat))
+    (arrs : List (String × Array Nat)) : Decidable (R.Names D objs arrs) :=
+  inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _))
+
 end FinMaps
 
 end PILean.Diagram

@@ -112,7 +112,8 @@ structure YoungShape where
 namespace YoungShape
 
 /-- The marks of the diagram: one unit square per cell, row by row, tinted with accent 0. -/
-def cellMarks (Y : YoungShape) : List Mark := (cellList Y.rows).map (cellMark Y.convention (.tint 0))
+def cellMarks (Y : YoungShape) : List Mark :=
+  (cellList Y.rows).map (cellMark Y.convention (.tint 0))
 
 /-- The diagram (`cellMarks`). -/
 def draw (Y : YoungShape) : Diagram where

@@ -228,11 +228,14 @@ theorem venn_faithful (S : SetSystem) : S.FaithfulVenn S.venn := by
   · simp [Diagram.texts, venn, setMarks, noteMarks, memberMarks, List.filterMap_append,
       List.filterMap_map, Function.comp_def, memberList]
   · simp [Diagram.marksWhere, venn, setMarks, noteMarks, memberMarks, List.filter_append,
-      List.filter_map, Function.comp_def, memberList, Part.isSet, filter_const_true, filter_const_false]
+      List.filter_map, Function.comp_def, memberList, Part.isSet, filter_const_true,
+      filter_const_false]
   · simp [Diagram.marksWhere, venn, setMarks, noteMarks, memberMarks, List.filter_append,
-      List.filter_map, Function.comp_def, memberList, Part.isDecoration, filter_const_true, filter_const_false]
+      List.filter_map, Function.comp_def, memberList, Part.isDecoration, filter_const_true,
+      filter_const_false]
   · simp [Diagram.marksWhere, venn, setMarks, noteMarks, memberMarks, List.filter_append,
-      List.filter_map, Function.comp_def, memberList, Part.isMember, filter_const_true, filter_const_false]
+      List.filter_map, Function.comp_def, memberList, Part.isMember, filter_const_true,
+      filter_const_false]
   · simp [venn, setMarks, noteMarks, memberMarks, memberList, Part.isSet, Part.isDecoration,
       Part.isMember]
 
