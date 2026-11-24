@@ -40,6 +40,10 @@ structure Group where
   theoremsFile : System.FilePath
   /-- The changes. -/
   mutations : Array SpecMutation
+  /-- The theorems of the figures' module (a module of the core, whose figures carry their own
+  theorems) inside which a change may fail too; anywhere else in the figures' part an error fails
+  the check. -/
+  allowed : List String := []
 
 /-- The import lines of a file and the rest of it. -/
 def splitImports (text : String) : List String × List String :=
@@ -60,7 +64,7 @@ def joined (figuresModule figures theorems : String) : String × Nat :=
 joined file fails with no error before `start` (the figures' part) and at least one in the
 theorem's lines. The copy is written to `scratch`. -/
 def checkJoined (lean : String) (scratch : System.FilePath) (text : String) (start : Nat)
-    (m : SpecMutation) (k : Nat) : IO (Except String Unit) := do
+    (m : SpecMutation) (k : Nat) (allowed : List String := []) : IO (Except String Unit) := do
   let mutated ← match m.apply text with
     | .ok t => pure t
     | .error e => return .error e
@@ -70,7 +74,11 @@ def checkJoined (lean : String) (scratch : System.FilePath) (text : String) (sta
   let (c1, out1) ← compile lean changed
   let errs := errorLines out1 changed.toString
   if c1 == 0 || errs.isEmpty then return .error "the changed file compiles"
-  if errs.any (· < start) then
+  let inAllowed := fun (l : Nat) =>
+    allowed.any fun a => match specLines mutated a with
+      | some (lo, hi) => lo ≤ l && l ≤ hi
+      | none => false
+  if errs.any (fun l => l < start && !inAllowed l) then
     return .error s!"an error in the figures (before line {start}): errors at {errs}"
   if !errs.any (fun l => lo ≤ l && l ≤ hi) then
     return .error s!"no error inside {m.spec} (lines {lo} to {hi}): errors at {errs}"
@@ -157,6 +165,115 @@ def realMutations : Array SpecMutation :=
       edits := [("(x * 4 ^ 30)", "(x * 4 ^ 6)"), ("/ 2 ^ 30", "/ 2 ^ 6")],
       spec := "sqrtFigure_spec" }]
 
+/-- The changes to the combinatorial figures that their theorems must catch: a label that no
+longer names its object, a mark added, a title that names another object, a colour role. -/
+def combinatoricsMutations : Array SpecMutation :=
+  let f : System.FilePath := "joined"
+  #[{ file := f, what := "the Petersen graph's vertices are no longer named by their 2-subsets",
+      anchor := "def kneserGraph : FinGraph where",
+      edits := [("s!\"{a}{b}\"", "s!\"{a}{(b + 1) % 5}\"")], spec := "petersenFigure_spec" },
+    { file := f, what := "an eleventh vertex with a name is drawn in the Petersen graph",
+      anchor := "def petersenFigure : Diagram :=",
+      edits := [("width := 340 }", "width := 340, marks := (kneserGraph.draw kneserLayout).marks \
+          ++ [{ part := .vertex 10, shape := .dot (0, 0) }, \
+          { part := .vertex 10, shape := .text \"55\" (0, 0) .auto }] }")],
+      spec := "petersenFigure_spec" },
+    { file := f, what := "the subsets' labels {0} and {1} are swapped",
+      anchor := "def subsetOrder : FinPoset where",
+      edits := [("\"{0}\", \"{1}\"", "\"{1}\", \"{0}\"")], spec := "subsetsFigure_spec" },
+    { file := f, what := "the cell (0, 0) of the Young diagram is drawn a second time elsewhere",
+      anchor := "def youngFigure : Diagram :=",
+      edits := [("width := 220 }", "width := 220,
+    marks := (YoungShape.mk [5, 3, 3, 1] .english).figure.marks ++
+      [{ part := .cell 0 0, shape := .rect (5, -1) (6, 0) }] }")], spec := "youngFigure_spec" },
+    { file := f, what := "the title of the cycle diagram states (1 5)(3 4)",
+      anchor := "def cyclesFigure : Diagram :=",
+      edits := [("(1 4)(3 5)", "(1 5)(3 4)")], spec := "cyclesFigure_spec" },
+    { file := f, what := "the numbers of the Venn diagram are written one too low",
+      anchor := "def multiples : SetSystem where",
+      edits := [("toString (x + 1)).toArray", "toString x).toArray")], spec := "vennFigure_spec" },
+    { file := f, what := "the divisors of 60 are labelled with half their value",
+      anchor := "def divisorOrder : FinPoset where",
+      edits := [("(divisors60.map toString)", "(divisors60.map fun d => toString (d / 2))")],
+      spec := "divisorsFigure_spec" },
+    { file := f, what := "the highest-weight tableau's title names the shape (5, 2, 1)",
+      anchor := "def highestWeightFigure : Diagram :=",
+      edits := [("shape (4, 3, 1)\"", "shape (5, 2, 1)\"")], spec := "highestWeightFigure_spec" },
+    { file := f, what := "the set 5ℤ is named 7ℤ", anchor := "def multiples : SetSystem where",
+      edits := [("\"5ℤ\"]", "\"7ℤ\"]")], spec := "vennFigure_spec" },
+    { file := f, what := "the Dyck path's title spells another word",
+      anchor := "def dyckFigure : Diagram :=",
+      edits := [("Dyck word UUDUUDDDUD\"", "Dyck word UDUDUDUDUD\"")], spec := "dyckFigure_spec" },
+    { file := f, what := "a strand of the wiring diagram is drawn in accent 2",
+      anchor := "def wiringFigure : Diagram :=",
+      edits := [("of 42513\" }", "of 42513\", marks := (sigma.figure FinPerm.wiring).marks.map \
+          fun m => if m.part == .strand 0 then { m with ink := .accent 2 } else m }")],
+      spec := "wiringFigure_spec" },
+    { file := f, what := "the Petersen graph's title names another graph",
+      anchor := "def petersenFigure : Diagram :=",
+      edits := [("\"The Petersen graph\"", "\"The Heawood graph\"")],
+      spec := "petersenFigure_spec" }]
+
+/-- The changes to the figures of algebra that their theorems must catch: an object's name, two
+arrows' labels exchanged, the generators' colours exchanged, a title, a name of the group's
+elements. -/
+def algebraMutations : Array SpecMutation :=
+  let f : System.FilePath := "joined"
+  #[{ file := f, what := "the object ℤ/6 of the square is labelled ℤ/5",
+      anchor := "def squareObjects : Array String :=",
+      edits := [("\"ℤ/12\", \"ℤ/6\"", "\"ℤ/12\", \"ℤ/5\"")], spec := "commSqFigure_spec" },
+    { file := f, what := "the labels π₆ and π₄ of the square are swapped",
+      anchor := "def squareLabels : Array String :=",
+      edits := [("#[\"π₆\", \"π₄\"", "#[\"π₄\", \"π₆\"")], spec := "commSqFigure_spec" },
+    { file := f, what := "the generators of the Cayley graph come in the other order",
+      anchor := "def d4Generators : List (Fin d4Table.n) :=",
+      edits := [("[⟨1, by decide⟩, ⟨4, by decide⟩]", "[⟨4, by decide⟩, ⟨1, by decide⟩]")],
+      spec := "d4CayleyFigure_spec" },
+    { file := f, what := "the title of the square names another category",
+      anchor := "def commSqFigure : Diagram :=",
+      edits := [("category of types\"", "category of sets\"")], spec := "commSqFigure_spec" },
+    { file := f, what := "the Cayley graph's title names the generators s and r",
+      anchor := "def d4CayleyFigure : Diagram :=",
+      edits := [("for r and s\"", "for s and r\"")], spec := "d4CayleyFigure_spec" },
+    { file := f, what := "the short exact sequence's middle object is named D",
+      anchor := "def shortExactDiagram : CommDiagram where",
+      edits := [("#[\"0\", \"A\", \"B\", \"C\", \"0\"]", "#[\"0\", \"A\", \"D\", \"C\", \"0\"]")],
+      spec := "shortExactFigure_spec" },
+    { file := f, what := "the subgroups' title says the normal ones are grey",
+      anchor := "def d4SubgroupsFigure : Diagram :=",
+      edits := [("normal ones in colour\"", "normal ones in grey\"")],
+      spec := "d4SubgroupsFigure_spec" }]
+
+/-- The changes to the zeros and poles of the rational function (`PILeanTest/ComplexDiagrams.lean`)
+that the theorem in Mathlib's terms must catch: a multiplicity, a zero, the title, the label. -/
+def complexMutations : Array SpecMutation :=
+  let f : System.FilePath := "joined"
+  #[{ file := f, what := "the zero 1/2 is simple", anchor := "def rationalData : RationalPlot",
+      edits := [("((1 / 2, 0), 2)]", "((1 / 2, 0), 1)]")], spec := "rationalFigure_roots" },
+    { file := f, what := "the pole −3/2 is −1/2", anchor := "def rationalData : RationalPlot",
+      edits := [("((-3 / 2, 0), 1)]", "((-1 / 2, 0), 1)]")], spec := "rationalFigure_roots" },
+    { file := f, what := "the title names another function", anchor := "def rationalFigure : Diagram",
+      edits := [("(z + 3/2))\"", "(z + 1/2))\"")], spec := "rationalFigure_roots" }]
+
+/-- The changes to the explorers that the theorems in Mathlib's terms must catch: a parameter's
+name, a value of a grid, the generator, the window, a title. -/
+def explorerMutations : Array SpecMutation :=
+  let f : System.FilePath := "joined"
+  #[{ file := f, what := "the slider's parameter is named m", anchor := "def moduli :",
+      edits := [("name := \"n\"", "name := \"m\"")], spec := "cayleyExplorer_zmod" },
+    { file := f, what := "the moduli reach 13", anchor := "def moduli :",
+      edits := [("11, 12]", "11, 12, 13]")], spec := "cayleyExplorer_zmod" },
+    { file := f, what := "the generator is a + 1", anchor := "def generator (n a : Nat)",
+      edits := [("⟨a % n,", "⟨(a + 1) % n,")], spec := "cayleyExplorer_zmod" },
+    { file := f, what := "the lattice's parameter y is named x", anchor := "def periodY :",
+      edits := [("name := \"y\"", "name := \"x\"")], spec := "latticeExplorer_span" },
+    { file := f, what := "the lattice's window loses a row", anchor := "def lattice (x y : Rat)",
+      edits := [("lo := (-3, -2)", "lo := (-3, -1)")], spec := "latticeExplorer_span" },
+    { file := f, what := "the lattice's title names the first period (0, 1)",
+      anchor := "def latticeDiagram (x y : Rat)",
+      edits := [("ℤ(1, 0) + ℤ({x}, {y})\" }", "ℤ(0, 1) + ℤ({x}, {y})\" }")],
+      spec := "latticeExplorer_span" }]
+
 /-- The groups of figures and their changes. -/
 def groups : Array Group :=
   #[{ what := "number theory",
@@ -168,7 +285,28 @@ def groups : Array Group :=
       figuresFile := "PILeanMathlib" / "Examples" / "RealFigures.lean",
       figuresModule := "PILeanMathlib.Examples.RealFigures",
       theoremsFile := "PILeanMathlib" / "Examples" / "Real.lean",
-      mutations := realMutations }]
+      mutations := realMutations },
+    { what := "combinatorics",
+      figuresFile := "PILeanMathlib" / "Examples" / "CombinatoricsFigures.lean",
+      figuresModule := "PILeanMathlib.Examples.CombinatoricsFigures",
+      theoremsFile := "PILeanMathlib" / "Examples" / "Combinatorics.lean",
+      mutations := combinatoricsMutations },
+    { what := "algebra",
+      figuresFile := "PILeanMathlib" / "Examples" / "AlgebraFigures.lean",
+      figuresModule := "PILeanMathlib.Examples.AlgebraFigures",
+      theoremsFile := "PILeanMathlib" / "Examples" / "Algebra.lean",
+      mutations := algebraMutations },
+    { what := "zeros and poles",
+      figuresFile := ".." / "PILeanTest" / "ComplexDiagrams.lean",
+      figuresModule := "PILeanTest.ComplexDiagrams",
+      theoremsFile := "PILeanMathlib" / "Examples" / "Complex.lean",
+      mutations := complexMutations, allowed := ["rationalFigure_spec"] },
+    { what := "explorers",
+      figuresFile := ".." / "PILeanTest" / "Explorers.lean",
+      figuresModule := "PILeanTest.Explorers",
+      theoremsFile := "PILeanMathlib" / "Examples" / "Explorers.lean",
+      mutations := explorerMutations,
+      allowed := ["cayleyExplorer_spec", "latticeExplorer_spec"] }]
 
 /-- The most compilations run at once (each loads Mathlib). -/
 def parallel : Nat := 5
@@ -192,7 +330,8 @@ def groupChecks (lean : String) (scratch : System.FilePath) (g : Group) :
   let mut out := #[(name0, true)]
   for b in [0:(ms.size + parallel - 1) / parallel] do
     let batch := ms.extract (b * parallel) ((b + 1) * parallel)
-    let tasks ← batch.mapM fun (m, k) => IO.asTask (checkJoined lean dir text start m k)
+    let tasks ← batch.mapM fun (m, k) =>
+      IO.asTask (checkJoined lean dir text start m k g.allowed)
     for ((m, _), t) in batch.zip tasks do
       let name := s!"the change breaks {m.spec}: {m.what}"
       match t.get with

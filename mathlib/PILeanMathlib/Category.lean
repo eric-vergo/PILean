@@ -18,6 +18,8 @@ about those morphisms:
 
 * `Realisation.pathHom`: the composite of a path of arrows, when its arrows follow one another;
 * `Realisation.Commutes`: every claim's two paths compose to the same morphism;
+* `Realisation.Names`: object `k` is drawn with its name and is its object, arrow `k` with its
+  label;
 * `Realisation.StylesHold`: every arrow drawn as a monomorphism (`↣`) or an inclusion (`↪`) is a
   `Mono`, every arrow drawn as an epimorphism (`↠`) an `Epi`, every arrow drawn with `≅` an
   `IsIso`, and every arrow drawn as `=` an identity (`eqToHom`), so that no mark of the picture
@@ -78,6 +80,15 @@ def StylesHold (R : Realisation D C) : Prop :=
     (D.arrows[k].style = .iso → IsIso (R.mor k)) ∧
     (D.arrows[k].style = .equality →
       ∃ h : R.obj D.arrows[k].src = R.obj D.arrows[k].tgt, R.mor k = eqToHom h)
+
+/-- The drawing names the realisation's objects and arrows as `objs` and `arrs` say: object `k` is
+drawn with the name `objs[k].1` and is the object `objs[k].2` of `C`, and arrow `k` is drawn with
+the label `arrs[k]` (its morphism is the realisation's `mor k`). A theorem that states it pins
+every name to its object: a name written for another object, or two labels exchanged, breaks
+it. -/
+def Names (R : Realisation D C) (objs : List (String × C)) (arrs : List String) : Prop :=
+  D.objects.toList = objs.map (·.1) ∧ (∀ k (h : k < objs.length), R.obj k = objs[k].2) ∧
+    D.arrows.map (·.label) = arrs
 
 end Realisation
 

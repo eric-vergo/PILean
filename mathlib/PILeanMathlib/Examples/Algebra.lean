@@ -78,6 +78,7 @@ and the elements whose row and column agree are those of the centre of `Dihedral
 which are `1` and `r 2`. -/
 theorem d4TableFigure_spec :
     d4Table.FaithfulTable d4TableFigure ∧
+    d4TableFigure.title = "The Cayley table of the dihedral group of order 8" ∧
     (∀ (a b : Fin 8) (s : String), (((a : ℕ), (b : ℕ)), s) ∈ d4TableFigure.entries ↔
       s = d4Table.name (d4Equiv.symm (d4Equiv a * d4Equiv b))) ∧
     (∀ k : Fin 8, d4Table.name k = d4Name (d4Equiv k)) ∧
@@ -88,7 +89,7 @@ theorem d4TableFigure_spec :
   have hf : d4Table.FaithfulTable d4TableFigure := by
     have := d4Table.tableFigure_faithful (by decide)
     exact this
-  refine ⟨hf, fun a b s => ?_, fun k => ?_, ?_, by decide +kernel, ?_, fun a => ?_,
+  refine ⟨hf, rfl, fun a b s => ?_, fun k => ?_, ?_, by decide +kernel, ?_, fun a => ?_,
     by decide +kernel⟩
   · have hf' : (FinMagma.ofMul d4Equiv d4Names).FaithfulTable d4TableFigure := d4Table_eq ▸ hf
     rw [d4Table_eq]
@@ -103,11 +104,20 @@ theorem d4TableFigure_spec :
 
 figure_links d4TableFigure d4TableFigure_spec
 
-/-- **The Cayley graph of the dihedral group of order 8.** Every arrow the figure draws, from
-element `i` to element `j`, has `d4 j = d4 i * r 1` or `d4 j = d4 i * sr 0`; there are twelve,
-eight for `r` and one line for each of the four pairs `{g, g s}`; and every element has its
-arrows: one to `g * r 1`, and a line joining it to `g * sr 0`. -/
+/-- **The Cayley graph of the dihedral group of order 8.** The figure draws the Cayley graph of
+`d4Table` for `r` and `s` faithfully, each generator's arrows in its colour, and nothing else
+(`CommDiagram.Faithful`); each vertex is named by its element of `DihedralGroup 4`; its title
+names the group and the generators. Every arrow the figure draws, from element `i` to element
+`j`, has `d4 j = d4 i * r 1` or `d4 j = d4 i * sr 0`; there are twelve, eight for `r` and one
+line for each of the four pairs `{g, g s}`; and every element has its arrows: one to `g * r 1`,
+and a line joining it to `g * sr 0`. -/
 theorem d4CayleyFigure_spec :
+    (d4Table.cayley d4Generators d4Positions).Faithful
+      (d4Table.cayley d4Generators d4Positions).layout d4CayleyFigure ∧
+    d4CayleyFigure.title = "The Cayley graph of the dihedral group of order 8 for r and s" ∧
+    (∀ k : Fin 8, (d4Table.cayley d4Generators d4Positions).objects.getD k "" =
+      d4Name (d4Equiv k)) ∧
+    d4Generators.map (fun g => d4Equiv g) = [.r 1, .sr 0] ∧
     (∀ k i j, (k, i, j) ∈ d4CayleyFigure.arrows →
       ∃ (hi : i < 8) (hj : j < 8), d4 ⟨j, hj⟩ = d4 ⟨i, hi⟩ * .r 1 ∨
         d4 ⟨j, hj⟩ = d4 ⟨i, hi⟩ * .sr 0) ∧
@@ -124,8 +134,16 @@ theorem d4CayleyFigure_spec :
     unfold d4CayleyFigure FinMagma.cayleyFigure
     rw [Diagram.capped_of (by decide +kernel)]
     rfl
-  refine ⟨fun k i j hk => ?_, by rw [e]; decide +kernel, ?_⟩
-  swap
+  have hf : (d4Table.cayley d4Generators d4Positions).Faithful
+      (d4Table.cayley d4Generators d4Positions).layout d4CayleyFigure := by
+    have h := CommDiagram.builder_faithful (d4Table.cayley d4Generators d4Positions)
+      (by decide +kernel)
+    unfold d4CayleyFigure FinMagma.cayleyFigure
+    rw [Diagram.capped_of (by decide +kernel)]
+    exact h
+  refine ⟨hf, rfl, fun k => ?_, by decide, fun k i j hk => ?_, by rw [e]; decide +kernel, ?_⟩
+  · revert k; decide
+  rotate_left
   · rw [e]
     decide +kernel
   rw [e] at hk
@@ -263,6 +281,9 @@ subgroups of `DihedralGroup 4`, each exactly once (`d4Sub` is a bijection onto
 lattice of subgroups; and the dot of a subgroup is drawn in accent 1 exactly when the subgroup is
 normal. -/
 theorem d4SubgroupsFigure_spec :
+    d4Subgroups.Faithful d4Subgroups.layout d4SubgroupsFigure ∧
+    d4SubgroupsFigure.title =
+      "The subgroups of the dihedral group of order 8, normal ones in colour" ∧
     Function.Bijective d4Sub ∧ d4SubgroupsFigure.vertices = List.range 10 ∧
     (∀ i : Fin 10, d4Subgroups.names.getD i "" = genName (d4SubgroupGens.getD i []) ∧
       (∀ g ∈ d4SubgroupGens.getD i [], ∀ h : g < 8, d4Names.getD g "" = d4Name (d4 ⟨g, h⟩)) ∧
@@ -272,7 +293,7 @@ theorem d4SubgroupsFigure_spec :
     (∀ (a : Fin 10) (m : Mark) (p : QPoint), m ∈ d4SubgroupsFigure.marks →
       m.part = .vertex a → m.shape = .dot p → (m.ink = .accent 1 ↔ (d4Sub a).Normal)) := by
   have h := d4Subgroups.builder_faithful (by decide)
-  refine ⟨d4Sub_bijective, h.2.1, fun i => ⟨?_, fun g _ hg => d4Names_eq ⟨g, hg⟩,
+  refine ⟨h, rfl, d4Sub_bijective, h.2.1, fun i => ⟨?_, fun g _ hg => d4Names_eq ⟨g, hg⟩,
     d4Sub_closure i⟩, fun a b => ?_, fun a m p hm hp hs => ?_⟩
   · revert i; decide +kernel
   · rw [show d4SubgroupsFigure.edges = d4Subgroups.figure.edges from rfl, h.1]
@@ -291,11 +312,19 @@ def reduce (a b : ℕ) [NeZero a] : ZMod a → ZMod b := fun x => (x.val : ZMod 
 
 /-- **A commutative square in the category of types.** The figure draws the square of the four
 reductions `ZMod 12 → ZMod 6`, `ZMod 12 → ZMod 4`, `ZMod 6 → ZMod 2`, `ZMod 4 → ZMod 2` with its
-claim; the square commutes in the sense of the drawing (`CommDiagram.Realisation.Commutes`) for
+claim, and nothing else; object `k` is drawn with the name `ℤ/m` and is `ZMod m`, and arrow `k`
+with the label `πₘ` of the reduction to `ZMod m` it is (`Realisation.Names`); its title says so;
+the square commutes in the sense of the drawing (`CommDiagram.Realisation.Commutes`) for
 those maps as morphisms of `Type`, which is `CommSq` of Mathlib. -/
 theorem commSqFigure_spec :
     squareDiagram = CommDiagram.square squareObjects squareLabels ∧
     squareDiagram.Faithful squareDiagram.layout commSqFigure ∧
+    commSqFigure.title = "A commutative square in the category of types" ∧
+    (CommDiagram.squareRealisation squareObjects squareLabels (TypeCat.ofHom (reduce 12 6))
+      (TypeCat.ofHom (reduce 12 4)) (TypeCat.ofHom (reduce 6 2))
+      (TypeCat.ofHom (reduce 4 2))).Names
+      [("ℤ/12", ZMod 12), ("ℤ/6", ZMod 6), ("ℤ/4", ZMod 4), ("ℤ/2", ZMod 2)]
+      ["π₆", "π₄", "π₂", "π₂"] ∧
     commSqFigure.arrows = [(0, 0, 1), (1, 0, 2), (2, 1, 3), (3, 2, 3)] ∧
     (CommDiagram.squareRealisation squareObjects squareLabels (TypeCat.ofHom (reduce 12 6))
       (TypeCat.ofHom (reduce 12 4)) (TypeCat.ofHom (reduce 6 2))
@@ -310,7 +339,15 @@ theorem commSqFigure_spec :
     revert x
     decide
   have h := squareDiagram.builder_faithful (by decide)
-  refine ⟨rfl, h, ?_, (CommDiagram.square_commutes_iff _ _ _ _ _ _).2 hsq, hsq⟩
+  have hn : (CommDiagram.squareRealisation squareObjects squareLabels (TypeCat.ofHom (reduce 12 6))
+      (TypeCat.ofHom (reduce 12 4)) (TypeCat.ofHom (reduce 6 2))
+      (TypeCat.ofHom (reduce 4 2))).Names
+      [("ℤ/12", ZMod 12), ("ℤ/6", ZMod 6), ("ℤ/4", ZMod 4), ("ℤ/2", ZMod 2)]
+      ["π₆", "π₄", "π₂", "π₂"] := by
+    refine ⟨rfl, fun k hk => ?_, rfl⟩
+    simp only [List.length_cons, List.length_nil] at hk
+    interval_cases k <;> rfl
+  refine ⟨rfl, h, rfl, hn, ?_, (CommDiagram.square_commutes_iff _ _ _ _ _ _).2 hsq, hsq⟩
   rw [show commSqFigure.arrows = squareDiagram.figure.arrows from rfl, h.1]
   decide
 
@@ -326,13 +363,14 @@ in Mathlib's sense. -/
 theorem shortExactFigure_spec :
     shortExactDiagram = CommDiagram.shortExact #["A", "B", "C"] "f" "g" ∧
     shortExactDiagram.Faithful shortExactDiagram.layout shortExactFigure ∧
+    shortExactFigure.title = "A short exact sequence" ∧
     shortExactFigure.arrows = [(0, 0, 1), (1, 1, 2), (2, 2, 3), (3, 3, 4)] ∧
     ∀ (C : Type) [Category C] [Preadditive C] [Limits.HasZeroObject C]
       (S : ShortComplex C),
       (CommDiagram.shortExactRealisation #["A", "B", "C"] "f" "g" S).StylesHold ∧ S.Exact ↔
         S.ShortExact := by
   have h := shortExactDiagram.builder_faithful (by decide)
-  refine ⟨rfl, h, ?_, fun C _ _ _ S => CommDiagram.shortExact_iff _ _ _ S⟩
+  refine ⟨rfl, h, rfl, ?_, fun C _ _ _ S => CommDiagram.shortExact_iff _ _ _ S⟩
   rw [show shortExactFigure.arrows = shortExactDiagram.figure.arrows from rfl, h.1]
   decide
 
