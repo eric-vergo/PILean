@@ -107,7 +107,8 @@ def main(site):
                 problems.append(f"{where}: linked, but does not say so")
             if " ".join(p.decls) != theorems:
                 problems.append(f"{where}: the statements shown are of {p.decls}, not {theorems!r}")
-            for t in theorems.split():
+            # the statements shown, by name (a name in guillemets may hold a space)
+            for t in p.decls:
                 said = (f"PILean checked that {t} is proved from the standard axioms and that its "
                         f"statement names this figure; it did not check what {t} says.")
                 if said not in text:
