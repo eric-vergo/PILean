@@ -191,7 +191,13 @@ def planeMutations : Array PILeanTest.SpecMutations.SpecMutation :=
       edits := [("|>.faint |>.dashed", "|>.faint")] },
     { file, anchor := "def pointNegE : Plane.Item :=", spec := "planeDisks_spec",
       what := "the point -E records being on the left circle",
-      edits := [("\"the right circle\"", "\"the left circle\"")] }]
+      edits := [("\"the right circle\"", "\"the left circle\"")] },
+    { file, anchor := "def planeDisks : Plane.Figure", spec := "planeDisks_spec",
+      what := "the figure is drawn 520 pixels wide",
+      edits := [("width := 480", "width := 520")] },
+    { file, anchor := "def planeDisks : Plane.Figure", spec := "planeDisks_spec",
+      what := "the figure gains a title",
+      edits := [("items := planeItems }", "items := planeItems, info := { title := \"Two disks\" } }")] }]
 
 end PILeanLeAnTeXTest
 

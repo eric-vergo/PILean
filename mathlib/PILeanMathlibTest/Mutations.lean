@@ -20,7 +20,8 @@ first, which then fails the theorem's link).
 
 ## Main definitions
 
-* `Group`, `joined`, `checkJoined`, `numberTheoryMutations`, `realMutations`, `groups`,
+* `Group`, `joined`, `checkJoined`, `numberTheoryMutations`, `realMutations`, `sineMutations`,
+  `groups`,
   `ioChecks`.
 -/
 
@@ -234,6 +235,12 @@ def combinatoricsMutations : Array SpecMutation :=
     { file := f, what := "the Petersen graph's title names another graph",
       anchor := "def petersenFigure : Diagram :=",
       edits := [("\"The Petersen graph\"", "\"The Heawood graph\"")],
+      spec := "petersenFigure_spec" },
+    { file := f, what := "the Petersen graph is drawn 360 pixels wide",
+      anchor := "def petersenFigure : Diagram :=", edits := [("width := 340 }", "width := 360 }")],
+      spec := "petersenFigure_spec" },
+    { file := f, what := "the Petersen graph's inner star has radius 2/3",
+      anchor := "def kneserLayout : Layout", edits := [("(1 / 2)", "(2 / 3)")],
       spec := "petersenFigure_spec" }]
 
 /-- The changes to the figures of algebra that their theorems must catch: an object's name, two
@@ -296,6 +303,18 @@ def explorerMutations : Array SpecMutation :=
       edits := [("ℤ(1, 0) + ℤ({x}, {y})\" }", "ℤ(0, 1) + ℤ({x}, {y})\" }")],
       spec := "latticeExplorer_span" }]
 
+/-- The changes to the sine's figure that its theorem must catch: the series' name, which is the
+legend's text, an axis's name, the title, the number of steps. -/
+def sineMutations : Array SpecMutation :=
+  let f : System.FilePath := "joined"
+  #[{ file := f, what := "the sine's legend says degree 17", anchor := "def sineSeries : Series",
+      edits := [("degree 15\"", "degree 17\"")], spec := "sineFigure_spec" },
+    { file := f, what := "the sine's x axis is named t", anchor := "def sineFigure : Figure where",
+      edits := [("x := { label := \"x\" }", "x := { label := \"t\" }")],
+      spec := "sineFigure_spec" },
+    { file := f, what := "the sine's title says 98 samples", anchor := "def sineFigure : Figure where",
+      edits := [("from 97 exact", "from 98 exact")], spec := "sineFigure_spec" }]
+
 /-- The groups of figures and their changes. -/
 def groups : Array Group :=
   #[{ what := "number theory",
@@ -310,6 +329,11 @@ def groups : Array Group :=
       mutations := realMutations,
       kinds := [("PILeanMathlib" / "CertifiedPlot.lean", "PILeanMathlib.CertifiedPlot"),
         ("PILeanMathlib" / "CertifiedPlotBound.lean", "PILeanMathlib.CertifiedPlotBound")] },
+    { what := "the sine",
+      figuresFile := "PILeanMathlib" / "Examples" / "SineFigure.lean",
+      figuresModule := "PILeanMathlib.Examples.SineFigure",
+      theoremsFile := "PILeanMathlib" / "Examples" / "Sine.lean",
+      mutations := sineMutations },
     { what := "combinatorics",
       figuresFile := "PILeanMathlib" / "Examples" / "CombinatoricsFigures.lean",
       figuresModule := "PILeanMathlib.Examples.CombinatoricsFigures",
