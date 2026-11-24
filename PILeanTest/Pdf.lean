@@ -277,9 +277,22 @@ def mutationChecks : Array (String × Bool) × Nat × Nat :=
      ("pdf mutants: most are refused by the check", refusedCheck * 2 > ms.size)],
     refusedRead, refusedCheck)
 
+/-- Dictionaries and arrays nest to the same depth, the reader's `maxDepth`: a value nested
+`maxDepth - 1` deep is read, one nested `maxDepth` deep is refused, of either kind. -/
+def nestingChecks : Array (String × Bool) :=
+  let lim : Pdf.Limits := {}
+  let arr := fun (k : Nat) => (String.ofList (List.replicate k '[') ++ "0" ++
+    String.ofList (List.replicate k ']')).toUTF8
+  let dict := fun (k : Nat) => (String.join (List.replicate k "<< /A ") ++ "0" ++
+    String.join (List.replicate k " >>")).toUTF8
+  let ok := fun (b : ByteArray) => (Pdf.parseValue lim b lim.maxDepth 0).isOk
+  #[("pdf: arrays and dictionaries nest to the reader's depth and no further, alike",
+      ok (arr (lim.maxDepth - 1)) && ok (dict (lim.maxDepth - 1)) &&
+        !ok (arr lim.maxDepth) && !ok (dict lim.maxDepth))]
+
 /-- All checks that need no files. -/
 def checks : Array (String × Bool) :=
-  galleryChecks ++ faultChecks ++ sourceChecks ++ mutationChecks.1
+  galleryChecks ++ faultChecks ++ sourceChecks ++ mutationChecks.1 ++ nestingChecks
 
 /-! ### Goldens and files for other software -/
 
