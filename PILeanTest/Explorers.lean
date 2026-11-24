@@ -76,9 +76,18 @@ def cayleyExplorer : Explorer := Explorer.family₂ moduli generators cayleyFram
 `a`), each value written as its number, the frame of `(n, a)` the plane figure of `cayleyDiagram n a`; at every point of the grid the
 diagram draws the Cayley graph faithfully (`CommDiagram.Faithful`: arrows, labels, objects, every
 mark), its title names `ℤ/n` and `a`, its elements are named by their numbers, and the drawn arrows join exactly the pairs
-`(g, g + a mod n)` for `g < n` (each pair once for an involution). -/
+`(g, g + a mod n)` for `g < n` (each pair once for an involution).
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cayleyExplorer_spec :
-    cayleyExplorer = Explorer.family₂ moduli generators cayleyFrame ∧
+    moduli = ({ name := "n", values := #[5, 6, 7, 8, 9, 10, 11, 12], label := toString } : ExplorerParam Nat) ∧
+    generators = ({ name := "a", values := #[1, 2, 3, 4], label := toString } : ExplorerParam Nat) ∧
+    (∀ (n a : Nat), cayleyDiagram n a = (
+      { (zmod n).cayleyFigure (generator n a) (FinMagma.circlePositions n) with
+        title := s!"The Cayley graph of ℤ/{n} for the generator {a}", width := 300 } : Diagram)) ∧
+    (∀ (n : Nat), zmod n = ({ n, mul := fun a b => a + b } : FinMagma)) ∧
+    (∀ (n a : Nat), generator n a = (if h : 0 < n then [⟨a % n, Nat.mod_lt _ h⟩] else [] : List (Fin n))) ∧
+    (cayleyExplorer = Explorer.family₂ moduli generators cayleyFrame ∧
     moduli.values = #[5, 6, 7, 8, 9, 10, 11, 12] ∧ generators.values = #[1, 2, 3, 4] ∧
     moduli.name = "n" ∧ generators.name = "a" ∧
     moduli.label = toString ∧ generators.label = toString ∧
@@ -87,7 +96,8 @@ theorem cayleyExplorer_spec :
       (cayleyData n a).Faithful (cayleyData n a).layout (cayleyDiagram n a) ∧
       (cayleyDiagram n a).title = s!"The Cayley graph of ℤ/{n} for the generator {a}" ∧
       (cayleyData n a).objects.toList = (List.range n).map toString ∧
-      (cayleyDiagram n a).arrows.map (fun x => (x.2.1, x.2.2)) = cayleyPairs n a := by
+      (cayleyDiagram n a).arrows.map (fun x => (x.2.1, x.2.2)) = cayleyPairs n a) := by
+  refine ⟨rfl, rfl, fun _ _ => rfl, fun _ => rfl, fun _ _ => rfl, ?_⟩
   -- the caps and the arrows at every point of the grid, checked by the kernel
   have caps : ∀ n ∈ moduli.values, ∀ a ∈ generators.values,
       ((cayleyData n a).objects.size ≤ CommDiagram.maxObjects &&
@@ -150,9 +160,15 @@ named `x` and `y`), each value written as its number, the frame of `(x, y)` the 
 the grid the periods are independent, the diagram draws the lattice faithfully
 (`PlaneLattice.Faithful`: the dots are the points `m ω₁ + n ω₂` of the window among the
 candidates, in order, the parallelogram and the axes the builder's, nothing else) and its title
-names the second period. -/
+names the second period.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem latticeExplorer_spec :
-    latticeExplorer = Explorer.family₂ periodX periodY latticeFrame ∧
+    periodX = ({ name := "x", values := #[0, 1 / 4, 1 / 2, 3 / 4], label := toString } : ExplorerParam Rat) ∧
+    periodY = ({ name := "y", values := #[1 / 2, 3 / 4, 1], label := toString } : ExplorerParam Rat) ∧
+    (∀ (x y : Rat), latticeDiagram x y = ({ (lattice x y).figure with title := s!"The lattice ℤ(1, 0) + ℤ({x}, {y})" } : Diagram)) ∧
+    (∀ (x y : Rat), lattice x y = ({ w1 := (1, 0), w2 := (x, y), lo := (-3, -2), hi := (3, 2) } : PlaneLattice)) ∧
+    (latticeExplorer = Explorer.family₂ periodX periodY latticeFrame ∧
     periodX.values = #[0, 1 / 4, 1 / 2, 3 / 4] ∧ periodY.values = #[1 / 2, 3 / 4, 1] ∧
     periodX.name = "x" ∧ periodY.name = "y" ∧
     periodX.label = toString ∧ periodY.label = toString ∧
@@ -160,7 +176,8 @@ theorem latticeExplorer_spec :
     ∀ x ∈ periodX.values, ∀ y ∈ periodY.values,
       lattice x y = { w1 := (1, 0), w2 := (x, y), lo := (-3, -2), hi := (3, 2) } ∧
       (lattice x y).det ≠ 0 ∧ (lattice x y).Faithful (latticeDiagram x y) ∧
-      (latticeDiagram x y).title = s!"The lattice ℤ(1, 0) + ℤ({x}, {y})" := by
+      (latticeDiagram x y).title = s!"The lattice ℤ(1, 0) + ℤ({x}, {y})") := by
+  refine ⟨rfl, rfl, fun _ _ => rfl, fun _ _ => rfl, ?_⟩
   -- the periods are independent and the candidates within the cap at every point of the grid,
   -- checked by the kernel
   have caps : ∀ x ∈ periodX.values, ∀ y ∈ periodY.values,

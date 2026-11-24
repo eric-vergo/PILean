@@ -257,14 +257,121 @@ def elabFigureLinks : Lean.Elab.Command.CommandElab := fun stx => do
     return (figName, thmName)
   modifyEnv fun env => figureTheoremExt.addEntry env (figName, thmName)
 
-/-! ### The axioms of a package -/
-
 /-- The module of the declaration `n` in the environment: the current module for a declaration
 of the file being elaborated. -/
 def declModule (env : Environment) (n : Name) : Name :=
   match env.getModuleIdxFor? n with
   | some i => env.header.moduleNames[i.toNat]!
   | none => env.mainModule
+
+/-! ### A theorem that determines its figure -/
+
+/-- The conjuncts of a statement: `a ∧ b` split into those of `a` and of `b`, anything else
+itself. -/
+partial def conjuncts (e : Expr) : List Expr :=
+  match e.and? with
+  | some (a, b) => conjuncts a ++ conjuncts b
+  | none => [e]
+
+/-- The pin a conjunct states, if it is one: `c = t`, or `∀ x₁ … xₙ, c x₁ … xₙ = t` with the
+bound variables, in order, as the only arguments of the constant `c`. The result is `c` and the
+value `t` as a function of `x₁ … xₙ` (`fun x₁ … xₙ => t`), provided that it mentions no free
+variable, so no variable bound outside the conjunct. -/
+def pinOf? (conj : Expr) : MetaM (Option (Name × Expr)) :=
+  forallTelescope conj fun xs body => do
+    let some (_, lhs, rhs) := body.eq? | return none
+    let .const c _ := lhs.getAppFn | return none
+    unless lhs.getAppArgs == xs do return none
+    let v ← mkLambdaFVars xs rhs
+    if v.hasFVar || v.hasMVar then return none
+    return some (c, v)
+
+/-- The pins a statement states (`pinOf?`): its leading universal quantifiers and hypotheses
+opened, then each conjunct of what remains (`conjuncts`). A constant pinned twice keeps its
+first pin. -/
+def statementPins (type : Expr) : MetaM (Array (Name × Expr)) :=
+  forallTelescope type fun _ body => do
+    let mut out := #[]
+    for c in conjuncts body do
+      if let some p ← pinOf? c then
+        unless out.any (·.1 == p.1) do out := out.push p
+    return out
+
+/-- Whether the constant `c` is one a pin must give the value of, when its module is local:
+a definition, an opaque constant or an axiom whose type is not a proposition, and which is not a
+matcher, an auxiliary recursor, a projection or a declaration with an internal name (such as an
+auxiliary proof `_proof_1`). Inductive types, constructors and recursors are determined by their
+declarations; a proof does not change a value. -/
+def needsPin (c : Name) : MetaM Bool := do
+  let env ← getEnv
+  let some info := env.find? c | return false
+  unless info matches .defnInfo _ || info matches .opaqueInfo _ || info matches .axiomInfo _ do
+    return false
+  if c.isInternalDetail || isAuxRecursor env c || env.isProjectionFn c then return false
+  if (← isMatcher c) then return false
+  return !(← isProp info.type)
+
+/-- What prevents the statement of `thm` from determining the whole value of the figure `fig`,
+if anything. The statement determines it when it pins the figure (`fig = t`, `pinOf?`) and pins
+in turn every constant `t` mentions that is declared in a local module (`isLocal`) and is a value
+(`needsPin`), and every such constant their values mention, and so on, with no pin that mentions
+the constant it pins or leads back to it. The constants of the other modules are vocabulary, the
+library whose definitions the statement relies on. Then, the statement being proved, the figure
+is equal to a term built from vocabulary alone, which the statement writes out: a change to the
+definitions of the local modules that changes the figure's value, in any of its fields, makes
+the statement false, and the theorem fails to build. -/
+def figurePinProblem? (isLocal : Name → Bool) (fig thm : Name) : MetaM (Option MessageData) := do
+  let env ← getEnv
+  let some info := env.find? thm | return some m!"unknown declaration {thm}"
+  let pins ← statementPins (← ruleStatement info.type)
+  let mut done : Array Name := #[]
+  let mut todo : List (Name × List Name) := [(fig, [])]
+  while true do
+    let (c, path) :: rest := todo | break
+    todo := rest
+    if done.contains c then continue
+    done := done.push c
+    let some (_, v) := pins.find? (·.1 == c) |
+      let via := if path.isEmpty then m!"" else m!" (used by {path})"
+      return some m!"the statement of {thm} does not pin {c}{via}: it should state \
+        `{c} = …` (or `∀ x, {c} x = …`) with a value that uses no other definition of these \
+        modules unless that is pinned too"
+    for d in v.getUsedConstants do
+      if !isLocal (declModule env d) || !(← needsPin d) then continue
+      if d == c || path.contains d then
+        return some m!"the pin of {c} in {thm} mentions {d}, which is pinned through it"
+      todo := todo ++ [(d, c :: path)]
+  return none
+
+/-- `#assert_figures_pinned A B … except M N …` fails unless, for every figure declared in a
+module whose name starts with `A`, `B`, …, other than the modules `M`, `N`, …, every theorem
+linked to it by `figure_links` determines its whole value (`figurePinProblem?`), the local modules
+being those whose names start with `A`, `B`, …; and unless at least one such link is checked. It
+walks the links of the environment, not a list of names. -/
+syntax (name := assertFiguresPinned)
+  "#assert_figures_pinned" (ppSpace ident)+ (" except" (ppSpace ident)+)? : command
+
+/-- The elaborator of `#assert_figures_pinned`. -/
+@[command_elab assertFiguresPinned]
+def elabAssertFiguresPinned : Lean.Elab.Command.CommandElab := fun stx => do
+  let roots := stx[1].getArgs.map (·.getId)
+  let skip := if stx[2].getNumArgs == 0 then #[] else stx[2][1].getArgs.map (·.getId)
+  let env ← getEnv
+  let isLocal := fun (m : Name) => roots.any (·.isPrefixOf m)
+  let mut checked := 0
+  let mut bad : Array MessageData := #[]
+  for (fig, thm) in figureTheoremExt.getState env do
+    let m := declModule env fig
+    if !isLocal m || skip.contains m then continue
+    checked := checked + 1
+    if let some msg ← Lean.Elab.Command.liftTermElabM (figurePinProblem? isLocal fig thm) then
+      bad := bad.push m!"{fig}: {msg}"
+  unless bad.isEmpty do
+    throwError "linked theorems that do not determine their figure:\
+      {indentD (MessageData.joinSep bad.toList "\n")}"
+  if checked == 0 then throwError "no link from a figure of {roots} was checked"
+
+/-! ### The axioms of a package -/
 
 /-- The declarations of the environment whose module (`declModule`, the current module
 included) satisfies `inScope`, paired with each axiom outside `allowedAxioms` that they declare

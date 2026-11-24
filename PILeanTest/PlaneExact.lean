@@ -107,9 +107,29 @@ the circle in the direction of the step, both in accent 0 for `1`, `ζ` and `ζ�
 pixel from the boundary), outside for `ζ²` and `ζ³`; then `0` and the window's centre, recording
 being on the step to 1. The steps in the window are exactly `1`, `ζ` and `ζ⁴` (decided in ℚ(√5),
 `inWindow`), which is why those are in accent 0. Not stated: how the builders and modifiers draw,
-the layout, the fonts, the style's colour values and the pixels. -/
+the layout, the fonts, the style's colour values and the pixels.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem zetaSteps_spec :
-    zetaSteps.info.title = "Unit steps of ℤ[ζ₅] and a window" ∧
+    zetaSteps = ({
+      width := 420
+      items := #[window] ++ ((List.range 5).toArray.flatMap stepItems) ++
+        ((List.range 5).toArray.map stepPoint) ++
+        #[Plane.Exact.point ((0, 0) : Int × Int),
+          Plane.Exact.point windowCentre |>.incident .on "the step to 1"]
+      info := { title := "Unit steps of ℤ[ζ₅] and a window",
+                leanDecl := "PILeanTest.PlaneExact.zetaSteps" } } : Plane.Figure) ∧
+    window = (
+      (Plane.Exact.disk windowCentre windowRadius).accent 0 |>.named "the window" |>.describedBy
+        "the closed disk of radius 39/40 about 1/2" : Item) ∧
+    (∀ (j : Nat), stepItems j = (
+      let t : Tone := if inWindow j then .accent 0 else .faint
+      #[(Plane.Exact.segment Zeta5.zero (Zeta5.pow j)).tone t |>.named s!"the step to {stepLabel j}",
+        (Plane.Exact.label (stepLabel j) (Zeta5.pow j) (.toward (2 * pi * j.toFloat / 5))).tone t] : Array Item)) ∧
+    (∀ (j : Nat), stepPoint j = (Plane.Exact.pointNearDisk (Zeta5.pow j) windowCentre windowRadius "the window" : Item)) ∧
+    (∀ (j : Nat), inWindow j = (QSqrt.le (⟨5 / 4 - windowRadius * windowRadius, 0⟩ : QSqrt5) (Zeta5.pow j).realPart : Bool)) ∧
+    (∀ (j : Nat), stepLabel j = (#["1", "ζ", "ζ²", "ζ³", "ζ⁴"].getD j "" : String)) ∧
+    (zetaSteps.info.title = "Unit steps of ℤ[ζ₅] and a window" ∧
     windowCentre = (1 / 2, 0) ∧ windowRadius = 39 / 40 ∧
     zetaSteps.items = #[
       Plane.Exact.disk windowCentre windowRadius |>.accent 0 |>.named "the window"
@@ -138,7 +158,8 @@ theorem zetaSteps_spec :
       Plane.Exact.point windowCentre |>.incident .on "the step to 1"] ∧
     ((List.range 5).map (fun j => diskIncidence? (Zeta5.pow j) windowCentre windowRadius) ==
       [some .inside, some .inside, some .outside, some .outside, some .inside]) = true ∧
-    (List.range 5).filter inWindow = [0, 1, 4] := by
+    (List.range 5).filter inWindow = [0, 1, 4]) := by
+  refine ⟨rfl, rfl, fun _ => rfl, fun _ => rfl, fun _ => rfl, fun _ => rfl, ?_⟩
   refine ⟨rfl, ?_⟩
   refine ⟨rfl, rfl, ?_, by decide +kernel, by decide +kernel⟩
   have h0 : inWindow 0 = true := by decide +kernel

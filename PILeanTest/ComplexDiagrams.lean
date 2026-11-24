@@ -45,9 +45,20 @@ def rationalFigure : Diagram := rationalData.figure
 poles `1 + i`, `1 − i` and `−3/2` (simple), each a root of the numerator or the denominator of
 exactly that multiplicity (`RationalPlot.Verified`), the multiplicities adding up to the degrees
 (`RationalPlot.Complete`); the figure draws them faithfully, writes `2` beside `1/2` and no other
-multiplicity, and its title names `f`. -/
+multiplicity, and its title names `f`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem rationalFigure_spec :
-    rationalData.zeros = [((0, 1), 1), ((0, -1), 1), ((1 / 2, 0), 2)] ∧
+    rationalFigure = (rationalData.figure : Diagram) ∧
+    rationalData = ({
+      name := "f(z) = (z² + 1)(z − 1/2)² / ((z² − 2z + 2)(z + 3/2))"
+      num := [1 / 4, -1, 5 / 4, -1, 1]
+      den := [3, -1, -1 / 2, 1]
+      zeros := [((0, 1), 1), ((0, -1), 1), ((1 / 2, 0), 2)]
+      poles := [((1, 1), 1), ((1, -1), 1), ((-3 / 2, 0), 1)]
+      lo := (-2, -3 / 2)
+      hi := (2, 3 / 2) } : RationalPlot) ∧
+    (rationalData.zeros = [((0, 1), 1), ((0, -1), 1), ((1 / 2, 0), 2)] ∧
     rationalData.poles = [((1, 1), 1), ((1, -1), 1), ((-3 / 2, 0), 1)] ∧
     rationalData.num = [1 / 4, -1, 5 / 4, -1, 1] ∧ rationalData.den = [3, -1, -1 / 2, 1] ∧
     rationalData.Verified = true ∧ rationalData.Complete = true ∧
@@ -56,7 +67,8 @@ theorem rationalFigure_spec :
       [{ part := .entry 0 2, shape := .text "2" (1 / 2 + 1 / 15, 1 / 15) .aboveRight,
          ink := .accent 0 }] ∧
     rationalFigure.title =
-      "Zeros and poles of f(z) = (z² + 1)(z − 1/2)² / ((z² − 2z + 2)(z + 3/2))" := by
+      "Zeros and poles of f(z) = (z² + 1)(z − 1/2)² / ((z² − 2z + 2)(z + 3/2))") := by
+  refine ⟨rfl, rfl, ?_⟩
   have h : rationalData.Faithful rationalFigure := rationalData.builder_faithful (by decide +kernel)
   refine ⟨rfl, rfl, rfl, rfl, by decide +kernel, by decide +kernel, h, ?_, ?_⟩
   · rw [h.2.2.1]; decide +kernel

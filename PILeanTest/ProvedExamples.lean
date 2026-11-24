@@ -70,9 +70,23 @@ nothing else: 25 points, the abscissae the grid `-3/2 + k/8` (`k = 0, …, 24`, 
 in order, the ordinates the exact values of `cubic` (of `parabola`) there; the conversion is
 `Exact.toPoint`. The statement is about the points the series hold: nothing is said here about
 how they are drawn (`Series.ofExact_draw`, under its hypotheses), about the axes, or about the
-curve between two samples. -/
+curve between two samples.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem provedFunction_spec :
-    provedFunction.title = "Two polynomials from exact samples" ∧
+    provedFunction = ({
+      title := "Two polynomials from exact samples"
+      panels := #[{
+          x := { label := "x" }, y := { label := "y" },
+          series := #[cubicSeries, parabolaSeries] }] } : Figure) ∧
+    cubicSeries = (.ofExact "x^3 - x" cubic lo hi steps : Series) ∧
+    parabolaSeries = (.ofExact "x^2 - 1" parabola lo hi steps (dash := #[5, 4]) : Series) ∧
+    (∀ (x : Rat), cubic x = (x * x * x - x : Rat)) ∧
+    lo = (-3 / 2 : Rat) ∧
+    hi = (3 / 2 : Rat) ∧
+    steps = (24 : Nat) ∧
+    (∀ (x : Rat), parabola x = (x * x - 1 : Rat)) ∧
+    (provedFunction.title = "Two polynomials from exact samples" ∧
     provedFunction.panels = #[{
       x := { label := "x" }, y := { label := "y" },
       series := #[cubicSeries, parabolaSeries] }] ∧
@@ -86,7 +100,8 @@ theorem provedFunction_spec :
     (∀ p ∈ Exact.samples parabola lo hi steps,
       p.1 ∈ Exact.grid lo hi steps ∧ p.2 = parabola p.1) ∧
     Exact.grid lo hi steps = (List.range 25).map (fun k : Nat => (-3 / 2 + k / 8 : Rat)) ∧
-    Exact.gridPoint lo hi steps 0 = lo ∧ Exact.gridPoint lo hi steps steps = hi := by
+    Exact.gridPoint lo hi steps 0 = lo ∧ Exact.gridPoint lo hi steps steps = hi) := by
+  refine ⟨rfl, rfl, rfl, fun _ => rfl, rfl, rfl, rfl, fun _ => rfl, ?_⟩
   refine ⟨rfl, rfl, ?_⟩
   refine ⟨by simp [provedFunction], Series.ofExact_points .., Series.ofExact_points ..,
     Series.ofExact_size .., Series.ofExact_size .., Exact.samples_fst .., Exact.samples_fst ..,
@@ -119,9 +134,17 @@ def provedData : Figure where
 /-- The figure `provedData` has its title and one panel, with its two axes' names and no other
 setting, whose series are a line and markers over the list `residues` and no other. The points of both are the input list converted point for point: as many
 points as given, in the given order, none added, dropped or changed (the integers are recovered
-from the exact points); floating point enters only through `Exact.toFloat`. -/
+from the exact points); floating point enters only through `Exact.toFloat`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem provedData_spec :
-    provedData.title = "Squares modulo 17" ∧
+    provedData = ({
+      title := "Squares modulo 17"
+      panels := #[{
+          x := { label := "k" }, y := { label := "k^2 mod 17, minus 8" },
+          series := #[.ofIntPoints "line" residues, .scatterOfIntPoints "points" residues] }] } : Figure) ∧
+    residues = ((List.range 25).map fun (k : Nat) => (Int.ofNat k, Int.ofNat (k * k % 17) - 8) : List (Int × Int)) ∧
+    (provedData.title = "Squares modulo 17" ∧
     provedData.panels = #[{
       x := { label := "k" }, y := { label := "k^2 mod 17, minus 8" },
       series := #[.ofIntPoints "line" residues, .scatterOfIntPoints "points" residues] }] ∧
@@ -132,8 +155,9 @@ theorem provedData_spec :
       (Series.scatterOfIntPoints "points" residues).points =
         (residues.map fun p => Exact.toPoint (Exact.ofIntPair p)).toArray ∧
       (residues.map Exact.ofIntPair).map (fun q => (q.1.num, q.2.num)) = residues ∧
-      residues.length = 25 :=
-  ⟨rfl, rfl, by simp [provedData], Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
+      residues.length = 25) := by
+  refine ⟨rfl, rfl, ?_⟩
+  exact ⟨rfl, rfl, by simp [provedData], Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
     Series.ofIntPairs_recover _, by simp [residues]⟩
 
 /-- The data are not degenerate: the first three are `(0, -8)`, `(1, -7)`, `(2, -4)`. -/
@@ -155,9 +179,13 @@ def provedGraph : PILean.Graph :=
 /-- The graph is the relation `properDivisor` on `numbers`; its nodes are the numbers 1 to 12
 (as labels, in order), its edges are exactly the pairs of positions whose numbers are related,
 each once, and the layout draws one route for each of them, in order: route `i` has index `i`
-and the ends of the `i`-th edge (a route over several layers is still one route). -/
+and the ends of the `i`-th edge (a route over several layers is still one route).
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem provedGraph_spec (o : Graph.LayeredOptions) (st : Style) :
-    provedGraph = Graph.ofRelation numbers properDivisor toString ∧
+    numbers = ((List.range 12).map (· + 1) : List Nat) ∧
+    (∀ (a b : Nat), properDivisor a b = (a < b && b % a == 0 : Bool)) ∧
+    (provedGraph = Graph.ofRelation numbers properDivisor toString ∧
     provedGraph.nodes.toList.map (·.label) = numbers.map toString ∧
     (∀ i j, (i, j) ∈ Graph.relationPairs numbers properDivisor ↔
       ∃ a b, numbers[i]? = some a ∧
@@ -165,7 +193,8 @@ theorem provedGraph_spec (o : Graph.LayeredOptions) (st : Style) :
     (Graph.relationPairs numbers properDivisor).Nodup ∧
     (provedGraph.layout o st).edges.toList.map (fun e => (e.index, e.src, e.dst)) =
       (List.range (Graph.relationPairs numbers properDivisor).length).zip
-        (Graph.relationPairs numbers properDivisor) := by
+        (Graph.relationPairs numbers properDivisor)) := by
+  refine ⟨rfl, fun _ _ => rfl, ?_⟩
   have hg : provedGraph = Graph.ofRelation numbers properDivisor toString := rfl
   refine ⟨hg, ?_, fun i j => Graph.mem_relationPairs .., Graph.relationPairs_nodup .., ?_⟩
   · rw [hg]; exact Graph.ofRelation_node_labels numbers properDivisor toString true
@@ -195,9 +224,17 @@ def provedClock : Animation :=
 /-- The clock is the animation of its size, rate, duration and loop count, drawn with
 `clockFrame`, and frame `i` is that drawing at the time
 `i / 10`: the time the writers pass is the conversion of the exact rational number `i / 10`, and
-both the raster frames and the SVG frames are built from that drawing at that time. -/
+both the raster frames and the SVG frames are built from that drawing at that time.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem provedClock_spec (i : Nat) :
-    provedClock = {
+    (∀ (t : Float), clockFrame t = (
+      let a := 2 * 3.141592653589793 * t
+      let c : Point := ⟨100 + 70 * a.cos, 100 + 70 * a.sin⟩
+      .group #[
+        .path (Canvas.circle ⟨100, 100⟩ 70) none (some { ink := ⟨190, 195, 205, 255⟩, width := 2 }),
+        .path (Canvas.circle c 12) (some (.solid ⟨41, 98, 255, 255⟩)) none] : Canvas.Shape)) ∧
+    (provedClock = {
       width := 200, height := 200, fps := 10, duration := 1, loops := 1, frame := clockFrame,
       text := Style.light.text, fontFamily := Style.light.fontFamily } ∧
     provedClock.frame = clockFrame ∧
@@ -207,7 +244,8 @@ theorem provedClock_spec (i : Nat) :
       (clockFrame (provedClock.time i)).toImage 200 200 Style.light.text ⟨255, 255, 255, 255⟩) ∧
     (∀ (mode : Canvas.TextMode) (h : i < (provedClock.frameTrees mode).size),
       (provedClock.frameTrees mode)[i] =
-        Svg.el "g" #[] ((clockFrame (provedClock.time i)).render mode)) := by
+        Svg.el "g" #[] ((clockFrame (provedClock.time i)).render mode))) := by
+  refine ⟨fun _ => rfl, ?_⟩
   have hf : provedClock.frame = clockFrame := rfl
   refine ⟨rfl, hf, Animation.time_eq_exactTime .., Animation.exactTime_eq _ i (by decide),
     fun h => ?_, fun mode h => ?_⟩

@@ -74,9 +74,32 @@ def petersen : Diagram :=
 (written out), vertex `i` named by its subset `pairs5[i] = (a, b)` written `ab`; its edges are
 exactly the pairs `i < j` of disjoint subsets, fifteen (written out); each vertex's dot and name are at the
 layout's position and nothing else is drawn (`FinGraph.Faithful`); and its title says what it
-is. -/
+is.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem petersen_spec :
-    petersenGraph.Faithful petersenLayout petersen ∧
+    petersen = (
+      { petersenGraph.draw petersenLayout with
+        title := "The Petersen graph, the Kneser graph K(5, 2)", width := 340 } : Diagram) ∧
+    petersenGraph = ({
+      n := 10
+      adj i j :=
+        let (a, b) := pairs5.getD i.val (0, 0)
+        let (c, d) := pairs5.getD j.val (0, 0)
+        a != c && a != d && b != c && b != d
+      names := (pairs5.map fun (a, b) => s!"{a}{b}").toArray } : FinGraph) ∧
+    petersenLayout = (
+      let outer := [0, 7, 3, 4, 9]
+      let inner := [8, 6, 5, 2, 1]
+      let at_ := fun (r : Rat) (k : Nat) =>
+        let p := (Layout.circular 5).pos k
+        (r * p.1, r * p.2)
+      Layout.given ((List.range 10).map fun v =>
+        match outer.idxOf? v, inner.idxOf? v with
+        | some k, _ => at_ 1 k
+        | none, some k => at_ (1 / 2) k
+        | none, none => (0, 0)).toArray : Layout) ∧
+    (petersenGraph.Faithful petersenLayout petersen ∧
     petersen.title = "The Petersen graph, the Kneser graph K(5, 2)" ∧
     pairs5 = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4), (2, 3), (2, 4), (3, 4)] ∧
     (List.range 10).map petersenGraph.label =
@@ -85,7 +108,8 @@ theorem petersen_spec :
       i < j && [(pairs5.getD i (0, 0)).1, (pairs5.getD i (0, 0)).2].all fun x =>
         ![(pairs5.getD j (0, 0)).1, (pairs5.getD j (0, 0)).2].contains x).map (i, ·)) ∧
     petersen.edges = [(0, 7), (0, 8), (0, 9), (1, 5), (1, 6), (1, 9), (2, 4), (2, 6), (2, 8),
-      (3, 4), (3, 5), (3, 7), (4, 9), (5, 8), (6, 7)] := by
+      (3, 4), (3, 5), (3, 7), (4, 9), (5, 8), (6, 7)]) := by
+  refine ⟨rfl, rfl, rfl, ?_⟩
   exact ⟨petersenGraph.draw_faithful _, rfl, by decide +kernel, by decide +kernel,
     by decide +kernel, by decide +kernel⟩
 
@@ -112,12 +136,20 @@ def maskName (i : Nat) : String :=
 /-- The figure draws exactly the twelve covers of the Boolean lattice (adding one element),
 written out, each element `i` named by the subset its bit mask is (`maskName`) and nothing else
 drawn; inclusion is a partial order, so its strict order is the transitive closure of those
-edges (`FinPoset.transGen_covers_iff`); and its title says what it is. -/
+edges (`FinPoset.transGen_covers_iff`); and its title says what it is.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cube_spec :
-    booleanLattice.Faithful booleanLattice.layout cube ∧ cube.title = "Subsets of {1, 2, 3}" ∧
+    cube = ({ booleanLattice.figure with title := "Subsets of {1, 2, 3}", width := 300 } : Diagram) ∧
+    booleanLattice = ({
+      n := 8
+      le i j := i.val &&& j.val == i.val
+      names := #["∅", "{1}", "{2}", "{1,2}", "{3}", "{1,3}", "{2,3}", "{1,2,3}"] } : FinPoset) ∧
+    (booleanLattice.Faithful booleanLattice.layout cube ∧ cube.title = "Subsets of {1, 2, 3}" ∧
     (List.range 8).map booleanLattice.toFinGraph.label = (List.range 8).map maskName ∧
     cube.edges = [(0, 1), (0, 2), (0, 4), (1, 3), (1, 5), (2, 3), (2, 6), (3, 7), (4, 5), (4, 6),
-      (5, 7), (6, 7)] ∧ booleanLattice.IsPartialOrder := by
+      (5, 7), (6, 7)] ∧ booleanLattice.IsPartialOrder) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨booleanLattice.builder_faithful (by decide), rfl, by decide +kernel, by decide +kernel,
     ⟨by decide, by decide, by decide⟩⟩
 
@@ -135,12 +167,17 @@ def young : Diagram :=
 
 /-- The figure draws exactly the twelve cells `(i, j)` with `j < λᵢ` for `λ = (5, 3, 3, 1)`, row
 by row, each the unit square of English notation, and nothing else; its title names the
-partition. -/
+partition.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem young_spec :
-    shape5331.Faithful young ∧ young.title = "The Young diagram of (5, 3, 3, 1)" ∧
+    young = ({ shape5331.figure with title := "The Young diagram of (5, 3, 3, 1)", width := 220 } : Diagram) ∧
+    shape5331 = ({ rows := [5, 3, 3, 1] } : YoungShape) ∧
+    (shape5331.Faithful young ∧ young.title = "The Young diagram of (5, 3, 3, 1)" ∧
     shape5331.rows = [5, 3, 3, 1] ∧
     young.cells = [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1),
-      (2, 2), (3, 0)] := by
+      (2, 2), (3, 0)]) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨shape5331.builder_faithful (by decide), rfl, rfl, by decide +kernel⟩
 
 figure_links young young_spec
@@ -156,13 +193,20 @@ def tableau : Diagram :=
 
 /-- The figure draws the cells of `(4, 3, 1)` and writes the filling, written out, in French
 notation, and nothing else; the filling is semistandard; its title names the shape and the
-notation. -/
+notation.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem tableau_spec :
-    ssyt.Faithful tableau ∧ ssyt.IsSemistandard ∧
+    tableau = (
+      { ssyt.figure with
+        title := "A semistandard tableau of shape (4, 3, 1), French notation", width := 200 } : Diagram) ∧
+    ssyt = ({ entries := [[1, 1, 2, 4], [2, 3, 4], [4]], convention := .french } : Tableau) ∧
+    (ssyt.Faithful tableau ∧ ssyt.IsSemistandard ∧
     tableau.title = "A semistandard tableau of shape (4, 3, 1), French notation" ∧
     ssyt.shape = [4, 3, 1] ∧ ssyt.convention = .french ∧
     tableau.entries = [((0, 0), "1"), ((0, 1), "1"), ((0, 2), "2"), ((0, 3), "4"), ((1, 0), "2"),
-      ((1, 1), "3"), ((1, 2), "4"), ((2, 0), "4")] := by
+      ((1, 1), "3"), ((1, 2), "4"), ((2, 0), "4")]) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨ssyt.builder_faithful (by decide), by decide, rfl, rfl, rfl, by decide +kernel⟩
 
 figure_links tableau tableau_spec
@@ -178,14 +222,19 @@ def permTwoLine : Diagram :=
   { perm.figure FinPerm.twoLine with title := "The permutation 42513 in two-line notation" }
 
 /-- The figure writes the arguments `1, …, 5` above their values `4 2 5 1 3`, and nothing else
-but the bar; its title names the permutation. -/
+but the bar; its title names the permutation.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem permTwoLine_spec :
-    perm.FaithfulTwoLine permTwoLine ∧ perm.IsPerm ∧
+    permTwoLine = ({ perm.figure FinPerm.twoLine with title := "The permutation 42513 in two-line notation" } : Diagram) ∧
+    perm = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
+    (perm.FaithfulTwoLine permTwoLine ∧ perm.IsPerm ∧
     permTwoLine.title = "The permutation 42513 in two-line notation" ∧
     perm.values.map (perm.text ·) = ["4", "2", "5", "1", "3"] ∧
     permTwoLine.entries = [((0, 0), "1"), ((0, 1), "2"), ((0, 2), "3"), ((0, 3), "4"),
       ((0, 4), "5"), ((1, 0), "4"), ((1, 1), "2"), ((1, 2), "5"), ((1, 3), "1"),
-      ((1, 4), "3")] := by
+      ((1, 4), "3")]) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨perm.twoLine_faithful, by decide, rfl, by decide +kernel, by decide +kernel⟩
 
 figure_links permTwoLine permTwoLine_spec
@@ -196,10 +245,15 @@ def permMatrix : Diagram :=
   { perm.figure FinPerm.matrix with title := "The permutation matrix of 42513", width := 200 }
 
 /-- The figure marks exactly the cells `(i, σ i)`: `(0, 3), (1, 1), (2, 4), (3, 0), (4, 2)`, on
-the grid and with nothing else drawn; its title names the permutation. -/
+the grid and with nothing else drawn; its title names the permutation.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem permMatrix_spec :
-    perm.FaithfulMatrix permMatrix ∧ permMatrix.title = "The permutation matrix of 42513" ∧
-    permMatrix.cells = [(0, 3), (1, 1), (2, 4), (3, 0), (4, 2)] := by
+    permMatrix = ({ perm.figure FinPerm.matrix with title := "The permutation matrix of 42513", width := 200 } : Diagram) ∧
+    perm = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
+    (perm.FaithfulMatrix permMatrix ∧ permMatrix.title = "The permutation matrix of 42513" ∧
+    permMatrix.cells = [(0, 3), (1, 1), (2, 4), (3, 0), (4, 2)]) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨perm.matrix_faithful, rfl, by decide +kernel⟩
 
 figure_links permMatrix permMatrix_spec
@@ -211,14 +265,19 @@ def permCycles : Diagram :=
 
 /-- The figure draws exactly the arrows `i → σ i`, written out (the fixed point `1 ↦ 1` as a
 loop), each vertex named by its number from 1 and nothing else drawn; the title's cycles
-`(1 4)(2)(3 5)` are the cycles of the permutation. -/
+`(1 4)(2)(3 5)` are the cycles of the permutation.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem permCycles_spec :
-    perm.FaithfulCycles permCycles ∧
+    permCycles = ({ perm.figure FinPerm.cycles with title := "The cycles of 42513: (1 4)(2)(3 5)", width := 260 } : Diagram) ∧
+    perm = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
+    (perm.FaithfulCycles permCycles ∧
     permCycles.title = "The cycles of 42513: (1 4)(2)(3 5)" ∧
     (List.range 5).map perm.toFinGraph.label = ["1", "2", "3", "4", "5"] ∧
     perm.apply 0 = 3 ∧ perm.apply 3 = 0 ∧ perm.apply 1 = 1 ∧ perm.apply 2 = 4 ∧
     perm.apply 4 = 2 ∧
-    permCycles.edges = [(0, 3), (1, 1), (2, 4), (3, 0), (4, 2)] := by
+    permCycles.edges = [(0, 3), (1, 1), (2, 4), (3, 0), (4, 2)]) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨perm.cycles_faithful, rfl, by decide +kernel, rfl, rfl, rfl, rfl, rfl,
     by decide +kernel⟩
 
@@ -231,11 +290,16 @@ def permWiring : Diagram :=
 
 /-- The figure draws the five strands, and the pairs of strands that cross are exactly the six
 inversions of `42513`, written out, with nothing else drawn but the positions and the two lines;
-its title says that there are six. -/
+its title says that there are six.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem permWiring_spec :
-    perm.FaithfulWiring permWiring ∧
+    permWiring = ({ perm.figure FinPerm.wiring with title := "The wiring diagram of 42513: six inversions" } : Diagram) ∧
+    perm = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
+    (perm.FaithfulWiring permWiring ∧
     permWiring.title = "The wiring diagram of 42513: six inversions" ∧
-    crossingPairs permWiring.strands = [(0, 1), (0, 3), (0, 4), (1, 3), (2, 3), (2, 4)] := by
+    crossingPairs permWiring.strands = [(0, 1), (0, 3), (0, 4), (1, 3), (2, 3), (2, 4)]) := by
+  refine ⟨rfl, rfl, ?_⟩
   refine ⟨perm.wiring_faithful, rfl, ?_⟩
   rw [show permWiring.strands = perm.wiring.strands from rfl, perm.wiring_crossings]
   decide
@@ -256,13 +320,19 @@ def rooted : Forest := ⟨12, fun c => treeParents.getD c none, #[]⟩
 def tree : Diagram := { rooted.figure with title := "A rooted tree, tidy layout" }
 
 /-- The figure draws exactly the eleven parent links `(parent c, c)`, written out, each vertex
-named by its number and nothing else drawn; its title says what it is. -/
+named by its number and nothing else drawn; its title says what it is.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem tree_spec :
-    rooted.Faithful rooted.layout tree ∧ rooted.IsForest ∧
+    tree = ({ rooted.figure with title := "A rooted tree, tidy layout" } : Diagram) ∧
+    rooted = (⟨12, fun c => treeParents.getD c none, #[]⟩ : Forest) ∧
+    treeParents = ([none, some 0, some 0, some 0, some 1, some 1, some 2, some 3, some 3, some 3, some 7, some 7] : List (Option Nat)) ∧
+    (rooted.Faithful rooted.layout tree ∧ rooted.IsForest ∧
     tree.title = "A rooted tree, tidy layout" ∧
     (List.range 12).map rooted.toFinGraph.label = (List.range 12).map toString ∧
     tree.edges = [(0, 1), (0, 2), (0, 3), (1, 4), (1, 5), (2, 6), (3, 7), (3, 8), (3, 9), (7, 10),
-      (7, 11)] := by
+      (7, 11)]) := by
+  refine ⟨rfl, rfl, rfl, ?_⟩
   exact ⟨rooted.builder_faithful (by decide), by decide, rfl, by decide +kernel,
     by decide +kernel⟩
 
@@ -282,12 +352,21 @@ def binaryTree : Diagram :=
   { bst.figure with title := "A binary search tree of 1, …, 9", width := 320 }
 
 /-- The figure draws exactly the eight parent links of the binary search tree, written out,
-vertex `k` named by its key `k + 1` and nothing else drawn; its title says what it is. -/
+vertex `k` named by its key `k + 1` and nothing else drawn; its title says what it is.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem binaryTree_spec :
-    bst.toForest.Faithful bst.layout binaryTree ∧
+    binaryTree = ({ bst.figure with title := "A binary search tree of 1, …, 9", width := 320 } : Diagram) ∧
+    bst = ({
+      n := 9
+      left := fun v => match v with | 4 => some 2 | 2 => some 0 | 7 => some 6 | 6 => some 5 | _ => none
+      right := fun v => match v with | 4 => some 7 | 2 => some 3 | 0 => some 1 | 7 => some 8 | _ => none
+      names := #["1", "2", "3", "4", "5", "6", "7", "8", "9"] } : BinTree) ∧
+    (bst.toForest.Faithful bst.layout binaryTree ∧
     binaryTree.title = "A binary search tree of 1, …, 9" ∧
     (List.range 9).map bst.toForest.toFinGraph.label = (List.range 9).map (toString <| · + 1) ∧
-    binaryTree.edges = [(0, 1), (2, 0), (2, 3), (4, 2), (4, 7), (6, 5), (7, 6), (7, 8)] := by
+    binaryTree.edges = [(0, 1), (2, 0), (2, 3), (4, 2), (4, 7), (6, 5), (7, 6), (7, 8)]) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨bst.builder_faithful (by decide), rfl, by decide +kernel, by decide +kernel⟩
 
 figure_links binaryTree binaryTree_spec
@@ -311,9 +390,17 @@ def venn : Diagram :=
 `(element, region)`), and nothing else but the circles and the sets' names; element `x` is
 named by the number `x + 1` it is; set `s` is the multiples of `m = 2, 3, 5` among them and is
 named `mℤ`; every number is written inside the circle of each set exactly when it belongs to it
-(`SetSystem.venn_inside`); and its title says what it is. -/
+(`SetSystem.venn_inside`); and its title says what it is.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem venn_spec :
-    multiples.FaithfulVenn venn ∧ venn.title = "Multiples of 2, 3 and 5 up to 12" ∧
+    venn = ({ multiples.vennFigure with title := "Multiples of 2, 3 and 5 up to 12" } : Diagram) ∧
+    multiples = ({
+      n := 12
+      sets := [2, 3, 5].map fun m => (List.range 12).filter fun x => (x + 1) % m == 0
+      names := ((List.range 12).map fun x => toString (x + 1)).toArray
+      setNames := #["2ℤ", "3ℤ", "5ℤ"] } : SetSystem) ∧
+    (multiples.FaithfulVenn venn ∧ venn.title = "Multiples of 2, 3 and 5 up to 12" ∧
     (List.range 12).map multiples.name = (List.range 12).map (toString <| · + 1) ∧
     multiples.sets.length = 3 ∧
     (∀ s < 3, let m := [2, 3, 5].getD s 0
@@ -322,7 +409,8 @@ theorem venn_spec :
     venn.members.map (fun (x, k, _) => (x, k)) = [(0, 0), (1, 1), (2, 2), (3, 1), (4, 4), (5, 3),
       (6, 0), (7, 1), (8, 2), (9, 5), (10, 0), (11, 3)] ∧
     ∀ x k p, (x, k, p) ∈ venn.members → ∀ s < 3,
-      inside ((vennCentres 3).getD s (0, 0)) p = multiples.mem x s := by
+      inside ((vennCentres 3).getD s (0, 0)) p = multiples.mem x s) := by
+  refine ⟨rfl, rfl, ?_⟩
   have hl : multiples.sets.length = 3 := by decide
   refine ⟨multiples.venn_faithful, rfl, by decide +kernel, hl, by decide +kernel,
     by decide +kernel, fun x k p hx s hs => ?_⟩
@@ -346,9 +434,17 @@ def fano : Diagram :=
 /-- The figure draws exactly the 21 incidences of the Fano plane, an edge from point `x` to line
 `7 + s` for each `x ∈ s`, the seven lines written out, and nothing else
 (`FinGraph.Faithful` of the incidence graph); point `x` is named by its number `x + 1` and line
-`s` by `L(s + 1)`, exactly; its title says what it is. -/
+`s` by `L(s + 1)`, exactly; its title says what it is.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem fano_spec :
-    fanoPlane.toFinGraph.Faithful fanoPlane.incidenceLayout fano ∧
+    fano = ({ fanoPlane.incidenceFigure with title := "Points and lines of the Fano plane" } : Diagram) ∧
+    fanoPlane = ({
+      n := 7
+      sets := [[0, 1, 2], [0, 3, 4], [0, 5, 6], [1, 3, 5], [1, 4, 6], [2, 3, 6], [2, 4, 5]]
+      names := #["1", "2", "3", "4", "5", "6", "7"]
+      setNames := #["L1", "L2", "L3", "L4", "L5", "L6", "L7"] } : SetSystem) ∧
+    (fanoPlane.toFinGraph.Faithful fanoPlane.incidenceLayout fano ∧
     fano.title = "Points and lines of the Fano plane" ∧
     fanoPlane.sets = [[0, 1, 2], [0, 3, 4], [0, 5, 6], [1, 3, 5], [1, 4, 6], [2, 3, 6],
       [2, 4, 5]] ∧
@@ -356,7 +452,8 @@ theorem fano_spec :
       (List.range 7).map (toString <| · + 1) ++ (List.range 7).map (s!"L{· + 1}") ∧
     fano.edges = [(0, 7), (0, 8), (0, 9), (1, 7), (1, 10), (1, 11), (2, 7), (2, 12), (2, 13),
       (3, 8), (3, 10), (3, 12), (4, 8), (4, 11), (4, 13), (5, 9), (5, 10), (5, 13), (6, 9),
-      (6, 11), (6, 12)] := by
+      (6, 11), (6, 12)]) := by
+  refine ⟨rfl, rfl, ?_⟩
   have h : fano = { fanoPlane.incidence with title := "Points and lines of the Fano plane" } := by
     unfold fano SetSystem.incidenceFigure
     rw [Diagram.capped_of (by decide)]
@@ -378,12 +475,17 @@ def dyck : Diagram :=
 
 /-- The figure draws the ten steps of the path of `UUDUUDDDUD`, each from point `k` to point
 `k + 1` (written out), on its grid and with nothing else; the word is a Dyck word; the title
-spells the word (`U` for an up step, `D` for a down step). -/
+spells the word (`U` for an up step, `D` for a down step).
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem dyck_spec :
-    (LatticePath.ofDyck dyckWord).Faithful dyck ∧ LatticePath.isDyck dyckWord = true ∧
+    dyck = ({ (LatticePath.ofDyck dyckWord).figure with title := "The Dyck path UUDUUDDDUD" } : Diagram) ∧
+    dyckWord = ([true, true, false, true, true, false, false, false, true, false] : List Bool) ∧
+    ((LatticePath.ofDyck dyckWord).Faithful dyck ∧ LatticePath.isDyck dyckWord = true ∧
     dyck.title = "The Dyck path " ++ String.ofList (dyckWord.map fun b => if b then 'U' else 'D') ∧
     dyck.steps.map (fun (_, _, q) => q) = [(1, 1), (2, 2), (3, 1), (4, 2), (5, 3), (6, 2), (7, 1),
-      (8, 0), (9, 1), (10, 0)] := by
+      (8, 0), (9, 1), (10, 0)]) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨(LatticePath.ofDyck dyckWord).builder_faithful (by decide), by decide, by decide +kernel,
     by decide +kernel⟩
 
@@ -397,10 +499,15 @@ def board : Polyomino := Polyomino.ferrers [4, 3, 1]
 def ferrers : Diagram := { board.draw with title := "The Ferrers board of (4, 3, 1)", width := 200 }
 
 /-- The figure draws exactly the eight cells of the board, written out, and nothing else; its
-title names the partition. -/
+title names the partition.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem ferrers_spec :
-    board.Faithful ferrers ∧ ferrers.title = "The Ferrers board of (4, 3, 1)" ∧
-    ferrers.cells = [(0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (1, 1), (2, 1), (0, 2)] := by
+    ferrers = ({ board.draw with title := "The Ferrers board of (4, 3, 1)", width := 200 } : Diagram) ∧
+    board = (Polyomino.ferrers [4, 3, 1] : Polyomino) ∧
+    (board.Faithful ferrers ∧ ferrers.title = "The Ferrers board of (4, 3, 1)" ∧
+    ferrers.cells = [(0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (1, 1), (2, 1), (0, 2)]) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨board.draw_faithful, rfl, by decide +kernel⟩
 
 figure_links ferrers ferrers_spec

@@ -59,9 +59,20 @@ def square : Diagram :=
 `ℤ/4 → ℤ/2` (written out) with their labels, and nothing else; each object is named `ℤ/m` for the
 set of `m` elements it is and each arrow `πₘ` for the reduction modulo `m` it is
 (`FinMaps.Names`); the reductions make the square commute and are surjective, as their tips `↠`
-say; and its title says so. -/
+say; and its title says so.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem square_spec :
-    reductionSquare.Faithful reductionSquare.layout square ∧
+    square = ({ reductionSquare.figure with title := "Reductions of ℤ/12: a commutative square" } : Diagram) ∧
+    reductionSquare = ({
+      objects := #["ℤ/12", "ℤ/6", "ℤ/4", "ℤ/2"]
+      pos := #[(0, 0), (1, 0), (0, -1), (1, -1)]
+      arrows := [{ src := 0, tgt := 1, label := "π₆", style := .epi },
+        { src := 0, tgt := 2, label := "π₄", style := .epi, swap := true },
+        { src := 1, tgt := 3, label := "π₂", style := .epi },
+        { src := 2, tgt := 3, label := "π₂", style := .epi, swap := true }]
+      paths := [(0, [0, 2], [1, 3])] } : CommDiagram) ∧
+    (reductionSquare.Faithful reductionSquare.layout square ∧
     square.title = "Reductions of ℤ/12: a commutative square" ∧
     reductionMaps.Names reductionSquare [("ℤ/12", 12), ("ℤ/6", 6), ("ℤ/4", 4), ("ℤ/2", 2)]
       [("π₆", reduction 12 6), ("π₄", reduction 12 4), ("π₂", reduction 6 2),
@@ -69,7 +80,8 @@ theorem square_spec :
     square.arrows = [(0, 0, 1), (1, 0, 2), (2, 1, 3), (3, 2, 3)] ∧
     square.arrowTexts = [(0, "π₆"), (1, "π₄"), (2, "π₂"), (3, "π₂")] ∧
     reductionMaps.Commutes reductionSquare = true ∧
-    reductionMaps.StylesHold reductionSquare = true := by
+    reductionMaps.StylesHold reductionSquare = true) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨reductionSquare.builder_faithful (by decide +kernel), rfl, by decide +kernel,
     by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel⟩
 
@@ -105,16 +117,25 @@ def exact : Diagram :=
 each object is named for the set it is (`0` for the one-element set) and each labelled arrow for
 its map, `·2` for doubling and `π₂` for the reduction (`FinMaps.Names`); doubling is injective and
 the reduction surjective, as their marks say, the image of each map is the kernel of the next,
-and its title says so. -/
+and its title says so.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem exact_spec :
-    exactSequence.Faithful exactSequence.layout exact ∧
+    exact = ({ exactSequence.figure with title := "A short exact sequence 0 → ℤ/2 → ℤ/4 → ℤ/2 → 0" } : Diagram) ∧
+    exactSequence = ({
+      objects := #["0", "ℤ/2", "ℤ/4", "ℤ/2", "0"]
+      pos := #[(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)]
+      arrows := [{ src := 0, tgt := 1 }, { src := 1, tgt := 2, label := "·2", style := .mono },
+        { src := 2, tgt := 3, label := "π₂", style := .epi }, { src := 3, tgt := 4 }] } : CommDiagram) ∧
+    (exactSequence.Faithful exactSequence.layout exact ∧
     exact.title = "A short exact sequence 0 → ℤ/2 → ℤ/4 → ℤ/2 → 0" ∧
     exactMaps.Names exactSequence [("0", 1), ("ℤ/2", 2), ("ℤ/4", 4), ("ℤ/2", 2), ("0", 1)]
       [("", #[0]), ("·2", #[0, 2]), ("π₂", reduction 4 2), ("", #[0, 0])] ∧
     exact.arrows = [(0, 0, 1), (1, 1, 2), (2, 2, 3), (3, 3, 4)] ∧
     exact.arrowTexts = [(1, "·2"), (2, "π₂")] ∧
     exactMaps.WellTyped exactSequence = true ∧ exactMaps.StylesHold exactSequence = true ∧
-    (exactAt exactMaps 0 && exactAt exactMaps 1 && exactAt exactMaps 2) = true := by
+    (exactAt exactMaps 0 && exactAt exactMaps 1 && exactAt exactMaps 2) = true) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨exactSequence.builder_faithful (by decide +kernel), rfl, by decide +kernel,
     by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel⟩
 
@@ -152,16 +173,31 @@ def cube : Diagram :=
 
 /-- The figure draws the twelve edges of the cube (written out), and nothing else; each vertex is
 named `ℤ/m` for the set of `m` elements it is and each edge is the reduction between its ends
-(`FinMaps.Names`); the reductions make all six faces commute; and its title says so. -/
+(`FinMaps.Names`); the reductions make all six faces commute; and its title says so.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cube_spec :
-    reductionCube.Faithful reductionCube.layout cube ∧
+    cube = ({ reductionCube.figure with title := "A cube of reductions of ℤ/30", width := 420 } : Diagram) ∧
+    reductionCube = ({
+      objects := cubeMods.map fun m => s!"ℤ/{m}"
+      pos := #[(0, 0), (2, 0), (0, -2), (1, 1), (2, -2), (3, 1), (1, -1), (3, -1)].map
+        fun (x, y) => (x * 3 / 4, y * 3 / 4)
+      arrows := [{ src := 0, tgt := 1 }, { src := 0, tgt := 2 }, { src := 1, tgt := 4 },
+        { src := 2, tgt := 4 }, { src := 0, tgt := 3 }, { src := 1, tgt := 5 },
+        { src := 2, tgt := 6 }, { src := 4, tgt := 7 }, { src := 3, tgt := 5 },
+        { src := 3, tgt := 6 }, { src := 5, tgt := 7 }, { src := 6, tgt := 7 }]
+      paths := [(0, [0, 2], [1, 3]), (3, [8, 10], [9, 11]), (0, [0, 5], [4, 8]),
+        (2, [3, 7], [6, 11]), (0, [1, 6], [4, 9]), (1, [2, 7], [5, 10])] } : CommDiagram) ∧
+    cubeMods = (#[30, 15, 10, 6, 5, 3, 2, 1] : Array Nat) ∧
+    (reductionCube.Faithful reductionCube.layout cube ∧
     cube.title = "A cube of reductions of ℤ/30" ∧
     cubeMaps.Names reductionCube ([30, 15, 10, 6, 5, 3, 2, 1].map fun m => (s!"ℤ/{m}", m))
       ([(30, 15), (30, 10), (15, 5), (10, 5), (30, 6), (15, 3), (10, 2), (5, 1), (6, 3), (6, 2),
         (3, 1), (2, 1)].map fun (a, b) => ("", reduction a b)) ∧
     cube.arrows = [(0, 0, 1), (1, 0, 2), (2, 1, 4), (3, 2, 4), (4, 0, 3), (5, 1, 5), (6, 2, 6),
       (7, 4, 7), (8, 3, 5), (9, 3, 6), (10, 5, 7), (11, 6, 7)] ∧
-    cubeMaps.Commutes reductionCube = true := by
+    cubeMaps.Commutes reductionCube = true) := by
+  refine ⟨rfl, rfl, rfl, ?_⟩
   refine ⟨?_, rfl, by decide +kernel, by decide +kernel, by decide +kernel⟩
   have h := reductionCube.builder_faithful (by decide +kernel)
   exact h
@@ -188,15 +224,27 @@ def twoCell : Diagram :=
 
 /-- The figure draws the arrows `F`, `G : C → D`, `J : D → E` and the loop `T` at `E` with their
 labels, and one 2-cell `α` from `F` to `G` (written out), and nothing else; and its title names
-the transformation. -/
+the transformation.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem twoCell_spec :
-    functors.Faithful functors.layout twoCell ∧
+    twoCell = ({ functors.figure with title := "A natural transformation α : F ⇒ G" } : Diagram) ∧
+    functors = ({
+      objects := #["C", "D", "E"]
+      pos := #[(0, 0), (3 / 2, 0), (3 / 2, -1)]
+      arrows := [{ src := 0, tgt := 1, label := "F", bend := 2 },
+        { src := 0, tgt := 1, label := "G", bend := -2, swap := true },
+        { src := 1, tgt := 2, label := "J", style := .inclusion },
+        { src := 2, tgt := 2, label := "T", bend := -1 }]
+      twoCells := [{ src := 0, tgt := 1, label := "α" }] } : CommDiagram) ∧
+    (functors.Faithful functors.layout twoCell ∧
     twoCell.title = "A natural transformation α : F ⇒ G" ∧
     functors.objects = #["C", "D", "E"] ∧
     functors.twoCells.map (fun c => (c.src, c.tgt, c.label)) = [(0, 1, "α")] ∧
     twoCell.arrows = [(0, 0, 1), (1, 0, 1), (2, 1, 2), (3, 2, 2)] ∧
     twoCell.arrowTexts = [(0, "F"), (1, "G"), (2, "J"), (3, "T")] ∧
-    (twoCell.marksWhere Part.isTwoCell).length = 3 := by
+    (twoCell.marksWhere Part.isTwoCell).length = 3) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨functors.builder_faithful (by decide +kernel), rfl, rfl, rfl, by decide +kernel,
     by decide +kernel, by decide +kernel⟩
 
@@ -245,15 +293,29 @@ def cayleyTable : Diagram :=
 /-- The figure writes in cell `(a, b)` the name of `a ∘ b`, row by row (written out for the first
 row and the first column), and nothing else but the headings and rules; element `k` is named by
 the cycles of the permutation `perms3[k]` it is (`cycleText`); the table is a group and is not
-commutative, and its centre is the identity alone; and its title says so. -/
+commutative, and its centre is the identity alone; and its title says so.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cayleyTable_spec :
-    s3.FaithfulTable cayleyTable ∧ cayleyTable.title = "The Cayley table of S₃" ∧
+    cayleyTable = ({ s3.tableFigure with title := "The Cayley table of S₃" } : Diagram) ∧
+    s3 = ({
+      n := 6
+      mul a b := ⟨compose3 a b % 6, Nat.mod_lt _ (by decide +kernel)⟩
+      names := #["e", "(1 2)", "(2 3)", "(1 3)", "(1 2 3)", "(1 3 2)"] } : FinMagma) ∧
+    (∀ (σ τ : Nat), compose3 σ τ = (
+      let p := (perms3.getD σ #[]).toList
+      let q := (perms3.getD τ #[]).toList
+      let r := (List.range 3).map fun x => p.getD (q.getD x 0) 0
+      (perms3.toList.findIdx? (·.toList == r)).getD 0 : Nat)) ∧
+    perms3 = (#[#[0, 1, 2], #[1, 0, 2], #[0, 2, 1], #[2, 1, 0], #[1, 2, 0], #[2, 0, 1]] : Array (Array Nat)) ∧
+    (s3.FaithfulTable cayleyTable ∧ cayleyTable.title = "The Cayley table of S₃" ∧
     s3.names.toList = perms3.toList.map cycleText ∧
     s3.isGroup = true ∧ s3.isCommutative = false ∧
     s3.centre = [0] ∧
     (cayleyTable.entries.take 6).map (·.2) = ["e", "(1 2)", "(2 3)", "(1 3)", "(1 2 3)", "(1 3 2)"]
     ∧ (cayleyTable.entries.filter (·.1.2 == 1)).map (·.2) =
-      ["(1 2)", "e", "(1 3 2)", "(1 2 3)", "(1 3)", "(2 3)"] := by
+      ["(1 2)", "e", "(1 3 2)", "(1 2 3)", "(1 3)", "(2 3)"]) := by
+  refine ⟨rfl, rfl, fun _ _ => rfl, rfl, ?_⟩
   exact ⟨s3.tableFigure_faithful (by decide +kernel), rfl, by decide +kernel, by decide +kernel,
     by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel⟩
 
@@ -276,15 +338,36 @@ def cayleyGraph : Diagram :=
 /-- The figure draws, in the colour of `(1 2)`, a line joining `g` and `g ∘ (1 2)` for each pair,
 and in the colour of `(1 2 3)` an arrow `g → g ∘ (1 2 3)` for each `g` (written out), and nothing
 else; each vertex is named by its element's cycles; and the title names the two generators by
-their names. -/
+their names.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cayleyGraph_spec :
-    (s3.cayley [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions).Faithful
+    cayleyGraph = (
+      { s3.cayleyFigure [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions with
+        title := "The Cayley graph of S₃ for (1 2) and (1 2 3)", width := 320 } : Diagram) ∧
+    s3 = ({
+      n := 6
+      mul a b := ⟨compose3 a b % 6, Nat.mod_lt _ (by decide +kernel)⟩
+      names := #["e", "(1 2)", "(2 3)", "(1 3)", "(1 2 3)", "(1 3 2)"] } : FinMagma) ∧
+    s3Positions = (
+      let outer := FinMagma.circlePositions 3 (6 / 5)
+      let inner := FinMagma.circlePositions 3 (9 / 20)
+      #[outer.getD 0 (0, 0), inner.getD 0 (0, 0), inner.getD 2 (0, 0), inner.getD 1 (0, 0),
+        outer.getD 1 (0, 0), outer.getD 2 (0, 0)] : Array QPoint) ∧
+    (∀ (σ τ : Nat), compose3 σ τ = (
+      let p := (perms3.getD σ #[]).toList
+      let q := (perms3.getD τ #[]).toList
+      let r := (List.range 3).map fun x => p.getD (q.getD x 0) 0
+      (perms3.toList.findIdx? (·.toList == r)).getD 0 : Nat)) ∧
+    perms3 = (#[#[0, 1, 2], #[1, 0, 2], #[0, 2, 1], #[2, 1, 0], #[1, 2, 0], #[2, 0, 1]] : Array (Array Nat)) ∧
+    ((s3.cayley [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions).Faithful
       (s3.cayley [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions).layout cayleyGraph ∧
     cayleyGraph.title = s!"The Cayley graph of S₃ for {s3.name 1} and {s3.name 4}" ∧
     (s3.cayley [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions).objects.toList =
       perms3.toList.map cycleText ∧
     cayleyGraph.arrows = [(0, 0, 1), (1, 2, 5), (2, 3, 4), (3, 0, 4), (4, 1, 2), (5, 2, 3),
-      (6, 3, 1), (7, 4, 5), (8, 5, 0)] := by
+      (6, 3, 1), (7, 4, 5), (8, 5, 0)]) := by
+  refine ⟨rfl, rfl, rfl, fun _ _ => rfl, rfl, ?_⟩
   have e : cayleyGraph.arrows = (s3.cayley [⟨1, by decide⟩, ⟨4, by decide⟩] s3Positions).figure.arrows := by
     unfold cayleyGraph FinMagma.cayleyFigure
     rw [Diagram.capped_of (by decide +kernel)]
@@ -314,14 +397,23 @@ def quiverData : FinQuiver where
 def quiver : Diagram := { quiverData.figure with title := "A quiver with dimension vector (2, 3, 1)" }
 
 /-- The figure draws the five arrows of the quiver with their names and writes the dimension at
-each vertex (written out), and nothing else; and its title gives the dimension vector. -/
+each vertex (written out), and nothing else; and its title gives the dimension vector.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem quiver_spec :
-    quiverData.Faithful quiverData.layout quiver ∧
+    quiver = ({ quiverData.figure with title := "A quiver with dimension vector (2, 3, 1)" } : Diagram) ∧
+    quiverData = ({
+      vertices := #["1", "2", "3"]
+      pos := #[(0, 0), (3 / 2, 0), (3 / 4, -1)]
+      arrows := [(0, 1, "a"), (0, 1, "b"), (1, 2, "c"), (2, 0, "d"), (2, 2, "ℓ")]
+      dims := #[2, 3, 1] } : FinQuiver) ∧
+    (quiverData.Faithful quiverData.layout quiver ∧
     quiver.title = "A quiver with dimension vector (2, 3, 1)" ∧ quiverData.dims = #[2, 3, 1] ∧
     quiver.arrows = [(0, 0, 1), (1, 0, 1), (2, 1, 2), (3, 2, 0), (4, 2, 2)] ∧
     quiver.arrowTexts = [(0, "a"), (1, "b"), (2, "c"), (3, "d"), (4, "ℓ")] ∧
     (quiver.marksWhere Part.isVertex).map (·.shape) = [.text "2" (0, 0) .center,
-      .text "3" (3 / 2, 0) .center, .text "1" (3 / 4, -1) .center] := by
+      .text "3" (3 / 2, 0) .center, .text "1" (3 / 4, -1) .center]) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨quiverData.builder_faithful (by decide +kernel), rfl, rfl, by decide +kernel,
     by decide +kernel, by decide +kernel⟩
 

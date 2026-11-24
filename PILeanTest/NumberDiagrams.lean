@@ -43,9 +43,14 @@ def totient : Diagram := { totientPlot.figure with title := "Euler's totient φ(
 
 /-- The figure plots Euler's totient faithfully on `1, …, 100`: its points are exactly
 `(n, φ(n))` (`SeqPlot.mem_data`), with the values written out, under the one name `φ(n)`, and it
-draws no curve. -/
+draws no curve.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem totient_spec :
-    totientPlot.Faithful totientPlot.layout totient ∧
+    totient = ({ totientPlot.figure with title := "Euler's totient φ(n), 1 ≤ n ≤ 100" } : Diagram) ∧
+    totientPlot = ({ lo := 1, hi := 100, series := [("φ(n)", fun n => phi n)] } : SeqPlot) ∧
+    (∀ (n : Nat), phi n = (((List.range n).filter fun a => Nat.gcd n a == 1).length : Nat)) ∧
+    (totientPlot.Faithful totientPlot.layout totient ∧
     totient.title = "Euler's totient φ(n), 1 ≤ n ≤ 100" ∧
     totientPlot.lo = 1 ∧ totientPlot.hi = 100 ∧ totientPlot.names = ["φ(n)"] ∧
     totientPlot.series.map (fun s => totientPlot.indices.map s.2) =
@@ -54,7 +59,8 @@ theorem totient_spec :
         32, 24, 52, 18, 40, 24, 36, 28, 58, 16, 60, 30, 36, 32, 48, 20, 66, 32, 44, 24, 70, 24, 72,
         36, 40, 36, 60, 24, 78, 32, 54, 40, 82, 24, 64, 42, 56, 40, 88, 24, 72, 44, 60, 46, 72, 32,
         96, 42, 60, 40]] ∧
-    totientPlot.curves.length = 0 := by
+    totientPlot.curves.length = 0) := by
+  refine ⟨rfl, rfl, fun _ => rfl, ?_⟩
   exact ⟨totientPlot.builder_faithful (by decide +kernel), rfl, rfl, rfl, by decide +kernel,
     by decide +kernel, rfl⟩
 
@@ -80,9 +86,18 @@ def sieve : Diagram :=
 
 /-- The figure draws the hundred cells faithfully: their keys are `1, …, 100`, each written as
 itself, in ten rows of ten, and the marked ones are exactly the 25 primes below 100 (written
-out); it has no heading. -/
+out); it has no heading.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem sieve_spec :
-    sievePlot.Faithful sieve ∧
+    sieve = ({ sievePlot.figure with title := "The primes up to 100", width := 360 } : Diagram) ∧
+    sievePlot = ({
+      cells := (List.range 100).map fun i =>
+        { key := i + 1, pos := ((i % 10 : Nat), -((i / 10 : Nat) : Int)), marked := isPrime (i + 1),
+          text := toString (i + 1) }
+      legend := "a prime" } : CellPlot) ∧
+    (∀ (n : Nat), isPrime n = (2 ≤ n && (List.range' 2 (n - 2)).all fun d => n % d != 0 : Bool)) ∧
+    (sievePlot.Faithful sieve ∧
     sieve.title = "The primes up to 100" ∧
     sievePlot.cells.map (·.key) = List.range' 1 100 ∧
     sievePlot.cells.all (fun c => c.text == toString c.key &&
@@ -91,7 +106,8 @@ theorem sieve_spec :
       [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89,
         97] ∧
     sievePlot.headings = [] ∧ sievePlot.solid = false ∧ sievePlot.legend = "a prime" ∧
-    sievePlot.ringed = none := by
+    sievePlot.ringed = none) := by
+  refine ⟨rfl, rfl, fun _ => rfl, ?_⟩
   exact ⟨sievePlot.builder_faithful (by decide +kernel), rfl, by decide +kernel, by decide +kernel,
     by decide +kernel, rfl, rfl, rfl, rfl⟩
 
@@ -119,9 +135,21 @@ def gaussian : Diagram :=
 
 /-- The figure draws the lattice `ℤ + ℤ i` faithfully in the window `[-4, 4]²`: its 81 points
 are the `a + b i` with `|a|, |b| ≤ 4`, the marked ones (in accent 1, the others faint) exactly
-the 32 Gaussian primes among them (written out). -/
+the 32 Gaussian primes among them (written out).
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem gaussian_spec :
-    gaussianLattice.Faithful gaussian ∧
+    gaussian = ({ gaussianLattice.figure with title := "The Gaussian primes a + bi with |a|, |b| ≤ 4" } : Diagram) ∧
+    gaussianLattice = (
+      { w1 := (1, 0), w2 := (0, 1), lo := (-4, -4), hi := (4, 4), marked := gaussianPrime,
+        plainInk := .faint } : PlaneLattice) ∧
+    (∀ (a b : Int), gaussianPrime a b = (
+      if a = 0 || b = 0 then
+        let k := (a + b).natAbs
+        isPrime k && k % 4 == 3
+      else isPrime (a.natAbs ^ 2 + b.natAbs ^ 2) : Bool)) ∧
+    (∀ (n : Nat), isPrime n = (2 ≤ n && (List.range' 2 (n - 2)).all fun d => n % d != 0 : Bool)) ∧
+    (gaussianLattice.Faithful gaussian ∧
     gaussian.title = "The Gaussian primes a + bi with |a|, |b| ≤ 4" ∧
     gaussianLattice.w1 = (1, 0) ∧ gaussianLattice.w2 = (0, 1) ∧
     gaussianLattice.lo = (-4, -4) ∧ gaussianLattice.hi = (4, 4) ∧
@@ -132,7 +160,8 @@ theorem gaussian_spec :
       [(-4, -1), (-4, 1), (-3, -2), (-3, 0), (-3, 2), (-2, -3), (-2, -1), (-2, 1), (-2, 3),
         (-1, -4), (-1, -2), (-1, -1), (-1, 1), (-1, 2), (-1, 4), (0, -3), (0, 3), (1, -4),
         (1, -2), (1, -1), (1, 1), (1, 2), (1, 4), (2, -3), (2, -1), (2, 1), (2, 3), (3, -2),
-        (3, 0), (3, 2), (4, -1), (4, 1)] := by
+        (3, 0), (3, 2), (4, -1), (4, 1)]) := by
+  refine ⟨rfl, rfl, fun _ _ => rfl, fun _ => rfl, ?_⟩
   exact ⟨gaussianLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl, rfl,
     by decide +kernel, rfl, by decide +kernel⟩
 
@@ -150,9 +179,13 @@ def skew : Diagram :=
   { skewLattice.figure with title := "The lattice ℤ(3/2, 1/2) + ℤ(1/2, 3/2)" }
 
 /-- The figure draws the lattice `ℤ (3/2, 1/2) + ℤ (1/2, 3/2)` faithfully in `[-3, 3]²`: its
-points are `m ω₁ + n ω₂` for the coefficients written out, none marked. -/
+points are `m ω₁ + n ω₂` for the coefficients written out, none marked.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem skew_spec :
-    skewLattice.Faithful skew ∧
+    skew = ({ skewLattice.figure with title := "The lattice ℤ(3/2, 1/2) + ℤ(1/2, 3/2)" } : Diagram) ∧
+    skewLattice = ({ w1 := (3 / 2, 1 / 2), w2 := (1 / 2, 3 / 2), lo := (-3, -3), hi := (3, 3) } : PlaneLattice) ∧
+    (skewLattice.Faithful skew ∧
     skew.title = "The lattice ℤ(3/2, 1/2) + ℤ(1/2, 3/2)" ∧
     skewLattice.w1 = (3 / 2, 1 / 2) ∧ skewLattice.w2 = (1 / 2, 3 / 2) ∧
     skewLattice.lo = (-3, -3) ∧ skewLattice.hi = (3, 3) ∧
@@ -160,7 +193,8 @@ theorem skew_spec :
       (0, -2), (0, -1), (0, 0), (0, 1), (0, 2), (1, -2), (1, -1), (1, 0), (1, 1), (2, -2), (2, -1),
       (2, 0), (3, -3)] ∧
     skewLattice.points.all (fun (m, n) => !skewLattice.marked m n) = true ∧
-    skewLattice.plainInk = .ink := by
+    skewLattice.plainInk = .ink) := by
+  refine ⟨rfl, rfl, ?_⟩
   exact ⟨skewLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     by decide +kernel, rfl⟩
 
