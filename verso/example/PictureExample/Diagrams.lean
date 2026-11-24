@@ -46,7 +46,8 @@ order is the transitive closure of those edges.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem divisorHasse_spec :
-    divisorHasse = ({ divisibility.figure with title := "The divisors of 12 under divisibility", width := 240 } : Diagram) ∧
+    divisorHasse = ({ divisibility.figure with
+      title := "The divisors of 12 under divisibility", width := 240 } : Diagram) ∧
     divisibility = ({
       n := 6
       le i j := divisorsOf12[j]! % divisorsOf12[i]! == 0
@@ -92,7 +93,8 @@ surjective, as their tips `↠` say.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem reductionSquare_spec :
-    reductionSquare = ({ reductions.figure with title := "Reductions of ℤ/12: a commutative square" } : Diagram) ∧
+    reductionSquare = ({ reductions.figure with
+      title := "Reductions of ℤ/12: a commutative square" } : Diagram) ∧
     reductions = ({
       objects := #["ℤ/12", "ℤ/6", "ℤ/4", "ℤ/2"]
       pos := #[(0, 0), (1, 0), (0, -1), (1, -1)]

@@ -140,7 +140,8 @@ edges (`FinPoset.transGen_covers_iff`); and its title says what it is.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cube_spec :
-    cube = ({ booleanLattice.figure with title := "Subsets of {1, 2, 3}", width := 300 } : Diagram) ∧
+    cube = ({ booleanLattice.figure with
+      title := "Subsets of {1, 2, 3}", width := 300 } : Diagram) ∧
     booleanLattice = ({
       n := 8
       le i j := i.val &&& j.val == i.val
@@ -171,7 +172,8 @@ partition.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem young_spec :
-    young = ({ shape5331.figure with title := "The Young diagram of (5, 3, 3, 1)", width := 220 } : Diagram) ∧
+    young = ({ shape5331.figure with
+      title := "The Young diagram of (5, 3, 3, 1)", width := 220 } : Diagram) ∧
     shape5331 = ({ rows := [5, 3, 3, 1] } : YoungShape) ∧
     (shape5331.Faithful young ∧ young.title = "The Young diagram of (5, 3, 3, 1)" ∧
     shape5331.rows = [5, 3, 3, 1] ∧
@@ -199,7 +201,8 @@ determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem tableau_spec :
     tableau = (
       { ssyt.figure with
-        title := "A semistandard tableau of shape (4, 3, 1), French notation", width := 200 } : Diagram) ∧
+        title := "A semistandard tableau of shape (4, 3, 1), French notation",
+        width := 200 } : Diagram) ∧
     ssyt = ({ entries := [[1, 1, 2, 4], [2, 3, 4], [4]], convention := .french } : Tableau) ∧
     (ssyt.Faithful tableau ∧ ssyt.IsSemistandard ∧
     tableau.title = "A semistandard tableau of shape (4, 3, 1), French notation" ∧
@@ -226,7 +229,8 @@ but the bar; its title names the permutation.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem permTwoLine_spec :
-    permTwoLine = ({ perm.figure FinPerm.twoLine with title := "The permutation 42513 in two-line notation" } : Diagram) ∧
+    permTwoLine = ({ perm.figure FinPerm.twoLine with
+      title := "The permutation 42513 in two-line notation" } : Diagram) ∧
     perm = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
     (perm.FaithfulTwoLine permTwoLine ∧ perm.IsPerm ∧
     permTwoLine.title = "The permutation 42513 in two-line notation" ∧
@@ -249,7 +253,8 @@ the grid and with nothing else drawn; its title names the permutation.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem permMatrix_spec :
-    permMatrix = ({ perm.figure FinPerm.matrix with title := "The permutation matrix of 42513", width := 200 } : Diagram) ∧
+    permMatrix = ({ perm.figure FinPerm.matrix with
+      title := "The permutation matrix of 42513", width := 200 } : Diagram) ∧
     perm = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
     (perm.FaithfulMatrix permMatrix ∧ permMatrix.title = "The permutation matrix of 42513" ∧
     permMatrix.cells = [(0, 3), (1, 1), (2, 4), (3, 0), (4, 2)]) := by
@@ -269,7 +274,8 @@ loop), each vertex named by its number from 1 and nothing else drawn; the title'
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem permCycles_spec :
-    permCycles = ({ perm.figure FinPerm.cycles with title := "The cycles of 42513: (1 4)(2)(3 5)", width := 260 } : Diagram) ∧
+    permCycles = ({ perm.figure FinPerm.cycles with
+      title := "The cycles of 42513: (1 4)(2)(3 5)", width := 260 } : Diagram) ∧
     perm = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
     (perm.FaithfulCycles permCycles ∧
     permCycles.title = "The cycles of 42513: (1 4)(2)(3 5)" ∧
@@ -294,7 +300,8 @@ its title says that there are six.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem permWiring_spec :
-    permWiring = ({ perm.figure FinPerm.wiring with title := "The wiring diagram of 42513: six inversions" } : Diagram) ∧
+    permWiring = ({ perm.figure FinPerm.wiring with
+      title := "The wiring diagram of 42513: six inversions" } : Diagram) ∧
     perm = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
     (perm.FaithfulWiring permWiring ∧
     permWiring.title = "The wiring diagram of 42513: six inversions" ∧
@@ -326,7 +333,9 @@ determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem tree_spec :
     tree = ({ rooted.figure with title := "A rooted tree, tidy layout" } : Diagram) ∧
     rooted = (⟨12, fun c => treeParents.getD c none, #[]⟩ : Forest) ∧
-    treeParents = ([none, some 0, some 0, some 0, some 1, some 1, some 2, some 3, some 3, some 3, some 7, some 7] : List (Option Nat)) ∧
+    treeParents =
+      ([none, some 0, some 0, some 0, some 1, some 1, some 2, some 3, some 3, some 3, some 7,
+      some 7] : List (Option Nat)) ∧
     (rooted.Faithful rooted.layout tree ∧ rooted.IsForest ∧
     tree.title = "A rooted tree, tidy layout" ∧
     (List.range 12).map rooted.toFinGraph.label = (List.range 12).map toString ∧
@@ -356,11 +365,14 @@ vertex `k` named by its key `k + 1` and nothing else drawn; its title says what 
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem binaryTree_spec :
-    binaryTree = ({ bst.figure with title := "A binary search tree of 1, …, 9", width := 320 } : Diagram) ∧
+    binaryTree = ({ bst.figure with
+      title := "A binary search tree of 1, …, 9", width := 320 } : Diagram) ∧
     bst = ({
       n := 9
-      left := fun v => match v with | 4 => some 2 | 2 => some 0 | 7 => some 6 | 6 => some 5 | _ => none
-      right := fun v => match v with | 4 => some 7 | 2 => some 3 | 0 => some 1 | 7 => some 8 | _ => none
+      left := fun v => match v with
+        | 4 => some 2 | 2 => some 0 | 7 => some 6 | 6 => some 5 | _ => none
+      right := fun v => match v with
+        | 4 => some 7 | 2 => some 3 | 0 => some 1 | 7 => some 8 | _ => none
       names := #["1", "2", "3", "4", "5", "6", "7", "8", "9"] } : BinTree) ∧
     (bst.toForest.Faithful bst.layout binaryTree ∧
     binaryTree.title = "A binary search tree of 1, …, 9" ∧
@@ -438,7 +450,8 @@ def fano : Diagram :=
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem fano_spec :
-    fano = ({ fanoPlane.incidenceFigure with title := "Points and lines of the Fano plane" } : Diagram) ∧
+    fano = ({ fanoPlane.incidenceFigure with
+      title := "Points and lines of the Fano plane" } : Diagram) ∧
     fanoPlane = ({
       n := 7
       sets := [[0, 1, 2], [0, 3, 4], [0, 5, 6], [1, 3, 5], [1, 4, 6], [2, 3, 6], [2, 4, 5]]
@@ -479,7 +492,8 @@ spells the word (`U` for an up step, `D` for a down step).
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem dyck_spec :
-    dyck = ({ (LatticePath.ofDyck dyckWord).figure with title := "The Dyck path UUDUUDDDUD" } : Diagram) ∧
+    dyck = ({ (LatticePath.ofDyck dyckWord).figure with
+      title := "The Dyck path UUDUUDDDUD" } : Diagram) ∧
     dyckWord = ([true, true, false, true, true, false, false, false, true, false] : List Bool) ∧
     ((LatticePath.ofDyck dyckWord).Faithful dyck ∧ LatticePath.isDyck dyckWord = true ∧
     dyck.title = "The Dyck path " ++ String.ofList (dyckWord.map fun b => if b then 'U' else 'D') ∧
@@ -503,7 +517,8 @@ title names the partition.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem ferrers_spec :
-    ferrers = ({ board.draw with title := "The Ferrers board of (4, 3, 1)", width := 200 } : Diagram) ∧
+    ferrers = ({ board.draw with
+      title := "The Ferrers board of (4, 3, 1)", width := 200 } : Diagram) ∧
     board = (Polyomino.ferrers [4, 3, 1] : Polyomino) ∧
     (board.Faithful ferrers ∧ ferrers.title = "The Ferrers board of (4, 3, 1)" ∧
     ferrers.cells = [(0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (1, 1), (2, 1), (0, 2)]) := by

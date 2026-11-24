@@ -162,7 +162,8 @@ at positive scales; its points are exactly `(n, Nat.totient n)` for `1 ≤ n ≤
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem totientFigure_spec :
-    totientFigure = ({ totientPlot.figure with title := "Euler's totient φ(n), 1 ≤ n ≤ 100" } : Diagram) ∧
+    totientFigure = ({ totientPlot.figure with
+      title := "Euler's totient φ(n), 1 ≤ n ≤ 100" } : Diagram) ∧
     totientPlot = ({ lo := 1, hi := 100, series := [("φ(n)", fun n => totient' n)] } : SeqPlot) ∧
     (∀ (n : Nat), totient' n = (((List.range n).filter fun a => Nat.gcd n a == 1).length : Nat)) ∧
     ((totientFigure.title = "Euler's totient φ(n), 1 ≤ n ≤ 100" ∧ totientFigure.style = {}) ∧
@@ -186,8 +187,10 @@ with no curve, at positive scales; its points are exactly `(n, σ 0 n)` for `1 �
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem divisorFigure_spec :
-    divisorFigure = ({ divisorPlot.figure with title := "The number of divisors d(n), 1 ≤ n ≤ 100" } : Diagram) ∧
-    divisorPlot = ({ lo := 1, hi := 100, series := [("d(n) = σ₀(n)", fun n => divisorCount n)] } : SeqPlot) ∧
+    divisorFigure = ({ divisorPlot.figure with
+      title := "The number of divisors d(n), 1 ≤ n ≤ 100" } : Diagram) ∧
+    divisorPlot = ({
+      lo := 1, hi := 100, series := [("d(n) = σ₀(n)", fun n => divisorCount n)] } : SeqPlot) ∧
     (∀ (n : Nat), divisorCount n = (((List.range' 1 n).filter fun d => n % d == 0).length : Nat)) ∧
     ((divisorFigure.title = "The number of divisors d(n), 1 ≤ n ≤ 100" ∧ divisorFigure.style = {}) ∧
     divisorPlot.Faithful divisorPlot.layout divisorFigure ∧
@@ -250,7 +253,8 @@ number is `Nat.Prime`; no cell has a text and there is no heading.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem ulamFigure_spec :
-    ulamFigure = ({ ulamPlot.figure with title := "The primes up to 441 on the Ulam spiral", width := 360 } : Diagram) ∧
+    ulamFigure = ({ ulamPlot.figure with
+      title := "The primes up to 441 on the Ulam spiral", width := 360 } : Diagram) ∧
     ulamPlot = ({ cells := ulamCells 441 isPrime', solid := true, ringed := some 1 } : CellPlot) ∧
     (∀ (n : Nat), isPrime' n = (2 ≤ n && (List.range' 2 (n - 2)).all fun d => n % d != 0 : Bool)) ∧
     ((ulamFigure.title = "The primes up to 441 on the Ulam spiral" ∧ ulamFigure.style = {}) ∧
@@ -286,7 +290,8 @@ determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem residueFigure_spec :
     residueFigure = (
       { residuePlot.figure with
-        title := "Quadratic residues and Legendre symbols modulo 3, 5, 7, 11, 13", width := 520 } : Diagram) ∧
+        title := "Quadratic residues and Legendre symbols modulo 3, 5, 7, 11, 13",
+        width := 520 } : Diagram) ∧
     residuePlot = ({
       cells := residuePrimes.zipIdx.flatMap fun (p, i) => (List.range p).map fun a =>
         residueCell p i a
@@ -297,8 +302,11 @@ theorem residueFigure_spec :
     (∀ (p i a : Nat), residueCell p i a = (
       { key := 100 * p + a, pos := ((a : Int), -(i : Int)), marked := legendre' p a == 1,
         text := symbolText (legendre' p a) } : NumberCell)) ∧
-    (∀ (p a : Nat), legendre' p a = (if a % p = 0 then 0 else if (List.range p).any (fun x => x * x % p == a % p) then 1 else -1 : Int)) ∧
-    (∀ (s : Int), symbolText s = (if s < 0 then "−" ++ toString s.natAbs else toString s : String)) ∧
+    (∀ (p a : Nat), legendre' p a =
+      (if a % p = 0 then 0
+        else if (List.range p).any (fun x => x * x % p == a % p) then 1 else -1 : Int)) ∧
+    (∀ (s : Int), symbolText s =
+      (if s < 0 then "−" ++ toString s.natAbs else toString s : String)) ∧
     ((residueFigure.title = "Quadratic residues and Legendre symbols \
       modulo 3, 5, 7, 11, 13" ∧ residueFigure.style = {}) ∧
     residuePlot.Faithful residueFigure ∧ residuePrimes = [3, 5, 7, 11, 13] ∧
@@ -341,7 +349,8 @@ is not.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem gaussianFigure_spec :
-    gaussianFigure = ({ gaussianLattice.figure with title := "The Gaussian primes a + bi with |a|, |b| ≤ 7" } : Diagram) ∧
+    gaussianFigure = ({ gaussianLattice.figure with
+      title := "The Gaussian primes a + bi with |a|, |b| ≤ 7" } : Diagram) ∧
     gaussianLattice = (
       { w1 := (1, 0), w2 := (0, 1), lo := (-7, -7), hi := (7, 7), marked := gaussianPrime,
         plainInk := .faint } : PlaneLattice) ∧
@@ -406,8 +415,10 @@ polyline `0, ω₁, ω₁ + ω₂, ω₂` in accent 0.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem latticeFigure_spec :
-    latticeFigure = ({ hexLattice.figure with title := "The lattice ℤ(1, 0) + ℤ(1/2, 7/8) and its fundamental domain" } : Diagram) ∧
-    hexLattice = ({ w1 := (1, 0), w2 := (1 / 2, 7 / 8), lo := (-3, -2), hi := (3, 2) } : PlaneLattice) ∧
+    latticeFigure = ({ hexLattice.figure with
+      title := "The lattice ℤ(1, 0) + ℤ(1/2, 7/8) and its fundamental domain" } : Diagram) ∧
+    hexLattice = ({
+      w1 := (1, 0), w2 := (1 / 2, 7 / 8), lo := (-3, -2), hi := (3, 2) } : PlaneLattice) ∧
     ((latticeFigure.title = "The lattice ℤ(1, 0) + ℤ(1/2, 7/8) and \
       its fundamental domain" ∧ latticeFigure.style = {}) ∧
     hexLattice.Faithful latticeFigure ∧

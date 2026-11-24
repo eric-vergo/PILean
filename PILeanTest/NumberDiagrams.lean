@@ -139,7 +139,8 @@ the 32 Gaussian primes among them (written out).
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem gaussian_spec :
-    gaussian = ({ gaussianLattice.figure with title := "The Gaussian primes a + bi with |a|, |b| ≤ 4" } : Diagram) ∧
+    gaussian = ({ gaussianLattice.figure with
+      title := "The Gaussian primes a + bi with |a|, |b| ≤ 4" } : Diagram) ∧
     gaussianLattice = (
       { w1 := (1, 0), w2 := (0, 1), lo := (-4, -4), hi := (4, 4), marked := gaussianPrime,
         plainInk := .faint } : PlaneLattice) ∧
@@ -183,8 +184,10 @@ points are `m ω₁ + n ω₂` for the coefficients written out, none marked.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem skew_spec :
-    skew = ({ skewLattice.figure with title := "The lattice ℤ(3/2, 1/2) + ℤ(1/2, 3/2)" } : Diagram) ∧
-    skewLattice = ({ w1 := (3 / 2, 1 / 2), w2 := (1 / 2, 3 / 2), lo := (-3, -3), hi := (3, 3) } : PlaneLattice) ∧
+    skew = ({ skewLattice.figure with
+      title := "The lattice ℤ(3/2, 1/2) + ℤ(1/2, 3/2)" } : Diagram) ∧
+    skewLattice = ({
+      w1 := (3 / 2, 1 / 2), w2 := (1 / 2, 3 / 2), lo := (-3, -3), hi := (3, 3) } : PlaneLattice) ∧
     (skewLattice.Faithful skew ∧
     skew.title = "The lattice ℤ(3/2, 1/2) + ℤ(1/2, 3/2)" ∧
     skewLattice.w1 = (3 / 2, 1 / 2) ∧ skewLattice.w2 = (1 / 2, 3 / 2) ∧

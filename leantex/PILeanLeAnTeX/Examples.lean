@@ -136,11 +136,16 @@ theorem planeDisks_spec :
         Plane.Exact.label "$\\zeta^2$" (rightCentre + z2) .auto |>.accent 2,
         Plane.Exact.segment leftCentre chordEnd |>.faint |>.dashed,
         Plane.Exact.labelBeside "$\\sqrt{3+\\varphi}$" leftCentre chordEnd |>.faint,
-        Plane.Exact.label "$-1$" leftCentre .auto, Plane.Exact.label "$+1$" rightCentre .auto] : Array Plane.Item) ∧
-    leftDisk = (Plane.Exact.disk leftCentre radius |>.accent 0 |>.named "the left circle" : Plane.Item) ∧
-    rightDisk = (Plane.Exact.disk rightCentre radius |>.accent 1 |>.named "the right circle" : Plane.Item) ∧
-    pointE = (Plane.Exact.point chordEnd |>.accent 0 |>.incident .on "the left circle" : Plane.Item) ∧
-    pointNegE = (Plane.Exact.point (-chordEnd) |>.accent 1 |>.incident .on "the right circle" : Plane.Item) ∧
+        Plane.Exact.label "$-1$" leftCentre .auto,
+        Plane.Exact.label "$+1$" rightCentre .auto] : Array Plane.Item) ∧
+    leftDisk =
+      (Plane.Exact.disk leftCentre radius |>.accent 0 |>.named "the left circle" : Plane.Item) ∧
+    rightDisk =
+      (Plane.Exact.disk rightCentre radius |>.accent 1 |>.named "the right circle" : Plane.Item) ∧
+    pointE =
+      (Plane.Exact.point chordEnd |>.accent 0 |>.incident .on "the left circle" : Plane.Item) ∧
+    pointNegE =
+      (Plane.Exact.point (-chordEnd) |>.accent 1 |>.incident .on "the right circle" : Plane.Item) ∧
     (chordEnd = Exact.Zeta5.pow 1 - Exact.Zeta5.pow 2 ∧ leftCentre = Exact.Zeta5.ofInt (-1) ∧
     rightCentre = Exact.Zeta5.ofInt 1 ∧ radius = ⟨⟨7 / 2, 1 / 2⟩⟩ ∧
     planeDisks.items = #[

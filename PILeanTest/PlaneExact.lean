@@ -124,10 +124,15 @@ theorem zetaSteps_spec :
         "the closed disk of radius 39/40 about 1/2" : Item) ∧
     (∀ (j : Nat), stepItems j = (
       let t : Tone := if inWindow j then .accent 0 else .faint
-      #[(Plane.Exact.segment Zeta5.zero (Zeta5.pow j)).tone t |>.named s!"the step to {stepLabel j}",
-        (Plane.Exact.label (stepLabel j) (Zeta5.pow j) (.toward (2 * pi * j.toFloat / 5))).tone t] : Array Item)) ∧
-    (∀ (j : Nat), stepPoint j = (Plane.Exact.pointNearDisk (Zeta5.pow j) windowCentre windowRadius "the window" : Item)) ∧
-    (∀ (j : Nat), inWindow j = (QSqrt.le (⟨5 / 4 - windowRadius * windowRadius, 0⟩ : QSqrt5) (Zeta5.pow j).realPart : Bool)) ∧
+      #[(Plane.Exact.segment Zeta5.zero (Zeta5.pow j)).tone t
+          |>.named s!"the step to {stepLabel j}",
+        (Plane.Exact.label (stepLabel j) (Zeta5.pow j)
+          (.toward (2 * pi * j.toFloat / 5))).tone t] : Array Item)) ∧
+    (∀ (j : Nat), stepPoint j =
+      (Plane.Exact.pointNearDisk (Zeta5.pow j) windowCentre windowRadius "the window" : Item)) ∧
+    (∀ (j : Nat), inWindow j =
+      (QSqrt.le (⟨5 / 4 - windowRadius * windowRadius,
+      0⟩ : QSqrt5) (Zeta5.pow j).realPart : Bool)) ∧
     (∀ (j : Nat), stepLabel j = (#["1", "ζ", "ζ²", "ζ³", "ζ⁴"].getD j "" : String)) ∧
     (zetaSteps.info.title = "Unit steps of ℤ[ζ₅] and a window" ∧
     windowCentre = (1 / 2, 0) ∧ windowRadius = 39 / 40 ∧

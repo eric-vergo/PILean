@@ -63,7 +63,8 @@ say; and its title says so.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem square_spec :
-    square = ({ reductionSquare.figure with title := "Reductions of ℤ/12: a commutative square" } : Diagram) ∧
+    square = ({ reductionSquare.figure with
+      title := "Reductions of ℤ/12: a commutative square" } : Diagram) ∧
     reductionSquare = ({
       objects := #["ℤ/12", "ℤ/6", "ℤ/4", "ℤ/2"]
       pos := #[(0, 0), (1, 0), (0, -1), (1, -1)]
@@ -121,12 +122,14 @@ and its title says so.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem exact_spec :
-    exact = ({ exactSequence.figure with title := "A short exact sequence 0 → ℤ/2 → ℤ/4 → ℤ/2 → 0" } : Diagram) ∧
+    exact = ({ exactSequence.figure with
+      title := "A short exact sequence 0 → ℤ/2 → ℤ/4 → ℤ/2 → 0" } : Diagram) ∧
     exactSequence = ({
       objects := #["0", "ℤ/2", "ℤ/4", "ℤ/2", "0"]
       pos := #[(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)]
       arrows := [{ src := 0, tgt := 1 }, { src := 1, tgt := 2, label := "·2", style := .mono },
-        { src := 2, tgt := 3, label := "π₂", style := .epi }, { src := 3, tgt := 4 }] } : CommDiagram) ∧
+        { src := 2, tgt := 3, label := "π₂", style := .epi },
+        { src := 3, tgt := 4 }] } : CommDiagram) ∧
     (exactSequence.Faithful exactSequence.layout exact ∧
     exact.title = "A short exact sequence 0 → ℤ/2 → ℤ/4 → ℤ/2 → 0" ∧
     exactMaps.Names exactSequence [("0", 1), ("ℤ/2", 2), ("ℤ/4", 4), ("ℤ/2", 2), ("0", 1)]
@@ -177,7 +180,8 @@ named `ℤ/m` for the set of `m` elements it is and each edge is the reduction b
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cube_spec :
-    cube = ({ reductionCube.figure with title := "A cube of reductions of ℤ/30", width := 420 } : Diagram) ∧
+    cube = ({ reductionCube.figure with
+      title := "A cube of reductions of ℤ/30", width := 420 } : Diagram) ∧
     reductionCube = ({
       objects := cubeMods.map fun m => s!"ℤ/{m}"
       pos := #[(0, 0), (2, 0), (0, -2), (1, 1), (2, -2), (3, 1), (1, -1), (3, -1)].map
@@ -307,7 +311,9 @@ theorem cayleyTable_spec :
       let q := (perms3.getD τ #[]).toList
       let r := (List.range 3).map fun x => p.getD (q.getD x 0) 0
       (perms3.toList.findIdx? (·.toList == r)).getD 0 : Nat)) ∧
-    perms3 = (#[#[0, 1, 2], #[1, 0, 2], #[0, 2, 1], #[2, 1, 0], #[1, 2, 0], #[2, 0, 1]] : Array (Array Nat)) ∧
+    perms3 =
+      (#[#[0, 1, 2], #[1, 0, 2], #[0, 2, 1], #[2, 1, 0], #[1, 2, 0],
+      #[2, 0, 1]] : Array (Array Nat)) ∧
     (s3.FaithfulTable cayleyTable ∧ cayleyTable.title = "The Cayley table of S₃" ∧
     s3.names.toList = perms3.toList.map cycleText ∧
     s3.isGroup = true ∧ s3.isCommutative = false ∧
@@ -359,7 +365,9 @@ theorem cayleyGraph_spec :
       let q := (perms3.getD τ #[]).toList
       let r := (List.range 3).map fun x => p.getD (q.getD x 0) 0
       (perms3.toList.findIdx? (·.toList == r)).getD 0 : Nat)) ∧
-    perms3 = (#[#[0, 1, 2], #[1, 0, 2], #[0, 2, 1], #[2, 1, 0], #[1, 2, 0], #[2, 0, 1]] : Array (Array Nat)) ∧
+    perms3 =
+      (#[#[0, 1, 2], #[1, 0, 2], #[0, 2, 1], #[2, 1, 0], #[1, 2, 0],
+      #[2, 0, 1]] : Array (Array Nat)) ∧
     ((s3.cayley [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions).Faithful
       (s3.cayley [⟨1, by decide +kernel⟩, ⟨4, by decide +kernel⟩] s3Positions).layout cayleyGraph ∧
     cayleyGraph.title = s!"The Cayley graph of S₃ for {s3.name 1} and {s3.name 4}" ∧
@@ -401,7 +409,8 @@ each vertex (written out), and nothing else; and its title gives the dimension v
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem quiver_spec :
-    quiver = ({ quiverData.figure with title := "A quiver with dimension vector (2, 3, 1)" } : Diagram) ∧
+    quiver = ({ quiverData.figure with
+      title := "A quiver with dimension vector (2, 3, 1)" } : Diagram) ∧
     quiverData = ({
       vertices := #["1", "2", "3"]
       pos := #[(0, 0), (3 / 2, 0), (3 / 4, -1)]

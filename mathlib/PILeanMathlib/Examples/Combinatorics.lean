@@ -51,7 +51,8 @@ partial order, so the transitive closure of the edges is strict divisibility
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem divisorsFigure_spec :
-    divisorsFigure = ({ divisorOrder.figure with title := "The divisors of 60, ordered by divisibility", width := 360 } : Diagram) ∧
+    divisorsFigure = ({ divisorOrder.figure with
+      title := "The divisors of 60, ordered by divisibility", width := 360 } : Diagram) ∧
     divisorOrder = ({
       n := divisors60.length
       le i j := divisors60.getD j.val 0 % divisors60.getD i.val 1 == 0
@@ -98,7 +99,8 @@ element more); nothing else is drawn, and its title says what it is.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem subsetsFigure_spec :
-    subsetsFigure = ({ subsetOrder.figure with title := "The subsets of {0, 1, 2}", width := 300 } : Diagram) ∧
+    subsetsFigure = ({ subsetOrder.figure with
+      title := "The subsets of {0, 1, 2}", width := 300 } : Diagram) ∧
     subsetOrder = ({
       n := 8
       le i j := i.val &&& j.val == i.val
@@ -149,7 +151,8 @@ what it is.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem petersenFigure_spec :
-    petersenFigure = ({ kneserGraph.draw kneserLayout with title := "The Petersen graph", width := 340 } : Diagram) ∧
+    petersenFigure = ({ kneserGraph.draw kneserLayout with
+      title := "The Petersen graph", width := 340 } : Diagram) ∧
     kneserGraph = ({
       n := 10
       adj i j :=
@@ -166,7 +169,9 @@ theorem petersenFigure_spec :
         | some k, _ => at_ 1 k
         | none, some k => at_ (1 / 2) k
         | none, none => (0, 0)).toArray : Layout) ∧
-    pairs5 = ((List.range 5).flatMap fun a => ((List.range 5).filter (a < ·)).map fun b => (a, b) : List (Nat × Nat)) ∧
+    pairs5 =
+      ((List.range 5).flatMap fun a => ((List.range 5).filter (a < ·)).map fun b => (a,
+      b) : List (Nat × Nat)) ∧
     (kneserGraph.Faithful kneserLayout petersenFigure ∧
     petersenFigure.title = "The Petersen graph" ∧
     (∀ i : Fin 10, kneserGraph.label i =
@@ -256,7 +261,8 @@ number from 1, `a + 1`, and nothing else (`FinPerm.FaithfulCycles`); its title g
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cyclesFigure_spec :
-    cyclesFigure = ({ sigma.figure FinPerm.cycles with title := "The cycles of (1 4)(3 5)", width := 260 } : Diagram) ∧
+    cyclesFigure = ({ sigma.figure FinPerm.cycles with
+      title := "The cycles of (1 4)(3 5)", width := 260 } : Diagram) ∧
     sigma = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
     (sigma.FaithfulCycles cyclesFigure ∧ cyclesFigure.title = "The cycles of (1 4)(3 5)" ∧
     (∀ a : Fin 5, sigma.toFinGraph.label a = toString (a.val + 1)) ∧
@@ -275,7 +281,8 @@ the two lines (`FinPerm.FaithfulWiring`), and its title names the permutation.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem wiringFigure_spec :
-    wiringFigure = ({ sigma.figure FinPerm.wiring with title := "The wiring diagram of 42513" } : Diagram) ∧
+    wiringFigure = ({ sigma.figure FinPerm.wiring with
+      title := "The wiring diagram of 42513" } : Diagram) ∧
     sigma = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
     (sigma.FaithfulWiring wiringFigure ∧ wiringFigure.title = "The wiring diagram of 42513" ∧
     sigma.values.map (· + 1) = [4, 2, 5, 1, 3] ∧
@@ -321,8 +328,10 @@ the word.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem dyckFigure_spec :
-    dyckFigure = ({ (LatticePath.ofDyck dyckBitsUUDUUDDDUD).figure with title := "The Dyck word UUDUUDDDUD" } : Diagram) ∧
-    dyckBitsUUDUUDDDUD = ([true, true, false, true, true, false, false, false, true, false] : List Bool) ∧
+    dyckFigure = ({ (LatticePath.ofDyck dyckBitsUUDUUDDDUD).figure with
+      title := "The Dyck word UUDUUDDDUD" } : Diagram) ∧
+    dyckBitsUUDUUDDDUD =
+      ([true, true, false, true, true, false, false, false, true, false] : List Bool) ∧
     ((LatticePath.ofDyckWord dyckWord).Faithful dyckFigure ∧
     dyckFigure.title = "The Dyck word " ++
       String.ofList (dyckWord.toList.map fun l => if l = .U then 'U' else 'D') ∧
@@ -358,7 +367,8 @@ multiples of `m` exactly when it is a multiple of `m`; and its title says so.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem vennFigure_spec :
-    vennFigure = ({ multiples.vennFigure with title := "Multiples of 2, 3 and 5 up to 12" } : Diagram) ∧
+    vennFigure = ({ multiples.vennFigure with
+      title := "Multiples of 2, 3 and 5 up to 12" } : Diagram) ∧
     multiples = ({
       n := 12
       sets := [2, 3, 5].map fun m => (List.range 12).filter fun x => (x + 1) % m == 0

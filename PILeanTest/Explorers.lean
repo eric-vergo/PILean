@@ -80,13 +80,16 @@ mark), its title names `ℤ/n` and `a`, its elements are named by their numbers,
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cayleyExplorer_spec :
-    moduli = ({ name := "n", values := #[5, 6, 7, 8, 9, 10, 11, 12], label := toString } : ExplorerParam Nat) ∧
+    moduli = ({
+      name := "n", values := #[5, 6, 7, 8, 9, 10, 11, 12],
+      label := toString } : ExplorerParam Nat) ∧
     generators = ({ name := "a", values := #[1, 2, 3, 4], label := toString } : ExplorerParam Nat) ∧
     (∀ (n a : Nat), cayleyDiagram n a = (
       { (zmod n).cayleyFigure (generator n a) (FinMagma.circlePositions n) with
         title := s!"The Cayley graph of ℤ/{n} for the generator {a}", width := 300 } : Diagram)) ∧
     (∀ (n : Nat), zmod n = ({ n, mul := fun a b => a + b } : FinMagma)) ∧
-    (∀ (n a : Nat), generator n a = (if h : 0 < n then [⟨a % n, Nat.mod_lt _ h⟩] else [] : List (Fin n))) ∧
+    (∀ (n a : Nat), generator n a =
+      (if h : 0 < n then [⟨a % n, Nat.mod_lt _ h⟩] else [] : List (Fin n))) ∧
     (cayleyExplorer = Explorer.family₂ moduli generators cayleyFrame ∧
     moduli.values = #[5, 6, 7, 8, 9, 10, 11, 12] ∧ generators.values = #[1, 2, 3, 4] ∧
     moduli.name = "n" ∧ generators.name = "a" ∧
@@ -164,10 +167,14 @@ names the second period.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem latticeExplorer_spec :
-    periodX = ({ name := "x", values := #[0, 1 / 4, 1 / 2, 3 / 4], label := toString } : ExplorerParam Rat) ∧
-    periodY = ({ name := "y", values := #[1 / 2, 3 / 4, 1], label := toString } : ExplorerParam Rat) ∧
-    (∀ (x y : Rat), latticeDiagram x y = ({ (lattice x y).figure with title := s!"The lattice ℤ(1, 0) + ℤ({x}, {y})" } : Diagram)) ∧
-    (∀ (x y : Rat), lattice x y = ({ w1 := (1, 0), w2 := (x, y), lo := (-3, -2), hi := (3, 2) } : PlaneLattice)) ∧
+    periodX = ({
+      name := "x", values := #[0, 1 / 4, 1 / 2, 3 / 4], label := toString } : ExplorerParam Rat) ∧
+    periodY = ({
+      name := "y", values := #[1 / 2, 3 / 4, 1], label := toString } : ExplorerParam Rat) ∧
+    (∀ (x y : Rat), latticeDiagram x y = ({ (lattice x y).figure with
+      title := s!"The lattice ℤ(1, 0) + ℤ({x}, {y})" } : Diagram)) ∧
+    (∀ (x y : Rat), lattice x y = ({
+      w1 := (1, 0), w2 := (x, y), lo := (-3, -2), hi := (3, 2) } : PlaneLattice)) ∧
     (latticeExplorer = Explorer.family₂ periodX periodY latticeFrame ∧
     periodX.values = #[0, 1 / 4, 1 / 2, 3 / 4] ∧ periodY.values = #[1 / 2, 3 / 4, 1] ∧
     periodX.name = "x" ∧ periodY.name = "y" ∧

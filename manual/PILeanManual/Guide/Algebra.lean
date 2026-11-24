@@ -147,7 +147,8 @@ def z5Table : Plane.Figure := z5.tableFigure.toPlane
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem z5Table_spec :
-    z5 = ({ n := 5, mul := fun a b => ⟨(a.val + b.val) % 5, Nat.mod_lt _ (by decide)⟩ } : FinMagma) ∧
+    z5 = ({
+      n := 5, mul := fun a b => ⟨(a.val + b.val) % 5, Nat.mod_lt _ (by decide)⟩ } : FinMagma) ∧
     (z5Table = z5.tableFigure.toPlane ∧ z5.isGroup = true ∧ z5.isCommutative = true ∧
     z5.FaithfulTable z5.tableFigure) := by
   refine ⟨rfl, ?_⟩

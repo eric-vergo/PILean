@@ -79,7 +79,8 @@ which are `1` and `r 2`.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem d4TableFigure_spec :
-    d4TableFigure = ({ d4Table.tableFigure with title := "The Cayley table of the dihedral group of order 8" } : Diagram) ∧
+    d4TableFigure = ({ d4Table.tableFigure with
+      title := "The Cayley table of the dihedral group of order 8" } : Diagram) ∧
     d4Table = (⟨8, d4Mul, d4Names⟩ : FinMagma) ∧
     (∀ (a b : Fin 8), d4Mul a b = (
       let i := a.val % 4
@@ -129,10 +130,13 @@ determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem d4CayleyFigure_spec :
     d4CayleyFigure = (
       { d4Table.cayleyFigure d4Generators d4Positions with
-        title := "The Cayley graph of the dihedral group of order 8 for r and s", width := 340 } : Diagram) ∧
+        title := "The Cayley graph of the dihedral group of order 8 for r and s",
+        width := 340 } : Diagram) ∧
     d4Table = (⟨8, d4Mul, d4Names⟩ : FinMagma) ∧
     d4Generators = ([⟨1, by decide⟩, ⟨4, by decide⟩] : List (Fin d4Table.n)) ∧
-    d4Positions = (#[(0, 1 / 2), (1 / 2, 0), (0, -1 / 2), (-1 / 2, 0), (0, 1), (-1, 0), (0, -1), (1, 0)] : Array QPoint) ∧
+    d4Positions =
+      (#[(0, 1 / 2), (1 / 2, 0), (0, -1 / 2), (-1 / 2, 0), (0, 1), (-1, 0), (0, -1),
+      (1, 0)] : Array QPoint) ∧
     (∀ (a b : Fin 8), d4Mul a b = (
       let i := a.val % 4
       let j := b.val % 4
@@ -323,8 +327,11 @@ theorem d4SubgroupsFigure_spec :
       names := d4SubgroupGens.map genName
       marked := d4Normal } : FinPoset) ∧
     d4SubgroupMasks = (#[1, 17, 65, 5, 33, 129, 85, 15, 165, 255] : Array Nat) ∧
-    (∀ (gs : List Nat), genName gs = (if gs.isEmpty then "1" else "⟨" ++ ", ".intercalate (gs.map fun g => d4Names.getD g "") ++ "⟩" : String)) ∧
-    d4SubgroupGens = (#[[], [4], [6], [2], [5], [7], [2, 4], [1], [2, 5], [1, 4]] : Array (List Nat)) ∧
+    (∀ (gs : List Nat), genName gs =
+      (if gs.isEmpty then "1"
+        else "⟨" ++ ", ".intercalate (gs.map fun g => d4Names.getD g "") ++ "⟩" : String)) ∧
+    d4SubgroupGens =
+      (#[[], [4], [6], [2], [5], [7], [2, 4], [1], [2, 5], [1, 4]] : Array (List Nat)) ∧
     d4Normal = (#[true, false, false, true, false, false, true, true, true, true] : Array Bool) ∧
     d4Names = (#["1", "r", "r²", "r³", "s", "sr", "sr²", "sr³"] : Array String) ∧
     (d4Subgroups.Faithful d4Subgroups.layout d4SubgroupsFigure ∧
@@ -366,7 +373,8 @@ those maps as morphisms of `Type`, which is `CommSq` of Mathlib.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem commSqFigure_spec :
-    commSqFigure = ({ squareDiagram.figure with title := "A commutative square in the category of types" } : Diagram) ∧
+    commSqFigure = ({ squareDiagram.figure with
+      title := "A commutative square in the category of types" } : Diagram) ∧
     squareObjects = (#["ℤ/12", "ℤ/6", "ℤ/4", "ℤ/2"] : Array String) ∧
     squareLabels = (#["π₆", "π₄", "π₂", "π₂"] : Array String) ∧
     (squareDiagram = CommDiagram.square squareObjects squareLabels ∧
@@ -416,7 +424,8 @@ in Mathlib's sense.
 The statement begins with the figure written out, with the definitions it is built from, so that it
 determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem shortExactFigure_spec :
-    shortExactFigure = ({ shortExactDiagram.figure with title := "A short exact sequence" } : Diagram) ∧
+    shortExactFigure = ({ shortExactDiagram.figure with
+      title := "A short exact sequence" } : Diagram) ∧
     (shortExactDiagram = CommDiagram.shortExact #["A", "B", "C"] "f" "g" ∧
     shortExactDiagram.Faithful shortExactDiagram.layout shortExactFigure ∧
     shortExactFigure.title = "A short exact sequence" ∧

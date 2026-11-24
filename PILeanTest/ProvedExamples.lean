@@ -142,8 +142,11 @@ theorem provedData_spec :
       title := "Squares modulo 17"
       panels := #[{
           x := { label := "k" }, y := { label := "k^2 mod 17, minus 8" },
-          series := #[.ofIntPoints "line" residues, .scatterOfIntPoints "points" residues] }] } : Figure) ∧
-    residues = ((List.range 25).map fun (k : Nat) => (Int.ofNat k, Int.ofNat (k * k % 17) - 8) : List (Int × Int)) ∧
+          series := #[.ofIntPoints "line" residues,
+          .scatterOfIntPoints "points" residues] }] } : Figure) ∧
+    residues =
+      ((List.range 25).map fun (k : Nat) => (Int.ofNat k,
+      Int.ofNat (k * k % 17) - 8) : List (Int × Int)) ∧
     (provedData.title = "Squares modulo 17" ∧
     provedData.panels = #[{
       x := { label := "k" }, y := { label := "k^2 mod 17, minus 8" },
@@ -157,7 +160,8 @@ theorem provedData_spec :
       (residues.map Exact.ofIntPair).map (fun q => (q.1.num, q.2.num)) = residues ∧
       residues.length = 25) := by
   refine ⟨rfl, rfl, ?_⟩
-  exact ⟨rfl, rfl, by simp [provedData], Series.ofIntPoints_points .., Series.scatterOfIntPoints_points ..,
+  exact ⟨rfl, rfl, by simp [provedData], Series.ofIntPoints_points ..,
+    Series.scatterOfIntPoints_points ..,
     Series.ofIntPairs_recover _, by simp [residues]⟩
 
 /-- The data are not degenerate: the first three are `(0, -8)`, `(1, -7)`, `(2, -4)`. -/
