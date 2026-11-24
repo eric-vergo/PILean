@@ -75,9 +75,21 @@ theorem d4Table_eq : d4Table = FinMagma.ofMul d4Equiv d4Names := by
 `d4Table` faithfully; the entry written in cell `(a, b)` is the name of `d4 a * d4 b`; the table
 is a group; it is not symmetric about its diagonal, since `DihedralGroup 4` is not commutative;
 and the elements whose row and column agree are those of the centre of `DihedralGroup 4`,
-which are `1` and `r 2`. -/
+which are `1` and `r 2`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem d4TableFigure_spec :
-    d4Table.FaithfulTable d4TableFigure ∧
+    d4TableFigure = ({ d4Table.tableFigure with title := "The Cayley table of the dihedral group of order 8" } : Diagram) ∧
+    d4Table = (⟨8, d4Mul, d4Names⟩ : FinMagma) ∧
+    (∀ (a b : Fin 8), d4Mul a b = (
+      let i := a.val % 4
+      let j := b.val % 4
+      if a.val < 4 then
+        if b.val < 4 then ⟨(i + j) % 4, by omega⟩ else ⟨4 + (j + 4 - i) % 4, by omega⟩
+      else
+        if b.val < 4 then ⟨4 + (i + j) % 4, by omega⟩ else ⟨(j + 4 - i) % 4, by omega⟩ : Fin 8)) ∧
+    d4Names = (#["1", "r", "r²", "r³", "s", "sr", "sr²", "sr³"] : Array String) ∧
+    (d4Table.FaithfulTable d4TableFigure ∧
     d4TableFigure.title = "The Cayley table of the dihedral group of order 8" ∧
     (∀ (a b : Fin 8) (s : String), (((a : ℕ), (b : ℕ)), s) ∈ d4TableFigure.entries ↔
       s = d4Table.name (d4Equiv.symm (d4Equiv a * d4Equiv b))) ∧
@@ -85,7 +97,8 @@ theorem d4TableFigure_spec :
     d4Table.isGroup = true ∧ d4Table.isCommutative = false ∧
     ¬ (∀ x y : DihedralGroup 4, x * y = y * x) ∧
     (∀ a : Fin 8, a.val ∈ d4Table.centre ↔ d4Equiv a ∈ Subgroup.center (DihedralGroup 4)) ∧
-    d4Table.centre = [0, 2] := by
+    d4Table.centre = [0, 2]) := by
+  refine ⟨rfl, rfl, fun _ _ => rfl, rfl, ?_⟩
   have hf : d4Table.FaithfulTable d4TableFigure := by
     have := d4Table.tableFigure_faithful (by decide)
     exact this
@@ -110,9 +123,25 @@ figure_links d4TableFigure d4TableFigure_spec
 names the group and the generators. Every arrow the figure draws, from element `i` to element
 `j`, has `d4 j = d4 i * r 1` or `d4 j = d4 i * sr 0`; there are twelve, eight for `r` and one
 line for each of the four pairs `{g, g s}`; and every element has its arrows: one to `g * r 1`,
-and a line joining it to `g * sr 0`. -/
+and a line joining it to `g * sr 0`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem d4CayleyFigure_spec :
-    (d4Table.cayley d4Generators d4Positions).Faithful
+    d4CayleyFigure = (
+      { d4Table.cayleyFigure d4Generators d4Positions with
+        title := "The Cayley graph of the dihedral group of order 8 for r and s", width := 340 } : Diagram) ∧
+    d4Table = (⟨8, d4Mul, d4Names⟩ : FinMagma) ∧
+    d4Generators = ([⟨1, by decide⟩, ⟨4, by decide⟩] : List (Fin d4Table.n)) ∧
+    d4Positions = (#[(0, 1 / 2), (1 / 2, 0), (0, -1 / 2), (-1 / 2, 0), (0, 1), (-1, 0), (0, -1), (1, 0)] : Array QPoint) ∧
+    (∀ (a b : Fin 8), d4Mul a b = (
+      let i := a.val % 4
+      let j := b.val % 4
+      if a.val < 4 then
+        if b.val < 4 then ⟨(i + j) % 4, by omega⟩ else ⟨4 + (j + 4 - i) % 4, by omega⟩
+      else
+        if b.val < 4 then ⟨4 + (i + j) % 4, by omega⟩ else ⟨(j + 4 - i) % 4, by omega⟩ : Fin 8)) ∧
+    d4Names = (#["1", "r", "r²", "r³", "s", "sr", "sr²", "sr³"] : Array String) ∧
+    ((d4Table.cayley d4Generators d4Positions).Faithful
       (d4Table.cayley d4Generators d4Positions).layout d4CayleyFigure ∧
     d4CayleyFigure.title = "The Cayley graph of the dihedral group of order 8 for r and s" ∧
     (∀ k : Fin 8, (d4Table.cayley d4Generators d4Positions).objects.getD k "" =
@@ -126,7 +155,8 @@ theorem d4CayleyFigure_spec :
       d4CayleyFigure.arrows.any (fun (_, a, b) => a == i.val && b == (d4Index (d4 i * .r 1)).val) &&
       d4CayleyFigure.arrows.any (fun (_, a, b) =>
         (a == i.val && b == (d4Index (d4 i * .sr 0)).val) ||
-          (b == i.val && a == (d4Index (d4 i * .sr 0)).val))) = true := by
+          (b == i.val && a == (d4Index (d4 i * .sr 0)).val))) = true) := by
+  refine ⟨rfl, rfl, rfl, rfl, fun _ _ => rfl, rfl, ?_⟩
   have e : d4CayleyFigure.arrows = (d4Table.cayley d4Generators d4Positions).arrowTriples := by
     have h := CommDiagram.builder_faithful (d4Table.cayley d4Generators d4Positions)
       (by decide +kernel)
@@ -279,9 +309,25 @@ theorem d4Sub_closure (i : Fin 10) :
 subgroups of `DihedralGroup 4`, each exactly once (`d4Sub` is a bijection onto
 `Subgroup (DihedralGroup 4)`); an edge joins `a` to `b` exactly when `d4Sub a ⋖ d4Sub b` in the
 lattice of subgroups; and the dot of a subgroup is drawn in accent 1 exactly when the subgroup is
-normal. -/
+normal.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem d4SubgroupsFigure_spec :
-    d4Subgroups.Faithful d4Subgroups.layout d4SubgroupsFigure ∧
+    d4SubgroupsFigure = (
+      { d4Subgroups.figure with
+        title := "The subgroups of the dihedral group of order 8, normal ones in colour",
+        width := 380 } : Diagram) ∧
+    d4Subgroups = ({
+      n := 10
+      le i j := d4SubgroupMasks.getD i 0 &&& d4SubgroupMasks.getD j 0 == d4SubgroupMasks.getD i 0
+      names := d4SubgroupGens.map genName
+      marked := d4Normal } : FinPoset) ∧
+    d4SubgroupMasks = (#[1, 17, 65, 5, 33, 129, 85, 15, 165, 255] : Array Nat) ∧
+    (∀ (gs : List Nat), genName gs = (if gs.isEmpty then "1" else "⟨" ++ ", ".intercalate (gs.map fun g => d4Names.getD g "") ++ "⟩" : String)) ∧
+    d4SubgroupGens = (#[[], [4], [6], [2], [5], [7], [2, 4], [1], [2, 5], [1, 4]] : Array (List Nat)) ∧
+    d4Normal = (#[true, false, false, true, false, false, true, true, true, true] : Array Bool) ∧
+    d4Names = (#["1", "r", "r²", "r³", "s", "sr", "sr²", "sr³"] : Array String) ∧
+    (d4Subgroups.Faithful d4Subgroups.layout d4SubgroupsFigure ∧
     d4SubgroupsFigure.title =
       "The subgroups of the dihedral group of order 8, normal ones in colour" ∧
     Function.Bijective d4Sub ∧ d4SubgroupsFigure.vertices = List.range 10 ∧
@@ -291,7 +337,8 @@ theorem d4SubgroupsFigure_spec :
         x = d4 ⟨g, h⟩}) ∧
     (∀ a b : Fin 10, ((a : ℕ), (b : ℕ)) ∈ d4SubgroupsFigure.edges ↔ d4Sub a ⋖ d4Sub b) ∧
     (∀ (a : Fin 10) (m : Mark) (p : QPoint), m ∈ d4SubgroupsFigure.marks →
-      m.part = .vertex a → m.shape = .dot p → (m.ink = .accent 1 ↔ (d4Sub a).Normal)) := by
+      m.part = .vertex a → m.shape = .dot p → (m.ink = .accent 1 ↔ (d4Sub a).Normal))) := by
+  refine ⟨rfl, rfl, rfl, fun _ => rfl, rfl, rfl, rfl, ?_⟩
   have h := d4Subgroups.builder_faithful (by decide)
   refine ⟨h, rfl, d4Sub_bijective, h.2.1, fun i => ⟨?_, fun g _ hg => d4Names_eq ⟨g, hg⟩,
     d4Sub_closure i⟩, fun a b => ?_, fun a m p hm hp hs => ?_⟩
@@ -315,9 +362,14 @@ reductions `ZMod 12 → ZMod 6`, `ZMod 12 → ZMod 4`, `ZMod 6 → ZMod 2`, `ZMo
 claim, and nothing else; object `k` is drawn with the name `ℤ/m` and is `ZMod m`, and arrow `k`
 with the label `πₘ` of the reduction to `ZMod m` it is (`Realisation.Names`); its title says so;
 the square commutes in the sense of the drawing (`CommDiagram.Realisation.Commutes`) for
-those maps as morphisms of `Type`, which is `CommSq` of Mathlib. -/
+those maps as morphisms of `Type`, which is `CommSq` of Mathlib.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem commSqFigure_spec :
-    squareDiagram = CommDiagram.square squareObjects squareLabels ∧
+    commSqFigure = ({ squareDiagram.figure with title := "A commutative square in the category of types" } : Diagram) ∧
+    squareObjects = (#["ℤ/12", "ℤ/6", "ℤ/4", "ℤ/2"] : Array String) ∧
+    squareLabels = (#["π₆", "π₄", "π₂", "π₂"] : Array String) ∧
+    (squareDiagram = CommDiagram.square squareObjects squareLabels ∧
     squareDiagram.Faithful squareDiagram.layout commSqFigure ∧
     commSqFigure.title = "A commutative square in the category of types" ∧
     (CommDiagram.squareRealisation squareObjects squareLabels (TypeCat.ofHom (reduce 12 6))
@@ -330,7 +382,8 @@ theorem commSqFigure_spec :
       (TypeCat.ofHom (reduce 12 4)) (TypeCat.ofHom (reduce 6 2))
       (TypeCat.ofHom (reduce 4 2))).Commutes ∧
     CommSq (TypeCat.ofHom (reduce 12 6)) (TypeCat.ofHom (reduce 12 4))
-      (TypeCat.ofHom (reduce 6 2)) (TypeCat.ofHom (reduce 4 2)) := by
+      (TypeCat.ofHom (reduce 6 2)) (TypeCat.ofHom (reduce 4 2))) := by
+  refine ⟨rfl, rfl, rfl, ?_⟩
   have hsq : CommSq (TypeCat.ofHom (reduce 12 6)) (TypeCat.ofHom (reduce 12 4))
       (TypeCat.ofHom (reduce 6 2)) (TypeCat.ofHom (reduce 4 2)) := by
     constructor
@@ -359,16 +412,20 @@ figure_links commSqFigure commSqFigure_spec
 right, with its arrows written out; and for every short complex `S` of a preadditive category with
 a zero object, realised on the drawing (`S.f` for `f`, `S.g` for `g`), the marks `↣` and `↠` hold
 (`S.f` is a monomorphism, `S.g` an epimorphism) and `S` is exact exactly when `S` is short exact
-in Mathlib's sense. -/
+in Mathlib's sense.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem shortExactFigure_spec :
-    shortExactDiagram = CommDiagram.shortExact #["A", "B", "C"] "f" "g" ∧
+    shortExactFigure = ({ shortExactDiagram.figure with title := "A short exact sequence" } : Diagram) ∧
+    (shortExactDiagram = CommDiagram.shortExact #["A", "B", "C"] "f" "g" ∧
     shortExactDiagram.Faithful shortExactDiagram.layout shortExactFigure ∧
     shortExactFigure.title = "A short exact sequence" ∧
     shortExactFigure.arrows = [(0, 0, 1), (1, 1, 2), (2, 2, 3), (3, 3, 4)] ∧
     ∀ (C : Type) [Category C] [Preadditive C] [Limits.HasZeroObject C]
       (S : ShortComplex C),
       (CommDiagram.shortExactRealisation #["A", "B", "C"] "f" "g" S).StylesHold ∧ S.Exact ↔
-        S.ShortExact := by
+        S.ShortExact) := by
+  refine ⟨rfl, ?_⟩
   have h := shortExactDiagram.builder_faithful (by decide)
   refine ⟨rfl, h, rfl, ?_, fun C _ _ _ S => CommDiagram.shortExact_iff _ _ _ S⟩
   rw [show shortExactFigure.arrows = shortExactDiagram.figure.arrows from rfl, h.1]

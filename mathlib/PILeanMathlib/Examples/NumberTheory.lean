@@ -158,14 +158,20 @@ theorem gaussianPrime_iff {a b : ℤ} (ha : |a| ≤ 7) (hb : |b| ≤ 7) :
 /-! ### The figures -/
 
 /-- **Euler's totient.** The figure plots faithfully one sequence, named `φ(n)`, with no curve,
-at positive scales; its points are exactly `(n, Nat.totient n)` for `1 ≤ n ≤ 100`. -/
+at positive scales; its points are exactly `(n, Nat.totient n)` for `1 ≤ n ≤ 100`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem totientFigure_spec :
-    (totientFigure.title = "Euler's totient φ(n), 1 ≤ n ≤ 100" ∧ totientFigure.style = {}) ∧
+    totientFigure = ({ totientPlot.figure with title := "Euler's totient φ(n), 1 ≤ n ≤ 100" } : Diagram) ∧
+    totientPlot = ({ lo := 1, hi := 100, series := [("φ(n)", fun n => totient' n)] } : SeqPlot) ∧
+    (∀ (n : Nat), totient' n = (((List.range n).filter fun a => Nat.gcd n a == 1).length : Nat)) ∧
+    ((totientFigure.title = "Euler's totient φ(n), 1 ≤ n ≤ 100" ∧ totientFigure.style = {}) ∧
     totientPlot.Faithful totientPlot.layout totientFigure ∧
     totientPlot.names = ["φ(n)"] ∧ totientPlot.curves.length = 0 ∧
     0 < totientPlot.layout.sx ∧ 0 < totientPlot.layout.sy ∧
     ∀ k n p, (k, n, p) ∈ totientFigure.data ↔
-      k = 0 ∧ 1 ≤ n ∧ n ≤ 100 ∧ p = SeqPlot.point totientPlot.layout n (Nat.totient n) := by
+      k = 0 ∧ 1 ≤ n ∧ n ≤ 100 ∧ p = SeqPlot.point totientPlot.layout n (Nat.totient n)) := by
+  refine ⟨rfl, rfl, fun _ => rfl, ?_⟩
   refine ⟨⟨rfl, by unfold totientFigure SeqPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : totientPlot.Faithful totientPlot.layout totientFigure :=
     SeqPlot.faithful_of_marks (totientPlot.builder_faithful (by decide +kernel)) rfl
@@ -176,15 +182,21 @@ figure_links totientFigure totientFigure_spec
 
 /-- **The number of divisors.** The figure plots faithfully one sequence, named `d(n) = σ₀(n)`,
 with no curve, at positive scales; its points are exactly `(n, σ 0 n)` for `1 ≤ n ≤ 100`, where
-`σ 0 n` is the number of divisors (`ArithmeticFunction.sigma_zero_apply`). -/
+`σ 0 n` is the number of divisors (`ArithmeticFunction.sigma_zero_apply`).
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem divisorFigure_spec :
-    (divisorFigure.title = "The number of divisors d(n), 1 ≤ n ≤ 100" ∧ divisorFigure.style = {}) ∧
+    divisorFigure = ({ divisorPlot.figure with title := "The number of divisors d(n), 1 ≤ n ≤ 100" } : Diagram) ∧
+    divisorPlot = ({ lo := 1, hi := 100, series := [("d(n) = σ₀(n)", fun n => divisorCount n)] } : SeqPlot) ∧
+    (∀ (n : Nat), divisorCount n = (((List.range' 1 n).filter fun d => n % d == 0).length : Nat)) ∧
+    ((divisorFigure.title = "The number of divisors d(n), 1 ≤ n ≤ 100" ∧ divisorFigure.style = {}) ∧
     divisorPlot.Faithful divisorPlot.layout divisorFigure ∧
     divisorPlot.names = ["d(n) = σ₀(n)"] ∧ divisorPlot.curves.length = 0 ∧
     0 < divisorPlot.layout.sx ∧ 0 < divisorPlot.layout.sy ∧
     ∀ k n p, (k, n, p) ∈ divisorFigure.data ↔
       k = 0 ∧ 1 ≤ n ∧ n ≤ 100 ∧
-        p = SeqPlot.point divisorPlot.layout n (ArithmeticFunction.sigma 0 n) := by
+        p = SeqPlot.point divisorPlot.layout n (ArithmeticFunction.sigma 0 n)) := by
+  refine ⟨rfl, rfl, fun _ => rfl, ?_⟩
   refine ⟨⟨rfl, by unfold divisorFigure SeqPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : divisorPlot.Faithful divisorPlot.layout divisorFigure :=
     SeqPlot.faithful_of_marks (divisorPlot.builder_faithful (by decide +kernel)) rfl
@@ -197,8 +209,18 @@ figure_links divisorFigure divisorFigure_spec
 /-- **The prime-counting function.** The figure plots faithfully the sequence `π(n)` and the
 curve `n / (Hₙ − 1)`, at positive scales; its points are exactly `(n, Nat.primeCounting n)` for
 `2 ≤ n ≤ 100`, and its one curve is the polyline through `(n, n / (harmonic n - 1))` for the same
-`n`, in the second colour. -/
+`n`, in the second colour.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem primeCountFigure_spec :
+    primeCountFigure =
+      { primeCountPlot.figure with title := "π(n) and n / (Hₙ − 1), 2 ≤ n ≤ 100" } ∧
+    primeCountPlot =
+      { lo := 2, hi := 100, series := [("π(n)", fun n => primeCount n)],
+        curves := [("n / (Hₙ − 1)", fun n => n / (harmonic' n - 1))] } ∧
+    (∀ n, primeCount n = ((List.range (n + 1)).filter isPrime').length) ∧
+    (∀ n, isPrime' n = (2 ≤ n && (List.range' 2 (n - 2)).all fun d => n % d != 0)) ∧
+    (∀ n, harmonic' n = harmonic n) ∧
     (primeCountFigure.title = "π(n) and n / (Hₙ − 1), 2 ≤ n ≤ 100" ∧ primeCountFigure.style = {}) ∧
     primeCountPlot.Faithful primeCountPlot.layout primeCountFigure ∧
     primeCountPlot.names = ["π(n)", "n / (Hₙ − 1)"] ∧
@@ -210,6 +232,7 @@ theorem primeCountFigure_spec :
       [{ part := .curve 0, ink := .series 1 false,
          shape := .polyline ((List.range' 2 99).map fun n =>
            SeqPlot.point primeCountPlot.layout n ((n : ℚ) / (harmonic n - 1))) }] := by
+  refine ⟨rfl, rfl, fun _ => rfl, fun _ => rfl, harmonic'_eq, ?_⟩
   refine ⟨⟨rfl, by unfold primeCountFigure SeqPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : primeCountPlot.Faithful primeCountPlot.layout primeCountFigure :=
     SeqPlot.faithful_of_marks (primeCountPlot.builder_faithful (by decide +kernel)) rfl
@@ -223,9 +246,14 @@ figure_links primeCountFigure primeCountFigure_spec
 /-- **The primes on the Ulam spiral.** The figure draws the cells faithfully: their numbers are
 `1, …, 441`, each cell next to the one before (one unit across or up or down), no two at one
 place, `1` at the origin (the centre of the spiral); a cell is marked (filled) exactly when its
-number is `Nat.Prime`; no cell has a text and there is no heading. -/
+number is `Nat.Prime`; no cell has a text and there is no heading.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem ulamFigure_spec :
-    (ulamFigure.title = "The primes up to 441 on the Ulam spiral" ∧ ulamFigure.style = {}) ∧
+    ulamFigure = ({ ulamPlot.figure with title := "The primes up to 441 on the Ulam spiral", width := 360 } : Diagram) ∧
+    ulamPlot = ({ cells := ulamCells 441 isPrime', solid := true, ringed := some 1 } : CellPlot) ∧
+    (∀ (n : Nat), isPrime' n = (2 ≤ n && (List.range' 2 (n - 2)).all fun d => n % d != 0 : Bool)) ∧
+    ((ulamFigure.title = "The primes up to 441 on the Ulam spiral" ∧ ulamFigure.style = {}) ∧
     ulamPlot.Faithful ulamFigure ∧ ulamPlot.solid = true ∧ ulamPlot.headings = [] ∧
     ulamPlot.cells.map (·.key) = List.range' 1 441 ∧
     ulamPlot.cells.map (·.pos) = ulamWalk 441 ∧
@@ -234,7 +262,8 @@ theorem ulamFigure_spec :
       (c.pos.1 - c'.pos.1).natAbs + (c.pos.2 - c'.pos.2).natAbs == 1) = true ∧
     (ulamPlot.cells.map (·.pos)).Nodup ∧
     (∀ c ∈ ulamPlot.cells, c.text = "") ∧ ulamPlot.ringed = some 1 ∧ ulamPlot.legend = "" ∧
-    ∀ c ∈ ulamPlot.cells, c.marked = true ↔ c.key.Prime := by
+    ∀ c ∈ ulamPlot.cells, c.marked = true ↔ c.key.Prime) := by
+  refine ⟨rfl, rfl, fun _ => rfl, ?_⟩
   refine ⟨⟨rfl, by unfold ulamFigure CellPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : ulamPlot.Faithful ulamFigure :=
     CellPlot.faithful_of_marks (ulamPlot.builder_faithful (by decide +kernel))
@@ -251,9 +280,26 @@ figure_links ulamFigure ulamFigure_spec
 are the primes `3, 5, 7, 11, 13`; it has 39 cells, no two with one key, and for each prime `p` of
 row `i` and each `a < p` the cell of key `100 p + a` stands in column `a` of row `i`, is marked
 exactly when `a` is a nonzero square in `ZMod p`, and shows the Legendre symbol `legendreSym p a`;
-its headings are the primes and the residues (written out). -/
+its headings are the primes and the residues (written out).
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem residueFigure_spec :
-    (residueFigure.title = "Quadratic residues and Legendre symbols \
+    residueFigure = (
+      { residuePlot.figure with
+        title := "Quadratic residues and Legendre symbols modulo 3, 5, 7, 11, 13", width := 520 } : Diagram) ∧
+    residuePlot = ({
+      cells := residuePrimes.zipIdx.flatMap fun (p, i) => (List.range p).map fun a =>
+        residueCell p i a
+      headings := residuePrimes.zipIdx.map (fun (p, i) => (s!"p = {p}", (-1, 1 / 2 - (i : Rat)))) ++
+        ("a", (-1, 3 / 2)) ::
+          (List.range 13).map fun (a : Nat) => (toString a, ((a : Rat) + 1 / 2, 3 / 2))
+      legend := "a nonzero square mod p" } : CellPlot) ∧
+    (∀ (p i a : Nat), residueCell p i a = (
+      { key := 100 * p + a, pos := ((a : Int), -(i : Int)), marked := legendre' p a == 1,
+        text := symbolText (legendre' p a) } : NumberCell)) ∧
+    (∀ (p a : Nat), legendre' p a = (if a % p = 0 then 0 else if (List.range p).any (fun x => x * x % p == a % p) then 1 else -1 : Int)) ∧
+    (∀ (s : Int), symbolText s = (if s < 0 then "−" ++ toString s.natAbs else toString s : String)) ∧
+    ((residueFigure.title = "Quadratic residues and Legendre symbols \
       modulo 3, 5, 7, 11, 13" ∧ residueFigure.style = {}) ∧
     residuePlot.Faithful residueFigure ∧ residuePrimes = [3, 5, 7, 11, 13] ∧
     residuePlot.cells.length = 39 ∧ (residuePlot.cells.map (·.key)).Nodup ∧
@@ -267,7 +313,8 @@ theorem residueFigure_spec :
       ("6", (13/2, 3/2)), ("7", (15/2, 3/2)), ("8", (17/2, 3/2)), ("9", (19/2, 3/2)), ("10", (21/2,
       3/2)), ("11", (23/2, 3/2)), ("12", (25/2, 3/2))] ∧
     residuePlot.solid = false ∧ residuePlot.legend = "a nonzero square mod p" ∧
-    residuePlot.ringed = none := by
+    residuePlot.ringed = none) := by
+  refine ⟨rfl, rfl, fun _ _ _ => rfl, fun _ _ => rfl, fun _ => rfl, ?_⟩
   refine ⟨⟨rfl, by unfold residueFigure CellPlot.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : residuePlot.Faithful residueFigure :=
     CellPlot.faithful_of_marks (residuePlot.builder_faithful (by decide +kernel))
@@ -290,15 +337,28 @@ figure_links residueFigure residueFigure_spec
 /-- **The Gaussian primes.** The figure draws the lattice faithfully, with the axes and the unit
 square; its dots are exactly the Gaussian integers `a + b i` with `|a|, |b| ≤ 7`, each at
 `(a, b)`, drawn in accent 1 when `⟨a, b⟩` is prime in `GaussianInt` and in the faint ink when it
-is not. -/
+is not.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem gaussianFigure_spec :
-    (gaussianFigure.title = "The Gaussian primes a + bi with \
+    gaussianFigure = ({ gaussianLattice.figure with title := "The Gaussian primes a + bi with |a|, |b| ≤ 7" } : Diagram) ∧
+    gaussianLattice = (
+      { w1 := (1, 0), w2 := (0, 1), lo := (-7, -7), hi := (7, 7), marked := gaussianPrime,
+        plainInk := .faint } : PlaneLattice) ∧
+    (∀ (a b : Int), gaussianPrime a b = (
+      if a = 0 || b = 0 then
+        let k := (a + b).natAbs
+        isPrime' k && k % 4 == 3
+      else isPrime' (a.natAbs ^ 2 + b.natAbs ^ 2) : Bool)) ∧
+    (∀ (n : Nat), isPrime' n = (2 ≤ n && (List.range' 2 (n - 2)).all fun d => n % d != 0 : Bool)) ∧
+    ((gaussianFigure.title = "The Gaussian primes a + bi with \
       |a|, |b| ≤ 7" ∧ gaussianFigure.style = {}) ∧
     gaussianLattice.Faithful gaussianFigure ∧
     ∀ (p : QPoint) (col : Ink), (∃ i, (i, p, col) ∈ gaussianFigure.dots) ↔
       ∃ a b : ℤ, |a| ≤ 7 ∧ |b| ≤ 7 ∧ p = ((a : ℚ), (b : ℚ)) ∧
         (col = .accent 1 ∧ Prime (⟨a, b⟩ : GaussianInt) ∨
-          col = .faint ∧ ¬ Prime (⟨a, b⟩ : GaussianInt)) := by
+          col = .faint ∧ ¬ Prime (⟨a, b⟩ : GaussianInt))) := by
+  refine ⟨rfl, rfl, fun _ _ => rfl, fun _ => rfl, ?_⟩
   refine ⟨⟨rfl, by unfold gaussianFigure PlaneLattice.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : gaussianLattice.Faithful gaussianFigure :=
     PlaneLattice.faithful_of_marks (gaussianLattice.builder_faithful (by decide +kernel))
@@ -342,9 +402,13 @@ figure_links gaussianFigure gaussianFigure_spec
 /-- **A lattice and its fundamental domain.** The figure draws the lattice faithfully; its dots
 are exactly the points of `Submodule.span ℤ {(1, 0), (1/2, 7/8)}` in the window
 `[-3, 3] × [-2, 2]`, each once, all in the ink; the fundamental parallelogram is the closed
-polyline `0, ω₁, ω₁ + ω₂, ω₂` in accent 0. -/
+polyline `0, ω₁, ω₁ + ω₂, ω₂` in accent 0.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem latticeFigure_spec :
-    (latticeFigure.title = "The lattice ℤ(1, 0) + ℤ(1/2, 7/8) and \
+    latticeFigure = ({ hexLattice.figure with title := "The lattice ℤ(1, 0) + ℤ(1/2, 7/8) and its fundamental domain" } : Diagram) ∧
+    hexLattice = ({ w1 := (1, 0), w2 := (1 / 2, 7 / 8), lo := (-3, -2), hi := (3, 2) } : PlaneLattice) ∧
+    ((latticeFigure.title = "The lattice ℤ(1, 0) + ℤ(1/2, 7/8) and \
       its fundamental domain" ∧ latticeFigure.style = {}) ∧
     hexLattice.Faithful latticeFigure ∧
     (∀ p : ℚ × ℚ, (∃ i col, (i, p, col) ∈ latticeFigure.dots) ↔
@@ -354,7 +418,8 @@ theorem latticeFigure_spec :
     (∀ i p col, (i, p, col) ∈ latticeFigure.dots → col = .ink) ∧
     latticeFigure.marksWhere (· == .note 0) =
       [{ part := .note 0, ink := .accent 0,
-         shape := .polyline [(0, 0), (1, 0), (3 / 2, 7 / 8), (1 / 2, 7 / 8), (0, 0)] }] := by
+         shape := .polyline [(0, 0), (1, 0), (3 / 2, 7 / 8), (1 / 2, 7 / 8), (0, 0)] }]) := by
+  refine ⟨rfl, rfl, ?_⟩
   refine ⟨⟨rfl, by unfold latticeFigure PlaneLattice.figure Diagram.capped; split <;> rfl⟩, ?_⟩
   have h : hexLattice.Faithful latticeFigure :=
     PlaneLattice.faithful_of_marks (hexLattice.builder_faithful (by decide +kernel))

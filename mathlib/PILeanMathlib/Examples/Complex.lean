@@ -39,7 +39,7 @@ theorem rationalFigure_roots :
     (∀ zm ∈ rationalData.poles, (ofCoeffsC rationalData.den).rootMultiplicity (toC zm.1) = zm.2) ∧
     (∀ w : ℂ, (ofCoeffsC rationalData.num).IsRoot w → ∃ zm ∈ rationalData.zeros, w = toC zm.1) ∧
     (∀ w : ℂ, (ofCoeffsC rationalData.den).IsRoot w → ∃ zm ∈ rationalData.poles, w = toC zm.1) := by
-  obtain ⟨h1, h2, h3, h4, hv, hc, hf, hl, ht⟩ := rationalFigure_spec
+  obtain ⟨_, _, h1, h2, h3, h4, hv, hc, hf, hl, ht⟩ := rationalFigure_spec
   exact ⟨h1, h2, h3, h4, hf, hl, ht, fun zm h => RationalPlot.zero_rootMultiplicity hv h,
     fun zm h => RationalPlot.pole_rootMultiplicity hv h,
     fun w hw => RationalPlot.zeros_complete hv hc hw,

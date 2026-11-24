@@ -81,15 +81,25 @@ point over every abscissa of `[-3, 3]`, and each of its points `(x, y)` has
 `|y - sin x| ≤ 1 / 2000`.
 
 The last statement is about the exact samples. The floating-point steps from them to the
-picture are not part of it. -/
+picture are not part of it.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem sineFigure_spec :
-    sineFigure = { title := "The sine from 97 exact samples", panels := #[{
+    sineSeries = (.ofExact "Taylor polynomial of degree 15" sineTaylor lo hi steps : Series) ∧
+    (∀ (x : Rat), sineTaylor x = (
+      x - x ^ 3 / 6 + x ^ 5 / 120 - x ^ 7 / 5040 + x ^ 9 / 362880 - x ^ 11 / 39916800
+        + x ^ 13 / 6227020800 - x ^ 15 / 1307674368000 : Rat)) ∧
+    lo = (-3 : Rat) ∧
+    hi = (3 : Rat) ∧
+    steps = (96 : Nat) ∧
+    (sineFigure = { title := "The sine from 97 exact samples", panels := #[{
       x := { label := "x", scale := .linear, domain := none },
       y := { label := "y", scale := .linear, domain := none },
       series := #[sineSeries] }] } ∧
     sineFigure.panels.map (·.series) = #[#[sineSeries]] ∧
     sineSeries.points = ((Exact.samples sineTaylor lo hi steps).map Exact.toPoint).toArray ∧
-    IsVerticallyWithin (Exact.plot sineTaylor lo hi steps) Real.sin (Icc (-3) 3) (1 / 2000) := by
+    IsVerticallyWithin (Exact.plot sineTaylor lo hi steps) Real.sin (Icc (-3) 3) (1 / 2000)) := by
+  refine ⟨rfl, fun _ => rfl, rfl, rfl, rfl, ?_⟩
   refine ⟨rfl, by simp [sineFigure], Series.ofExact_points .., ?_⟩
   have hlo : ((lo : ℚ) : ℝ) = -3 := by norm_num [lo]
   have hhi : ((hi : ℚ) : ℝ) = 3 := by norm_num [hi]

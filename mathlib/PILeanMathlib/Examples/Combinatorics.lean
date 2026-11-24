@@ -47,14 +47,23 @@ namespace PILeanMathlib.Examples
 edge from `a` up to `b` exactly when `a ∣ b` and `b / a` is prime: the covering relation of
 divisibility; nothing else is drawn, and its title says what it is. Divisibility on them is a
 partial order, so the transitive closure of the edges is strict divisibility
-(`FinPoset.transGen_covers_iff`). -/
+(`FinPoset.transGen_covers_iff`).
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem divisorsFigure_spec :
-    divisorOrder.Faithful divisorOrder.layout divisorsFigure ∧
+    divisorsFigure = ({ divisorOrder.figure with title := "The divisors of 60, ordered by divisibility", width := 360 } : Diagram) ∧
+    divisorOrder = ({
+      n := divisors60.length
+      le i j := divisors60.getD j.val 0 % divisors60.getD i.val 1 == 0
+      names := (divisors60.map toString).toArray } : FinPoset) ∧
+    divisors60 = ((List.range 61).filter fun d => 0 < d && 60 % d == 0 : List Nat) ∧
+    (divisorOrder.Faithful divisorOrder.layout divisorsFigure ∧
     divisorsFigure.title = "The divisors of 60, ordered by divisibility" ∧
     (∀ k : Fin 12, divisorOrder.toFinGraph.label k = toString divisors60[k]!) ∧
     divisors60.toFinset = Nat.divisors 60 ∧ divisorOrder.IsPartialOrder ∧
     ∀ a b : Fin 12, ((a : ℕ), (b : ℕ)) ∈ divisorsFigure.edges ↔
-      divisors60[a]! ∣ divisors60[b]! ∧ (divisors60[b]! / divisors60[a]!).Prime := by
+      divisors60[a]! ∣ divisors60[b]! ∧ (divisors60[b]! / divisors60[a]!).Prime) := by
+  refine ⟨rfl, rfl, rfl, ?_⟩
   have h := divisorOrder.builder_faithful (by decide)
   refine ⟨h, rfl, by decide, by decide, ⟨by decide, by decide, by decide⟩, ?_⟩
   rw [show divisorsFigure.edges = divisorOrder.figure.edges from rfl, h.1]
@@ -85,12 +94,20 @@ def finsetText {n : ℕ} (s : Finset (Fin n)) : String :=
 
 /-- The figure labels element `i` with the subset `subset i` it is and draws an edge from `a` up
 to `b` exactly when `subset a ⋖ subset b` in `Finset (Fin 3)`, Mathlib's covering relation (one
-element more); nothing else is drawn, and its title says what it is. -/
+element more); nothing else is drawn, and its title says what it is.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem subsetsFigure_spec :
-    subsetOrder.Faithful subsetOrder.layout subsetsFigure ∧
+    subsetsFigure = ({ subsetOrder.figure with title := "The subsets of {0, 1, 2}", width := 300 } : Diagram) ∧
+    subsetOrder = ({
+      n := 8
+      le i j := i.val &&& j.val == i.val
+      names := #["∅", "{0}", "{1}", "{0,1}", "{2}", "{0,2}", "{1,2}", "{0,1,2}"] } : FinPoset) ∧
+    (subsetOrder.Faithful subsetOrder.layout subsetsFigure ∧
     subsetsFigure.title = "The subsets of {0, 1, 2}" ∧
     (∀ i : Fin 8, subsetOrder.toFinGraph.label i = finsetText (subset i)) ∧
-    ∀ a b : Fin 8, ((a : ℕ), (b : ℕ)) ∈ subsetsFigure.edges ↔ subset a ⋖ subset b := by
+    ∀ a b : Fin 8, ((a : ℕ), (b : ℕ)) ∈ subsetsFigure.edges ↔ subset a ⋖ subset b) := by
+  refine ⟨rfl, rfl, ?_⟩
   have h := subsetOrder.builder_faithful (by decide)
   refine ⟨h, rfl, by decide, fun a b => ?_⟩
   rw [show subsetsFigure.edges = subsetOrder.figure.edges from rfl, h.1]
@@ -128,13 +145,34 @@ theorem kneserGraph_eq : kneserGraph = FinGraph.ofSimpleGraph petersenGraph knes
 /-- The figure labels vertex `i` with the 2-subset `pair i` of `Fin 5` it is, written as its two
 elements, and draws exactly the edges of `petersenGraph`, each once as `(a, b)` with `a < b`;
 nothing else is drawn (`FinGraph.Faithful`: no extra vertex, edge or name), and its title says
-what it is. -/
+what it is.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem petersenFigure_spec :
-    kneserGraph.Faithful kneserLayout petersenFigure ∧
+    petersenFigure = ({ kneserGraph.draw kneserLayout with title := "The Petersen graph", width := 340 } : Diagram) ∧
+    kneserGraph = ({
+      n := 10
+      adj i j :=
+        let (a, b) := pairs5.getD i.val (0, 0)
+        let (c, d) := pairs5.getD j.val (0, 0)
+        a != c && a != d && b != c && b != d
+      names := (pairs5.map fun (a, b) => s!"{a}{b}").toArray } : FinGraph) ∧
+    kneserLayout = (
+      let at_ := fun (r : Rat) (k : Nat) =>
+        let p := (Layout.circular 5).pos k
+        (r * p.1, r * p.2)
+      Layout.given ((List.range 10).map fun v =>
+        match [0, 7, 3, 4, 9].idxOf? v, [8, 6, 5, 2, 1].idxOf? v with
+        | some k, _ => at_ 1 k
+        | none, some k => at_ (1 / 2) k
+        | none, none => (0, 0)).toArray : Layout) ∧
+    pairs5 = ((List.range 5).flatMap fun a => ((List.range 5).filter (a < ·)).map fun b => (a, b) : List (Nat × Nat)) ∧
+    (kneserGraph.Faithful kneserLayout petersenFigure ∧
     petersenFigure.title = "The Petersen graph" ∧
     (∀ i : Fin 10, kneserGraph.label i =
       String.join (((List.finRange 5).filter (· ∈ pair i)).map fun x => toString x.val)) ∧
-    ∀ a b : Fin 10, ((a : ℕ), (b : ℕ)) ∈ petersenFigure.edges ↔ a < b ∧ petersenGraph.Adj a b := by
+    ∀ a b : Fin 10, ((a : ℕ), (b : ℕ)) ∈ petersenFigure.edges ↔ a < b ∧ petersenGraph.Adj a b) := by
+  refine ⟨rfl, rfl, rfl, rfl, ?_⟩
   refine ⟨kneserGraph.draw_faithful _, rfl, by decide, fun a b => ?_⟩
   rw [show petersenFigure.edges = (kneserGraph.draw kneserLayout).edges from rfl,
     (kneserGraph.draw_faithful kneserLayout).1, kneserGraph_eq,
@@ -148,11 +186,17 @@ figure_links petersenFigure petersenFigure_spec
 def young5331 : YoungDiagram := YoungDiagram.ofRowLens [5, 3, 3, 1] (by decide)
 
 /-- The figure draws exactly the cells of `young5331` (`YoungDiagram.cells`), each its square of
-English notation, and nothing else; its title names the partition. -/
+English notation, and nothing else; its title names the partition.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem youngFigure_spec :
-    (YoungShape.mk [5, 3, 3, 1] .english).Faithful youngFigure ∧
+    youngFigure = (
+      { (YoungShape.mk [5, 3, 3, 1] .english).figure with
+        title := "The Young diagram of (5, 3, 3, 1)", width := 220 } : Diagram) ∧
+    ((YoungShape.mk [5, 3, 3, 1] .english).Faithful youngFigure ∧
     youngFigure.title = "The Young diagram of (5, 3, 3, 1)" ∧
-    ∀ i j : ℕ, (i, j) ∈ youngFigure.cells ↔ (i, j) ∈ young5331.cells := by
+    ∀ i j : ℕ, (i, j) ∈ youngFigure.cells ↔ (i, j) ∈ young5331.cells) := by
+  refine ⟨rfl, ?_⟩
   refine ⟨(YoungShape.mk [5, 3, 3, 1] .english).builder_faithful (by decide), rfl, fun i j => ?_⟩
   have e : young5331.rowLens = [5, 3, 3, 1] :=
     YoungDiagram.rowLens_ofRowLens_eq_self (by decide)
@@ -168,13 +212,19 @@ def young431 : YoungDiagram := YoungDiagram.ofRowLens [4, 3, 1] (by decide)
 /-- The figure writes, at each cell `(i, j)` of `young431`, the entry of Mathlib's highest-weight
 tableau `SemistandardYoungTableau.highestWeight young431`, and nothing else (`Tableau.Faithful`:
 the cells' squares and the entries, no other mark); its title names the shape, which is the
-shape of `young431`. -/
+shape of `young431`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem highestWeightFigure_spec :
-    (Tableau.mk [[0, 0, 0, 0], [1, 1, 1], [2]] .english).Faithful highestWeightFigure ∧
+    highestWeightFigure = (
+      { (Tableau.mk [[0, 0, 0, 0], [1, 1, 1], [2]] .english).figure with
+        title := "The highest-weight tableau of shape (4, 3, 1)", width := 200 } : Diagram) ∧
+    ((Tableau.mk [[0, 0, 0, 0], [1, 1, 1], [2]] .english).Faithful highestWeightFigure ∧
     highestWeightFigure.title = "The highest-weight tableau of shape (4, 3, 1)" ∧
     young431.rowLens = [4, 3, 1] ∧
     ∀ (i j : ℕ) (s : String), ((i, j), s) ∈ highestWeightFigure.entries ↔
-      (i, j) ∈ young431 ∧ s = toString (SemistandardYoungTableau.highestWeight young431 i j) := by
+      (i, j) ∈ young431 ∧ s = toString (SemistandardYoungTableau.highestWeight young431 i j)) := by
+  refine ⟨rfl, ?_⟩
   refine ⟨(Tableau.mk [[0, 0, 0, 0], [1, 1, 1], [2]] .english).builder_faithful (by decide), rfl,
     YoungDiagram.rowLens_ofRowLens_eq_self (by decide), fun i j s => ?_⟩
   have e : Tableau.mk [[0, 0, 0, 0], [1, 1, 1], [2]] .english =
@@ -202,12 +252,17 @@ theorem sigma_eq : sigma = FinPerm.ofPerm σ5 := by
 
 /-- The cycle diagram draws an arrow `a → b` exactly when `σ5 a = b`, each vertex `a` named by its
 number from 1, `a + 1`, and nothing else (`FinPerm.FaithfulCycles`); its title gives the cycles of
-`σ5 = (0 3)(2 4)` from 1. -/
+`σ5 = (0 3)(2 4)` from 1.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cyclesFigure_spec :
-    sigma.FaithfulCycles cyclesFigure ∧ cyclesFigure.title = "The cycles of (1 4)(3 5)" ∧
+    cyclesFigure = ({ sigma.figure FinPerm.cycles with title := "The cycles of (1 4)(3 5)", width := 260 } : Diagram) ∧
+    sigma = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
+    (sigma.FaithfulCycles cyclesFigure ∧ cyclesFigure.title = "The cycles of (1 4)(3 5)" ∧
     (∀ a : Fin 5, sigma.toFinGraph.label a = toString (a.val + 1)) ∧
     σ5 = Equiv.swap 0 3 * Equiv.swap 2 4 ∧
-    ∀ a b : Fin 5, ((a : ℕ), (b : ℕ)) ∈ cyclesFigure.edges ↔ σ5 a = b := by
+    ∀ a b : Fin 5, ((a : ℕ), (b : ℕ)) ∈ cyclesFigure.edges ↔ σ5 a = b) := by
+  refine ⟨rfl, rfl, ?_⟩
   refine ⟨sigma.cycles_faithful, rfl, by decide, rfl, fun a b => ?_⟩
   rw [show cyclesFigure.edges = sigma.cycles.edges from rfl, sigma_eq]
   exact FinPerm.ofPerm_cycles_edges σ5 a b
@@ -216,13 +271,18 @@ figure_links cyclesFigure cyclesFigure_spec
 
 /-- The strands of the wiring diagram that cross are exactly the inversions of `σ5`; there are
 six, and the sign of `σ5` is `(-1)` to their number; nothing else is drawn but the positions and
-the two lines (`FinPerm.FaithfulWiring`), and its title names the permutation. -/
+the two lines (`FinPerm.FaithfulWiring`), and its title names the permutation.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem wiringFigure_spec :
-    sigma.FaithfulWiring wiringFigure ∧ wiringFigure.title = "The wiring diagram of 42513" ∧
+    wiringFigure = ({ sigma.figure FinPerm.wiring with title := "The wiring diagram of 42513" } : Diagram) ∧
+    sigma = ({ values := [3, 1, 4, 0, 2] } : FinPerm) ∧
+    (sigma.FaithfulWiring wiringFigure ∧ wiringFigure.title = "The wiring diagram of 42513" ∧
     sigma.values.map (· + 1) = [4, 2, 5, 1, 3] ∧
     (∀ a b : Fin 5, ((a : ℕ), (b : ℕ)) ∈ crossingPairs wiringFigure.strands ↔ a < b ∧ σ5 b < σ5 a) ∧
     (crossingPairs wiringFigure.strands).length = 6 ∧
-    Equiv.Perm.sign σ5 = (-1) ^ (crossingPairs wiringFigure.strands).length := by
+    Equiv.Perm.sign σ5 = (-1) ^ (crossingPairs wiringFigure.strands).length) := by
+  refine ⟨rfl, rfl, ?_⟩
   have e : wiringFigure.strands = (FinPerm.ofPerm σ5).wiring.strands := by
     rw [show wiringFigure.strands = sigma.wiring.strands from rfl, sigma_eq]
   refine ⟨sigma.wiring_faithful, rfl, rfl,
@@ -257,14 +317,19 @@ def dyckWord : DyckWord where
 
 /-- The figure draws the path of `dyckWord`: its steps are those of `LatticePath.ofDyckWord`, and
 step `k` rises exactly when letter `k` is `U`; nothing else is drawn but the grid; its title spells
-the word. -/
+the word.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem dyckFigure_spec :
-    (LatticePath.ofDyckWord dyckWord).Faithful dyckFigure ∧
+    dyckFigure = ({ (LatticePath.ofDyck dyckBitsUUDUUDDDUD).figure with title := "The Dyck word UUDUUDDDUD" } : Diagram) ∧
+    dyckBitsUUDUUDDDUD = ([true, true, false, true, true, false, false, false, true, false] : List Bool) ∧
+    ((LatticePath.ofDyckWord dyckWord).Faithful dyckFigure ∧
     dyckFigure.title = "The Dyck word " ++
       String.ofList (dyckWord.toList.map fun l => if l = .U then 'U' else 'D') ∧
     ∀ k (h : k < dyckWord.toList.length),
       (((LatticePath.ofDyckWord dyckWord).point (k + 1)).2 =
-        ((LatticePath.ofDyckWord dyckWord).point k).2 + 1 ↔ dyckWord.toList[k] = .U) := by
+        ((LatticePath.ofDyckWord dyckWord).point k).2 + 1 ↔ dyckWord.toList[k] = .U)) := by
+  refine ⟨rfl, rfl, ?_⟩
   have e : LatticePath.ofDyck dyckBitsUUDUUDDDUD = LatticePath.ofDyckWord dyckWord := by
     simp only [LatticePath.ofDyckWord, dyckWord]
     congr 1
@@ -289,16 +354,26 @@ theorem multiples_eq :
 /-- The figure writes each number of `1, …, 12` (element `x` named `x + 1`) once, and nothing else
 but the circles and the sets' names (`SetSystem.FaithfulVenn`); set `s` is the finset of the
 multiples of `m = 2, 3, 5` and is named `mℤ`; every number is written inside the circle of the
-multiples of `m` exactly when it is a multiple of `m`; and its title says so. -/
+multiples of `m` exactly when it is a multiple of `m`; and its title says so.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem vennFigure_spec :
-    multiples.FaithfulVenn vennFigure ∧ vennFigure.title = "Multiples of 2, 3 and 5 up to 12" ∧
+    vennFigure = ({ multiples.vennFigure with title := "Multiples of 2, 3 and 5 up to 12" } : Diagram) ∧
+    multiples = ({
+      n := 12
+      sets := [2, 3, 5].map fun m => (List.range 12).filter fun x => (x + 1) % m == 0
+      names := ((List.range 12).map fun x => toString (x + 1)).toArray
+      setNames := #["2ℤ", "3ℤ", "5ℤ"] } : SetSystem) ∧
+    (∀ (m : ℕ), multiplesOf m = (Finset.univ.filter fun x => m ∣ x.val + 1 : Finset (Fin 12))) ∧
+    (multiples.FaithfulVenn vennFigure ∧ vennFigure.title = "Multiples of 2, 3 and 5 up to 12" ∧
     (∀ x : Fin 12, multiples.name x = toString (x.val + 1)) ∧
     (∀ s : Fin 3, multiples.setNames.getD s "" = s!"{[2, 3, 5][s]}ℤ") ∧
     multiples = SetSystem.ofFinsets [multiplesOf 2, multiplesOf 3, multiplesOf 5] multiples.names
       multiples.setNames ∧
     ∀ {x : Fin 12} {k : ℕ} {p : QPoint}, ((x : ℕ), k, p) ∈ vennFigure.members → ∀ s : Fin 3,
       (inside ((vennCentres 3).getD s (0, 0)) p = true ↔
-        x ∈ [multiplesOf 2, multiplesOf 3, multiplesOf 5][s]) := by
+        x ∈ [multiplesOf 2, multiplesOf 3, multiplesOf 5][s])) := by
+  refine ⟨rfl, rfl, fun _ => rfl, ?_⟩
   have hf : multiples.FaithfulVenn vennFigure := by
     rw [show vennFigure = { multiples.venn with title := "Multiples of 2, 3 and 5 up to 12" } by
       rw [vennFigure, SetSystem.vennFigure, Diagram.capped_of (by decide)]]

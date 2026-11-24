@@ -41,9 +41,19 @@ open PILean PILean.Plot PILeanMathlib
 with 128 steps and the bound `1/1000`, as its title says; its one panel has the axes `x` and `y`,
 linear and with no domain set (so that they span the data), and one curve, the series of exact
 samples of the Taylor polynomial of degree 15, converted one by one; and the polyline through the
-exact samples is vertically within `1/1000` of the graph of `Real.exp` over `[-2, 2]`. -/
+exact samples is vertically within `1/1000` of the graph of `Real.exp` over `[-2, 2]`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem expFigure_spec :
-    expFigure = expPlot.figure ∧ expPlot.curve = "Taylor polynomial of degree 15" ∧
+    expPlot = (
+      { name := "exp x", curve := "Taylor polynomial of degree 15", approx := expTaylor,
+        lo := -2, hi := 2, steps := 128, delta := 1 / 1000 } : CertifiedPlot) ∧
+    (∀ (x : Rat), expTaylor x = (
+      1 + x + x ^ 2 / 2 + x ^ 3 / 6 + x ^ 4 / 24 + x ^ 5 / 120 + x ^ 6 / 720 + x ^ 7 / 5040
+        + x ^ 8 / 40320 + x ^ 9 / 362880 + x ^ 10 / 3628800 + x ^ 11 / 39916800
+        + x ^ 12 / 479001600 + x ^ 13 / 6227020800 + x ^ 14 / 87178291200
+        + x ^ 15 / 1307674368000 : Rat)) ∧
+    (expFigure = expPlot.figure ∧ expPlot.curve = "Taylor polynomial of degree 15" ∧
     expPlot.name = "exp x" ∧
     expPlot.lo = -2 ∧ expPlot.hi = 2 ∧ expPlot.steps = 128 ∧ expPlot.delta = 1 / 1000 ∧
     expFigure.title =
@@ -56,7 +66,8 @@ theorem expFigure_spec :
     expPlot.series.points =
       ((Exact.samples expPlot.approx expPlot.lo expPlot.hi
         expPlot.steps).map Exact.toPoint).toArray ∧
-    expPlot.Certifies Real.exp := by
+    expPlot.Certifies Real.exp) := by
+  refine ⟨rfl, fun _ => rfl, ?_⟩
   refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     rfl, Series.ofExact_points .., ?_⟩
   have hlo : ((expPlot.lo : ℚ) : ℝ) = -2 := by norm_num [expPlot]
@@ -91,9 +102,17 @@ figure_links expFigure expFigure_spec
 96 steps and the bound `1/2000`, as its title says; its one panel has the axes `x` and `y`, linear
 and with no domain set (so that they span the data), and one curve, the series of exact samples of
 the Taylor polynomial of degree 16, converted one by one; and the polyline through the exact samples
-is vertically within `1/2000` of the graph of `Real.cos` over `[-3, 3]`. -/
+is vertically within `1/2000` of the graph of `Real.cos` over `[-3, 3]`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem cosFigure_spec :
-    cosFigure = cosPlot.figure ∧ cosPlot.curve = "Taylor polynomial of degree 16" ∧
+    cosPlot = (
+      { name := "cos x", curve := "Taylor polynomial of degree 16", approx := cosTaylor,
+        lo := -3, hi := 3, steps := 96, delta := 1 / 2000 } : CertifiedPlot) ∧
+    (∀ (x : Rat), cosTaylor x = (
+      1 - x ^ 2 / 2 + x ^ 4 / 24 - x ^ 6 / 720 + x ^ 8 / 40320 - x ^ 10 / 3628800
+        + x ^ 12 / 479001600 - x ^ 14 / 87178291200 + x ^ 16 / 20922789888000 : Rat)) ∧
+    (cosFigure = cosPlot.figure ∧ cosPlot.curve = "Taylor polynomial of degree 16" ∧
     cosPlot.name = "cos x" ∧
     cosPlot.lo = -3 ∧ cosPlot.hi = 3 ∧ cosPlot.steps = 96 ∧ cosPlot.delta = 1 / 2000 ∧
     cosFigure.title =
@@ -106,7 +125,8 @@ theorem cosFigure_spec :
     cosPlot.series.points =
       ((Exact.samples cosPlot.approx cosPlot.lo cosPlot.hi
         cosPlot.steps).map Exact.toPoint).toArray ∧
-    cosPlot.Certifies Real.cos := by
+    cosPlot.Certifies Real.cos) := by
+  refine ⟨rfl, fun _ => rfl, ?_⟩
   refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     rfl, Series.ofExact_points .., ?_⟩
   have hlo : ((cosPlot.lo : ℚ) : ℝ) = -3 := by norm_num [cosPlot]
@@ -135,8 +155,15 @@ figure_links cosFigure cosFigure_spec
 with 64 steps and the bound `1/8000`, as its title says; its one panel has the axes `x` and `y`,
 linear and with no domain set (so that they span the data), and one curve, the series of exact
 samples of 20 terms of the logarithm's series at `1`, converted one by one; and the polyline through
-the exact samples is vertically within `1/8000` of the graph of `Real.log` over `[1/2, 3/2]`. -/
+the exact samples is vertically within `1/8000` of the graph of `Real.log` over `[1/2, 3/2]`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem logFigure_spec :
+    logPlot = {
+      name := "log x", curve := "20 terms of its series at 1", approx := logApprox,
+      lo := 1 / 2, hi := 3 / 2, steps := 64, delta := 1 / 8000 } ∧
+    (∀ x, logApprox x = -logSum 20 (1 - x)) ∧
+    (∀ n u, logSum n u = ∑ i ∈ Finset.range n, u ^ (i + 1) / (i + 1)) ∧
     logFigure = logPlot.figure ∧ logPlot.curve = "20 terms of its series at 1" ∧
     logPlot.name = "log x" ∧
     logPlot.lo = 1 / 2 ∧ logPlot.hi = 3 / 2 ∧ logPlot.steps = 64 ∧
@@ -152,6 +179,10 @@ theorem logFigure_spec :
       ((Exact.samples logPlot.approx logPlot.lo logPlot.hi
         logPlot.steps).map Exact.toPoint).toArray ∧
     logPlot.Certifies Real.log := by
+  refine ⟨rfl, fun _ => rfl, fun n u => ?_, ?_⟩
+  · induction n with
+    | zero => simp [logSum]
+    | succ n ih => rw [logSum, Finset.sum_range_succ, ih]
   refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     rfl, Series.ofExact_points .., ?_⟩
   have hlo : ((logPlot.lo : ℚ) : ℝ) = 1 / 2 := by norm_num [logPlot]
@@ -199,8 +230,14 @@ figure_links logFigure logFigure_spec
 3/4]` with 48 steps and the bound `1/5000`, as its title says; its one panel has the axes `x` and
 `y`, linear and with no domain set (so that they span the data), and one curve, the series of exact
 samples of 20 terms of the arctangent's series, converted one by one; and the polyline through the
-exact samples is vertically within `1/5000` of the graph of `Real.arctan` over `[-3/4, 3/4]`. -/
+exact samples is vertically within `1/5000` of the graph of `Real.arctan` over `[-3/4, 3/4]`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem arctanFigure_spec :
+    arctanPlot = {
+      name := "arctan x", curve := "20 terms of its series at 0",
+      approx := arctanSum 20, lo := -3 / 4, hi := 3 / 4, steps := 48, delta := 1 / 5000 } ∧
+    (∀ n x, arctanSum n x = ∑ i ∈ Finset.range n, (-1) ^ i * x ^ (2 * i + 1) / (2 * i + 1)) ∧
     arctanFigure = arctanPlot.figure ∧ arctanPlot.curve = "20 terms of its series at 0" ∧
     arctanPlot.name = "arctan x" ∧
     arctanPlot.lo = -3 / 4 ∧ arctanPlot.hi = 3 / 4 ∧ arctanPlot.steps = 48 ∧
@@ -217,6 +254,10 @@ theorem arctanFigure_spec :
       ((Exact.samples arctanPlot.approx arctanPlot.lo arctanPlot.hi
         arctanPlot.steps).map Exact.toPoint).toArray ∧
     arctanPlot.Certifies Real.arctan := by
+  refine ⟨rfl, fun n x => ?_, ?_⟩
+  · induction n with
+    | zero => simp [arctanSum]
+    | succ n ih => rw [arctanSum, Finset.sum_range_succ, ih]
   refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     rfl, Series.ofExact_points .., ?_⟩
   have hlo : ((arctanPlot.lo : ℚ) : ℝ) = -3 / 4 := by norm_num [arctanPlot]
@@ -257,8 +298,20 @@ figure_links arctanFigure arctanFigure_spec
 with 120 steps and the bound `1/4000`, as its title says; its one panel has the axes `x` and `y`,
 linear and with no domain set (so that they span the data), and one curve, the series of exact
 samples of the square roots to 30 binary digits, converted one by one; and the polyline through the
-exact samples is vertically within `1/4000` of the graph of `Real.sqrt` over `[1/4, 4]`. -/
+exact samples is vertically within `1/4000` of the graph of `Real.sqrt` over `[1/4, 4]`.
+The statement begins with the figure written out, with the definitions it is built from, so that it
+determines the whole figure (`PILean.Trust.figurePinProblem?`). -/
 theorem sqrtFigure_spec :
+    sqrtPlot = {
+      name := "√x", curve := "square roots to 30 binary digits", approx := sqrtApprox,
+      lo := 1 / 4, hi := 4, steps := 120, delta := 1 / 4000 } ∧
+    (∀ x, sqrtApprox x =
+      let n := (x * 4 ^ 30).floor.toNat
+      (isqrtAux 64 0 (n + 1) n : Rat) / 2 ^ 30) ∧
+    (∀ f lo hi n, isqrtAux f lo hi n = ((fun p : ℕ × ℕ =>
+      if p.2 ≤ p.1 + 1 then p
+      else if (p.1 + p.2) / 2 * ((p.1 + p.2) / 2) ≤ n then ((p.1 + p.2) / 2, p.2)
+      else (p.1, (p.1 + p.2) / 2))^[f] (lo, hi)).1) ∧
     sqrtFigure = sqrtPlot.figure ∧ sqrtPlot.curve = "square roots to 30 binary digits" ∧
     sqrtPlot.name = "√x" ∧
     sqrtPlot.lo = 1 / 4 ∧ sqrtPlot.hi = 4 ∧ sqrtPlot.steps = 120 ∧
@@ -275,6 +328,21 @@ theorem sqrtFigure_spec :
       ((Exact.samples sqrtPlot.approx sqrtPlot.lo sqrtPlot.hi
         sqrtPlot.steps).map Exact.toPoint).toArray ∧
     sqrtPlot.Certifies Real.sqrt := by
+  refine ⟨rfl, fun _ => rfl, fun f => ?_, ?_⟩
+  · induction f with
+    | zero => intro lo hi n; rfl
+    | succ f ih =>
+      intro lo hi n
+      rw [Function.iterate_succ_apply]
+      by_cases h : hi ≤ lo + 1
+      · simp only [h, ↓reduceIte]
+        rw [Function.iterate_fixed (by simp only [h, ↓reduceIte])]
+        simp [isqrtAux, h]
+      · simp only [h, ↓reduceIte]
+        rw [← ih]
+        by_cases hm : (lo + hi) / 2 * ((lo + hi) / 2) ≤ n
+        · simp [isqrtAux, h, hm]
+        · simp [isqrtAux, h, hm]
   refine ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, by decide +kernel,
     rfl, Series.ofExact_points .., ?_⟩
   have hlo : ((sqrtPlot.lo : ℚ) : ℝ) = 1 / 4 := by norm_num [sqrtPlot]

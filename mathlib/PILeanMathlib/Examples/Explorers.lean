@@ -46,7 +46,7 @@ theorem cayleyExplorer_zmod :
       (cayleyData n a).objects.toList = (List.range n).map toString ∧
       ∀ s t : ℕ, (s, t) ∈ (cayleyDiagram n a).arrows.map (fun x => (x.2.1, x.2.2)) ↔
         s < n ∧ t < n ∧ (t : ZMod n) = s + a ∧ (((2 * a : ℕ) : ZMod n) = 0 → s < t) := by
-  obtain ⟨hx, h1, h2, h3, h4, h5, h6, h7, h⟩ := cayleyExplorer_spec
+  obtain ⟨_, _, _, _, _, hx, h1, h2, h3, h4, h5, h6, h7, h⟩ := cayleyExplorer_spec
   refine ⟨hx, h1, h2, h3, h4, h5, h6, h7, fun n hn a ha => ⟨(h n hn a ha).1, (h n hn a ha).2.1,
     (h n hn a ha).2.2.1, fun s t => ?_⟩⟩
   have hn0 : 0 < n := by simp only [moduli] at hn; revert hn; decide +revert
@@ -100,7 +100,7 @@ theorem latticeExplorer_span :
         p ∈ Submodule.span ℤ {((1 : ℚ), (0 : ℚ)), (x, y)} ∧
           -3 ≤ p.1 ∧ p.1 ≤ 3 ∧ -2 ≤ p.2 ∧ p.2 ≤ 2) ∧
       ((latticeDiagram x y).dots.map (·.2.1)).Nodup := by
-  obtain ⟨hx, h1, h2, h3, h4, h5, h6, h7, h⟩ := latticeExplorer_spec
+  obtain ⟨_, _, _, _, hx, h1, h2, h3, h4, h5, h6, h7, h⟩ := latticeExplorer_spec
   refine ⟨hx, h1, h2, h3, h4, h5, h6, h7, fun x hxm y hym => ?_⟩
   obtain ⟨-, hdet, hf, ht⟩ := h x hxm y hym
   refine ⟨hf, ht, fun p => ?_, (lattice x y).nodup_dots hdet hf⟩

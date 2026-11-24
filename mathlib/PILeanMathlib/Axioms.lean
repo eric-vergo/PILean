@@ -43,7 +43,12 @@ remembering to list it.
 `PILeanMathlib` is one of the modules this file imports (or this file), so that no module of the
 library is outside the check.
 
-Both commands are PILean's (`PILean.Trust.Attr`), the same that check PILean itself.
+`#assert_figures_pinned PILeanMathlib.Examples` fails unless every theorem linked to a figure of
+the examples writes out the whole figure, with every definition of the examples it is built from
+(`PILean.Trust.figurePinProblem?`); the definitions of the library and of Mathlib are its
+vocabulary.
+
+The commands are PILean's (`PILean.Trust.Attr`), the same that check PILean itself.
 -/
 
 open Lean Elab Command PILean.Trust
@@ -72,5 +77,9 @@ run_cmd do
 #assert_modules_imported PILeanMathlib
 
 #assert_standard_axioms PILeanMathlib
+
+-- Every theorem linked to a figure of the examples writes out the whole figure, with every
+-- definition of the examples it is built from.
+#assert_figures_pinned PILeanMathlib.Examples
 
 end PILeanMathlib
