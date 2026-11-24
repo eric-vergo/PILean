@@ -7,7 +7,10 @@ record and fingerprint and a manifest, and the page shows the picture with a cap
 back to the declaration and to a theorem about it.
 
 PILean itself has no dependencies. This package, in its own folder, adds Verso and Verso
-Blueprint (pinned in `lakefile.lean`) and depends on PILean through the parent folder. A plain
+Blueprint (pinned in `lakefile.lean`) and depends on PILean through the parent folder. A
+warning in this package's own modules (and in `manual/`'s) fails `lake build`
+(`warningAsError`); `lake build --wfail` fails as well on the deprecation warnings of the pinned
+Verso Blueprint, which are not PILean's. A plain
 Verso manual without Verso Blueprint uses `pilean-verso-manual` (the folder
 [`manual/`](manual/README.md)), on which this package builds.
 

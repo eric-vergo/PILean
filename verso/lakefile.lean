@@ -30,8 +30,10 @@ require VersoBlueprint from git "https://github.com/eric-vergo/verso-blueprint.g
 require pilean from ".."
 require «pilean-verso-manual» from "manual"
 
+-- `warningAsError`: a warning in this package's own modules fails the build; `lake build
+-- --wfail` would also fail on the deprecation warnings of the pinned Verso Blueprint.
 package «pilean-verso» where
-  leanOptions := #[⟨`linter.missingDocs, true⟩, ⟨`autoImplicit, false⟩]
+  leanOptions := #[⟨`linter.missingDocs, true⟩, ⟨`autoImplicit, false⟩, ⟨`warningAsError, true⟩]
 
 @[default_target]
 lean_lib PILeanVerso

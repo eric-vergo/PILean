@@ -27,7 +27,7 @@ require verso from git "https://github.com/eric-vergo/verso" @
 require pilean from "../.."
 
 package «pilean-verso-manual» where
-  leanOptions := #[⟨`linter.missingDocs, true⟩, ⟨`autoImplicit, false⟩]
+  leanOptions := #[⟨`linter.missingDocs, true⟩, ⟨`autoImplicit, false⟩, ⟨`warningAsError, true⟩]
 
 @[default_target]
 lean_lib PILeanVersoManual
