@@ -24,7 +24,7 @@ tag := "manual-example"
 
 # Numbers
 
-:::figure ManualExample.trianglePlot (label := "triangle") (alt := "A line through the points (n, n(n+1)/2) for n from 0 to 12, rising from 0 to 78.") (proves := ManualExample.trianglePoints_spec)
+:::figure ManualExample.trianglePlot (label := "triangle") (alt := "A line through the points (n, n(n+1)/2) for n from 0 to 12, rising from 0 to 78.") (links := ManualExample.trianglePoints_spec)
 The triangular numbers, $`0 + 1 + \cdots + n`.
 :::
 
@@ -32,7 +32,7 @@ The triangular numbers, $`0 + 1 + \cdots + n`.
 
 {docstring ManualExample.trianglePoints}
 
-:::figure ManualExample.divisorGraph (alt := "The divisors of 12 as nodes, an edge from a to b when b covers a: 1 to 2 and 3, 2 to 4 and 6, 3 to 6, 4 and 6 to 12.") (proves := ManualExample.covers_count) (width := "60%")
+:::figure ManualExample.divisorGraph (alt := "The divisors of 12 as nodes, an edge from a to b when b covers a: 1 to 2 and 3, 2 to 4 and 6, 3 to 6, 4 and 6 to 12.") (links := ManualExample.covers_count) (width := "60%")
 :::
 
 # Explorers

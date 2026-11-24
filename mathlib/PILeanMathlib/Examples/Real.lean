@@ -11,7 +11,7 @@ import PILeanMathlib.Examples.RealFigures
 /-!
 # Certified plots of real functions: the theorems
 
-Each figure of `PILeanMathlib.Examples.RealFigures` is linked by `figure_proves` to a theorem
+Each figure of `PILeanMathlib.Examples.RealFigures` is linked by `figure_links` to a theorem
 that names the function, the interval, the number of steps and the bound, pins the figure's title
 and its one curve, and proves the bound: the polyline through the exact samples is vertically
 within `delta` of the graph over the interval (`CertifiedPlot.Certifies`).
@@ -81,7 +81,7 @@ theorem expFigure_spec :
       exact abs_le.2 ⟨by linarith, by linarith⟩
   · rw [hlo, hhi]; norm_num [expPlot, Nat.factorial]
 
-figure_proves expFigure expFigure_spec
+figure_links expFigure expFigure_spec
 
 /-- **The cosine within 1/2000.** The figure is the certified plot of `Real.cos` on `[-3, 3]` with
 96 steps and the bound `1/2000`, as its title says; its one curve is the series of exact samples
@@ -121,7 +121,7 @@ theorem cosFigure_spec :
     exact abs_le.2 ⟨by linarith, by linarith⟩
   · rw [hlo, hhi]; norm_num [cosPlot, Nat.factorial]
 
-figure_proves cosFigure cosFigure_spec
+figure_links cosFigure cosFigure_spec
 
 /-- **The logarithm within 1/8000.** The figure is the certified plot of `Real.log` on
 `[1/2, 3/2]` with 64 steps and the bound `1/8000`, as its title says; its one curve is the series
@@ -182,7 +182,7 @@ theorem logFigure_spec :
       _ = (1 / 2) ^ 20 := by norm_num
   · rw [hlo, hhi]; norm_num [logPlot]
 
-figure_proves logFigure logFigure_spec
+figure_links logFigure logFigure_spec
 
 /-- **The arctangent within 1/5000.** The figure is the certified plot of `Real.arctan` on
 `[-3/4, 3/4]` with 48 steps and the bound `1/5000`, as its title says; its one curve is the
@@ -236,7 +236,7 @@ theorem arctanFigure_spec :
       _ = (3 / 4) ^ 41 := by norm_num
   · rw [hlo, hhi]; norm_num [arctanPlot]
 
-figure_proves arctanFigure arctanFigure_spec
+figure_links arctanFigure arctanFigure_spec
 
 /-- **The square root within 1/4000.** The figure is the certified plot of `Real.sqrt` on
 `[1/4, 4]` with 120 steps and the bound `1/4000`, as its title says; its one curve is the series
@@ -305,6 +305,6 @@ theorem sqrtFigure_spec :
     linarith
   · rw [hlo, hhi]; norm_num [sqrtPlot]
 
-figure_proves sqrtFigure sqrtFigure_spec
+figure_links sqrtFigure sqrtFigure_spec
 
 end PILeanMathlib.Examples

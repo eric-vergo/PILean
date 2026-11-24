@@ -146,7 +146,7 @@ theorem planeDisks_spec :
   repeat' apply And.intro
   all_goals decide +kernel
 
-figure_proves planeDisks planeDisks_spec
+figure_links planeDisks planeDisks_spec
 
 /-- The plane figures with the engine, light and dark, and, with the sans-serif engine
 (`PILeanLeAnTeX.loadSans`), in sans-serif mathematics: file stem and figure. -/

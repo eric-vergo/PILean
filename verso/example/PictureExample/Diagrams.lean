@@ -50,7 +50,7 @@ theorem divisorHasse_spec :
   ⟨divisibility.builder_faithful (by decide), by decide +kernel,
     ⟨by decide, by decide, by decide⟩⟩
 
-figure_proves divisorHasse divisorHasse_spec
+figure_links divisorHasse divisorHasse_spec
 
 /-! ### A commutative square -/
 
@@ -89,7 +89,7 @@ theorem reductionSquare_spec :
   ⟨reductions.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
     by decide +kernel, by decide +kernel⟩
 
-figure_proves reductionSquare reductionSquare_spec
+figure_links reductionSquare reductionSquare_spec
 
 /-! ### An illustration -/
 
@@ -116,6 +116,6 @@ def «hasse <b>"&'» : Diagram := { divisibility6.figure with title := "<b>divis
 theorem «hasse <b>"&'_spec» : «hasse <b>"&'».edges = [(0, 1), (0, 2), (1, 3), (2, 3)] := by
   decide +kernel
 
-figure_proves «hasse <b>"&'» «hasse <b>"&'_spec»
+figure_links «hasse <b>"&'» «hasse <b>"&'_spec»
 
 end Example

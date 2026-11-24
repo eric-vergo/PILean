@@ -100,7 +100,7 @@ tag := "proofs-gallery"
 The repository's gallery has four pictures with a theorem, one of each kind, in the module
 {sourceFile}`PILeanTest/ProvedExamples.lean`. The manual draws each from that declaration, and
 the `figure` directive's `proves` option accepts the theorem only under the rule of
-`figure_proves` ({ref "proofs-link"}[Linking a Theorem to a Picture]); below each picture is the
+`figure_links` ({ref "proofs-link"}[Linking a Theorem to a Picture]); below each picture is the
 theorem as the library states
 it.
 
@@ -109,7 +109,7 @@ it.
 tag := "proofs-function"
 %%%
 
-:::figure PILeanTest.ProvedExamples.provedFunction (alt := "Two curves on [-3/2, 3/2]: the cubic x cubed minus x, rising from -15/8 through a hump and a dip to 15/8, and the dashed parabola x squared minus 1, from 5/4 down to -1 at 0 and back up.") (proves := PILeanTest.ProvedExamples.provedFunction_spec)
+:::figure PILeanTest.ProvedExamples.provedFunction (alt := "Two curves on [-3/2, 3/2]: the cubic x cubed minus x, rising from -15/8 through a hump and a dip to 15/8, and the dashed parabola x squared minus 1, from 5/4 down to -1 at 0 and back up.") (links := PILeanTest.ProvedExamples.provedFunction_spec)
 :::
 
 {docstring PILeanTest.ProvedExamples.provedFunction_spec}
@@ -132,7 +132,7 @@ checks such facts; here they are evaluated:
 tag := "proofs-data"
 %%%
 
-:::figure PILeanTest.ProvedExamples.provedData (alt := "A zigzag line with markers through 25 points (k, k squared mod 17 minus 8) for k from 0 to 24, between -8 and 8.") (proves := PILeanTest.ProvedExamples.provedData_spec)
+:::figure PILeanTest.ProvedExamples.provedData (alt := "A zigzag line with markers through 25 points (k, k squared mod 17 minus 8) for k from 0 to 24, between -8 and 8.") (links := PILeanTest.ProvedExamples.provedData_spec)
 :::
 
 {docstring PILeanTest.ProvedExamples.provedData_spec}
@@ -142,7 +142,7 @@ tag := "proofs-data"
 tag := "proofs-graph"
 %%%
 
-:::figure PILeanTest.ProvedExamples.provedGraph (alt := "The numbers 1 to 12 as nodes in layers, 1 at the top, with an arrow from a to b whenever a is less than b and divides it: 23 arrows in all.") (proves := PILeanTest.ProvedExamples.provedGraph_spec)
+:::figure PILeanTest.ProvedExamples.provedGraph (alt := "The numbers 1 to 12 as nodes in layers, 1 at the top, with an arrow from a to b whenever a is less than b and divides it: 23 arrows in all.") (links := PILeanTest.ProvedExamples.provedGraph_spec)
 :::
 
 {docstring PILeanTest.ProvedExamples.provedGraph_spec}
@@ -152,7 +152,7 @@ tag := "proofs-graph"
 tag := "proofs-animation"
 %%%
 
-:::figure PILeanTest.ProvedExamples.provedClock (alt := "A dot going once round a circle in one second, in ten frames.") (proves := PILeanTest.ProvedExamples.provedClock_spec) (width := "200px")
+:::figure PILeanTest.ProvedExamples.provedClock (alt := "A dot going once round a circle in one second, in ten frames.") (links := PILeanTest.ProvedExamples.provedClock_spec) (width := "200px")
 :::
 
 {docstring PILeanTest.ProvedExamples.provedClock_spec}
@@ -162,7 +162,7 @@ tag := "proofs-animation"
 tag := "proofs-link"
 %%%
 
-The command `figure_proves fig thm` links a theorem to a registered figure. It is an error, so the
+The command `figure_links fig thm` links a theorem to a registered figure. It is an error, so the
 module does not build, unless `thm` is a theorem, depends on no `sorry` and on no axiom other than
 `propext`, `Classical.choice` and `Quot.sound`, and its statement names the figure itself.
 
@@ -201,7 +201,7 @@ The command at work, on the gallery's function plot. A true statement about a se
 does not name the plot, and is refused:
 
 ```lean +error (name := refusedLink)
-figure_proves provedFunction cubicSeries_size
+figure_links provedFunction cubicSeries_size
 ```
 
 ```leanResult refusedLink
@@ -210,7 +210,7 @@ figure_proves provedFunction cubicSeries_size
 and so is a statement that names the plot only as the argument of a `fun` that discards it:
 
 ```lean +error (name := refusedBeta)
-figure_proves provedFunction cubicSeries_size_beta
+figure_links provedFunction cubicSeries_size_beta
 ```
 
 ```leanResult refusedBeta
@@ -222,7 +222,7 @@ statement is still yours to read:
 ```lean (name := emptyLink)
 theorem provedFunction_self : provedFunction = provedFunction := rfl
 
-figure_proves provedFunction provedFunction_self
+figure_links provedFunction provedFunction_self
 #eval "accepted"
 ```
 
@@ -415,7 +415,7 @@ tag := "proofs-read"
    is a claim by whoever wrote the file; `pilean-build --check` is the check that the file is what
    the declaration renders now ({ref "trust-check"}[What the Answers Establish]).
 2. Read the theorem beside the declaration. It names the exact function, list, relation or time.
-   `figure_proves picture theorem` links the two, and fails the build unless the theorem is proved
+   `figure_links picture theorem` links the two, and fails the build unless the theorem is proved
    from the standard axioms and its statement names the picture itself. That check is about names
    only: it cannot tell a strong statement from an empty one that names the picture, so the
    statement is still yours to read.

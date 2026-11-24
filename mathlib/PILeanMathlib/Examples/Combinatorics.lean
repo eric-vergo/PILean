@@ -11,9 +11,9 @@ import PILeanMathlib.Combinatorics
 import PILeanMathlib.Examples.CombinatoricsFigures
 
 /-!
-# Combinatorial figures tied to Mathlib's objects: the theorems
+# Combinatorial figures and Mathlib's objects: the theorems
 
-Each figure of `PILeanMathlib.Examples.CombinatoricsFigures` is linked by `figure_proves` to a
+Each figure of `PILeanMathlib.Examples.CombinatoricsFigures` is linked by `figure_links` to a
 theorem that states, with Mathlib's definitions, what its drawn parts are.
 
 ## Main results
@@ -52,7 +52,7 @@ theorem divisorsFigure_spec :
   rw [show divisorsFigure.edges = divisorOrder.figure.edges from rfl, h.1]
   decide
 
-figure_proves divisorsFigure divisorsFigure_spec
+figure_links divisorsFigure divisorsFigure_spec
 
 /-! ### Subsets of a 3-set -/
 
@@ -79,7 +79,7 @@ theorem subsetsFigure_spec (a b : Fin 8) :
   rw [← subsetOrder_eq] at this
   exact this
 
-figure_proves subsetsFigure subsetsFigure_spec
+figure_links subsetsFigure subsetsFigure_spec
 
 /-! ### The Petersen graph -/
 
@@ -113,7 +113,7 @@ theorem petersenFigure_spec (a b : Fin 10) :
     (kneserGraph.draw_faithful kneserLayout).1, kneserGraph_eq,
     FinGraph.ofSimpleGraph_mem_edgePairs]
 
-figure_proves petersenFigure petersenFigure_spec
+figure_links petersenFigure petersenFigure_spec
 
 /-! ### A Young diagram and a tableau -/
 
@@ -128,7 +128,7 @@ theorem youngFigure_spec (i j : ℕ) : (i, j) ∈ youngFigure.cells ↔ (i, j) �
     ← e, ← YoungShape.ofYoungDiagram]
   exact YoungShape.ofYoungDiagram_cells _ _ i j
 
-figure_proves youngFigure youngFigure_spec
+figure_links youngFigure youngFigure_spec
 
 /-- The Young diagram of `(4, 3, 1)`. -/
 def young431 : YoungDiagram := YoungDiagram.ofRowLens [4, 3, 1] (by decide)
@@ -149,7 +149,7 @@ theorem highestWeightFigure_spec (i j : ℕ) (s : String) :
       (Tableau.mk [[0, 0, 0, 0], [1, 1, 1], [2]] .english).draw.entries from rfl, e]
   exact Tableau.ofSSYT_entries _ _ i j s
 
-figure_proves highestWeightFigure highestWeightFigure_spec
+figure_links highestWeightFigure highestWeightFigure_spec
 
 /-! ### A permutation -/
 
@@ -167,7 +167,7 @@ theorem cyclesFigure_spec (a b : Fin 5) :
   rw [show cyclesFigure.edges = sigma.cycles.edges from rfl, sigma_eq]
   exact FinPerm.ofPerm_cycles_edges σ5 a b
 
-figure_proves cyclesFigure cyclesFigure_spec
+figure_links cyclesFigure cyclesFigure_spec
 
 /-- The strands of the wiring diagram that cross are exactly the inversions of `σ5`; there are
 six, and the sign of `σ5` is `(-1)` to their number. -/
@@ -185,7 +185,7 @@ theorem wiringFigure_spec :
       Equiv.Perm.sign_swap (by decide)]
     decide
 
-figure_proves wiringFigure wiringFigure_spec
+figure_links wiringFigure wiringFigure_spec
 
 /-! ### A Dyck word -/
 
@@ -220,7 +220,7 @@ theorem dyckFigure_spec :
   rw [← e]
   exact (LatticePath.ofDyck dyckBitsUUDUUDDDUD).builder_faithful (by decide)
 
-figure_proves dyckFigure dyckFigure_spec
+figure_links dyckFigure dyckFigure_spec
 
 /-! ### Three finsets -/
 
@@ -246,6 +246,6 @@ theorem vennFigure_spec {x : Fin 12} {k : ℕ} {p : QPoint}
   rw [hm, multiples_eq] at hx
   exact SetSystem.ofFinsets_venn_inside _ _ _ (by decide) (by decide) hx (by simp)
 
-figure_proves vennFigure vennFigure_spec
+figure_links vennFigure vennFigure_spec
 
 end PILeanMathlib.Examples

@@ -10,7 +10,7 @@ import PILean.Diagram.Young
 import PILean.Trust.Attr
 
 /-!
-# Combinatorial figures tied to Mathlib's objects: the figures
+# Combinatorial figures and Mathlib's objects: the figures
 
 The figures, built from plain data with PILean only (this module imports nothing from Mathlib, so
 the program that draws them does not contain it). `PILeanMathlib.Examples.Combinatorics` proves

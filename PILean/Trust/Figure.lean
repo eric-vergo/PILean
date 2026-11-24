@@ -28,7 +28,7 @@ It covers the values a function takes where the figure samples it, not the funct
 ## Main definitions
 
 * `Format`, `Output`, `ToOutputs`
-* `Standing`: whether a figure is tied to its object by a theorem or is an illustration
+* `Standing`: whether a theorem is linked to a figure or the figure is an illustration
 * `InlineSvg`, `FrameSet`: pictures and families of frames a web page puts inline
 * instances for `Plot.Figure`, `Plane.Figure`, `Explorer`, `Graph`, `GraphFigure`,
   `Animation`, `Diagram.Diagram` and `DomainColouring`
@@ -75,29 +75,31 @@ def Format.ofName? : String → Option Format
   | "pdf" => some .pdf
   | _ => none
 
-/-- How a figure stands with respect to the object it shows. A figure is `proved` when at least
-one theorem is linked to it by `figure_proves` and passed that command's rule
-(`PILean.Trust.figureTheoremProblem?`) in the environment where the build's table of figures
-(`figures%`) was elaborated; otherwise it is an `illustration`, openly marked as one by
+/-- How a figure stands with respect to the object it shows. A figure is `linked` when at least
+one theorem is linked to it by `figure_links` and passed that command's rule
+(`PILean.Trust.figureTheoremProblem?`: the theorem is proved from the standard axioms and its
+statement names the figure) in the environment where the build's table of figures (`figures%`)
+was elaborated; otherwise it is an `illustration`, openly marked as one by
 `@[figure illustration]` or not. The standing says that such a theorem exists, not what it
-states: the statement is still its reader's to judge (`docs/PROOFS.md`). -/
+states: what a linked theorem says is in its statement, which is its reader's to judge
+(`docs/PROOFS.md`). -/
 inductive Standing where
-  /-- The theorems linked to the figure by `figure_proves`, by full name, each of which passed
+  /-- The theorems linked to the figure by `figure_links`, by full name, each of which passed
   the rule when the table of figures was elaborated; never empty for a figure `figures%` makes. -/
-  | proved (theorems : Array String)
+  | linked (theorems : Array String)
   /-- No theorem is linked to the figure; `marked` says whether its declaration says so with
   `@[figure illustration]`. -/
   | illustration (marked : Bool)
 deriving BEq, Repr, Inhabited
 
-/-- The standing's word, as source records and manifests write it: `proved` or `illustration`. -/
+/-- The standing's word, as source records and manifests write it: `linked` or `illustration`. -/
 def Standing.word : Standing → String
-  | .proved _ => "proved"
+  | .linked _ => "linked"
   | .illustration _ => "illustration"
 
-/-- The theorems of a proved standing, by full name; empty for an illustration. -/
+/-- The theorems of a linked standing, by full name; empty for an illustration. -/
 def Standing.theorems : Standing → Array String
-  | .proved ts => ts
+  | .linked ts => ts
   | .illustration _ => #[]
 
 /-- Whether the standing is an illustration that its declaration does not mark as one: a figure
@@ -189,7 +191,7 @@ structure Output where
   problems : Unit → Array String := fun _ => #[]
   /-- The standing of the figure the output belongs to. `ToOutputs` instances leave it at an
   unmarked illustration; `figures%` sets it on every output of a figure from the links
-  `figure_proves` recorded and the figure's `@[figure illustration]` marking. -/
+  `figure_links` recorded and the figure's `@[figure illustration]` marking. -/
   standing : Standing := .illustration false
 
 /-- An empty SVG output that cannot be rendered (for indexing arrays of outputs). -/

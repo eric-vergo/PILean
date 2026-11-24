@@ -9,7 +9,7 @@ import PILean.Trust.Attr
 # The gallery of combinatorial diagrams, their specifications and their checks
 
 One figure for each kind of `PILean.Diagram`, each with the attribute `figure` and a
-specification linked by `figure_proves`: the figure is the builder applied to its data, and what
+specification linked by `figure_links`: the figure is the builder applied to its data, and what
 it draws, read back from its marks (`Diagram.edges`, `cells`, `entries`, `strands`, `steps`,
 `members`), is written out in full and checked by the kernel. Changing the data of a figure
 breaks its specification (`PILeanTest.SpecMutations` compiles such changes).
@@ -74,7 +74,7 @@ theorem petersen_spec :
       (3, 4), (3, 5), (3, 7), (4, 9), (5, 8), (6, 7)] := by
   exact ⟨petersenGraph.draw_faithful _, by decide +kernel⟩
 
-figure_proves petersen petersen_spec
+figure_links petersen petersen_spec
 
 /-! ### Hasse diagrams: the Boolean lattice of a 3-set -/
 
@@ -98,7 +98,7 @@ theorem cube_spec :
   exact ⟨booleanLattice.builder_faithful (by decide), by decide +kernel,
     ⟨by decide, by decide, by decide⟩⟩
 
-figure_proves cube cube_spec
+figure_links cube cube_spec
 
 /-! ### Young diagrams and tableaux -/
 
@@ -118,7 +118,7 @@ theorem young_spec :
       (2, 2), (3, 0)] := by
   exact ⟨shape5331.builder_faithful (by decide), by decide +kernel⟩
 
-figure_proves young young_spec
+figure_links young young_spec
 
 /-- A semistandard tableau of shape `(4, 3, 1)` in French notation. -/
 def ssyt : Tableau := { entries := [[1, 1, 2, 4], [2, 3, 4], [4]], convention := .french }
@@ -137,7 +137,7 @@ theorem tableau_spec :
       ((1, 1), "3"), ((1, 2), "4"), ((2, 0), "4")] := by
   exact ⟨ssyt.builder_faithful (by decide), by decide, by decide +kernel⟩
 
-figure_proves tableau tableau_spec
+figure_links tableau tableau_spec
 
 /-! ### Permutations -/
 
@@ -157,7 +157,7 @@ theorem permTwoLine_spec :
       ((1, 4), "3")] := by
   exact ⟨perm.twoLine_faithful, by decide, by decide +kernel⟩
 
-figure_proves permTwoLine permTwoLine_spec
+figure_links permTwoLine permTwoLine_spec
 
 /-- The permutation matrix. -/
 @[figure]
@@ -170,7 +170,7 @@ theorem permMatrix_spec :
     permMatrix.cells = [(0, 3), (1, 1), (2, 4), (3, 0), (4, 2)] := by
   exact ⟨perm.matrix_faithful, by decide +kernel⟩
 
-figure_proves permMatrix permMatrix_spec
+figure_links permMatrix permMatrix_spec
 
 /-- The cycle diagram. -/
 @[figure]
@@ -184,7 +184,7 @@ theorem permCycles_spec :
     permCycles.edges = [(0, 3), (1, 1), (2, 4), (3, 0), (4, 2)] := by
   exact ⟨perm.cycles_faithful, by decide +kernel⟩
 
-figure_proves permCycles permCycles_spec
+figure_links permCycles permCycles_spec
 
 /-- The wiring diagram. -/
 @[figure]
@@ -200,7 +200,7 @@ theorem permWiring_spec :
   rw [show permWiring.strands = perm.wiring.strands from rfl, perm.wiring_crossings]
   decide
 
-figure_proves permWiring permWiring_spec
+figure_links permWiring permWiring_spec
 
 /-! ### Trees -/
 
@@ -222,7 +222,7 @@ theorem tree_spec :
       (7, 11)] := by
   exact ⟨rooted.builder_faithful (by decide), by decide, by decide +kernel⟩
 
-figure_proves tree tree_spec
+figure_links tree tree_spec
 
 /-- The binary search tree of the keys `5, 3, 8, 1, 4, 7, 9, 2, 6` inserted in that order:
 vertex `k` holds key `k + 1`. -/
@@ -243,7 +243,7 @@ theorem binaryTree_spec :
     binaryTree.edges = [(0, 1), (2, 0), (2, 3), (4, 2), (4, 7), (6, 5), (7, 6), (7, 8)] := by
   exact ⟨bst.builder_faithful (by decide), by decide +kernel⟩
 
-figure_proves binaryTree binaryTree_spec
+figure_links binaryTree binaryTree_spec
 
 /-! ### Set systems -/
 
@@ -274,7 +274,7 @@ theorem venn_spec :
   have := multiples.venn_inside (by decide) (by decide) hx (s := s) (by omega)
   rwa [hl] at this
 
-figure_proves venn venn_spec
+figure_links venn venn_spec
 
 /-- The Fano plane: the points `0, …, 6` and its seven lines. -/
 def fanoPlane : SetSystem where
@@ -296,7 +296,7 @@ theorem fano_spec :
       (6, 11), (6, 12)] := by
   decide +kernel
 
-figure_proves fano fano_spec
+figure_links fano fano_spec
 
 /-! ### Paths and boards -/
 
@@ -317,7 +317,7 @@ theorem dyck_spec :
   exact ⟨(LatticePath.ofDyck dyckWord).builder_faithful (by decide), by decide,
     by decide +kernel⟩
 
-figure_proves dyck dyck_spec
+figure_links dyck dyck_spec
 
 /-- The Ferrers board of `(4, 3, 1)`. -/
 def board : Polyomino := Polyomino.ferrers [4, 3, 1]
@@ -332,7 +332,7 @@ theorem ferrers_spec :
     ferrers.cells = [(0, 0), (1, 0), (2, 0), (3, 0), (0, 1), (1, 1), (2, 1), (0, 2)] := by
   exact ⟨board.draw_faithful, by decide +kernel⟩
 
-figure_proves ferrers ferrers_spec
+figure_links ferrers ferrers_spec
 
 /-! ### The gallery -/
 

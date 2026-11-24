@@ -529,14 +529,15 @@ def figure_page_checks(c, browser, base, shots):
     c.check("every link of the pages into the site is served", not bad, str(bad[:5]))
     goto(page, base + "Figures/Example.cubicPlot/")
     text = " ".join(page.locator(".pilean-page-standing").inner_text().split())
-    c.check("a proved figure's page says it is tied to its object and shows the statement",
-            "Tied to its object by the theorem Example.cubicPlot_spec" in text and
+    c.check("a linked figure's page names its linked theorem and shows the statement",
+            "Linked theorem: Example.cubicPlot_spec" in text and
+            "it did not check what Example.cubicPlot_spec says." in text and
             "cubicPlot.panels" in text.replace(" ", ""), text[:200])
     goto(page, base + "Figures/Example.sketch/")
     text = page.locator(".pilean-figure-page").inner_text()
-    c.check("an illustration's page says so and never that it is tied",
-            "Illustration: not tied to a Lean object by a theorem" in text and
-            "Tied to its object" not in text)
+    c.check("an illustration's page says so and never names a linked theorem",
+            "Illustration: no theorem is linked to it" in text and
+            "Linked theorem" not in text)
     if odd:
         goto(page, odd)
         title = " ".join(page.locator("h1").all_inner_texts())
@@ -576,7 +577,7 @@ def figure_page_checks(c, browser, base, shots):
       .filter(i => i.offsetParent !== null).every(i => i.complete && i.naturalWidth > 0)""")
     words = page.locator(".pilean-page-standing").inner_text()
     c.check("without script a page shows its picture and its standing",
-            loaded and "Tied to its object" in words)
+            loaded and "Linked theorem" in words)
     page.goto(base + "Figures/Example.radiusExplorer/")
     c.check("without script an explorer's page lists its frames",
             page.locator(".pilean-figure-page li.pilean-explorer-frame").count() == 5)

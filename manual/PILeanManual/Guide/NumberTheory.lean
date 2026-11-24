@@ -73,7 +73,7 @@ theorem phiFigure_spec :
         12, 28, 8]] :=
   ⟨rfl, phiPlot.builder_faithful (by decide +kernel), by decide +kernel⟩
 
-figure_proves phiFigure phiFigure_spec
+figure_links phiFigure phiFigure_spec
 ```
 
 :::figure PILeanManual.NumberTheoryGuide.phiFigure (alt := "A dot plot of Euler's totient for n from 1 to 30: the index axis from 0 to 30 with ticks every 5, the value axis from 0 to 30; the dots of the primes lie on the line φ(n) = n − 1 and the others below it.")
@@ -115,7 +115,7 @@ theorem sieveFigure_spec :
     (sieve.cells.filter (·.marked)).map (·.key) = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29] :=
   ⟨rfl, sieve.builder_faithful (by decide +kernel), by decide +kernel⟩
 
-figure_proves sieveFigure sieveFigure_spec
+figure_links sieveFigure sieveFigure_spec
 ```
 
 :::figure PILeanManual.NumberTheoryGuide.sieveFigure (alt := "The numbers 1 to 30 in three rows of ten cells; the cells of 2, 3, 5, 7, 11, 13, 17, 19, 23 and 29 are tinted.")
@@ -170,7 +170,7 @@ theorem gaussianFigure_spec :
         (2, 1), (2, 3), (3, -2), (3, 0), (3, 2)] :=
   ⟨rfl, gaussian.builder_faithful (by decide +kernel), by decide +kernel⟩
 
-figure_proves gaussianFigure gaussianFigure_spec
+figure_links gaussianFigure gaussianFigure_spec
 ```
 
 :::figure PILeanManual.NumberTheoryGuide.gaussianFigure (alt := "The Gaussian integers a + bi with |a| and |b| at most 3 as dots on a square grid with the two axes and the unit square; the Gaussian primes, such as 1 + i, 2 + i, 3 and 3i, are in colour, the others faint.")
@@ -245,7 +245,7 @@ not; the points are distinct) and {name}`PILean.Diagram.RationalPlot.Complete` (
 multiplicities add up to the degrees). `pilean-mathlib` turns them into
 `Polynomial.rootMultiplicity` over ℂ and into the statement that every complex root is marked.
 
-:::figure PILeanTest.ComplexDiagrams.rationalFigure (alt := "The plane with its two axes from -2 to 2 and -3/2 to 3/2: open circles at i, -i and 1/2, the last with a 2 beside it; crosses at 1 + i, 1 - i and -3/2.") (proves := PILeanTest.ComplexDiagrams.rationalFigure_spec)
+:::figure PILeanTest.ComplexDiagrams.rationalFigure (alt := "The plane with its two axes from -2 to 2 and -3/2 to 3/2: open circles at i, -i and 1/2, the last with a 2 beside it; crosses at 1 + i, 1 - i and -3/2.") (links := PILeanTest.ComplexDiagrams.rationalFigure_spec)
 The zeros and poles of `f(z) = (z² + 1)(z − 1/2)² / ((z² − 2z + 2)(z + 3/2))`.
 :::
 

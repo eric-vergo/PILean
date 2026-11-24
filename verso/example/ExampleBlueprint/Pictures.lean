@@ -41,7 +41,7 @@ nothing is proved.
 This is a statement about {uses "cubic"}[].
 :::
 
-:::figure Example.cubicPlot (label := "cubic") (proves := Example.cubicPlot_spec)
+:::figure Example.cubicPlot (label := "cubic") (links := Example.cubicPlot_spec)
 The cubic $`x^3 - 3x` (solid) and its derivative $`3x^2 - 3` (dashed), drawn from exact samples.
 The derivative vanishes where the cubic turns, at $`x = \pm 1`.
 :::
@@ -52,14 +52,14 @@ The Collatz map sends $`n` to $`n/2` when $`n` is even and to $`3n + 1` otherwis
 {figref "collatz"}[The plot of stopping times] shows how many steps each of the numbers 1 to 40
 takes to reach 1; 27 stands out with 111 steps.
 
-:::figure Example.collatzPlot (label := "collatz") (proves := Example.collatzPlot_spec)
+:::figure Example.collatzPlot (label := "collatz") (links := Example.collatzPlot_spec)
 Collatz stopping times of 1 to 40. The line and the markers are the computed list, point for
 point.
 :::
 
 # A relation
 
-:::figure divisorGraph (label := "divisors") (proves := divisorGraph_spec) (width := "22rem")
+:::figure divisorGraph (label := "divisors") (links := divisorGraph_spec) (width := "22rem")
 The divisors of 24 ordered by divisibility; an edge joins $`a` to $`b` when $`b` covers $`a`.
 :::
 
@@ -105,6 +105,6 @@ Captions and values that hold the separators of a frame's label and markup: `<b>
 
 {figref "circle"}[] moves; with reduced motion the page shows a still frame instead.
 
-:::figure circleAnimation (label := "circle") (proves := circleAnimation_spec) (width := "16rem")
+:::figure circleAnimation (label := "circle") (links := circleAnimation_spec) (width := "16rem")
 A point going round the unit circle, with its height.
 :::

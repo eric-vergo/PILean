@@ -10,7 +10,7 @@ import PILeanTest.Diagrams
 # The gallery of plots of sequences, grids of numbers and lattices, their specifications and checks
 
 Figures of the kinds `SeqPlot`, `CellPlot` and `PlaneLattice`, each with the attribute `figure`
-and a specification linked by `figure_proves`: the figure is drawn faithfully (every mark
+and a specification linked by `figure_links`: the figure is drawn faithfully (every mark
 accounted for by the kind's `Faithful`), and what it draws is written out and checked by the
 kernel (the values of a sequence on its range, the numbers marked in a grid, the lattice points
 drawn and those marked). Changing the data breaks the specification
@@ -57,7 +57,7 @@ theorem totient_spec :
   exact ⟨totientPlot.builder_faithful (by decide +kernel), rfl, rfl, by decide +kernel,
     by decide +kernel, rfl⟩
 
-figure_proves totient totient_spec
+figure_links totient totient_spec
 
 /-! ### A sieve of Eratosthenes -/
 
@@ -93,7 +93,7 @@ theorem sieve_spec :
   exact ⟨sievePlot.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
     by decide +kernel, rfl, rfl, rfl, rfl⟩
 
-figure_proves sieve sieve_spec
+figure_links sieve sieve_spec
 
 /-! ### The Gaussian primes -/
 
@@ -133,7 +133,7 @@ theorem gaussian_spec :
   exact ⟨gaussianLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl,
     by decide +kernel, rfl, by decide +kernel⟩
 
-figure_proves gaussian gaussian_spec
+figure_links gaussian gaussian_spec
 
 /-! ### A lattice with a skew basis -/
 
@@ -160,7 +160,7 @@ theorem skew_spec :
   exact ⟨skewLattice.builder_faithful (by decide +kernel), rfl, rfl, rfl, rfl, by decide +kernel,
     by decide +kernel, rfl⟩
 
-figure_proves skew skew_spec
+figure_links skew skew_spec
 
 /-! ### The gallery and the checks -/
 

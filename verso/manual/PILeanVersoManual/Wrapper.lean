@@ -234,16 +234,16 @@ def pageModules (site : SiteRender) (decls : Array String) : Array Name :=
       ms.foldl (fun acc m => if acc.contains m.toName then acc else acc.push m.toName) acc
     | Option.none => acc
 
-/-- Why the page data of a figure cannot be shown with its standing, if it cannot: a proved
+/-- Why the page data of a figure cannot be shown with its standing, if it cannot: a linked
 figure's page must hold each theorem of the standing, and no other. -/
 def pageDataProblem? (decl : String) (fig : SiteFigure) (data : Option FigurePageData) :
     Option String :=
   match fig.standing, data with
-  | .proved ts, some d =>
+  | .linked ts, some d =>
     if d.theorems.map (·.decl.name) == ts then none
     else some s!"{decl}: the page data's theorems are not those of the figure's standing"
-  | .proved _, Option.none => some s!"{decl}: it is tied to theorems, but the table of figures holds no \
-      page data for it (use site_figures%)"
+  | .linked _, Option.none => some s!"{decl}: it has linked theorems, but the table of figures \
+      holds no page data for it (use site_figures%)"
   | .illustration _, some d =>
     if d.theorems.isEmpty then none
     else some s!"{decl}: the page data names theorems of an illustration"

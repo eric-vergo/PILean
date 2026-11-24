@@ -8,10 +8,12 @@ Every figure the manifest lists (by its declaration) must have exactly one page 
 
 * the files it offers for download are the figure's files, with the manifest's size and SHA-256;
 * the standing it states (`data-pilean-standing`, `data-pilean-theorems`) is the standing every
-  file of the figure records in the manifest (`standing`, `proves`);
-* its words follow the standing: "Tied to its object by the theorem" and a section with each
-  theorem's statement for a proved figure, "Illustration: not tied to a Lean object by a theorem"
-  and no "Tied to its object" for an illustration;
+  file of the figure records in the manifest (`standing`, `theorems`);
+* its words follow the standing: "Linked theorem" and a section with each theorem's statement
+  for a linked figure, each followed by "PILean checked that T is proved from the standard axioms
+  and that its statement names this figure; it did not check what T says.";
+  "Illustration: no theorem is linked to it" and no "Linked theorem" for an illustration; and no
+  page says "Tied to its object" or "proved by";
 * every verdict of `pilean-verify` it shows is `ok`.
 
 It prints one line per problem and exits 1 if there is any, 0 otherwise.
@@ -93,22 +95,29 @@ def main(site):
         standing = p.root.get("data-pilean-standing")
         theorems = p.root.get("data-pilean-theorems") or ""
         for e in entries:
-            if e.get("standing") != standing or (e.get("proves") or "") != theorems:
+            if e.get("standing") != standing or (e.get("theorems") or "") != theorems:
                 problems.append(f"{where}: states {standing} {theorems!r}, {e['path']} records "
-                                f"{e.get('standing')} {e.get('proves')!r}")
+                                f"{e.get('standing')} {e.get('theorems')!r}")
         text = " ".join(" ".join(p.text).split())
-        tied = "Tied to its object by the theorem" in text
-        if standing == "proved":
-            if not tied:
-                problems.append(f"{where}: proved, but does not say it is tied to its object")
+        linked = "Linked theorem" in text
+        if "Tied to its object" in text or "proved by" in text.lower():
+            problems.append(f"{where}: says that the figure is tied to its object or proved")
+        if standing == "linked":
+            if not linked:
+                problems.append(f"{where}: linked, but does not say so")
             if " ".join(p.decls) != theorems:
                 problems.append(f"{where}: the statements shown are of {p.decls}, not {theorems!r}")
+            for t in theorems.split():
+                said = (f"PILean checked that {t} is proved from the standard axioms and that its "
+                        f"statement names this figure; it did not check what {t} says.")
+                if said not in text:
+                    problems.append(f"{where}: does not say what PILean checked of {t}")
         else:
             if p.decls:
                 problems.append(f"{where}: an illustration with theorem statements")
-            if tied or "Tied to its object" in text:
-                problems.append(f"{where}: an illustration that says it is tied to its object")
-            if "Illustration: not tied to a Lean object by a theorem" not in text:
+            if linked:
+                problems.append(f"{where}: an illustration that names a linked theorem")
+            if "Illustration: no theorem is linked to it" not in text:
                 problems.append(f"{where}: an illustration that does not say so")
         for v in p.verdicts:
             if v != "ok":

@@ -11,7 +11,7 @@ import PILean.Diagram.Sequence
 /-!
 # Plots of sequences, grids of numbers and lattices bound to Mathlib
 
-What the figures of number theory need to be tied to Mathlib's objects:
+What the theorems about the figures of number theory need to state them in Mathlib's terms:
 
 * `SeqPlot.data_iff`: the points of a faithful plot of one sequence that agrees with a function
   `g : ℕ → ℚ` are exactly the points `(n, g n)` of its range.

@@ -10,12 +10,15 @@ import PILean.Trust.Verify
 /-!
 # Tests of a figure's standing
 
-Three small figures: one linked to a theorem (`proved`), one marked `@[figure illustration]`, one
-neither. `figures%` gives each its standing; a build records it in every file's source record
+Small figures: one with a linked theorem (`linked`), one linked with the command's other name
+`figure_proves`, one marked `@[figure illustration]`, one neither, and three whose linked
+theorems say nothing of substance about them (the rule is about names, so they are `linked`
+too: the standing says that a theorem is linked, not what it says). `figures%` gives each its standing; a build records it in every file's source record
 and in the manifest, `pilean-verify` repeats it; `pilean-build --require-standing` refuses the
-unmarked illustration and accepts the others; `figure_proves` refuses a marked figure; the
+unmarked illustration and accepts the others; `figure_links` refuses a marked figure; the
 attribute refuses any other argument; a source record or a manifest with a malformed standing
-is refused.
+is refused, and one that writes the standing `proved` and the key `proves` reads as `linked`
+with `theorems`.
 -/
 
 namespace PILeanTest.Standing
@@ -23,19 +26,59 @@ namespace PILeanTest.Standing
 open PILean PILean.Trust PILean.Diagram
 
 /-- A figure with a theorem: the Dyck path `UD`. -/
-@[figure] def provedPath : Diagram := (LatticePath.ofDyck [true, false]).figure
+@[figure] def linkedPath : Diagram := (LatticePath.ofDyck [true, false]).figure
 
 /-- The figure draws two steps, ending at `(2, 0)`. -/
-theorem provedPath_spec : provedPath.steps.map (fun (_, _, q) => q) = [(1, 1), (2, 0)] := by
+theorem linkedPath_spec : linkedPath.steps.map (fun (_, _, q) => q) = [(1, 1), (2, 0)] := by
   decide +kernel
 
-figure_proves provedPath provedPath_spec
+figure_links linkedPath linkedPath_spec
 
 /-- A figure marked as an illustration: a dot. -/
 @[figure illustration] def markedSketch : Diagram :=
   { marks := [{ part := .guide, shape := .dot (0, 0) }] }
 
-/-- A figure neither proved nor marked: a dot. -/
+/-- A figure linked with `figure_proves`, the command's other name: the Dyck path `UUDD`. -/
+@[figure] def aliasPath : Diagram := (LatticePath.ofDyck [true, true, false, false]).figure
+
+/-- The figure draws four steps, ending at `(4, 0)`. -/
+theorem aliasPath_spec :
+    aliasPath.steps.map (fun (_, _, q) => q) = [(1, 1), (2, 2), (3, 1), (4, 0)] := by
+  decide +kernel
+
+figure_proves aliasPath aliasPath_spec
+
+/-- A figure whose title claims something false and whose linked theorem is a disjunction with
+`True`. -/
+@[figure]
+def vacuousOr : Diagram :=
+  { marks := [{ part := .note 0, shape := .text "K(5,2) has 16 edges" (0, 0) .center }],
+    title := "The Petersen graph" }
+
+/-- True, and says nothing of the figure. -/
+theorem vacuousOr_spec : True ∨ vacuousOr = vacuousOr := Or.inl trivial
+
+figure_links vacuousOr vacuousOr_spec
+
+/-- A figure named only in an unused hypothesis of its linked theorem. -/
+@[figure]
+def vacuousHypothesis : Diagram := { marks := [], title := "All primes are odd" }
+
+/-- `1 = 1`, under a hypothesis about the figure that is not used. -/
+theorem vacuousHypothesis_spec (_h : vacuousHypothesis = vacuousHypothesis) : 1 = 1 := rfl
+
+figure_links vacuousHypothesis vacuousHypothesis_spec
+
+/-- A figure whose linked theorem is a property every diagram has. -/
+@[figure]
+def vacuousBound : Diagram := { marks := [], title := "π = 3" }
+
+/-- The number of marks is at least zero. -/
+theorem vacuousBound_spec : vacuousBound.marks.length ≥ 0 := Nat.zero_le _
+
+figure_links vacuousBound vacuousBound_spec
+
+/-- A figure with no linked theorem and no marking: a dot. -/
 @[figure] def unmarkedSketch : Diagram :=
   { marks := [{ part := .guide, shape := .dot (1, 0) }] }
 
@@ -43,15 +86,15 @@ figure_proves provedPath provedPath_spec
 theorem markedSketch_marks : markedSketch.marks.length = 1 := rfl
 
 /--
-error: PILeanTest.Standing.markedSketch is marked @[figure illustration]; a figure tied to its object by a theorem is not an illustration: remove the marking
+error: PILeanTest.Standing.markedSketch is marked @[figure illustration]; a figure with a linked theorem is not an illustration: remove the marking
 -/
 #guard_msgs in
-figure_proves markedSketch markedSketch_marks
+figure_links markedSketch markedSketch_marks
 
 /-- error: @[figure] takes no argument other than `illustration` -/
 #guard_msgs in
 /-- Not registered: the argument is not `illustration`. -/
-@[figure proved] def badArgument : Diagram := { marks := [] }
+@[figure linked] def badArgument : Diagram := { marks := [] }
 
 /-- The figures of this module, as `figures%` gives them. -/
 def entries : Array FigureEntry :=
@@ -69,9 +112,18 @@ def sourceOf (d : String) : Option Source :=
 def checks : Array (String × Bool) :=
   let valid : Source :=
     { module := "M", decl := "M.d", file := "M.lean", line := 1, column := 0, version := "1" }
-  #[("standing: a linked figure is proved, by its theorem",
-      (entryOf "provedPath").map (·.standing) ==
-        some (.proved #["PILeanTest.Standing.provedPath_spec"])),
+  #[("standing: a figure with a linked theorem is linked, to its theorem",
+      (entryOf "linkedPath").map (·.standing) ==
+        some (.linked #["PILeanTest.Standing.linkedPath_spec"])),
+    ("standing: figure_proves links as figure_links does",
+      (entryOf "aliasPath").map (·.standing) ==
+        some (.linked #["PILeanTest.Standing.aliasPath_spec"])),
+    ("standing: theorems that say nothing of the figure are linked, and the word is linked",
+      ["vacuousOr", "vacuousHypothesis", "vacuousBound"].all fun d =>
+        (entryOf d).map (fun e => (e.standing.word, e.standing.theorems)) ==
+          some ("linked", #[s!"PILeanTest.Standing.{d}_spec"])),
+    ("standing: no standing is worded proved",
+      entries.all fun e => e.standing.word == "linked" || e.standing.word == "illustration"),
     ("standing: a marked figure is a marked illustration",
       (entryOf "markedSketch").map (·.standing) == some (.illustration true)),
     ("standing: a figure neither linked nor marked is an unmarked illustration",
@@ -80,23 +132,35 @@ def checks : Array (String × Bool) :=
       entries.all fun e => (e.outputs ()).all (·.standing == e.standing)),
     ("standing: --require-standing names the unmarked illustration only",
       unmarkedIllustrations entries == #["PILeanTest.Standing.unmarkedSketch"]),
-    ("standing: the source record of a proved figure names its theorem",
-      (sourceOf "provedPath").map (fun s => (s.standing, s.proves)) ==
-        some (some "proved", some "PILeanTest.Standing.provedPath_spec")),
+    ("standing: the source record of a linked figure names its theorem",
+      (sourceOf "linkedPath").map (fun s => (s.standing, s.theorems)) ==
+        some (some "linked", some "PILeanTest.Standing.linkedPath_spec") &&
+        (sourceOf "linkedPath").any (·.fields.any (·.1 == "theorems")) &&
+        !(sourceOf "linkedPath").any (·.fields.any (·.1 == "proves"))),
     ("standing: the source record of an illustration says so, with no theorem",
-      (sourceOf "markedSketch").map (fun s => (s.standing, s.proves)) ==
+      (sourceOf "markedSketch").map (fun s => (s.standing, s.theorems)) ==
         some (some "illustration", none)),
-    ("standing: a record that claims proved without a theorem cannot be written or read",
-      (Source.validate { valid with standing := some "proved" } matches .error _) &&
+    ("standing: a record that claims a link without a theorem cannot be written or read",
+      (Source.validate { valid with standing := some "linked" } matches .error _) &&
+        (Source.validate { valid with standing := some "proved", theorems := some "A" }
+          matches .error _) &&
+        (Source.ofFields (valid.fields.push ("standing", "linked")) matches .error _) &&
         (Source.ofFields (valid.fields.push ("standing", "proved")) matches .error _) &&
-        (Source.ofFields (valid.fields ++ #[("standing", "illustration"), ("proves", "T")])
+        (Source.ofFields (valid.fields ++ #[("standing", "illustration"), ("theorems", "T")])
           matches .error _) &&
         (Source.ofFields (valid.fields.push ("standing", "certain")) matches .error _) &&
-        (Source.ofFields (valid.fields ++ #[("standing", "proved"), ("proves", "A  B")])
-          matches .error _)),
+        (Source.ofFields (valid.fields ++ #[("standing", "linked"), ("theorems", "A  B")])
+          matches .error _) &&
+        (Source.ofFields (valid.fields ++
+          #[("standing", "linked"), ("theorems", "A"), ("proves", "A")]) matches .error _) &&
+        (Source.ofFields (valid.fields ++
+          #[("standing", "linked"), ("proves", "A"), ("proves", "A")]) matches .error _)),
     ("standing: a well-formed record is read back",
+      (Source.ofFields (valid.fields ++ #[("standing", "linked"), ("theorems", "A B")])).toOption ==
+        some { valid with standing := some "linked", theorems := some "A B" }),
+    ("standing: a record that writes proved and proves reads as linked with its theorems",
       (Source.ofFields (valid.fields ++ #[("standing", "proved"), ("proves", "A B")])).toOption ==
-        some { valid with standing := some "proved", proves := some "A B" })]
+        some { valid with standing := some "linked", theorems := some "A B" })]
 
 /-- The standing in each format of file, a build with and without `--require-standing`, and the
 lines of `pilean-verify`. -/
@@ -113,7 +177,7 @@ def ioChecks : IO (Array (String × Bool)) := do
   let mut filesAgree := !manifest.isEmpty
   for m in manifest do
     match Source.read? (← IO.FS.readBinFile (root / "a" / m.path)) with
-    | .ok s => if s.standing != m.standing || s.proves != m.proves || m.standing.isNone then
+    | .ok s => if s.standing != m.standing || s.theorems != m.theorems || m.standing.isNone then
         filesAgree := false
     | .error _ => filesAgree := false
   let lines ← verifyDirEntries (root / "a")
@@ -122,21 +186,28 @@ def ioChecks : IO (Array (String × Bool)) := do
         s!"{v.text}: {p}{(m.map recordedStanding).getD ""}"
     | .error _ => []
   -- a manifest whose standing is malformed is refused as a whole
-  let bad := (Manifest.render (manifest.map fun m => { m with proves := none })).toUTF8
+  let bad := (Manifest.render (manifest.map fun m => { m with theorems := none })).toUTF8
   let refused := (Manifest.parse bad) matches .error _
+  -- a manifest in the earlier format, with `proved` and `proves`, reads as the current one
+  let text := (String.fromUTF8? (Manifest.render manifest).toUTF8).getD ""
+  let old := ((text.replace manifestFormat oldManifestFormat).replace "\"standing\":\"linked\""
+    "\"standing\":\"proved\"").replace "\"theorems\":" "\"proves\":"
+  let oldRead := (Manifest.parse old.toUTF8).toOption == some manifest &&
+    (old.splitOn "\"proved\"").length > 1
   IO.FS.removeDirAll root
   return #[
     ("standing: --require-standing refuses the unmarked illustration, naming it",
       (strictMsg.splitOn "unmarkedSketch is an illustration").length == 2 &&
         (strictMsg.splitOn "markedSketch is").length == 2),
-    ("standing: --require-standing builds the proved and the marked figures", ok == 0),
+    ("standing: --require-standing builds the linked and the marked figures", ok == 0),
     ("standing: without the option every figure builds", all == 0),
     ("standing: each file records the standing its manifest entry lists", filesAgree),
     ("standing: pilean-verify repeats the recorded standing on its ok lines",
-      recorded.any (fun l => l.startsWith "ok: PILeanTest/Standing/provedPath.svg [recorded: \
-        proved by PILeanTest.Standing.provedPath_spec]") &&
+      recorded.any (fun l => l.startsWith "ok: PILeanTest/Standing/linkedPath.svg [recorded: \
+        linked to PILeanTest.Standing.linkedPath_spec]") &&
         recorded.any (fun l => l.startsWith "ok: PILeanTest/Standing/markedSketch.svg \
           [recorded: illustration]")),
-    ("standing: a manifest that lists a proved figure without its theorem is refused", refused)]
+    ("standing: a manifest that lists a linked figure without its theorem is refused", refused),
+    ("standing: a manifest of the earlier format, with proved and proves, is read", oldRead)]
 
 end PILeanTest.Standing

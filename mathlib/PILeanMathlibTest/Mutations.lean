@@ -15,7 +15,7 @@ module), then the figures, then the theorems. The change is made in the figures'
 `SpecMutation.apply`, and the joined file is compiled with the `lean` of the build (`LEAN`, which
 `lake test` sets, with Mathlib on its path). A change passes when the unchanged joined file
 compiles, and the changed one fails with no error in the figures' part and at least one inside the
-named theorem, from its docstring to its `figure_proves` line (a lemma the theorem uses may fail
+named theorem, from its docstring to its `figure_links` line (a lemma the theorem uses may fail
 first, which then fails the theorem's link).
 
 ## Main definitions

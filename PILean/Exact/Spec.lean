@@ -10,7 +10,7 @@ import PILean.Exact.Plane
 A figure's specification says which item is which exact object, in which colour, with which
 title and which recorded incidences, so that a theorem about the exact numbers (that a point is
 on a circle, say) is a theorem about the item that draws them; with the figure's constant in the
-statement, `figure_proves` links it to the figure.
+statement, `figure_links` links it to the figure.
 
 For an item built with the builders of `PILean.Exact.Plane` and the modifiers, `simp` with the
 predicate, the builders and the modifiers used, `Item.mapLook`, `Item.mapInfo` and

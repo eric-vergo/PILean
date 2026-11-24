@@ -14,7 +14,7 @@ The directive `figure` puts a PILean figure into a Manual-genre document (a Vers
 chapter, a Verso manual):
 
 ```
-:::figure MyProject.Figures.sine (label := "sine") (proves := MyProject.Figures.sine_spec)
+:::figure MyProject.Figures.sine (label := "sine") (links := MyProject.Figures.sine_spec)
 The sine function, sampled on an exact grid.
 :::
 ```
@@ -33,10 +33,12 @@ optional:
   screens, when it has one): its titles show on hover, its elements that name a declaration
   (`data-lean-decl`) link to it as the source line does (the site's link mode), and one picture
   serves both themes. A figure without an inline picture fails the site's build.
-* `proves := name`: a theorem about the figure. It must exist, must not depend on `sorryAx` or any
-  axiom other than `propext`, `Classical.choice` and `Quot.sound`, and its statement must name
-  the figure itself (PILean's rule, `figure_proves`): a statement about a series or a relation
-  the figure is built from is refused, so the theorem begins by saying what the figure holds.
+* `links := name` (or `proves := name`, the same option): a theorem linked to the figure. It
+  must exist, must not depend on `sorryAx` or any axiom other than `propext`, `Classical.choice`
+  and `Quot.sound`, and its statement must name the figure itself (PILean's rule,
+  `figure_links`): a statement about a series or a relation the figure is built from is refused,
+  so the theorem begins by saying what the figure holds. What the statement says is not
+  checked.
 
 The figure is numbered as the Blueprint numbers its blocks (`verso.blueprint.numbering`,
 `verso.blueprint.subNumberingPrefix`), with its own counter: "Figure 2.1". Its caption ends with a

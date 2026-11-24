@@ -55,14 +55,14 @@ def generate (args : List String) : IO UInt32 :=
   PILeanVerso.Manual.withFigures (%doc ManualExample) site_figures% args fun doc args =>
     manualMain doc (options := args) (config := exampleConfig)
 
-/-- A figure whose theorem names it but is not linked to it by `figure_proves`. -/
+/-- A figure whose theorem names it but is not linked to it by `figure_links`. -/
 @[figure]
 def unlinked : Plot.Figure := ManualExample.trianglePlot
 
-/-- A statement that names `unlinked`; no `figure_proves` links the two. -/
+/-- A statement that names `unlinked`; no `figure_links` links the two. -/
 theorem unlinked_self : unlinked = ManualExample.trianglePlot := rfl
 
--- `figure_proves` refuses a theorem whose statement does not name the figure, so a figure whose
+-- `figure_links` refuses a theorem whose statement does not name the figure, so a figure whose
 -- theorem was weakened that way stops building rather than keeps its standing.
 #guard_msgs in
 run_meta do
@@ -126,8 +126,8 @@ def main : IO UInt32 := do
     -- standing and page data
     let standingOf := fun (n : String) => (table.entries.find? (·.decl == n)).map (·.standing)
     check (standingOf "ManualExample.trianglePlot" ==
-        some (.proved #["ManualExample.trianglePoints_spec"]))
-      "a figure linked by figure_proves is proved by its theorem"
+        some (.linked #["ManualExample.trianglePoints_spec"]))
+      "a figure linked by figure_links has the standing linked, with its theorem"
     check (standingOf "unlinked" == some (.illustration false))
       "a figure whose theorem is not linked is an unmarked illustration"
     let pages := table.pages.toOption.getD {}
@@ -142,15 +142,21 @@ def main : IO UInt32 := do
     let unlinkedEntry := table.entries.filter (·.decl == "unlinked")
     let claim := renderSite unlinkedEntry #[{ decl := "unlinked", proves := some "unlinked_self" }] {}
     check (match claim with
-        | .error e => has e "not linked to it" && has e "figure_proves unlinked unlinked_self"
+        | .error e => has e "not linked to it" && has e "figure_links unlinked unlinked_self"
         | .ok _ => false)
       "a caption naming a theorem the standing does not record fails the build"
-    check (!(standingWords (.illustration false)).startsWith "Tied" &&
-        (standingWords (.proved #["T"])).startsWith "Tied to its object by the theorem")
-      "only a proved standing is worded as tied to its object"
+    check (!has (standingWords (.illustration false)) "Linked" &&
+        standingWords (.linked #["T"]) == "Linked theorem:" &&
+        standingWords (.linked #["T", "U"]) == "Linked theorems:")
+      "only a linked standing is worded as a linked theorem"
+    check (#[standingWords (.illustration false), standingWords (.linked #["T"]),
+        theoremScopeText, theoremLinkText, linkCheckedText "T"].all fun w =>
+          !has w "Tied" && !has w "tied" && !has w "roved by")
+      "no sentence of a page says that a figure is tied to its object or proved"
     let trust ← IO.FS.readFile ("../../docs/TRUST.md" : System.FilePath)
-    check (hasWords trust theoremScopeText && hasWords trust theoremLinkText)
-      "the pages' sentences on what a theorem covers are those of docs/TRUST.md"
+    check (hasWords trust theoremScopeText && hasWords trust theoremLinkText &&
+        hasWords trust (linkCheckedText "T"))
+      "the pages' sentences on what a linked theorem covers are those of docs/TRUST.md"
     check (pageSlug "ManualExample.trianglePlot" == "ManualExample.trianglePlot" &&
         pageSlug "a «b»" != pageSlug "a_b_" && (pageSlug "x/../<y>").all
           (fun c => c.isAlphanum || c == '.' || c == '_' || c == '-') &&
@@ -195,7 +201,7 @@ def main : IO UInt32 := do
     check (has numbers "alt=\"A line through the points") "the text alternative is the given one"
     check (has numbers "pilean-figure-has-dark" && has numbers "trianglePlot-dark.svg")
       "a figure has its dark picture"
-    check (has numbers ">Theorem<" && !has numbers "Proved by" &&
+    check (has numbers ">Linked theorem<" && !has numbers "Proved by" &&
       has numbers "ManualExample.trianglePoints_spec") "the theorem is named"
     check (has numbers "ManualExample/Figures.lean:") "the source line names the file and line"
     check (has numbers "class=\"pilean-figref\"") "the reference links to the figure"
@@ -211,7 +217,7 @@ def main : IO UInt32 := do
     check (has list "pilean-figure-index" && has list "Figure 3") "the figures page lists them"
     check (has list "ManualExample.radiusSlider" && has list "ManualExample.wordSteps")
       "the figures page lists the explorers"
-    check ((list.splitOn "pilean-standing pilean-standing-proved").length - 1 == 2 &&
+    check ((list.splitOn "pilean-standing pilean-standing-linked").length - 1 == 2 &&
         (list.splitOn "pilean-standing pilean-standing-illustration").length - 1 == 4)
       "the figures page shows each figure's standing"
     check ((list.splitOn "class=\"pilean-page-link\"").length - 1 == 6 &&
@@ -221,19 +227,20 @@ def main : IO UInt32 := do
     let pageOf := fun (d : String) => IO.FS.readFile (out1 / "html-multi" / "Figures" / d /
       "index.html")
     let tri ← pageOf "ManualExample.trianglePlot"
-    check (has tri "data-pilean-standing=\"proved\"" &&
-        has tri "Tied to its object by the theorem" &&
+    check (has tri "data-pilean-standing=\"linked\"" &&
+        has tri "Linked theorem: " && !has tri "Tied to its object" &&
+        hasWords tri (linkCheckedText "ManualExample.trianglePoints_spec") &&
         has tri "data-lean-decl=\"ManualExample.trianglePoints_spec\"" &&
         has tri "Axioms: Classical.choice, Quot.sound, propext.")
-      "a proved figure's page names its theorem with its axioms"
+      "a linked figure's page names its theorem with its axioms and what PILean checked of it"
     check (has tri ">trianglePoints_spec</" && has tri "panels" && !has tri "two_mul_triangle n")
       "the theorem's statement is shown, not its proof"
     check (hasWords tri theoremScopeText && hasWords tri theoremLinkText)
-      "the page says what the theorem covers"
+      "the page says what a linked theorem covers"
     check (has tri "data-lean-decl=\"ManualExample.trianglePoints\"" &&
         has tri "data-lean-decl=\"ManualExample.triangle\"" && has tri "hl lean")
       "the page shows the declarations the figure is built from, highlighted"
-    check (has tri "ok [recorded: proved by ManualExample.trianglePoints_spec]" &&
+    check (has tri "ok [recorded: linked to ManualExample.trianglePoints_spec]" &&
         has tri "pilean-figure-light" && has tri "pilean-figure-dark" &&
         has tri " download " && has tri " bytes")
       "the page has both pictures, its files to download and pilean-verify's verdicts"
@@ -241,8 +248,8 @@ def main : IO UInt32 := do
       "the page says how to reproduce"
     let slider ← pageOf "ManualExample.radiusSlider"
     check (has slider "data-pilean-standing=\"illustration\"" &&
-        has slider "Illustration: not tied to a Lean object by a theorem" &&
-        !has slider "Tied to its object" && has slider "pilean-explorer-frame")
+        has slider "Illustration: no theorem is linked to it" &&
+        !has slider "Linked theorem" && has slider "pilean-explorer-frame")
       "an illustration's page says so, and an explorer is embedded"
     let triPage := (((tri.splitOn "class=\"pilean-figure-page").getD 1 "").splitOn "</main>").headD ""
     check (!triPage.isEmpty && !has triPage "<script" && !hasHandler triPage)

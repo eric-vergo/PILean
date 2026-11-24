@@ -97,7 +97,7 @@ theorem squareFigure_spec :
     maps.Commutes square = true ∧ maps.StylesHold square = true :=
   ⟨rfl, by decide +kernel, by decide +kernel, by decide +kernel⟩
 
-figure_proves squareFigure squareFigure_spec
+figure_links squareFigure squareFigure_spec
 ```
 
 :::figure PILeanManual.AlgebraGuide.squareFigure (alt := "A square: ℤ/12 at the top left with two-headed arrows to ℤ/6 on its right and ℤ/4 below it, both with two-headed arrows to ℤ/2 at the bottom right; the arrows are labelled π₆, π₄, π₂ and π₂.")
@@ -138,7 +138,7 @@ theorem z5Table_spec :
     z5.FaithfulTable z5.tableFigure :=
   ⟨rfl, by decide +kernel, by decide +kernel, z5.tableFigure_faithful (by decide)⟩
 
-figure_proves z5Table z5Table_spec
+figure_links z5Table z5Table_spec
 ```
 
 :::figure PILeanManual.AlgebraGuide.z5Table (alt := "The addition table of the integers modulo 5: headings 0 to 4 along the top and the left, and in each cell the sum modulo 5, tinted in the colour of the sum, so that the colours run in diagonal bands.")

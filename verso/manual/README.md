@@ -40,7 +40,8 @@ The directive's options: `alt` (required: the text alternative), `label`, `title
 by default, or `png`, `apng`, `gif`), `width` (a CSS length), `backdrop` (a picture of the site,
 with `{theme}` for `light` or `dark`, that the figure is drawn over: callouts over a screenshot)
 `inline := true` (the picture as an `svg` element of the page, one picture for both themes) and
-`proves` (a theorem, which a `figure_proves` command must link to the figure). An empty body takes the declaration's doc string as the caption.
+`links` (a theorem, which a `figure_links` command must link to the figure; `proves` is the same
+option). An empty body takes the declaration's doc string as the caption.
 `:::figure_explorer` shows a `PILean.Explorer` with its frames inline and its controls (the
 same options; on another type it is an error). `withFigures`'s `declStyle` sets how the source
 line shows a declaration and its file (by default the name as code and the file linked to the
@@ -59,8 +60,8 @@ README](../README.md#what-a-reader-sees).
 
 Every figure the manual uses has a page of its own below the figures page (or below a part
 "Figures" added at the end of a manual without `{figure_list}`): the picture at full size and its
-files, its number, caption and uses, its standing ("Tied to its object by the theorem T" with T's
-statement and axioms, or "Illustration: not tied to a Lean object by a theorem"), its code (the
+files, its number, caption and uses, its standing ("Linked theorem: T" with T's statement, axioms and
+what PILean checked of it, or "Illustration: no theorem is linked to it"), its code (the
 declaration and the definitions of the manual's project it uses, highlighted with hovers and
 linked to their source), its provenance and how to reproduce it. The source line under the
 figure and the figures page link to it. What each section holds, the caps, how the standing is
@@ -73,7 +74,7 @@ source and runs no `lake build`.
 
 * When the chapter is elaborated: the declaration has `@[figure]` (and is a `PILean.Explorer` for
   `figure_explorer`); the text alternative is given;
-  the theorem named by `proves` passes PILean's rule (`figure_proves`): it is a theorem, depends
+  the theorem named by `links` passes PILean's rule (`figure_links`): it is a theorem, depends
   on no `sorry` and no axiom beyond `propext`, `Classical.choice` and `Quot.sound`, and its
   statement names the figure itself: the figure's constant occurs in the statement once its
   `let`s and beta-redexes are reduced, and a statement about a definition the figure is built

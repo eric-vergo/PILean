@@ -22,14 +22,15 @@ the Lean object it shows, and what stays tested or trusted, is on
 | `commit` | the commit the image was built from | no |
 | `version` | the version of PILean (`PILean.version`) | yes |
 | `fingerprint` | 64 lowercase hexadecimal digits (a SHA-256) | no |
-| `standing` | `proved` or `illustration`: the figure's standing as the build recorded it ("Standing" below) | no |
-| `proves` | for a proved figure, the theorems linked to it, by full name, separated by single spaces | with `standing` `proved` only |
+| `standing` | `linked` or `illustration`: the figure's standing as the build recorded it ("Standing" below; `proved` reads as `linked`) | no |
+| `theorems` | for a linked figure, the theorems linked to it, by full name, separated by single spaces (`proves` reads as `theorems`) | with `standing` `linked` only |
 
 A record can be written only if every value is at most 4096 bytes of UTF-8 and has only
 characters XML 1.0 can carry (so no NUL and no other control character except tab, line feed and
 carriage return), a fingerprint has the form above, and the standing is well formed: none,
-`illustration` without `proves`, or `proved` with a non-empty `proves` of names without white
-space (`Source.validate`, `standingOk`; the readers refuse anything else).
+`illustration` without `theorems`, or `linked` with a non-empty `theorems` of names without white
+space (`Source.validate`, `standingOk`; the readers refuse anything else, after reading `proved`
+as `linked` and `proves` as `theorems`, and refuse a record with both `theorems` and `proves`).
 
 ## Writing
 
@@ -276,7 +277,7 @@ registered declaration of the environment (imported modules included, and the de
 it in the same module), sorted by module and then declaration name, each holding the recorded
 data and `fun _ => ToOutputs.outputs decl`.
 
-The command `figure_proves fig thm` links a theorem to a registered figure. It is an error, so
+The command `figure_links fig thm` links a theorem to a registered figure. It is an error, so
 the module does not build, unless `thm` is a theorem, depends on no `sorry` and on no axiom other
 than `propext`, `Classical.choice` and `Quot.sound`, and its statement names the figure itself.
 The links are kept in an environment extension (`figureTheorems`).
@@ -328,38 +329,47 @@ correct.
 
 ## Standing
 
-A figure is *proved* or an *illustration* (`PILean.Trust.Standing`). It is proved when at least
-one theorem is linked to it by `figure_proves` and that link passes the rule of `figure_proves`
+A figure is *linked* or an *illustration* (`PILean.Trust.Standing`). It is linked when at least
+one theorem is linked to it by `figure_links` and that link passes the rule of `figure_links`
 again where the build's table of figures (`figures%`) is elaborated (`figureStanding`); it is then
-recorded with the names of those theorems. Otherwise it is an illustration: a figure that no
-theorem ties to its object. `@[figure illustration]` marks a figure as one openly, and
-`figure_proves` refuses a figure so marked.
+recorded with the names of those theorems. Otherwise it is an illustration: a figure to which no
+theorem is linked. `@[figure illustration]` marks a figure as one openly, and `figure_links`
+refuses a figure so marked. `figure_proves` is another name for the command `figure_links`.
 
 * `figures%` sets the standing on every output of a figure (`Output.standing`;
   `FigureEntry.standing` reads it), so a build writes it into every file's source record
-  (`standing`, `proves`) and into the manifest (the keys `standing` and `proves`), and
-  `pilean-info` prints it. It is not part of the fingerprint, which identifies the drawing and the
-  declaration; it is part of the file, so the file's SHA-256 in the manifest covers it.
+  (`standing`, `theorems`) and into the manifest (the keys `standing` and `theorems`, format
+  `pilean-manifest-2`), and `pilean-info` prints it. It is not part of the fingerprint, which
+  identifies the drawing and the declaration; it is part of the file, so the file's SHA-256 in the
+  manifest covers it. The readers also take the records and manifests (format
+  `pilean-manifest-1`) that wrote the standing `proved` and the key `proves`: `proved` reads as
+  `linked` and `proves` as `theorems` (`readStanding`).
 * `pilean-build --require-standing` (with or without `--check`) fails, before rendering anything,
   if a figure is an illustration without the marking, naming each such figure: a project can
-  require that every picture is either tied to its object by a theorem or openly marked.
+  require that every picture either has a linked theorem or is openly marked.
 * `pilean-verify` compares the recorded standing and theorems of each file with the manifest, and
-  ends each `ok` line with the standing the file records (` [recorded: proved by T]`,
+  ends each `ok` line with the standing the file records (` [recorded: linked to T]`,
   ` [recorded: illustration]`). It checks no theorem: what it prints is what the file and the
   manifest say.
-* What `proved` establishes is the rule of `figure_proves`: a theorem free of `sorry` and of
+* What `linked` establishes is the rule of `figure_links`: a theorem free of `sorry` and of
   non-standard axioms whose statement names the figure. It says nothing about what the statement
   says; that is for its reader (`docs/PROOFS.md`). A figure whose theorem is in a module the
   build's driver does not import is an illustration to that build.
 * The Verso adapters build their own table of figures (`site_figures%`), which sets the standing
-  as `figures%` does. Each figure of a site has a page that states it: "Tied to its object by the
-  theorem T" with T's statement and axioms, or "Illustration: not tied to a Lean object by a
-  theorem". The site's build fails when a caption names a theorem (`proves :=`) that the standing
-  does not record, and when a page's standing differs from the files the build wrote.
+  as `figures%` does. Each figure of a site has a page that states it: "Linked theorem: T" with
+  T's statement and axioms and the sentence below on what PILean checked, or "Illustration: no
+  theorem is linked to it". The site's build fails when a caption names a theorem (`links :=`, or
+  `proves :=`, the same option) that the standing does not record, and when a page's standing
+  differs from the files the build wrote.
 
-A theorem tied to a figure is about the data the figure is drawn from, not about how it is drawn:
-it says nothing about the rendering of text, the colours, or the floating-point step that turns
-the data into the picture.
+A figure's page says of each linked theorem T:
+
+PILean checked that T is proved from the standard axioms and that its statement names this
+figure; it did not check what T says.
+
+What a linked theorem says is in its statement. The theorems of this library state the figure's
+data and, where written, its colour roles, texts and title; none says how text is rendered, which
+colour values a style gives, or how the exact numbers become pixels.
 
 ## The fingerprint
 

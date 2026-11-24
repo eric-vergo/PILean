@@ -50,7 +50,7 @@ the exact marks: which parts are drawn, in which order, at which exact positions
 the conversion of rationals to floating point, the fitting of the frame, rasterisation, colours
 and style are not part of any theorem; they are the tested code of plane figures.
 
-A figure whose theorem is linked by `figure_proves` is *proved*; any other figure is an
+A figure with a theorem linked by `figure_links` is *linked*; any other figure is an
 *illustration* (`@[figure illustration]` marks one openly, and `pilean-build --require-standing`
 refuses a figure that is neither).
 
@@ -93,7 +93,7 @@ theorem heptagon_spec :
     cycle7Diagram.edges = [(0, 1), (0, 6), (1, 2), (2, 3), (3, 4), (4, 5), (5, 6)] :=
   ⟨rfl, by decide +kernel⟩
 
-figure_proves heptagon heptagon_spec
+figure_links heptagon heptagon_spec
 ```
 
 :::figure PILeanManual.CombinatoricsGuide.heptagon (alt := "Seven dots on a circle labelled 0 to 6, each joined to its two neighbours by grey segments, forming a heptagon.")

@@ -75,23 +75,23 @@ show, and the site's check ties each inline frame to its file. An explorer has a
 {name}`PILean.Explorer.maxFrames` frames, and its frames' SVG together at most
 {name}`PILean.Explorer.maxBytes` bytes; a build refuses one beyond either.
 
-# Two Proved Explorers
+# Two Explorers with Linked Theorems
 %%%
 tag := "explorer-proved"
 %%%
 
-An explorer's standing comes, as a figure's does, from a theorem linked by `figure_proves` whose
+An explorer's standing comes, as a figure's does, from a theorem linked by `figure_links` whose
 statement names it. For a family the theorem is quantified over the grid: it says that the
 explorer is the family of its frames and that at every point of the grid the frame's figure is
 faithful to its object.
 
-:::figure_explorer PILeanTest.Explorers.cayleyExplorer (label := "cayley-explorer") (alt := "The Cayley graph of the integers modulo n for one generator a: n dots on a circle, numbered from 0, with an arrow from each g to g + a modulo n; n from 5 to 12 on a slider, a from 1 to 4 played. The arrows form gcd(n, a) cycles; when 2a is a multiple of n they are lines joining pairs.") (proves := PILeanTest.Explorers.cayleyExplorer_spec)
+:::figure_explorer PILeanTest.Explorers.cayleyExplorer (label := "cayley-explorer") (alt := "The Cayley graph of the integers modulo n for one generator a: n dots on a circle, numbered from 0, with an arrow from each g to g + a modulo n; n from 5 to 12 on a slider, a from 1 to 4 played. The arrows form gcd(n, a) cycles; when 2a is a multiple of n they are lines joining pairs.") (links := PILeanTest.Explorers.cayleyExplorer_spec)
 The Cayley graph of `ℤ/n` for the generator `a`.
 :::
 
 {docstring PILeanTest.Explorers.cayleyExplorer_spec}
 
-:::figure_explorer PILeanTest.Explorers.latticeExplorer (label := "lattice-explorer") (alt := "The lattice spanned by (1, 0) and (x, y) in the window from -3 to 3 by -2 to 2, its points as dots and its fundamental parallelogram outlined; x from 0 to 3/4 on a slider, y from 1/2 to 1 played.") (proves := PILeanTest.Explorers.latticeExplorer_spec)
+:::figure_explorer PILeanTest.Explorers.latticeExplorer (label := "lattice-explorer") (alt := "The lattice spanned by (1, 0) and (x, y) in the window from -3 to 3 by -2 to 2, its points as dots and its fundamental parallelogram outlined; x from 0 to 3/4 on a slider, y from 1/2 to 1 played.") (links := PILeanTest.Explorers.latticeExplorer_spec)
 The lattice `ℤ (1, 0) + ℤ (x, y)` as its second period moves.
 :::
 

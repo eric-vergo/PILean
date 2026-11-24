@@ -15,12 +15,13 @@ module where it is used, becomes an `Array FigureEntry` of every registered decl
 environment (imported modules included), sorted by module and then declaration name.
 
 `@[figure illustration]` registers the declaration the same way and marks it openly as an
-illustration: a figure that no theorem ties to its object.
+illustration: a figure to which no theorem is linked.
 
-`figure_proves fig thm` links a theorem to a figure, after checking that it is proved from the
-standard axioms and that its statement names the figure itself. `figures%` gives each figure its
-standing (`Standing`): `proved` with the linked theorems that pass that check again where
-`figures%` is elaborated, or `illustration`, marked or not.
+`figure_links fig thm` links a theorem to a figure, after checking that it is proved from the
+standard axioms and that its statement names the figure itself; it does not check what the
+statement says. `figure_proves` is another name for the same command. `figures%` gives each
+figure its standing (`Standing`): `linked` with the linked theorems that pass that check again
+where `figures%` is elaborated, or `illustration`, marked or not.
 
 `#assert_standard_axioms A` checks the axioms of every declaration of the modules whose names
 start with `A`, by walking the modules rather than a list of names; `#assert_modules_imported A`
@@ -122,7 +123,7 @@ openly as an illustration. -/
 initialize registerBuiltinAttribute {
   name := `figure
   descr := "registers a definition as a figure for pilean-build (`figure illustration`: marked \
-    as an illustration, a figure no theorem ties to its object)"
+    as an illustration, a figure to which no theorem is linked)"
   applicationTime := .afterCompilation
   add := fun decl stx _ => do queueFigure decl (← illustrationArg stx) }
 
@@ -204,13 +205,13 @@ def figureTheoremProblem? (fig thm : Name) : CoreM (Option MessageData) := do
   let env ← getEnv
   let some info := env.find? thm | return some m!"unknown declaration {thm}"
   unless info matches .thmInfo _ do
-    return some m!"{thm} is not a theorem; a figure links only to a theorem about it"
+    return some m!"{thm} is not a theorem; a figure is linked only to a theorem about it"
   let axioms ← collectAxioms thm
   if axioms.contains ``sorryAx then
-    return some m!"{thm} depends on `sorry`; a figure links only to a proved theorem"
+    return some m!"{thm} depends on `sorry`; a figure is linked only to a proved theorem"
   for a in axioms do
     unless allowedAxioms.contains a do
-      return some m!"{thm} depends on the axiom {a}; a figure links only to theorems \
+      return some m!"{thm} depends on the axiom {a}; a figure is linked only to theorems \
         that use propext, Classical.choice and Quot.sound at most"
   unless ← statementNamesFigure fig thm do
     return some m!"the statement of {thm} does not mention the figure {fig}. A theorem linked \
@@ -219,26 +220,29 @@ def figureTheoremProblem? (fig thm : Name) : CoreM (Option MessageData) := do
       {fig} holds), not only of definitions it is built from"
   return none
 
-/-- The links recorded by `figure_proves`: a figure and a theorem about it. -/
+/-- The links recorded by `figure_links`: a figure and a theorem about it. -/
 initialize figureTheoremExt : SimplePersistentEnvExtension (Name × Name) (Array (Name × Name)) ←
   registerSimplePersistentEnvExtension {
     addEntryFn := fun s e => s.push e
     addImportedFn := fun es => es.foldl (· ++ ·) #[] }
 
-/-- The theorems linked to the figure `fig` by `figure_proves`, in the environment. -/
+/-- The theorems linked to the figure `fig` by `figure_links`, in the environment. -/
 def figureTheorems (env : Environment) (fig : Name) : Array Name :=
   (figureTheoremExt.getState env).filterMap fun (f, t) => if f == fig then some t else none
 
-/-- `figure_proves fig thm` links the theorem `thm` to the figure `fig`, a declaration with the
+/-- `figure_links fig thm` links the theorem `thm` to the figure `fig`, a declaration with the
 attribute `@[figure]` (of this module or an imported one). The command fails, and with it the
 build, unless `thm` is a theorem about the figure in the sense of `figureTheoremProblem?`: a
 theorem, free of `sorry` and of axioms other than `propext`, `Classical.choice` and `Quot.sound`,
-whose statement names the figure itself. -/
+whose statement names the figure itself. What the statement says is not checked. -/
+syntax (name := figureLinks) "figure_links " ident ppSpace ident : command
+
+/-- `figure_proves fig thm` is the same command as `figure_links fig thm`. -/
 syntax (name := figureProves) "figure_proves " ident ppSpace ident : command
 
-/-- The elaborator of `figure_proves`. -/
-@[command_elab figureProves]
-def elabFigureProves : Lean.Elab.Command.CommandElab := fun stx => do
+/-- The elaborator of `figure_links` and `figure_proves`. -/
+@[command_elab figureLinks, command_elab figureProves]
+def elabFigureLinks : Lean.Elab.Command.CommandElab := fun stx => do
   let fig : Ident := ⟨stx[1]⟩
   let thm : Ident := ⟨stx[2]⟩
   let (figName, thmName) ← Lean.Elab.Command.liftCoreM do
@@ -246,8 +250,8 @@ def elabFigureProves : Lean.Elab.Command.CommandElab := fun stx => do
     unless (registeredFigures (← getEnv)).any (·.decl == figName) do
       throwErrorAt fig "{figName} does not have the attribute @[figure]"
     if (registeredFigures (← getEnv)).any (fun r => r.decl == figName && r.illustration) then
-      throwErrorAt fig "{figName} is marked @[figure illustration]; a figure tied to its object \
-        by a theorem is not an illustration: remove the marking"
+      throwErrorAt fig "{figName} is marked @[figure illustration]; a figure with a linked \
+        theorem is not an illustration: remove the marking"
     let thmName ← realizeGlobalConstNoOverloadWithInfo thm
     if let some msg ← figureTheoremProblem? figName thmName then throwErrorAt thm msg
     return (figName, thmName)
@@ -352,22 +356,22 @@ def sortedFigures (env : Environment) : Array FigureRecord :=
     | some p => if p.module == r.module && p.decl == r.decl then out else out.push r
     | none => out.push r
 
-/-- The standing of a registered figure in the current environment: `proved` with the theorems
-linked to it by `figure_proves` (in the order of the links, each once) that pass
+/-- The standing of a registered figure in the current environment: `linked` with the theorems
+linked to it by `figure_links` (in the order of the links, each once) that pass
 `figureTheoremProblem?` again now, or, if none does, an illustration, marked as the record says. -/
 def figureStanding (r : FigureRecord) : CoreM Standing := do
   let mut ok : Array String := #[]
   for t in figureTheorems (← getEnv) r.decl do
     if (← figureTheoremProblem? r.decl t).isNone && !ok.contains t.toString then
       ok := ok.push t.toString
-  return if ok.isEmpty then .illustration r.illustration else .proved ok
+  return if ok.isEmpty then .illustration r.illustration else .linked ok
 
 /-- The term that builds the standing `s`. -/
 def quoteStanding (s : Standing) : TermElabM Term :=
   match s with
-  | .proved ts => do
+  | .linked ts => do
     let names := ts.map fun t => (quote t : Term)
-    `(PILean.Trust.Standing.proved #[$names,*])
+    `(PILean.Trust.Standing.linked #[$names,*])
   | .illustration true => `(PILean.Trust.Standing.illustration true)
   | .illustration false => `(PILean.Trust.Standing.illustration false)
 

@@ -60,7 +60,7 @@ text as shapes) show the same picture. Each is written light and dark (`-dark`).
 ## Combinatorial diagrams
 
 Drawn from plain data by `PILean.Diagram` (`PILeanTest/Diagrams.lean`). Each has a specification
-linked by `figure_proves` that writes out what it draws, read back from its marks, and the
+linked by `figure_links` that writes out what it draws, read back from its marks, and the
 theorem of its kind that the drawn parts are exactly the parts of the data
 ([`docs/PROOFS.md`](../docs/PROOFS.md), "Combinatorial diagrams").
 
@@ -86,7 +86,7 @@ theorem of its kind that the drawn parts are exactly the parts of the data
 Drawn from plain data by `PILean.Diagram` (`PILeanTest/NumberDiagrams.lean`); each has a
 specification that writes out its values, marked numbers or lattice points
 ([`docs/PROOFS.md`](../docs/PROOFS.md), "Plots of sequences, grids of numbers and lattices").
-The package `pilean-mathlib` draws the same kinds tied to Mathlib's objects
+The package `pilean-mathlib` draws the same kinds, with theorems in Mathlib's terms
 ([`mathlib/README.md`](../mathlib/README.md)).
 
 | Figure | Light | Dark |

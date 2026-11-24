@@ -7,7 +7,7 @@ import PILean.Diagram.Sequence
 import PILean.Trust.Attr
 
 /-!
-# Figures of number theory tied to Mathlib's objects: the figures
+# Figures of number theory and Mathlib's objects: the figures
 
 The figures, built with PILean only from plain functions on the natural numbers and the
 integers (this module imports nothing from Mathlib). `PILeanMathlib.Examples.NumberTheory` proves

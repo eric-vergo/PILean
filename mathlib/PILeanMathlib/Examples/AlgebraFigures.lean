@@ -8,7 +8,7 @@ import PILean.Diagram.Hasse
 import PILean.Trust.Attr
 
 /-!
-# Figures of algebra tied to Mathlib's objects: the figures
+# Figures of algebra and Mathlib's objects: the figures
 
 The figures, built from plain data with PILean only (this module imports nothing from Mathlib).
 `PILeanMathlib.Examples.Algebra` proves what each one draws in Mathlib's terms: the Cayley table

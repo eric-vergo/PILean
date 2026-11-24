@@ -20,7 +20,7 @@ Mathlib's objects, frame by frame:
   in `Submodule.span ℤ {(1, 0), (x, y)}` and in the window `[-3, 3] × [-2, 2]`, and no point is
   drawn twice.
 
-Both statements name the explorer, so they are linked by `figure_proves` as well.
+Both statements name the explorer, so they are linked by `figure_links` as well.
 -/
 
 open PILean PILean.Diagram PILeanTest.Explorers
@@ -67,7 +67,7 @@ theorem cayleyExplorer_zmod :
       exact this
     simp only [hc, htm, Bool.false_eq_true, ite_false]
 
-figure_proves cayleyExplorer cayleyExplorer_zmod
+figure_links cayleyExplorer cayleyExplorer_zmod
 
 /-- **The lattices in Mathlib's terms.** At every point `(x, y)` of the explorer's grid, a point
 `p` of the plane is drawn (at some position, in some colour) exactly when it is in
@@ -91,6 +91,6 @@ theorem latticeExplorer_span :
     of_decide_eq_true c, of_decide_eq_true d⟩, fun ⟨a, b, c, d⟩ => ⟨decide_eq_true a,
     decide_eq_true b, decide_eq_true c, decide_eq_true d⟩⟩
 
-figure_proves latticeExplorer latticeExplorer_span
+figure_links latticeExplorer latticeExplorer_span
 
 end PILeanMathlib.Examples

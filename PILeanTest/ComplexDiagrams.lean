@@ -62,7 +62,7 @@ theorem rationalFigure_spec :
   · rw [h.2.2.1]; decide +kernel
   · unfold rationalFigure RationalPlot.figure; rw [Diagram.capped_of (by decide +kernel)]; rfl
 
-figure_proves rationalFigure rationalFigure_spec
+figure_links rationalFigure rationalFigure_spec
 
 /-! ### The same function, painted -/
 

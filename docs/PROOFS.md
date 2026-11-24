@@ -41,8 +41,10 @@ The rational numbers are `Rat`, the type of Lean's core library: a fraction in l
 equality of rationals is `=`. All the theorems about values are statements about exact numbers.
 The theorem of a gallery picture that has one names the picture: `provedFunction_spec` begins by
 saying that the series of the figure `provedFunction` are `cubicSeries` and `parabolaSeries` and
-no other, and then says what the points of those series are. So changing the figure changes what is
-proved, and a figure that no longer satisfies its theorem does not build.
+no other, and then says what the points of those series are. So changing what the theorem states
+of the figure breaks its proof, and a figure that no longer satisfies its theorem does not build;
+what the theorem does not state (a label it does not mention, a frame it does not pin) can change
+without breaking it, which is why each theorem below says which parts of its figure it pins.
 
 Many of these theorems are short: the series constructors are defined to hold the converted
 samples, so `Series.ofExact_points` holds by unfolding the definition. They are stated as theorems
@@ -171,7 +173,7 @@ not rational-valued.
   `figure_points_draw`, `pointNearDisk_eq`, `Plane.drawItem_point`: the same for exact points
   through `PlanePoint.toPoint`; a figure whose items are exact points draws, after its background,
   one marker at the image of each, in order. `Plane.Exact.DrawsExactPoints` and
-  `drawsExactPoints` state this for a figure, ready for `figure_proves`.
+  `drawsExactPoints` state this for a figure, ready for `figure_links`.
 * `Plane.Figure.autoPlaced_of_noAuto`: a figure without automatically placed labels is drawn as
   it is (the outputs draw `autoPlaced`).
 * `Plane.Exact.IsPoint`, `IsDisk`, `IsSegment`, `IsRegion` say what an item is, for lemmas
@@ -278,7 +280,7 @@ figure is a note, and nothing is drawn).
   writes out the drawn parts in full (the fifteen edges of the Petersen graph, the twelve covers
   of the Boolean lattice, the cells, the entries, the six inversions, the regions of the twelve
   numbers, the 21 incidences of the Fano plane, the points of the Dyck path), checked by the
-  kernel, and `figure_proves` links it to the figure. `lake test` compiles copies of the module
+  kernel, and `figure_links` links it to the figure. `lake test` compiles copies of the module
   with a datum changed and requires each to fail inside the specification
   (`PILeanTest/SpecMutations.lean`), and plants faults in the drawn diagrams (a mark dropped,
   added, moved or relabelled) that each kind's `Faithful` must refuse.
@@ -591,12 +593,12 @@ a root of the denominator, and there are no other complex roots.
 ## How to read a picture's guarantee
 
 1. Find its source record (`lake exe pilean-info FILE`): the module, declaration and line, and
-   its standing as the build recorded it: `proved` with the theorems linked to it, or
+   its standing as the build recorded it: `linked` with the theorems linked to it, or
    `illustration` (`docs/TRUST.md`, "Standing"). The record is what the file says about itself;
    `pilean-build --check` is what ties it to the source.
 2. Read the theorem beside the declaration (in the Mathlib package, in the module that imports
    the declaration's: `PILeanMathlib.Examples.Sine` for `SineFigure`). It names the exact
-   function, list, relation or time. The command `figure_proves picture theorem` links the two,
+   function, list, relation or time. The command `figure_links picture theorem` links the two,
    and fails the build unless the theorem is proved from the standard axioms and its statement
    names the picture itself (the picture's constant occurs in the statement once its `let`s and
    beta-redexes are reduced; a statement about a definition the picture is built from is

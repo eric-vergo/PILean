@@ -30,8 +30,8 @@ empty, is the caption; an empty body takes the declaration's doc string. The nam
 * `inline := true`: the picture put inline as an `svg` element (with its narrow rendition, when it
   has one, on small screens), so that its titles show on hover and its elements that name a
   declaration link to it; one picture serves both themes (`PILeanVersoManual.Inline`).
-* `proves := name`: a theorem about the figure, by PILean's rule (`figure_proves`,
-  `PILean.Trust.figureTheoremProblem?`): it must not depend on `sorryAx` or any axiom other than
+* `links := name` (or `proves := name`, the same option): a theorem linked to the figure, by
+  PILean's rule (`figure_links`, `PILean.Trust.figureTheoremProblem?`): it must not depend on `sorryAx` or any axiom other than
   `propext`, `Classical.choice` and `Quot.sound`, and its statement must name the figure itself
   (a statement about a definition the figure is built from is refused). A theorem about a
   function defined elsewhere is linked through a theorem that says what the figure holds and

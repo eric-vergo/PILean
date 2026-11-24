@@ -9,7 +9,7 @@ import PictureExample
 # Checks of the adapter
 
 `lake test` builds and runs this module. Building it checks what the directive checks on a
-`proves :=` theorem and on the declaration of `figure_explorer`; running it checks the options
+`links :=` theorem and on the declaration of `figure_explorer`; running it checks the options
 the directive accepts, the dark variants, the rendering of a site's figures (an unknown name, bad
 options, the files and the manifest, a figure used in a way it cannot be shown, the inline
 limit), the sizes read from the files, the links and the wrapper's arguments.
@@ -124,15 +124,15 @@ def checks : Array (String × Bool) := #[
   ("dark: the colours are the dark style's",
     (Style.darkVariant? Style.light).map (·.background) == some Style.dark.background),
   ("table: fifteen figures", table.size == 15),
-  ("standing: a figure linked by figure_proves is proved by its theorem",
-    standingOf "Example.divisorHasse" == some (.proved #["Example.divisorHasse_spec"]) &&
-    standingOf "Example.reductionSquare" == some (.proved #["Example.reductionSquare_spec"])),
+  ("standing: a figure linked by figure_links has the standing linked, with its theorem",
+    standingOf "Example.divisorHasse" == some (.linked #["Example.divisorHasse_spec"]) &&
+    standingOf "Example.reductionSquare" == some (.linked #["Example.reductionSquare_spec"])),
   ("standing: a figure marked as an illustration is one, marked",
     standingOf "Example.sketch" == some (.illustration true)),
   ("standing: an explorer without a theorem is an unmarked illustration",
     standingOf "Example.radiusExplorer" == some (.illustration false)),
   ("standing: a name with markup keeps its theorem",
-    standingOf "Example.«hasse <b>\"&'»" == some (.proved #["Example.«hasse <b>\"&'_spec»"])),
+    standingOf "Example.«hasse <b>\"&'»" == some (.linked #["Example.«hasse <b>\"&'_spec»"])),
   ("pages: the table has the page data of every figure",
     table.all fun e => (pageOf e.decl).isSome),
   ("pages: the square's page shows the definitions of its object and of its theorem's statement",

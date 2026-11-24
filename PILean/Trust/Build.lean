@@ -45,8 +45,8 @@ structure BuildOptions where
   /-- Compare with the directory instead of writing to it. -/
   check : Bool := false
   /-- Refuse to build or check when a figure is an illustration that its declaration does not
-  mark as one (`Standing.unmarked`): every figure must be tied to its object by a theorem
-  (`figure_proves`) or carry `@[figure illustration]`. -/
+  mark as one (`Standing.unmarked`): every figure must have a linked theorem
+  (`figure_links`) or carry `@[figure illustration]`. -/
   requireStanding : Bool := false
 
 /-- A file of a build: its manifest entry and its bytes. -/
@@ -89,7 +89,7 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     fingerprint := (src.fingerprint.getD ""), module := e.module, decl := e.decl, file := e.file,
     line := e.line, column := e.column, version := src.version, repo := opts.repo,
     commit := opts.commit, darkColours := (o.theme ()).1, darkOpacities := (o.theme ()).2,
-    standing := src.standing, proves := src.proves }
+    standing := src.standing, theorems := src.theorems }
   return { entry := m, bytes }
 
 /-- The declarations of the entries whose figure is an illustration not marked as one
@@ -111,7 +111,7 @@ def renderAll (entries : Array FigureEntry) (opts : BuildOptions := {}) :
     let bad := unmarkedIllustrations entries
     if !bad.isEmpty then
       return .error ("\n".intercalate (bad.toList.map fun d => s!"{d} is an illustration without \
-        the marking @[figure illustration]: link a theorem about it with figure_proves, or mark \
+        the marking @[figure illustration]: link a theorem about it with figure_links, or mark \
         it"))
   if entries.foldl (fun n e => n + (e.outputs ()).size) 0 > maxManifestFiles then
     return .error s!"more than {maxManifestFiles} files, more than a manifest may list"

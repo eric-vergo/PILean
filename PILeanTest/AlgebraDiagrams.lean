@@ -10,7 +10,7 @@ import PILeanTest.Diagrams
 # The gallery of diagrams of algebra, their specifications and their checks
 
 Figures of commutative diagrams, Cayley tables and graphs, and quivers, each with the attribute
-`figure` and a specification linked by `figure_proves`: what the figure draws, read back from its
+`figure` and a specification linked by `figure_links`: what the figure draws, read back from its
 marks (`Diagram.arrows`, `arrowTexts`, `entries`), is written out and checked by the kernel, and
 the mathematical claims about the data (that the maps commute, that the marks of the arrows'
 styles hold, that the table is a group) are decided. Changing the data breaks the specification
@@ -63,7 +63,7 @@ theorem square_spec :
   exact ⟨reductionSquare.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
     by decide +kernel, by decide +kernel⟩
 
-figure_proves square square_spec
+figure_links square square_spec
 
 /-! ### A short exact sequence of finite abelian groups -/
 
@@ -103,7 +103,7 @@ theorem exact_spec :
   exact ⟨exactSequence.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
     by decide +kernel, by decide +kernel, by decide +kernel⟩
 
-figure_proves exact exact_spec
+figure_links exact exact_spec
 
 /-! ### A cube of reductions -/
 
@@ -146,7 +146,7 @@ theorem cube_spec :
   have h := reductionCube.builder_faithful (by decide +kernel)
   exact h
 
-figure_proves cube cube_spec
+figure_links cube cube_spec
 
 /-! ### Parallel arrows and a 2-cell -/
 
@@ -176,7 +176,7 @@ theorem twoCell_spec :
   exact ⟨functors.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
     by decide +kernel⟩
 
-figure_proves twoCell twoCell_spec
+figure_links twoCell twoCell_spec
 
 /-! ### The symmetric group on three letters -/
 
@@ -216,7 +216,7 @@ theorem cayleyTable_spec :
   exact ⟨s3.tableFigure_faithful (by decide +kernel), by decide +kernel, by decide +kernel, by decide +kernel, by decide +kernel,
     by decide +kernel⟩
 
-figure_proves cayleyTable cayleyTable_spec
+figure_links cayleyTable cayleyTable_spec
 
 /-- The positions of the Cayley graph of `S₃` for `(1 2)` and `(1 2 3)`: the two cosets of the
 rotations on two concentric triangles. -/
@@ -252,7 +252,7 @@ theorem cayleyGraph_spec :
   · rw [e, h.1]
     decide +kernel
 
-figure_proves cayleyGraph cayleyGraph_spec
+figure_links cayleyGraph cayleyGraph_spec
 
 /-! ### A quiver with a dimension vector -/
 
@@ -278,7 +278,7 @@ theorem quiver_spec :
   exact ⟨quiverData.builder_faithful (by decide +kernel), by decide +kernel, by decide +kernel,
     by decide +kernel⟩
 
-figure_proves quiver quiver_spec
+figure_links quiver quiver_spec
 
 /-! ### The gallery -/
 

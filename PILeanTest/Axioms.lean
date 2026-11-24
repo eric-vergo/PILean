@@ -68,8 +68,8 @@ reported even when the build of this file comes from the cache.
 `Axioms.ioChecks` also reads the `import` lines of the sources and fails if `import PILean` reaches
 `Lean` or `PILean.Trust.Attr`, or any module outside `Init` and `Std`.
 
-`#assert_figure_links` checks every link made by `figure_proves` in the imported modules again,
-by the check of `figure_proves` (`PILean.Trust.figureTheoremProblem?`).
+`#assert_figure_links` checks every link made by `figure_links` in the imported modules again,
+by the check of `figure_links` (`PILean.Trust.figureTheoremProblem?`).
 
 `#assert_standard_axioms` and `#assert_modules_imported` are defined in `PILean.Trust.Attr`, so
 that a package built on PILean can run them on its own modules; the Mathlib package does.
@@ -104,7 +104,7 @@ run_cmd do
     unless bad.contains p do throwError "{p.2} was not reported for {p.1}"
 
 /-- `#assert_figure_links n` fails unless the imported modules link at least `n` theorems to
-figures with `figure_proves` and each link still passes the check of `figure_proves`
+figures with `figure_links` and each link still passes the check of `figure_links`
 (`PILean.Trust.figureTheoremProblem?`). -/
 elab "#assert_figure_links " n:num : command => do
   let env ← getEnv

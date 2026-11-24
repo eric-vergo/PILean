@@ -24,7 +24,7 @@ not establish too:
   declaration, a *manifest*, and two checkers;
 * *theorems* about the Lean object a picture is drawn from: for four kinds of picture the library
   proves lemmas from which an author can state such a theorem and link it to the picture with
-  `figure_proves`; a picture has a theorem only if its author wrote one.
+  `figure_links`; a picture has a theorem only if its author wrote one.
 
 None of them says that the pixels are right: the theorems are about exact numbers and lists, and
 the step from them to pixels is floating point, tested and not proved.

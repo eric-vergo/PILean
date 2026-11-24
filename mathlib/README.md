@@ -71,7 +71,7 @@ unit of the ordinate is 143.5 pixels, so δ is 0.072 pixel.
 The theorem is stated about the figure and the definitions it is built from (`sineFigure`,
 `sineSeries`, `sineTaylor`, `lo`, `hi`, `steps`). Changing the polynomial, the interval, the
 number of steps or the series the figure plots changes what must be proved, and the build fails
-until it is. `figure_proves sineFigure sineFigure_spec` checks, when the package is built, that
+until it is. `figure_links sineFigure sineFigure_spec` checks, when the package is built, that
 the theorem is proved from the standard axioms and that its statement names the figure itself
 (a statement about `sineSeries` alone is refused); it does not judge what the statement says.
 
@@ -195,7 +195,7 @@ Venn diagram ([`docs/PROOFS.md`](../docs/PROOFS.md), "Combinatorics against Math
 
 The figures (`PILeanMathlib/Examples/CombinatoricsFigures.lean`, which imports nothing from
 Mathlib) and their theorems (`PILeanMathlib/Examples/Combinatorics.lean`, linked by
-`figure_proves`):
+`figure_links`):
 
 | Figure | Theorem | Light | Dark |
 |---|---|---|---|

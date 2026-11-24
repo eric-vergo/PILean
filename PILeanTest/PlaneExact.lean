@@ -154,7 +154,7 @@ theorem zetaSteps_spec :
   simp only [Array.toList_append, Array.toList_map]
   rfl
 
-figure_proves zetaSteps zetaSteps_spec
+figure_links zetaSteps zetaSteps_spec
 
 /-! ### The reference figure of the diagrammatic house style
 
@@ -323,6 +323,6 @@ theorem reference_spec :
   repeat' apply And.intro
   all_goals decide +kernel
 
-figure_proves reference reference_spec
+figure_links reference reference_spec
 
 end PILeanTest.PlaneExact

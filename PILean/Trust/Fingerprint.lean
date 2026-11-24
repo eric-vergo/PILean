@@ -89,7 +89,7 @@ def FigureEntry.standing (e : FigureEntry) : Standing :=
   ((e.outputs ())[0]?.map (·.standing)).getD (.illustration false)
 
 /-- The standing and the theorems as a source record and a manifest write them: the word of
-`Standing.word`, and for a proved figure its theorems separated by single spaces. -/
+`Standing.word`, and for a linked figure its theorems separated by single spaces. -/
 def Standing.fields (s : Standing) : Option String × Option String :=
   (some s.word, if s.theorems.isEmpty then none else some (" ".intercalate s.theorems.toList))
 
@@ -104,6 +104,6 @@ def FigureEntry.source (e : FigureEntry) (o : Output) (repo commit : Option Stri
     repo, commit, version := PILean.version,
     fingerprint := some (fingerprint o.spec e.toSourceData
       (renderer := rendererWith o.textEngine)),
-    standing := o.standing.fields.1, proves := o.standing.fields.2 }
+    standing := o.standing.fields.1, theorems := o.standing.fields.2 }
 
 end PILean.Trust

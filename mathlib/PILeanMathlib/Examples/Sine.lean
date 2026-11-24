@@ -100,7 +100,7 @@ theorem sineFigure_spec :
     rw [hlo, hhi] at this
     exact abs_le.2 this
 
-figure_proves sineFigure sineFigure_spec
+figure_links sineFigure sineFigure_spec
 
 /-- The points of `sineSeries`, a statement that does not name the figure. -/
 theorem sineSeries_points :
@@ -115,7 +115,7 @@ begin with an equation that says which series, edges or frames PILeanMathlib.Exa
 holds), not only of definitions it is built from
 -/
 #guard_msgs in
-figure_proves sineFigure sineSeries_points
+figure_links sineFigure sineSeries_points
 
 /-- The statement has content: the same polyline is not vertically within `1 / 2000` of the graph
 of the cosine, since its point `(0, 0)` (the sample of index 48) is at vertical distance `1`. -/

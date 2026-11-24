@@ -75,8 +75,8 @@ The layers of the code and the imports between them.
 The options are `alt` (required: what a reader who cannot see the picture needs to know), `label`
 (for `{figref "…"}[]`), `title`, `format` (`svg` by default, `png`, `apng` or `gif`), `width` (a
 CSS length), `backdrop` (a picture of the site the figure is drawn over) and `proves` (a theorem
-about the figure, accepted only under the rule of `figure_proves`, {ref "proofs-link"}[Linking a
-Theorem to a Picture], and only when a `figure_proves` command links the two). An
+about the figure, accepted only under the rule of `figure_links`, {ref "proofs-link"}[Linking a
+Theorem to a Picture], and only when a `figure_links` command links the two). An
 empty body takes the declaration's docstring as the caption. The generator wraps `manualMain`,
 and renders the document it is given, which has the figures' pages added:
 
@@ -96,9 +96,9 @@ when it has one, and a link to its page.
 
 Every figure has a page of its own, below the page that lists them: the picture at full size
 with its files to download; its number, caption and the places that show it; its standing,
-"Tied to its object by the theorem T" with the statement of T as Lean and the axioms it rests on,
-or "Illustration: not tied to a Lean object by a theorem", derived when the generator is built
-from the `figure_proves` links that pass their rule again there; the figure's declaration in
+"Linked theorem: T" with the statement of T as Lean, the axioms it rests on and what PILean
+checked of it, or "Illustration: no theorem is linked to it", derived when the generator is built
+from the `figure_links` links that pass their rule again there; the figure's declaration in
 full and the definitions of the manual's own code that its value and the theorems' statements
 use, highlighted with their hovers and linked to their source; the fingerprint, renderer, text
 engine and `pilean-verify` verdict of each file, the toolchain, the packages, the commit and the

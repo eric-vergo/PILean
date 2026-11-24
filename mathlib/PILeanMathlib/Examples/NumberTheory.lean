@@ -12,9 +12,9 @@ import PILeanMathlib.NumberTheory
 import PILeanMathlib.Examples.NumberTheoryFigures
 
 /-!
-# Figures of number theory tied to Mathlib's objects: the theorems
+# Figures of number theory and Mathlib's objects: the theorems
 
-Each figure of `PILeanMathlib.Examples.NumberTheoryFigures` is linked by `figure_proves` to a
+Each figure of `PILeanMathlib.Examples.NumberTheoryFigures` is linked by `figure_links` to a
 theorem that states, with Mathlib's definitions, what it draws. The figures compute with plain
 functions; the lemmas `totient'_eq`, `divisorCount_eq`, `isPrime'_iff`, `primeCount_eq`,
 `harmonic'_eq`, `legendre'_eq` and `prime_of_gaussianPrime` prove those equal to Mathlib's for
@@ -172,7 +172,7 @@ theorem totientFigure_spec :
   exact ⟨h, rfl, rfl, by decide +kernel, by decide +kernel,
     SeqPlot.data_iff h rfl (fun n => by simp [totient'_eq])⟩
 
-figure_proves totientFigure totientFigure_spec
+figure_links totientFigure totientFigure_spec
 
 /-- **The number of divisors.** The figure plots faithfully one sequence, named `d(n) = σ₀(n)`,
 with no curve, at positive scales; its points are exactly `(n, σ 0 n)` for `1 ≤ n ≤ 100`, where
@@ -192,7 +192,7 @@ theorem divisorFigure_spec :
     SeqPlot.data_iff h rfl
       (fun n => by simp [divisorCount_eq, ArithmeticFunction.sigma_zero_apply])⟩
 
-figure_proves divisorFigure divisorFigure_spec
+figure_links divisorFigure divisorFigure_spec
 
 /-- **The prime-counting function.** The figure plots faithfully the sequence `π(n)` and the
 curve `n / (Hₙ − 1)`, at positive scales; its points are exactly `(n, Nat.primeCounting n)` for
@@ -218,7 +218,7 @@ theorem primeCountFigure_spec :
   rw [h.2.2.1]
   simp [SeqPlot.curveMarks, primeCountPlot, SeqPlot.indices, harmonic'_eq]
 
-figure_proves primeCountFigure primeCountFigure_spec
+figure_links primeCountFigure primeCountFigure_spec
 
 /-- **The primes on the Ulam spiral.** The figure draws the cells faithfully: their numbers are
 `1, …, 441`, each cell next to the one before (one unit across or up or down), no two at one
@@ -245,7 +245,7 @@ theorem ulamFigure_spec :
     (nodup_of_distinctInBox 10 _ 0 (by decide +kernel)).2, fun c h' => (hc c h').2, rfl, rfl,
     fun c h' => by rw [(hc c h').1, isPrime'_iff]⟩
 
-figure_proves ulamFigure ulamFigure_spec
+figure_links ulamFigure ulamFigure_spec
 
 /-- **Quadratic residues and Legendre symbols.** The figure draws the table faithfully: its rows
 are the primes `3, 5, 7, 11, 13`; it has 39 cells, no two with one key, and for each prime `p` of
@@ -285,7 +285,7 @@ theorem residueFigure_spec :
     rw [h0, isSquare_iff_any]
     split_ifs with h1 h2 <;> simp_all
 
-figure_proves residueFigure residueFigure_spec
+figure_links residueFigure residueFigure_spec
 
 /-- **The Gaussian primes.** The figure draws the lattice faithfully, with the axes and the unit
 square; its dots are exactly the Gaussian integers `a + b i` with `|a|, |b| ≤ 7`, each at
@@ -337,7 +337,7 @@ theorem gaussianFigure_spec :
     · simp [PlaneLattice.at_, gaussianLattice]
     · exact ((hink m n hm hn col).2 hc).symm
 
-figure_proves gaussianFigure gaussianFigure_spec
+figure_links gaussianFigure gaussianFigure_spec
 
 /-- **A lattice and its fundamental domain.** The figure draws the lattice faithfully; its dots
 are exactly the points of `Submodule.span ℤ {(1, 0), (1/2, 7/8)}` in the window
@@ -381,6 +381,6 @@ theorem latticeFigure_spec :
     rw [e, h.2.2.1]
     decide +kernel
 
-figure_proves latticeFigure latticeFigure_spec
+figure_links latticeFigure latticeFigure_spec
 
 end PILeanMathlib.Examples

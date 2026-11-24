@@ -76,7 +76,15 @@ def gifMagic : String := "PILean source 1"
 /-- The keys of the fields, in the order they are written. -/
 def keys : Array String :=
   #["module", "decl", "file", "line", "column", "repo", "commit", "version", "fingerprint",
-    "standing", "proves"]
+    "standing", "theorems"]
+
+/-- The key an earlier writer gave the theorems of a figure's standing; the readers take it for
+`theorems`. -/
+def oldTheoremsKey : String := "proves"
+
+/-- A recorded standing as the readers take it: `proved`, the word an earlier writer gave the
+standing of a figure with a linked theorem, reads as `linked`; any other word is kept. -/
+def readStanding (w : String) : String := if w == "proved" then "linked" else w
 
 /-- Where an image came from: the Lean declaration that built it. -/
 structure Source where
@@ -98,11 +106,11 @@ structure Source where
   version : String
   /-- A SHA-256 fingerprint, 64 lowercase hexadecimal digits. -/
   fingerprint : Option String := none
-  /-- The figure's standing as the build recorded it: `proved` or `illustration`
+  /-- The figure's standing as the build recorded it: `linked` or `illustration`
   (`PILean.Trust.Standing.word`). -/
   standing : Option String := none
-  /-- For a proved figure, the theorems linked to it, by full name, separated by single spaces. -/
-  proves : Option String := none
+  /-- For a linked figure, the theorems linked to it, by full name, separated by single spaces. -/
+  theorems : Option String := none
 deriving BEq, Repr, Inhabited
 
 /-- The fields in writing order as `(key, value)`; absent options are left out. -/
@@ -114,16 +122,16 @@ def Source.fields (s : Source) : Array (String × String) :=
   #[("version", s.version)] ++
   (match s.fingerprint with | some r => #[("fingerprint", r)] | none => #[]) ++
   (match s.standing with | some r => #[("standing", r)] | none => #[]) ++
-  (match s.proves with | some r => #[("proves", r)] | none => #[])
+  (match s.theorems with | some r => #[("theorems", r)] | none => #[])
 
 /-- Whether a recorded standing and list of theorems are well formed: no standing and no
-theorems, `illustration` without theorems, or `proved` with a non-empty list of names separated
+theorems, `illustration` without theorems, or `linked` with a non-empty list of names separated
 by single spaces, each name non-empty and without white space. -/
-def standingOk (standing proves : Option String) : Bool :=
-  match standing, proves with
+def standingOk (standing theorems : Option String) : Bool :=
+  match standing, theorems with
   | none, none => true
   | some "illustration", none => true
-  | some "proved", some ts =>
+  | some "linked", some ts =>
     !ts.isEmpty && (ts.splitOn " ").all fun t => !t.isEmpty && !t.any Char.isWhitespace
   | _, _ => false
 
@@ -146,19 +154,20 @@ def Source.validate (s : Source) : Except String Unit := do
     throw "module, decl, file and version must not be empty"
   if let some f := s.fingerprint then
     if !isFingerprint f then throw "the fingerprint is not 64 lowercase hexadecimal digits"
-  if !standingOk s.standing s.proves then
-    throw "the standing is not proved with its theorems or illustration without any"
+  if !standingOk s.standing s.theorems then
+    throw "the standing is not linked with its theorems or illustration without any"
 
 /-- The record from a list of `(key, value)` pairs, as the readers collect them: unknown keys are
 ignored, a known key twice is an error, a value above `maxField` bytes or with a character XML
 cannot carry (so one the writers refuse) is an error, `line` and
 `column` are decimal numbers of at most nine digits, a fingerprint is 64 lowercase hexadecimal
-digits, the standing and its theorems are well formed (`standingOk`), and `module`, `decl`,
+digits, the standing and its theorems are well formed (`standingOk`; a standing `proved` reads as
+`linked` and theorems under the key `proves` as `theorems`, `readStanding`), and `module`, `decl`,
 `file`, `line`, `column` and `version` must be present. -/
 def Source.ofFields (kvs : Array (String × String)) : Except String Source := do
   let mut seen : Array String := #[]
   for (k, v) in kvs do
-    if keys.contains k then
+    if keys.contains k || k == oldTheoremsKey then
       if seen.contains k then throw s!"the key {k} occurs twice"
       if v.utf8ByteSize > maxField then throw s!"the value of {k} is too long"
       if !v.all xmlChar then throw s!"the value of {k} has a character XML cannot carry"
@@ -181,11 +190,16 @@ def Source.ofFields (kvs : Array (String × String)) : Except String Source := d
   let l ← num "line"
   let c ← num "column"
   let v ← req "version"
-  if !standingOk (find "standing") (find "proves") then
-    throw "the standing is not proved with its theorems or illustration without any"
+  let standing := (find "standing").map readStanding
+  let theorems ← match find "theorems", find oldTheoremsKey with
+    | some t, none => pure (some t)
+    | none, some t => pure (some t)
+    | none, none => pure none
+    | some _, some _ => throw s!"the keys theorems and {oldTheoremsKey} occur together"
+  if !standingOk standing theorems then
+    throw "the standing is not linked with its theorems or illustration without any"
   return { module := m, decl := d, file := f, line := l, column := c, repo := find "repo",
-           commit := find "commit", version := v, fingerprint := fp,
-           standing := find "standing", proves := find "proves" }
+           commit := find "commit", version := v, fingerprint := fp, standing, theorems }
 
 /-- Whether `url` is safe to offer as a link: it starts with `http://` or `https://` (lowercase),
 has something after that, is at most `maxField` bytes, and consists of printable ASCII only

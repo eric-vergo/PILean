@@ -36,6 +36,6 @@ theorem rationalFigure_roots :
     fun w hw => RationalPlot.zeros_complete hv hc hw,
     fun w hw => RationalPlot.poles_complete hv hc hw⟩
 
-figure_proves rationalFigure rationalFigure_roots
+figure_links rationalFigure rationalFigure_roots
 
 end PILeanMathlib.Examples

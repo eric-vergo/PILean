@@ -458,11 +458,11 @@ theorem figure_points_draw (fig : Figure) (ps : List α)
         (fig.env.frame.toScreen (PlanePoint.toPoint p))).toArray.flatten)) := by
   rw [Figure.draw_eq, h, points_draw]
 
-/-- The specification of a figure of exact points, ready to link with `figure_proves`: its items
+/-- The specification of a figure of exact points, ready to link with `figure_links`: its items
 are exactly the points `ps` in their default look, and its drawing is its background followed by
 one marker at the frame's image of each point's conversion, in order. The statement names the
 figure, so `theorem fig_spec : DrawsExactPoints fig ps := drawsExactPoints rfl` and
-`figure_proves fig fig_spec` link it. -/
+`figure_links fig fig_spec` link it. -/
 def DrawsExactPoints (fig : Figure) (ps : List α) : Prop :=
   fig.items = (ps.map point).toArray ∧
     fig.draw = .tagged fig.info (.group (#[fig.background] ++

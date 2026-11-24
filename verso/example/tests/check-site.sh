@@ -69,7 +69,7 @@ desc="a figure's source line links its page"
 check grep -q 'class="pilean-page-link" href="Figures/Example.cubicPlot/' "$page"
 desc="the figures page links each figure's page"
 check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 15
-desc="a proved figure's page shows its theorem's statement as highlighted Lean"
+desc="a linked figure's page shows its theorem's statement as highlighted Lean"
 check bash -c "grep -q 'class=\"pilean-page-decl pilean-page-theorem\" data-lean-decl=\"Example.cubicPlot_spec\"' '$cubic' && grep -q 'class=\"hl lean' '$cubic'"
 desc="the page shows the definitions the figure is built from"
 check bash -c "grep -q 'data-lean-decl=\"Example.cubicSeries\"' '$cubic' && grep -q 'data-lean-decl=\"Example.cubic\"' '$cubic'"
@@ -78,8 +78,8 @@ check grep -q "$repo/blob/$commit/verso/example/PictureExample/Figures.lean#L[0-
 desc="the page says how to reproduce the files"
 check grep -q 'lake exe example-blueprint --check-figures _out/html-multi/-verso-data/pilean-figures --figure-repo' "$cubic"
 sketch="$pages/Example.sketch/index.html"
-desc="an illustration's page says so and never that it is tied to its object"
-check bash -c "grep -q 'Illustration: not tied to a Lean object by a theorem' '$sketch' && ! grep -q 'Tied to its object' '$sketch'"
+desc="an illustration's page says so and never names a linked theorem"
+check bash -c "grep -q 'Illustration: no theorem is linked to it' '$sketch' && ! grep -q 'Linked theorem' '$sketch'"
 odd=$(ls -d "$pages"/Example._hasse_* | head -n 1)/index.html
 desc="a name with markup gets a page at an address of safe characters"
 check bash -c "basename \"\$(dirname '$odd')\" | grep -qE '^[A-Za-z0-9._-]+$'"
@@ -95,11 +95,14 @@ assert old in s
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
 }
-tamper_page Example.sketch 'data-pilean-standing="illustration"' 'data-pilean-standing="proved"'
+tamper_page Example.sketch 'data-pilean-standing="illustration"' 'data-pilean-standing="linked"'
 desc="the page check refuses a page whose standing was changed"
 check bash -c "! python3 -I tests/page_check.py '$scratch/page' >/dev/null"
-tamper_page Example.sketch 'Illustration: not tied' 'Tied to its object by the theorem X. Illustration: not tied'
-desc="the page check refuses an illustration's page that says it is tied to its object"
+tamper_page Example.sketch 'Illustration: no theorem' 'Linked theorem: X. Illustration: no theorem'
+desc="the page check refuses an illustration's page that names a linked theorem"
+check bash -c "! python3 -I tests/page_check.py '$scratch/page' >/dev/null"
+tamper_page Example.cubicPlot 'it did not check what' 'it checked what'
+desc="the page check refuses a linked figure's page without what PILean did not check"
 check bash -c "! python3 -I tests/page_check.py '$scratch/page' >/dev/null"
 tamper_page Example.cubicPlot 'data-verdict="ok"' 'data-verdict="changed"'
 desc="the page check refuses a page that shows another verdict"
@@ -249,17 +252,17 @@ restore() {
   cp "$scratch/Diagrams.lean.orig" "$figsrc"; cp "$scratch/Chapter.lean.orig" "$chapter"
 }
 trap restore EXIT
-grep -v '^figure_proves divisorHasse divisorHasse_spec$' "$scratch/Diagrams.lean.orig" > "$figsrc"
+grep -v '^figure_links divisorHasse divisorHasse_spec$' "$scratch/Diagrams.lean.orig" > "$figsrc"
 "$lake" build example-blueprint >/dev/null
 desc="without its link, a caption that names the theorem fails the build"
 check bash -c "! '$gen' --output '$scratch/m' ${flags[*]} >'$scratch/m.log' 2>&1 &&
-  grep -q 'figure_proves Example.divisorHasse Example.divisorHasse_spec' '$scratch/m.log'"
-sed 's/ (proves := Example.divisorHasse_spec)//' "$scratch/Chapter.lean.orig" > "$chapter"
+  grep -q 'figure_links Example.divisorHasse Example.divisorHasse_spec' '$scratch/m.log'"
+sed 's/ (links := Example.divisorHasse_spec)//' "$scratch/Chapter.lean.orig" > "$chapter"
 "$lake" build example-blueprint >/dev/null
 desc="without its link, the figure's page says it is an illustration"
 check bash -c "'$gen' --output '$scratch/m' ${flags[*]} >/dev/null 2>&1 &&
   grep -q 'data-pilean-standing=\"illustration\"' '$scratch/m/html-multi/Figures/Example.divisorHasse/index.html' &&
-  ! grep -q 'Tied to its object' '$scratch/m/html-multi/Figures/Example.divisorHasse/index.html' &&
+  ! grep -q 'Linked theorem' '$scratch/m/html-multi/Figures/Example.divisorHasse/index.html' &&
   python3 -I tests/page_check.py '$scratch/m/html-multi'"
 restore; trap - EXIT
 "$lake" build example-blueprint >/dev/null
@@ -269,9 +272,9 @@ rm -rf "$scratch/m" "$scratch/m.log" "$scratch/Diagrams.lean.orig" "$scratch/Cha
 cat > "$scratch/Weakened.lean" <<'LEAN'
 import PictureExample
 theorem weakened : Example.divisibility.IsPartialOrder := ⟨by decide, by decide, by decide⟩
-figure_proves Example.divisorHasse weakened
+figure_links Example.divisorHasse weakened
 LEAN
-desc="figure_proves refuses a theorem whose statement does not name the figure"
+desc="figure_links refuses a theorem whose statement does not name the figure"
 check bash -c "! '$lake' lean '$scratch/Weakened.lean' >'$scratch/weak.log' 2>&1 &&
   grep -q 'does not mention the figure Example.divisorHasse' '$scratch/weak.log'"
 

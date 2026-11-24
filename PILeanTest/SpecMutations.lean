@@ -11,7 +11,7 @@ the build. `SpecMutation` describes one such change: edits to the source file of
 in its definitions (after an anchor and before the specification), and the specification they
 must break. `check` compiles a copy of the file with the edits, with the `lean` of the build
 (`LEAN`, which `lake test` sets), and holds when the copy fails to compile with every error inside
-the specification or its `figure_proves` line, and the unchanged copy compiles. The changes of
+the specification or its `figure_links` line, and the unchanged copy compiles. The changes of
 the core's figures are `mutations`; the LeAnTeX package checks its own with the same `check`.
 
 ## Main definitions
@@ -84,12 +84,12 @@ def errorLines (out : String) (path : String) : Array Nat :=
     else none
 
 /-- The lines (from 1) of the specification in `text`: from its docstring (Lean reports an error
-of the whole declaration there) or, without one, its `theorem` line, to the `figure_proves` line
+of the whole declaration there) or, without one, its `theorem` line, to the `figure_links` line
 that names it. -/
 def specLines (text spec : String) : Option (Nat × Nat) := do
   let ls := (text.splitOn "\n").toArray
   let thm ← ls.findIdx? (·.startsWith s!"theorem {spec} ")
-  let last ← ls.findIdx? fun l => l.startsWith "figure_proves " && l.endsWith s!" {spec}"
+  let last ← ls.findIdx? fun l => l.startsWith "figure_links " && l.endsWith s!" {spec}"
   let above := if thm = 0 then "" else (ls[thm - 1]!).trimAsciiEnd.toString
   let first := if above.endsWith "-/" then
       ((List.range thm).reverse.find? fun i => (ls[i]!).startsWith "/--").getD thm

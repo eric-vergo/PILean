@@ -70,15 +70,15 @@ def Verdict.text : Verdict → String
 def ManifestEntry.matches (m : ManifestEntry) (s : Source) : Bool :=
   s.module == m.module && s.decl == m.decl && s.file == m.file && s.line == m.line &&
     s.column == m.column && s.version == m.version && s.repo == m.repo && s.commit == m.commit &&
-    s.fingerprint == some m.fingerprint && s.standing == m.standing && s.proves == m.proves
+    s.fingerprint == some m.fingerprint && s.standing == m.standing && s.theorems == m.theorems
 
 /-- What a line of `pilean-verify` adds after the path of a file that agrees with its manifest:
-the standing the file records, as recorded (` [recorded: proved by T₁ T₂]`,
+the standing the file records, as recorded (` [recorded: linked to T₁ T₂]`,
 ` [recorded: illustration]`), or nothing for a file that records none. It repeats what the file
 and the manifest say; `pilean-verify` checks no theorem. -/
 def recordedStanding (m : ManifestEntry) : String :=
-  match m.standing, m.proves with
-  | some "proved", some ts => s!" [recorded: proved by {ts}]"
+  match m.standing, m.theorems with
+  | some "linked", some ts => s!" [recorded: linked to {ts}]"
   | some w, _ => s!" [recorded: {w}]"
   | none, _ => ""
 

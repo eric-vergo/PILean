@@ -48,7 +48,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline, orthogonal or bundled edges (one entry and one exit port per node, tracks in channels, concentric corners), arrowheads, edge labels and clusters, circular and tree layouts, components laid out apart and packed, mirrored layouts, drawing on the canvas as SVG and PNG, and as SVG for a web page | done; layering proved, see below |
-| `PILean.Trust` | done: a figure's standing (`proved` or `illustration`, recorded in its files and the manifest, `--require-standing`); SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG, GIF and PDF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_proves` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
+| `PILean.Trust` | done: a figure's standing (`linked` or `illustration`, recorded in its files and the manifest, `--require-standing`); SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG, GIF and PDF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_links` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
 
 ## Public API in Pillow's spirit
 
@@ -714,7 +714,7 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   specification (`PILeanTest/SpecMutations.lean`).
   Naming the items in the theorem with predicates such as `Plane.Exact.IsPoint` was the
   alternative rejected: the list itself was left to a definition `rfl` restated, so an item could
-  be removed or a label moved without breaking any proof. The strict figure link (`figure_proves`:
+  be removed or a label moved without breaking any proof. The strict figure link (`figure_links`:
   the figure's constant occurs in the theorem) holds for each.
 * **Regions, fills, markers, ticks.** The intersection, union and difference of two disks are
   regions bounded by exact circular arcs of their circles (`regionArcs`, `Path.arcTo`); a shape's
@@ -794,8 +794,8 @@ frame maps them to the page with one scale for both axes, so circles stay round 
   second parameter is the explorer's steps with a name (`Explorer.stepName`), which the page shows
   with a slider beside previous, play and next, so one structure serves step sequences, one
   parameter and two. An explorer over a family gets its standing from a theorem quantified over
-  the grid (`∀ p ∈ grid, …`) that names the explorer, as `figure_proves` requires; the gallery's
-  `cayleyExplorer` and `latticeExplorer` (`PILeanTest/Explorers.lean`) are proved so, with
+  the grid (`∀ p ∈ grid, …`) that names the explorer, as `figure_links` requires; the gallery's
+  `cayleyExplorer` and `latticeExplorer` (`PILeanTest/Explorers.lean`) have such linked theorems, with
   bindings to `ZMod n` and `Submodule.span ℤ` in `pilean-mathlib`. Separate controls for each
   parameter, each with its own play button, were the alternative; one played parameter keeps the
   controls few and the motion legible. Caps: at most `Explorer.maxFrames` (400) frames and
@@ -903,8 +903,8 @@ compared with the object. The choices:
   Ulam spiral's positions in linear time by a bit mask, and the factor witnesses of the Gaussian
   integers of the window that are not prime). Kernel-evaluated loops are written by structural
   recursion (`spiralFrom`), since the kernel cannot unfold `while`.
-* **Standing.** Whether a figure is proved is computed where the table of figures is elaborated,
-  from the links `figure_proves` recorded, re-checked there, and carried on every `Output` so that
+* **Standing.** Whether a figure is linked is computed where the table of figures is elaborated,
+  from the links `figure_links` recorded, re-checked there, and carried on every `Output` so that
   the positional constructors of `FigureEntry` and `SourceData` that the Verso adapters use stay
   as they are.
 

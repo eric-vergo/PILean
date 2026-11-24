@@ -29,14 +29,14 @@ it was built.
 
 # An order
 
-:::figure Example.divisorHasse (label := "hasse") (proves := Example.divisorHasse_spec)
+:::figure Example.divisorHasse (label := "hasse") (links := Example.divisorHasse_spec)
 The divisors of 12 under divisibility: an edge joins $`a` below $`b` when $`b` is $`a` times a
 prime.
 :::
 
 # A commutative square
 
-:::figure Example.reductionSquare (label := "square") (proves := Example.reductionSquare_spec)
+:::figure Example.reductionSquare (label := "square") (links := Example.reductionSquare_spec)
 Reductions of $`\mathbb{Z}/12`: both ways round the square agree.
 :::
 
@@ -48,6 +48,6 @@ The Young diagram of $`(3, 2, 1)`, shown for what it shows: no theorem ties it t
 
 # Markup in names and captions
 
-:::figure Example.«hasse <b>"&'» (label := "markup") (alt := "Four divisors of 6 in a diamond.") (proves := Example.«hasse <b>"&'_spec»)
+:::figure Example.«hasse <b>"&'» (label := "markup") (alt := "Four divisors of 6 in a diamond.") (links := Example.«hasse <b>"&'_spec»)
 A caption with markup a page must escape: `</figcaption><script>alert(1)</script>` & <b>"q"</b> 'x'.
 :::

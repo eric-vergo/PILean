@@ -10,9 +10,9 @@ import PILeanMathlib.Group
 import PILeanMathlib.Examples.AlgebraFigures
 
 /-!
-# Figures of algebra tied to Mathlib's objects: the theorems
+# Figures of algebra and Mathlib's objects: the theorems
 
-Each figure of `PILeanMathlib.Examples.AlgebraFigures` is linked by `figure_proves` to a theorem
+Each figure of `PILeanMathlib.Examples.AlgebraFigures` is linked by `figure_links` to a theorem
 that states, with Mathlib's definitions, what it draws.
 
 ## Main results
@@ -101,7 +101,7 @@ theorem d4TableFigure_spec :
   · rw [d4Table_eq]
     exact FinMagma.mem_centre_ofMul _ _ a
 
-figure_proves d4TableFigure d4TableFigure_spec
+figure_links d4TableFigure d4TableFigure_spec
 
 /-- **The Cayley graph of the dihedral group of order 8.** Every arrow the figure draws, from
 element `i` to element `j`, has `d4 j = d4 i * r 1` or `d4 j = d4 i * sr 0`; there are twelve,
@@ -152,7 +152,7 @@ theorem d4CayleyFigure_spec :
   · exact .inl rfl
   · exact .inr rfl
 
-figure_proves d4CayleyFigure d4CayleyFigure_spec
+figure_links d4CayleyFigure d4CayleyFigure_spec
 
 /-! ### The subgroups of the dihedral group of order 8 -/
 
@@ -282,7 +282,7 @@ theorem d4SubgroupsFigure_spec :
     simp only [FinGraph.dotInk, FinPoset.toFinGraph, d4Subgroups]
     by_cases hn : d4Normal.getD a false = true <;> simp [hn]
 
-figure_proves d4SubgroupsFigure d4SubgroupsFigure_spec
+figure_links d4SubgroupsFigure d4SubgroupsFigure_spec
 
 /-! ### A commutative square of types -/
 
@@ -314,7 +314,7 @@ theorem commSqFigure_spec :
   rw [show commSqFigure.arrows = squareDiagram.figure.arrows from rfl, h.1]
   decide
 
-figure_proves commSqFigure commSqFigure_spec
+figure_links commSqFigure commSqFigure_spec
 
 /-! ### A short exact sequence -/
 
@@ -336,6 +336,6 @@ theorem shortExactFigure_spec :
   rw [show shortExactFigure.arrows = shortExactDiagram.figure.arrows from rfl, h.1]
   decide
 
-figure_proves shortExactFigure shortExactFigure_spec
+figure_links shortExactFigure shortExactFigure_spec
 
 end PILeanMathlib.Examples

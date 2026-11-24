@@ -551,7 +551,7 @@ theorem disks_spec :
   repeat' apply And.intro
   all_goals decide +kernel
 
-figure_proves disks disks_spec
+figure_links disks disks_spec
 
 /-- Every kind of element: a line and a ray clipped to the frame, a dashed circle, an arc with an
 arrowhead, a sector, a regular pentagon, a tinted triangle, a polyline, arrows, angle marks both

@@ -9,7 +9,7 @@ import PILean.Trust.Attr
 # Two proved explorers
 
 Families of figures over a grid of two parameters (`Explorer.family₂`), each with a theorem
-quantified over the grid that `figure_proves` links to the explorer:
+quantified over the grid that `figure_links` links to the explorer:
 
 * `cayleyExplorer`: the Cayley graph of `ℤ/n` for one generator `a`, for `n = 5, …, 12` and
   `a = 1, …, 4` (32 frames, `a` played). `cayleyExplorer_spec`: every frame is the figure of its
@@ -112,7 +112,7 @@ theorem cayleyExplorer_spec :
   rw [hf.1]
   exact pairs n hn a ha
 
-figure_proves cayleyExplorer cayleyExplorer_spec
+figure_links cayleyExplorer cayleyExplorer_spec
 
 /-! ### A lattice whose second period moves -/
 
@@ -169,7 +169,7 @@ theorem latticeExplorer_spec :
   unfold PlaneLattice.Faithful Diagram.dots Diagram.marksWhere at h ⊢
   exact h
 
-figure_proves latticeExplorer latticeExplorer_spec
+figure_links latticeExplorer latticeExplorer_spec
 
 /-- The explorers of this module by name. -/
 def explorers : Array (String × Explorer) :=

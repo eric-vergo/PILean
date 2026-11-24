@@ -128,5 +128,5 @@ incremental update), so `pilean-info` prints it, `pilean-verify` checks it again
 and the manifest lists the PDF with its SHA-256, fingerprint and standing. Its specification, the
 bytes its fingerprint covers, is the SVG with text as shapes, as for the PNG; a figure's PNG and
 PDF have one fingerprint. Nothing changes in what a picture proves: a theorem linked by
-`figure_proves` is about the figure, and the PDF, the SVG and the PNG are three renderings of it,
+`figure_links` is about the figure, and the PDF, the SVG and the PNG are three renderings of it,
 each tested, none proved.

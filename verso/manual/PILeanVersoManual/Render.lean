@@ -17,8 +17,8 @@ folder as it checks one made by `pilean-build`. Every SVG output must be inert
 (`PILean.Svg.inertProblem?`): no script, no event handler, nothing loaded from elsewhere; so must
 every picture a page puts inline (`Output.inline`, every frame of an explorer, `Output.frames`).
 What a document asks of a figure (`FigureUse`: inline, or as an explorer) is checked against what
-the figure has, a theorem a caption names (`proves :=`) must be one of the figure's standing
-(`FigureEntry.standing`: linked by `figure_proves` and checked again where `site_figures%` was
+the figure has, a theorem a caption names (`links :=`) must be one of the figure's standing
+(`FigureEntry.standing`: linked by `figure_links` and checked again where `site_figures%` was
 elaborated), and the inline SVG of one figure, counted once over everything the pages put
 inline for it, may not pass `SiteOptions.inlineLimit` bytes.
 
@@ -92,7 +92,7 @@ structure FigureUse where
   inline : Bool := false
   /-- Whether a page shows it as an explorer. -/
   explorer : Bool := false
-  /-- The theorem the use's caption names (`proves :=`), by full name. -/
+  /-- The theorem the use's caption names (`links :=`), by full name. -/
   proves : Option String := none
 deriving Inhabited, Repr, BEq
 
@@ -254,8 +254,8 @@ def provesProblem? (n : String) (s : Standing) (thm : String) : Option String :=
   if s.theorems.contains thm then none
   else some s!"{n}: its caption names the theorem {thm}, which is not linked to it: the \
     figure's standing is {s.word}{if s.theorems.isEmpty then "" else
-      " by " ++ " ".intercalate s.theorems.toList}; add `figure_proves {n} {thm}` after the \
-    theorem (in a module the generator imports), or remove `proves :=`"
+      " to " ++ " ".intercalate s.theorems.toList}; add `figure_links {n} {thm}` after the \
+    theorem (in a module the generator imports), or remove `links :=`"
 
 /-- Renders the figures `used` (repeated names count once) from the table `entries`, with all
 the messages (one per line) if a name has no entry, a figure cannot be rendered (then only

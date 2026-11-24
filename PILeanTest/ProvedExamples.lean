@@ -212,10 +212,10 @@ and its statement names the picture itself. A theorem of another picture, a true
 about a series the picture uses, and statements that name the picture only in an unused `let` or
 as the argument of a `fun` that discards it are refused below. -/
 
-figure_proves provedFunction provedFunction_spec
-figure_proves provedData provedData_spec
-figure_proves provedGraph provedGraph_spec
-figure_proves provedClock provedClock_spec
+figure_links provedFunction provedFunction_spec
+figure_links provedData provedData_spec
+figure_links provedGraph provedGraph_spec
+figure_links provedClock provedClock_spec
 
 /-- A true statement about a series the function plot uses, which does not name the plot. -/
 theorem cubicSeries_size : cubicSeries.points.size = 25 := Series.ofExact_size ..
@@ -245,7 +245,7 @@ instance, begin with an equation that says which series, edges or frames
 PILeanTest.ProvedExamples.provedClock holds), not only of definitions it is built from
 -/
 #guard_msgs in
-figure_proves provedClock provedData_spec
+figure_links provedClock provedData_spec
 
 /--
 error: the statement of PILeanTest.ProvedExamples.cubicSeries_size does not mention the figure
@@ -255,7 +255,7 @@ instance, begin with an equation that says which series, edges or frames
 PILeanTest.ProvedExamples.provedFunction holds), not only of definitions it is built from
 -/
 #guard_msgs in
-figure_proves provedFunction cubicSeries_size
+figure_links provedFunction cubicSeries_size
 
 /--
 error: the statement of PILeanTest.ProvedExamples.cubicSeries_size_let does not mention the
@@ -265,7 +265,7 @@ about the figure itself: state it of PILeanTest.ProvedExamples.provedFunction or
 PILeanTest.ProvedExamples.provedFunction holds), not only of definitions it is built from
 -/
 #guard_msgs in
-figure_proves provedFunction cubicSeries_size_let
+figure_links provedFunction cubicSeries_size_let
 
 /--
 error: the statement of PILeanTest.ProvedExamples.cubicSeries_size_beta does not mention the
@@ -275,7 +275,7 @@ about the figure itself: state it of PILeanTest.ProvedExamples.provedFunction or
 PILeanTest.ProvedExamples.provedFunction holds), not only of definitions it is built from
 -/
 #guard_msgs in
-figure_proves provedFunction cubicSeries_size_beta
+figure_links provedFunction cubicSeries_size_beta
 
 /--
 error: the statement of PILeanTest.ProvedExamples.cubicSeries_size_nested does not mention the
@@ -285,7 +285,7 @@ about the figure itself: state it of PILeanTest.ProvedExamples.provedFunction or
 PILeanTest.ProvedExamples.provedFunction holds), not only of definitions it is built from
 -/
 #guard_msgs in
-figure_proves provedFunction cubicSeries_size_nested
+figure_links provedFunction cubicSeries_size_nested
 
 end PILeanTest.ProvedExamples
 

@@ -18,10 +18,10 @@ link to it. From top to bottom it shows:
    where it is used), and every file of the figure to download, with its size;
 2. its number and caption, and every place the document shows it;
 3. its *standing* (`PILean.Trust.Standing`), as `site_figures%` derived it from the environment
-   of the site's generator: "Tied to its object by the theorem T" with each theorem's statement
-   as Lean and the axioms it rests on, and what such a theorem does and does not cover
-   (`theoremScopeText`, `theoremLinkText`, both sentences of `docs/TRUST.md`); or "Illustration:
-   not tied to a Lean object by a theorem";
+   of the site's generator: "Linked theorem: T" with each theorem's statement as Lean, the axioms
+   it rests on and what PILean checked of it (`linkCheckedText`), then what a linked theorem does
+   and does not cover (`theoremScopeText`, `theoremLinkText`; all three sentences of
+   `docs/TRUST.md`); or "Illustration: no theorem is linked to it";
 4. the code: the figure's declaration in full, then the declarations of the project that its
    value and its theorems' statements use (`figurePageData`, with its caps), each highlighted with
    the hovers of the genre's Lean code and linked to its source at the build's commit, then the
@@ -50,11 +50,17 @@ open SubVerso.Highlighting
 
 /-! ### Words -/
 
-/-- What a theorem tied to a figure covers, in the words of `docs/TRUST.md` ("Standing"). -/
+/-- What PILean checked of the theorem `t` linked to a figure, and what it did not, in the words
+of `docs/TRUST.md` ("Standing", with `T` for the theorem). -/
+def linkCheckedText (t : String) : String :=
+  s!"PILean checked that {t} is proved from the standard axioms and that its statement names \
+    this figure; it did not check what {t} says."
+
+/-- What a theorem linked to a figure covers, in the words of `docs/TRUST.md` ("Standing"). -/
 def theoremScopeText : String :=
-  "A theorem tied to a figure is about the data the figure is drawn from, not about how it is \
-    drawn: it says nothing about the rendering of text, the colours, or the floating-point step \
-    that turns the data into the picture."
+  "What a linked theorem says is in its statement. The theorems of this library state the \
+    figure's data and, where written, its colour roles, texts and title; none says how text is \
+    rendered, which colour values a style gives, or how the exact numbers become pixels."
 
 /-- What a link from a figure to a theorem is, in the words of `docs/TRUST.md`. -/
 def theoremLinkText : String :=
@@ -67,7 +73,7 @@ def illustrationText (marked : Bool) : String :=
     "Its declaration marks it as an illustration (@[figure illustration]): a picture shown for \
       what it shows, with no theorem about the object it is drawn from."
   else
-    "No theorem is linked to it by figure_proves in the modules the site's generator imports, \
+    "No theorem is linked to it by figure_links in the modules the site's generator imports, \
       and its declaration does not mark it as an illustration (pilean-build \
       --require-standing refuses such a figure)."
 
@@ -235,20 +241,22 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
   -- standing
   let data := site.pages[decl]?
   let standing ← match fig.standing with
-    | .proved ts => do
+    | .linked ts => do
       let thms ← ts.mapM fun t => do
+        let checked := el "p" "pilean-standing-checked" (txt (linkCheckedText t))
         match data.bind (·.theorems.find? (·.decl.name == t)) with
         | some ti =>
           let axioms := if ti.axioms.isEmpty then "Axioms: none."
             else s!"Axioms: {", ".intercalate ti.axioms.toList}."
-          declSection o s ti.decl (statementOnly := true) (fallback := ti.statement)
+          let sec ← declSection o s ti.decl (statementOnly := true) (fallback := ti.statement)
             (note := el "p" "pilean-page-axioms" (txt axioms))
-        | Option.none => pure (el "p" "pilean-figure-missing" (txt s!"{t}: no statement recorded."))
+          pure (Html.seq #[sec, checked])
+        | Option.none => pure (.seq #[el "p" "pilean-figure-missing"
+            (txt s!"{t}: no statement recorded."), checked])
       let names := .seq <| (ts.map fun t => s.decl t).toList.intersperse (txt ", ") |>.toArray
-      pure <| el "section" "pilean-page-standing pilean-standing-proved" (.seq #[
+      pure <| el "section" "pilean-page-standing pilean-standing-linked" (.seq #[
         el "h2" "pilean-page-h" (txt "Standing"),
-        el "p" "pilean-standing-words" (.seq #[txt (standingWords fig.standing), txt " ", names,
-          txt "."]),
+        el "p" "pilean-standing-words" (.seq #[txt (standingWords fig.standing), txt " ", names]),
         .seq thms,
         el "p" "pilean-standing-scope" (txt theoremScopeText),
         el "p" "pilean-standing-scope" (txt theoremLinkText)])
