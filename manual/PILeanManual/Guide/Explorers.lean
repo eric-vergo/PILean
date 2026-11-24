@@ -100,5 +100,5 @@ The lattice `ℤ (1, 0) + ℤ (x, y)` as its second period moves.
 The optional package `pilean-mathlib` states both families in Mathlib's terms, frame by frame:
 the arrows of the frame of `(n, a)` join `s` to `t` exactly when `t = s + a` in `ZMod n`, and
 the dots of the frame of `(x, y)` are exactly the points of `Submodule.span ℤ {(1, 0), (x, y)}` in
-the window, each once (`PILeanMathlib.Examples.cayleyExplorer_zmod`,
-`PILeanMathlib.Examples.latticeExplorer_span`).
+the window, each once (`cayleyExplorer_zmod` and `latticeExplorer_span`, in
+`PILeanMathlib.Examples`).
