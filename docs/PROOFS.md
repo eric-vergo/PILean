@@ -451,7 +451,12 @@ nine figures: the divisors of 60 (`divisorsFigure_spec`: the elements are `Nat.d
 edge joins `a` to `b` exactly when `a ∣ b` and `b / a` is prime), the subsets of a 3-set with
 `CovBy`, the Petersen graph as a `SimpleGraph`, a `YoungDiagram`, Mathlib's highest-weight
 tableau, the cycles and the wiring diagram of a permutation (with its sign, `(-1)` to the number of
-crossings), a `DyckWord` and three finsets in a Venn diagram.
+crossings), a `DyckWord` and three finsets in a Venn diagram. Each of these theorems also states
+the kind's `Faithful` predicate of its figure (every mark is the builder's, so no mark can be
+added), its title, and its labels against the object (vertex `i` of the Petersen graph is named
+by the 2-subset it is, divisor `d` is labelled `toString d`, a subset by its elements, a Venn
+element by its number and the set of the multiples of `m` as `mℤ`); `lake test` compiles changed copies
+of each figure (a label, a title, an added mark, a colour role) that must fail inside the theorem.
 
 ## Algebra against Mathlib
 
@@ -474,7 +479,9 @@ ten drawn subgroups are all the subgroups, each once, decided over the 256 subse
 each is named by generators and is the subgroup they generate, `Subgroup.closure`, the names of
 the generators being those of `d4Name`; the edges are `⋖`; a dot is in colour exactly when its
 subgroup is `Normal`; the names the table writes are `d4Name` of the elements), a `CommSq` of
-reductions in `Type` (`commSqFigure_spec`) and the drawing of a short exact sequence
+reductions in `Type` (`commSqFigure_spec`: each drawn object is named by the `ZMod n` it is and
+each arrow label by the reduction it is, `Realisation.Names`, so a renamed object or two swapped
+labels break the theorem) and the drawing of a short exact sequence
 (`shortExactFigure_spec`, for every short complex of a preadditive category with a zero object).
 
 ## Number theory against Mathlib
