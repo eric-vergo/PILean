@@ -7,12 +7,16 @@
 #
 # With the clock paused and set (`setCurrentTime`), every `[data-pilean-actor]` anchor is read
 # through `getCTM()`:
-#   (a) at the middle of each key's rest every actor is where the key's still has it (0.05 px);
+#   (a) at the middle of each key's rest every actor is where the key's still has it (0.05 px),
+#       and the picture is the key's still SVG pixel for pixel (no pixel whose colour differs by
+#       more than 60 in the sum of its channels);
 #   (b) at a quarter, a half and three quarters of every turn the actor is on the turn's circle
 #       (0.05 px) at the eased fraction of the turn's angle (0.5 degrees): a true arc;
-#   (c) labels and markers (`[data-pilean-upright]`) are not turned (less than 0.01 degrees);
-#   (d) under `prefers-reduced-motion: reduce` the moving picture is not rendered, the poster
-#       still is, and the page matches the poster key's PNG;
+#   (c) labels and markers (`[data-pilean-upright]`) are not turned (less than 0.01 degrees),
+#       and there are as many of them as the motion declares (none found is a failure);
+#   (d) under `prefers-reduced-motion: reduce` the moving picture is not shown, the poster
+#       still is, and the page matches the poster key's PNG; switching reduced motion on and off
+#       again without seeking shows the picture of the running clock (not a frozen one);
 #   (e) no console errors.
 # Without seeking, the motion plays: two screenshots at different `getCurrentTime()` differ.
 #
@@ -56,6 +60,25 @@ READ = """async (t) => {
     uprights.push(Math.atan2(m.b, m.a) * 180 / Math.PI);
   }
   return {time: svg.getCurrentTime(), actors, uprights};
+}"""
+
+PIXELS = """async ([a, b]) => {
+  const load = src => new Promise((ok, bad) => {
+    const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+  const [x, y] = await Promise.all([load(a), load(b)]);
+  const w = Math.min(x.width, y.width), h = Math.min(x.height, y.height);
+  const grab = i => {
+    const c = document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.drawImage(i, 0, 0, w, h);
+    return g.getImageData(0, 0, w, h).data; };
+  const p = grab(x), q = grab(y);
+  let n = 0;
+  for (let k = 0; k < p.length; k += 4) {
+    const d = Math.abs(p[k] - q[k]) + Math.abs(p[k + 1] - q[k + 1]) + Math.abs(p[k + 2] - q[k + 2]);
+    if (d > 60) n++;
+  }
+  return n;
 }"""
 
 DIFF = """async ([a, b]) => {
@@ -102,10 +125,24 @@ def check(browser, root, name):
     page.goto("file://" + path)
     page.evaluate("document.documentElement.pauseAnimations()")
     rest_err = radius_err = angle_err = upright = 0.0
+    rest_pixels = []
     ok = True
+    box = page.evaluate(
+        "(() => { const r = document.documentElement.getBoundingClientRect();"
+        " return [r.width, r.height]; })()")
+    clip = {"x": 0, "y": 0, "width": box[0], "height": box[1]}
+    uprights_found = set()
     for rest in spec["rests"]:
         seen = page.evaluate(READ, rest["t"])
+        uprights_found.add(len(seen["uprights"]))
         upright = max([upright] + [abs(a) for a in seen["uprights"]])
+        shot = page.screenshot(clip=clip)
+        still_page = ctx.new_page()
+        still_page.goto("file://" + os.path.abspath(
+            os.path.join(root, f"{name}-key{rest['key']}.svg")))
+        still = still_page.screenshot(clip=clip)
+        still_page.close()
+        rest_pixels.append(page.evaluate(PIXELS, [uri(shot), uri(still)]))
         for a in rest["actors"]:
             xy = first(seen["actors"], a["id"])
             if xy is None:
@@ -119,6 +156,7 @@ def check(browser, root, name):
         a0 = math.degrees(math.atan2(s[1] - c[1], s[0] - c[0]))
         for sample in turn["samples"]:
             seen = page.evaluate(READ, sample["t"])
+            uprights_found.add(len(seen["uprights"]))
             upright = max([upright] + [abs(a) for a in seen["uprights"]])
             xy = first(seen["actors"], turn["id"])
             if xy is None:
@@ -135,7 +173,8 @@ def check(browser, root, name):
     rpage.on("pageerror", lambda e: errors.append(str(e)))
     rpage.goto("file://" + path)
     display = rpage.evaluate(
-        "[getComputedStyle(document.querySelector('.pilean-motion-live')).display,"
+        "[(s => s.visibility + ' ' + s.opacity)("
+        "getComputedStyle(document.querySelector('.pilean-motion-live'))),"
         " getComputedStyle(document.querySelector('.pilean-motion-poster')).display]")
     box = rpage.evaluate(
         "(() => { const r = document.documentElement.getBoundingClientRect();"
@@ -144,6 +183,26 @@ def check(browser, root, name):
     with open(os.path.join(root, spec["poster_png"]), "rb") as f:
         diff = rpage.evaluate(DIFF, [uri(shot), uri(f.read())])
     rctx.close()
+    # reduced motion switched on, the clock running on, and off again: the picture shown is the
+    # one of the running clock, not one frozen when it was hidden
+    sctx = browser.new_context(viewport={"width": 800, "height": 700})
+    spage = sctx.new_page()
+    spage.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    spage.goto("file://" + path)
+    spage.wait_for_timeout(300)
+    spage.emulate_media(reduced_motion="reduce")
+    spage.wait_for_timeout(1500)
+    spage.emulate_media(reduced_motion="no-preference")
+    spage.wait_for_timeout(100)
+    spage.evaluate("document.documentElement.pauseAnimations()")
+    spage.wait_for_timeout(150)
+    shown = spage.screenshot(clip=clip)
+    now = spage.evaluate("document.documentElement.getCurrentTime()")
+    spage.evaluate(f"document.documentElement.setCurrentTime({now})")
+    spage.wait_for_timeout(150)
+    seeked = spage.screenshot(clip=clip)
+    switch = spage.evaluate(PIXELS, [uri(shown), uri(seeked)])
+    sctx.close()
     # it plays: no seeking, two moments of the running clock
     pctx = browser.new_context(viewport={"width": 800, "height": 700})
     ppage = pctx.new_page()
@@ -157,12 +216,16 @@ def check(browser, root, name):
     s2 = ppage.screenshot()
     pctx.close()
     plays = t2 > t1 and s1 != s2
+    uprights_ok = uprights_found == {spec["uprights"]} and spec["uprights"] > 0
     ok = (ok and rest_err <= REST_TOL and radius_err <= RADIUS_TOL and angle_err <= ANGLE_TOL
-          and upright <= UPRIGHT_TOL and display == ["none", "inline"] and diff < 8
-          and not errors and plays)
-    print(f"{name}: rests {rest_err:.2e} px, arcs {radius_err:.2e} px and {angle_err:.2e} deg, "
-          f"uprights {upright:.2e} deg; reduced motion: live {display[0]}, poster {display[1]}, "
-          f"{diff:.2f} of 255 from the poster PNG; plays ({t1:.2f} s, {t2:.2f} s): {plays}; "
+          and upright <= UPRIGHT_TOL and uprights_ok and all(n == 0 for n in rest_pixels)
+          and display == ["hidden 0", "inline"] and diff < 8 and switch == 0 and not errors
+          and plays)
+    print(f"{name}: rests {rest_err:.2e} px and {rest_pixels} pixels off the stills, "
+          f"arcs {radius_err:.2e} px and {angle_err:.2e} deg, uprights {sorted(uprights_found)} "
+          f"of {spec['uprights']} found, turned {upright:.2e} deg; reduced motion: live "
+          f"{display[0]}, poster {display[1]}, {diff:.2f} of 255 from the poster PNG, switched "
+          f"off again {switch} pixels off the clock; plays ({t1:.2f} s, {t2:.2f} s): {plays}; "
           f"console errors: {len(errors)} -> {'ok' if ok else 'FAILED'}")
     for e in errors:
         print(f"  console: {e}")

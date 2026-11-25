@@ -238,11 +238,15 @@ def posterClass : String := "pilean-motion-poster"
 def liveClass : String := "pilean-motion-live"
 
 /-- The style element that shows the poster (`posterClass`) instead of the motion (`liveClass`)
-under reduced motion. -/
+under reduced motion. The moving picture is hidden (`visibility:hidden`) and made transparent
+(`opacity:0`), not taken out of the rendering: a browser that stops rendering a group
+(`display:none`) and renders it again can show it frozen until each of its animations next
+repeats. Hiding alone would not hide the frames of a frame-switching animation, which animate
+their own `visibility`; the transparency hides them. -/
 def reducedMotionStyle : Node :=
   el "style" #[] #[.text ("." ++ posterClass ++ "{display:none}" ++
     "@media (prefers-reduced-motion: reduce){." ++ posterClass ++ "{display:inline}." ++
-    liveClass ++ "{display:none}}")]
+    liveClass ++ "{visibility:hidden;opacity:0}}")]
 
 /-- The element trees of the frames, as the animated SVG writes them: frame `i` is the drawing
 at the time `time i`, rendered with text mode `mode`. -/

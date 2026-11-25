@@ -88,7 +88,9 @@ def twoCentresMotion : Motion where
     #[{ moves := #[("A", quarter), ("T1", quarter), ("T2", quarter), ("T3", quarter)] },
       { moves := #[("A", Plane.Exact.turnAbout ((1, 1) : Q) (1 / 2)), ("B", .appear)] },
       { moves := #[("S", Plane.Exact.slideFromTo ((2, -1) : Q) (3, -1))] }]
-  info := { title := "Turns about two centres" }
+  info :=
+    let description := "A turns about O and then about C; the triangle turns with it about O."
+    { title := "Turns about two centres", description }
 
 /-- The golden motions, by file name. -/
 def golden : Array (String × Motion) :=
@@ -114,6 +116,12 @@ def hasNote (m : Motion) (s : String) : Bool :=
 /-- Whether the motion has no error. -/
 def noErrors (m : Motion) : Bool := m.problems.all (·.severity == .note)
 
+/-- The title and description of the small motions. -/
+def testInfo : Canvas.ShapeInfo := { title := "A test motion", description := "For the checks." }
+
+/-- The motion at the level `.warn`, where what crossfades is a note. -/
+def warned (m : Motion) : Motion := { m with checks := .warn }
+
 /-- Five points that appear in the same step, around a point that is always there. -/
 def batchMotion : Motion where
   keys :=
@@ -123,6 +131,7 @@ def batchMotion : Motion where
       { items := #[Plane.Exact.point ((0, 0) : Q), Plane.Exact.point ((4, 0) : Q)] ++ pts }]
   captions := #["Before.", "After."]
   steps := #[{ moves := (List.range 5).toArray.map fun i => (s!"B{i}", .appear) }]
+  info := testInfo
 
 /-- A disk whose radius grows from 1 to 2 (`interpolated`), or that becomes a square. -/
 def morphMotion (interpolated : Bool) : Motion where
@@ -135,6 +144,7 @@ def morphMotion (interpolated : Bool) : Motion where
           Plane.Exact.point ((-3, -3) : Q)] }]
   captions := #["Radius 1.", "After."]
   steps := #[{ moves := #[("D", .morph)] }]
+  info := testInfo
 
 /-- A triangle whose top vertex runs along the unit circle from `(1, 0)` to `(0, 1)`, with exact
 figures between the keys at the sample fractions (`Motion.between`). -/
@@ -146,7 +156,7 @@ def sampledMotion : Motion :=
     let a := Exact.toFloat q * Plane.pi / 2
     tri a.cos a.sin
   { keys := #[at_ 0, at_ 1], captions := #["Start.", "End."],
-    steps := #[{ moves := #[("T", .morph)] }], morphSamples := 4,
+    steps := #[{ moves := #[("T", .morph)] }], morphSamples := 4, info := testInfo,
     between := fun j q => if j == 0 then some (at_ q) else none }
 
 /-- An actor with an automatic label that slides next to another label: the placement chosen on
@@ -160,6 +170,35 @@ def keptMotion : Motion where
       { items := #[other, actor (2, 0), Plane.Exact.point ((-1, 1) : Q)] }]
   captions := #["L at the origin.", "L slid by 2."]
   steps := #[{ moves := #[("L", Plane.Exact.slideFromTo ((0, 0) : Q) (2, 0))] }]
+  info := testInfo
+
+/-- The frame's corners of the small motions below: two faint points. -/
+def corners : Array Item := #[Plane.Exact.point ((-3, -3) : Q) |>.faint,
+  Plane.Exact.point ((3, 3) : Q) |>.faint]
+
+/-- A motion of two keys from the actor items `a` and `b` and the move `mv` of the actor `X`. -/
+def twoKeys (a b : Item) (mv : Move) (allowFull : Bool := false) : Motion where
+  keys := #[{ items := corners.push (a.actor "X") }, { items := corners.push (b.actor "X") }]
+  captions := #["Before.", "After."]
+  steps := #[{ moves := #[("X", mv)], allowFullTurns := allowFull }]
+  info := testInfo
+
+/-- A point slid by one to the right, landing `miss` pixels to the right of where the slide
+carries it (the frame's scale is that of `twoKeys` with these corners). -/
+def missBy (miss : Float) : Motion :=
+  let scale := (twoKeys (Plane.point ⟨0, 0⟩) (Plane.point ⟨1, 0⟩)
+    (.slide ⟨1, 0⟩)).env.frame.scale
+  twoKeys (Plane.point ⟨0, 0⟩) (Plane.point ⟨1 + miss / scale, 0⟩) (.slide ⟨1, 0⟩)
+
+/-- Two overlapping disks drawn in the other order on the second key. -/
+def zswap : Motion where
+  keys :=
+    let a := Plane.Exact.disk ((0, 0) : Q) (1 : Rat) |>.accent 0 |>.actor "A"
+    let b := Plane.Exact.disk ((1 / 2, 0) : Q) (1 : Rat) |>.accent 1 |>.actor "B"
+    #[{ items := corners ++ #[a, b] }, { items := corners ++ #[b, a] }]
+  captions := #["A under B.", "B under A."]
+  steps := #[MotionStep.idle]
+  info := testInfo
 
 /-- The placement of the first label among the leaves of the actor `id` of a figure. -/
 def labelPlacement (fig : Figure) (id : String) : Option Placement :=
@@ -182,9 +221,43 @@ def ruleChecks : Array (String × Bool) := Id.run do
     hasError (withSteps #[turnMotion.steps[0]!,
       { moves := #[("P", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4))] }])
       "does not carry key 1 onto key 2")
-  r := r.push ("motion: a whole turn of an item that did not move lands, and is no error",
-    noErrors (withSteps #[turnMotion.steps[0]!,
-      { moves := #[("P", Plane.Exact.turnAbout ((0, 0) : Q) 1)] }]))
+  let whole := fun (allow : Bool) => withSteps #[turnMotion.steps[0]!,
+    { moves := #[("P", Plane.Exact.turnAbout ((0, 0) : Q) 1)], allowFullTurns := allow }]
+  r := r.push ("motion: a whole turn is an error unless the step allows it, and then a note",
+    hasError (whole false) "is a whole turn or more" && noErrors (whole true) &&
+      hasNote (whole true) "the arrival check cannot see the turn")
+  r := r.push ("motion: 6/5 of a turn is an error where 1/5 lands; -4/5 lands (direction unseen)",
+    let pent := fun (start : Nat) => Plane.polygon ((Array.range 5).map fun i =>
+      let a := ((i + start : Nat).toFloat) * 2 * Plane.pi / 5
+      (⟨a.cos, a.sin⟩ : Point))
+    noErrors (twoKeys (pent 0) (pent 1) (Plane.Exact.turnAbout ((0, 0) : Q) (1 / 5))) &&
+      hasError (twoKeys (pent 0) (pent 1) (Plane.Exact.turnAbout ((0, 0) : Q) (6 / 5)))
+        "whole turn" &&
+      noErrors (twoKeys (pent 0) (pent 1) (Plane.Exact.turnAbout ((0, 0) : Q) (-4 / 5))) &&
+      -- the same vertex list after a symmetry turn is refused: the vertices must be turned
+      hasError (twoKeys (pent 0) (pent 0) (Plane.Exact.turnAbout ((0, 0) : Q) (1 / 5)))
+        "does not carry")
+  r := r.push ("motion: a disk turned about its own centre is a note (the check cannot see it)",
+    let d := Plane.Exact.disk ((0, 0) : Q) (1 : Rat)
+    noErrors (twoKeys d d (Plane.Exact.turnAbout ((0, 0) : Q) (1 / 3))) &&
+      hasNote (twoKeys d d (Plane.Exact.turnAbout ((0, 0) : Q) (1 / 3))) "cannot see")
+  r := r.push ("motion: a slide that misses by 0.02 px is an error; by 0.005 px it lands",
+    hasError (missBy 0.02) "does not carry key 0 onto key 1" && noErrors (missBy 0.005))
+  r := r.push ("motion: a polygon with only a later vertex out of place is an error",
+    let tri := fun (z : Float) => Plane.polygon #[⟨0, 0⟩, ⟨1, 0⟩, ⟨0, z⟩]
+    let slid := Plane.polygon #[⟨1, 0⟩, ⟨2, 0⟩, ⟨1, 1.1⟩]
+    hasError (twoKeys (tri 1) slid (.slide ⟨1, 0⟩)) "does not carry" &&
+      noErrors (twoKeys (tri 1) (Plane.polygon #[⟨1, 0⟩, ⟨2, 0⟩, ⟨1, 1⟩])
+        (.slide ⟨1, 0⟩)))
+  r := r.push ("motion: a disk whose radius changes under a slide is an error",
+    hasError (twoKeys (Plane.Exact.disk ((0, 0) : Q) (1 : Rat))
+      (Plane.Exact.disk ((1, 0) : Q) (6 / 5 : Rat)) (.slide ⟨1, 0⟩)) "changes its radius")
+  r := r.push ("motion: a key that draws its items in another order is an error",
+    hasError zswap "draws its items in another order" && hasError zswap "at the rest on key 1")
+  r := r.push ("motion: a motion without a title or description is an error under fail",
+    hasError { turnMotion with info := {} } "no title" &&
+      hasError { turnMotion with info := { title := "t" } } "no description" &&
+      noErrors (warned { turnMotion with info := {} }))
   let missing : Motion := { turnMotion with keys := turnMotion.keys.pop }
   r := r.push ("motion: a missing key is an error, and the motion is not well formed",
     !decide missing.WellFormed && hasError missing "needs one key more than steps")
@@ -213,20 +286,31 @@ def ruleChecks : Array (String × Bool) := Id.run do
   let q := (group #[Plane.Exact.point ((0, 1) : Q) |>.accent 0 |>.incident .on "the unit circle",
     Plane.Exact.label "Q" ((0, 1) : Q) .aboveRight |>.accent 0]).actor "P"
   let relabelled := withKey 2 fun f => { f with items := f.items.pop.push q }
-  r := r.push ("motion: an actor that changes without a move is a note, crossfaded in two layers",
-    noErrors relabelled && hasNote relabelled "P changes without a declared move" &&
-      (relabelled.plan.layers.filter (·.version.actor == some "P")).size == 2)
+  r := r.push ("motion: an actor that changes without a move is an error under fail",
+    hasError relabelled "P changes without a declared move" &&
+      (match relabelled.svg? with | .error _ => true | .ok _ => false))
+  r := r.push ("motion: under warn it is a note, crossfaded in two layers",
+    noErrors (warned relabelled) && hasNote (warned relabelled) "P changes without" &&
+      ((warned relabelled).plan.layers.filter (·.version.actor == some "P")).size == 2)
+  r := r.push ("motion: an actor that leaves or comes without vanish or appear is an error",
+    let gone := withKey 2 fun f => { f with items := f.items.pop }
+    let gone := { gone with steps := #[turnMotion.steps[0]!, {}] }
+    hasError gone "leaves without a declared disappearance" &&
+      hasNote (warned gone) "leaves without a declared disappearance")
   let o := Plane.Exact.label "O" ((0, 0) : Q) .below |>.faint
   let moved := withKey 2 fun f => { f with items := f.items.modify 2 fun _ => o }
   r := r.push ("motion: an item without an id that changes is a note",
     noErrors moved && hasNote moved "1 items without an id fade out and 1 fade in")
-  r := r.push ("motion: notes alone never stop a build; an error does under fail",
-    !({ relabelled with checks := .fail } : Motion).problemsFail &&
-      ({ withSteps #[{ moves := #[("P", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 5))] },
-        MotionStep.idle] with checks := .fail } : Motion).problemsFail &&
-      !(withSteps #[{ moves := #[("P", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 5))] },
-        MotionStep.idle]).problemsFail &&
+  let wrong := withSteps #[{ moves := #[("P", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 5))] },
+    MotionStep.idle]
+  r := r.push ("motion: fail is the default; notes alone never stop a build, an error does",
+    turnMotion.checks == .fail && !moved.problemsFail && wrong.problemsFail &&
+      (match wrong.svg? with | .error _ => true | .ok _ => false) &&
+      (match turnMotion.svg? with | .ok svg => svg == turnMotion.toSvg | .error _ => false) &&
+      !(warned wrong).problemsFail &&
       ({ turnMotion with checks := .ignore, poster := 9 } : Motion).checkMessages.isEmpty)
+  r := r.push ("motion: a declared turn that misses its key is not animated as a turn",
+    ((warned wrong).plan.layers.filter (·.version.actor == some "P")).size == 2)
   r := r.push ("motion: the angles of the chain at the keys are the exact sums of the turns",
     (List.range 4).map (twoCentresMotion.keyAngle "A") == [0, -90, -270, -270] &&
       (List.range 4).map (fun k => Exact.toFloat (-(360 * twoCentresMotion.turnSum "A" k))) ==
@@ -300,6 +384,9 @@ def layoutChecks : Array (String × Bool) := Id.run do
     -- anchors): the triangle's turn about O, then A's turn about C (the outer group), then A's
     -- turn about O (the inner group)
     (rotates.toList.map centreOf).filter (fun x => x == o || x == c) == [o, c, o])
+  r := r.push ("motion: a point's marker and its label share one counter-rotation",
+    ((elements "g" 256 turnMotion.svgRoot).filter (attrOf · "data-pilean-upright" != "")).size
+      == 1)
   let broot := batchMotion.svgRoot
   r := r.push ("motion: points that appear in the same step share one opacity animation",
     animCount broot "opacity" == 2 && batchMotion.problems.isEmpty)
@@ -325,19 +412,19 @@ def layoutChecks : Array (String × Bool) := Id.run do
           (a.points.zip b.points).all fun (x, y) => x.dist y < 1e-9
     | none => false)
   let square := morphMotion false
-  r := r.push ("motion: a morph that cannot be interpolated crossfades, with a note",
-    noErrors square && hasNote square "cannot be interpolated" &&
-      (square.plan.layers.filter (·.version.actor == some "D")).size == 2)
+  r := r.push ("motion: a morph that cannot be interpolated is an error; under warn it crossfades",
+    hasError square "cannot be interpolated" && noErrors (warned square) &&
+      ((warned square).plan.layers.filter (·.version.actor == some "D")).size == 2)
   let late : Motion :=
     { keys := #[0, 1, 2].map fun (k : Nat) =>
         let c : Q := if k == 0 then (0, 0) else (1, 0)
         let r : Rat := if k == 2 then 2 else 1
         { items := #[Plane.Exact.disk c r |>.actor "D", Plane.Exact.point ((4, 4) : Q),
             Plane.Exact.point ((-3, -3) : Q)] },
-      captions := #["", "", ""],
+      captions := #["", "", ""], info := testInfo, checks := .warn,
       steps := #[{ moves := #[("D", Plane.Exact.slideFromTo ((0, 0) : Q) (1, 0))] },
         { moves := #[("D", .morph)] }] }
-  r := r.push ("motion: a morph after a slide of its layer crossfades, with a note",
+  r := r.push ("motion: a morph after a slide of its layer crossfades under warn, with a note",
     noErrors late && hasNote late "cannot be interpolated" &&
       (late.plan.layers.filter (·.version.actor == some "D")).size == 2)
   r := r.push ("motion: a morph with figures between its keys is sampled",
@@ -362,89 +449,171 @@ def pointOf (s : String) : Point :=
 
 /-- What the written tree shows at the time `t`, read with `Smil.valueAt` alone: every element
 with `data-pilean-actor` (its anchor) or `data-pilean-upright` (its anchor) in document order,
-with the page point its anchor is drawn at, its opacity, and the sum of the angles of the turns
-it is inside (`none` where an animation does not evaluate), at most `fuel` deep. -/
-def shown (t : Float) : Nat → Affine → Float → Float → Node →
-    Option (Array (String × Point × Float × Float))
-  | 0, _, _, _, _ => some #[]
-  | _, _, _, _, .text _ => some #[]
-  | fuel + 1, M, o, θ, .element _ attrs cs => do
+with the page point its anchor is drawn at, its opacity, and the whole transform its content is
+under (`none` where an animation does not evaluate), at most `fuel` deep. -/
+def shown (t : Float) : Nat → Affine → Float → Node →
+    Option (Array (String × Point × Float × Affine))
+  | 0, _, _, _ => some #[]
+  | _, _, _, .text _ => some #[]
+  | fuel + 1, M, o, .element _ attrs cs => do
     let mut M := M
     let mut o := o
-    let mut θ := θ
     for c in cs do
       if let .element n as _ := c then
         if n == "animateTransform" then
           let v ← Smil.valueAt c t
-          let type := (Smil.attr? as "type").getD ""
-          M := M.comp (transformOf type v)
-          if type == "rotate" then θ := θ + v.getD 0 0
+          M := M.comp (transformOf ((Smil.attr? as "type").getD "") v)
         else if n == "animate" && Smil.attr? as "attributeName" == some "opacity" then
           o := o * (← Smil.valueAt c t).getD 0 1
-    let actor := Smil.attr? attrs "data-pilean-actor"
-    let own := match actor, Smil.attr? attrs "data-pilean-upright" with
+    let upright := Smil.attr? attrs "data-pilean-upright"
+    let own := match Smil.attr? attrs "data-pilean-actor", upright with
       | some id, _ =>
-        #[(s!"actor {id}", M.apply (pointOf ((Smil.attr? attrs "data-pilean-anchor").getD "")), o,
-          θ)]
-      | none, some a => #[("upright", M.apply (pointOf a), o, θ)]
+        let a := pointOf ((Smil.attr? attrs "data-pilean-anchor").getD "")
+        #[(s!"actor {id}", M.apply a, o, M)]
+      | none, some a => #[("upright", M.apply (pointOf a), o, M)]
       | none, none => #[]
-    let rest ← cs.mapM (shown t fuel M o θ)
+    let rest ← cs.mapM (shown t fuel M o)
     return own ++ rest.flatten
 
 /-- The live group of a motion's SVG. -/
 def liveGroup (m : Motion) : Node :=
   ((elements "g" 256 m.svgRoot).find? (attrOf · "class" == Animation.liveClass)).getD (.text "")
 
-/-- Whether, at 50 times through the cycle, what the written tree shows (`shown`) is what the
-baker has (`MotionPlan.markersAt`), within `1e-6` px and `1e-6` in opacity, and every upright leaf
-is inside turns that add up to zero within `1e-6`°. -/
+/-- Whether two transforms agree within `tol` in every coefficient. -/
+def affineNear (a b : Affine) (tol : Float) : Bool :=
+  [(a.a, b.a), (a.b, b.b), (a.c, b.c), (a.d, b.d), (a.e, b.e), (a.f, b.f)].all fun (x, y) =>
+    (x - y).abs < tol
+
+/-- The times of the agreement checks: 50 through the cycle. -/
+def sampleTimes (cycle : Rat) : List Rat :=
+  (List.range 50).map fun i => cycle * (i * 100 + 37 : Nat) / 5000
+
+/-- Whether, at 50 times through the cycle, the written tree (`shown`, read with `Smil.valueAt`)
+shows what the baker has (`MotionPlan.markersAt`): as many actors and upright groups as the plan
+declares (its layers with an actor, and their `uprights`), each anchor within `1e-6` px, each
+opacity within `1e-6`, and each whole transform within `1e-6` in every coefficient (so an upright
+leaf is translated, not turned, on both sides). -/
 def agrees (m : Motion) : Bool :=
   let p := m.plan
-  let cycle := Exact.toFloat p.timeline.cycle
   let live := liveGroup m
-  (List.range 50).all fun i =>
-    let t := cycle * (i.toFloat + 0.37) / 50
-    match shown t 256 Affine.id 1 0 live with
+  let actors := (p.layers.filter fun L => L.version.actor.isSome).size
+  let ups := (p.layers.map (·.uprights.size)).foldl (· + ·) 0
+  (sampleTimes p.timeline.cycle).all fun tr =>
+    let t := Exact.toFloat tr
+    match shown t 256 Affine.id 1 live with
     | none => false
     | some written =>
       let baked := p.markersAt t
-      written.size == baked.size && written.size > 0 &&
-        (written.zip baked).all fun ((n, q, o, θ), (n', q', o')) =>
-          n == n' && q.dist q' < 1e-6 && (o - o').abs < 1e-6 &&
-            (n != "upright" || θ.abs < 1e-6)
+      (written.filter (·.1 != "upright")).size == actors &&
+        (written.filter (·.1 == "upright")).size == ups &&
+        written.size == baked.size &&
+        (written.zip baked).all fun ((n, q, o, M), (n', q', o', M')) =>
+          n == n' && q.dist q' < 1e-6 && (o - o').abs < 1e-6 && affineNear M M' 1e-6
 
-/-- Whether, at the middle of the rest on each key, the baker puts every actor shown there at its
-anchor in the key's still, within `0.01` px. -/
-def restsAgree (m : Motion) : Bool :=
+/-- Where the motion's model puts the anchor of the actor `id` at the exact time `t`, computed
+apart from the plan: its first leaf's first anchor on the key `first`, then each declared turn or
+slide of the steps from `first` on, the step under way by the eased fraction of the unsplit
+timeline (`Timeline.locate`), a turn by `-360 q` degrees about the page point of its centre, a
+slide by the page image of its vector. -/
+def modelAnchor (m : Motion) (id : String) (first : Nat) (t : Rat) : Option Point := do
+  let K := m.keysOf
+  let f := K.env.frame
+  let lf ← ((K.figure first).actor? id).bind (·.leaves[0]?)
+  let a0 ← (anchors f K.env.style lf.geom)[0]?
+  let tl := Timeline.build m.animSteps m.pacing
+  let (kind, e) := tl.locate t
+  let (key, frac) := match kind with
+    | .rest k => (k, (0 : Float))
+    | .move j => (j, e)
+    | .seamIn => (0, 0)
+    | .seamOut => (m.keys.size - 1, 0)
+  let step := fun (pt : Point) (j : Nat) (x : Float) => match m.moveOf j id with
+    | some (.turn c q) =>
+      let c' := f.toScreen c
+      let θ := -(360 * Exact.toFloat q) * x * Plane.pi / 180
+      let d := pt - c'
+      (⟨c'.x + d.x * θ.cos - d.y * θ.sin, c'.y + d.x * θ.sin + d.y * θ.cos⟩ : Point)
+    | some (.slide v) => pt + (⟨f.scale * v.x * x, -(f.scale * v.y) * x⟩ : Point)
+    | _ => pt
+  let p := (List.range (key - first)).foldl (fun pt i => step pt (first + i) 1) a0
+  return if frac > 0 then step p key frac else p
+
+/-- Whether the baker (`MotionPlan.chainAt` on each actor layer's anchor) agrees with the model
+computed apart from the plan (`modelAnchor`) within `1e-3` px (the written numbers are rounded
+to 4 and 6 decimals), at the 50 times, for every actor layer fully shown then, outside sampled
+morph steps (whose turns follow the eased motion piecewise linearly, `sampledAgrees`). -/
+def modelAgrees (m : Motion) : Bool :=
   let p := m.plan
-  let st := (m.keyFigure 0).style
-  (List.range m.keys.size).all fun k =>
-    let t := Exact.toFloat (p.timeline.restTime k)
-    let fig := m.keyFigure k
-    (p.markersAt t).all fun (n, q, o) =>
-      if o < 1 || !n.startsWith "actor " then true
-      else
-        let id := (n.drop 6).toString
-        match fig.actor? id with
-        | some it => (it.leaves[0]?).any fun lf =>
-          ((anchors p.env.frame st lf.geom)[0]?).any (·.dist q < 0.01)
-        | none => false
+  let K := m.keysOf
+  let tl := Timeline.build m.animSteps m.pacing
+  (sampleTimes p.timeline.cycle).all fun tr =>
+    let t := Exact.toFloat tr
+    let sampled := match (tl.locate tr).1 with
+      | .move j => m.samplesOf K j > 1
+      | _ => false
+    sampled || p.layers.all fun L =>
+      match L.version.actor, L.anchor with
+      | some id, some a =>
+        p.opacityAt L t * p.seamAt t < 1 ||
+          (modelAnchor m id L.version.first tr).any fun q =>
+            ((p.chainAt L t).apply a).dist q < 1e-3
+      | _, _ => true
+
+/-- A disk that grows through exact figures between its keys while a point turns a quarter in the
+same step: the step is sampled (`morphSamples = 4`). -/
+def sampledTurn : Motion :=
+  let fig := fun (q : Rat) =>
+    let a := Exact.toFloat q * Plane.pi / 2
+    let items := corners ++ #[Plane.disk ⟨0, 0⟩ (1 + Exact.toFloat q) |>.actor "D",
+      Plane.point ⟨2.5 * a.cos, 2.5 * a.sin⟩ |>.actor "R"]
+    ({ items } : Figure)
+  { keys := #[fig 0, fig 1], captions := #["Start.", "End."], info := testInfo,
+    steps := #[{ moves := #[("D", .morph), ("R", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4))] }],
+    morphSamples := 4, between := fun j q => if j == 0 then some (fig q) else none }
+
+/-- The largest difference, at 200 times through the sampled step of `sampledTurn`, between the
+written angle of the turn (`Smil.valueAt`) and the eased angle of the step (`-90` times the
+step's easing at the fraction of its time), in degrees. -/
+def sampledError : Float :=
+  let p := sampledTurn.plan
+  let base := Timeline.build sampledTurn.animSteps sampledTurn.pacing
+  match base.segments.find? (·.kind == .move 0) with
+  | none => 1e9
+  | some s =>
+    -- the turn about the origin (not the point's counter-rotation, about its own anchor)
+    let o := pointText (quantPoint (p.env.frame.toScreen ⟨0, 0⟩))
+    let rot := (elements "animateTransform" 256 sampledTurn.svgRoot).find? fun a =>
+      attrOf a "type" == "rotate" && (attrOf a "values").startsWith s!"0 {o};"
+    match rot with
+    | none => 1e9
+    | some a =>
+      (List.range 201).foldl (init := 0) fun acc i =>
+        let x := i.toFloat / 200
+        let t := Exact.toFloat s.start + x * Exact.toFloat s.dur
+        let written := ((Smil.valueAt a t).bind (·[0]?)).getD 1e9
+        max acc (written - (-90) * s.easing.eval x).abs
 
 /-- The checks of the writer against the baker and of the outputs. -/
 def outputChecks : Array (String × Bool) := Id.run do
   let mut r : Array (String × Bool) := #[]
   let all := golden ++ #[("batch", batchMotion), ("morph", morphMotion true),
     ("crossfade", morphMotion false), ("sampled", sampledMotion), ("kept", keptMotion)]
-  for (name, m) in all do
+  for (name, m) in all ++ #[("sampled turn", sampledTurn)] do
     r := r.push (s!"motion {name}: the written tree shows what the baker draws, at 50 times",
       agrees m)
+    r := r.push (s!"motion {name}: the baker follows the model, computed apart, at 50 times",
+      modelAgrees m)
     let svg := m.toSvg
     r := r.push (s!"motion {name}: the SVG is inert, keeps the invariant and runs on one clock",
       Svg.isInert svg && Smil.invariantProblem? 256 m.svgRoot == none &&
         Smil.clockProblem? m.svgRoot == none && svg == m.toSvg)
+  r := r.push ("motion: a turn in a sampled step follows the eased angle within 90/4 degrees",
+    sampledTurn.problems.isEmpty && sampledTurn.samplesOf sampledTurn.keysOf 0 == 4 &&
+      sampledError < 90 / 4)
   for (name, m) in golden do
-    r := r.push (s!"motion {name}: at every rest the baker draws the key still",
-      restsAgree m)
+    r := r.push (s!"motion {name}: at every rest the baker draws the key still, every element",
+      (m.restProblems m.keysOf m.plan).isEmpty &&
+        (match m.svg? with | .ok svg => svg == m.toSvg | .error _ => false))
     r := r.push (s!"motion {name}: the stills are the key figures, byte for byte",
       (List.range m.keys.size).all fun k =>
         (m.keyFigure k).toSvg == ((commonView m.keys)[k]!).toSvg)
@@ -490,8 +659,8 @@ def expectations (name : String) (m : Motion) : String :=
     | none => []
     | some id => L.links.toList.filterMap fun
       | .turn j c deg => do
-        let i ← (List.range segs.size).find? fun i => segs[i]!.kind == .move j
-        let s := segs[i]!
+        let i ← (List.range segs.size).find? fun i => (segs[i]?.map (·.kind)) == some (.move j)
+        let s ← segs[i]?
         let start ← anchorOf (K.figure j) id
         let samples := [0.25, 0.5, 0.75].map fun (x : Float) =>
           let t := Exact.toFloat s.start + x * Exact.toFloat s.dur
@@ -499,9 +668,10 @@ def expectations (name : String) (m : Motion) : String :=
         return s!"\{\"id\": \"{Canvas.safeToken id}\", \"step\": {j}, \"centre\": {pt c}, \
           \"start\": {pt start}, \"sweep\": {num deg}, \"samples\": [{", ".intercalate samples}]}"
       | .slide .. => none
+  let ups := (p.layers.map (·.uprights.size)).foldl (· + ·) 0
   s!"\{\"name\": \"{name}\", \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
-    \"cycle\": {num (Exact.toFloat p.timeline.cycle)}, \"rests\": [{", ".intercalate rests}], \
-    \"turns\": [{", ".intercalate turns}]}\n"
+    \"cycle\": {num (Exact.toFloat p.timeline.cycle)}, \"uprights\": {ups}, \
+    \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}]}\n"
 
 /-- Writes the golden motions into `dir` for `tools/motion-browser-check.py`: each motion's SVG,
 the SVG of each key's still, the poster still's PNG and the expectations (`expectations`). -/

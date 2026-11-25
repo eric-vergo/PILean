@@ -25,18 +25,31 @@ This module holds the model and its checks.
   on the first key where the actor appears and keeps that placement on every later key
   (`Motion.resolved`), so that it rides the actor's moves; the key figures with these placements
   are the stills (`Motion.keyFigure`) and pass the layout checks on every key.
-* **Honest arrival.** A declared turn or slide is applied, in floating point, to the page points
-  that fix the actor's drawing in key `k` (`anchors`: a point, the ends of a segment, the centre of
-  a circle, the vertices of a polygon, the ends of an arc, a label's point), and the result must
-  equal the actor's drawing in key `k + 1` within `arrivalTolerance` (0.01 px), with everything
-  else about the drawing (`leafKey`: kinds, looks, texts, placements, radii) unchanged. An author
-  cannot declare a turn that does not land on the next key frame (`Motion.problems`).
+* **The arrival check.** It compares the actor in key `k`, carried by the declared turn or slide
+  (applied in floating point to the page points that fix its drawing, `anchors`: a point, the ends
+  of a segment, the centre of a circle, the vertices of a polygon, the ends of an arc, a label's
+  point), with the actor in key `k + 1`: the same leaves in order, of the same kinds, looks,
+  texts, placements and metadata (`leafKey`), radii and every anchor within `arrivalTolerance`
+  (0.01 px). It does not determine the direction or the number of revolutions of a turn (for a
+  turn by `1/5`, `6/5` and `-4/5` land too; a turn by a whole turn or more is an error unless the
+  step sets `allowFullTurns`), says nothing about what the turn leaves alike (a disk centred on the
+  turn's centre, a whole turn: a note says so), and does not tell a slide from a turn with the
+  same end points; for a single point and an angle that is not a whole turn, the centre is
+  determined. A polygon whose vertex list is the same after a symmetry turn is refused: the next
+  key must list the turned vertices in the turned order. A move that misses its key is an error,
+  and is not animated as that move.
+* **The stills pin the animation.** At the middle of every key's rest, the whole baked drawing
+  (every path and every text, in order) must be the key's still within the rest tolerance
+  (`restProblems`, 0.05 px); this bounds what the per-step tolerance can add up to along a chain,
+  and catches a wrong counter-rotation or stacking order.
 * **Labels and markers stay upright.** Their point rides the turns; they are not turned
   themselves (the anchors of a label and of a point are their points, and their look is compared
   unchanged).
-* **What changes without a move crossfades.** An item without an id that differs between two
-  consecutive keys, and an actor that differs without a declared move (or with a morph that cannot
-  be interpolated), fade out and in; `Motion.problems` reports each as a note.
+* **What changes without a move.** An item without an id that differs between two consecutive
+  keys crossfades, with a note. An actor that differs without a declared move, leaves without
+  `vanish`, comes without `appear`, or has a morph that cannot be interpolated is an error under
+  `CheckLevel.fail` (the default; `Motion.svg?` then writes nothing) and a crossfade with a note
+  under `warn`.
 
 ## Main definitions
 
@@ -52,9 +65,9 @@ This module holds the model and its checks.
 
 ## Main results
 
-* `Motion.keyAngle_eq`: the angle a turning actor's chain of groups gives at key `k` (the angles
-  `Anim.Smil.turnAngles` of its turns, negated because the page's `y` points down) is minus 360
-  times the exact sum of its turns before key `k`.
+* `Motion.keyAngle_eq`: `Motion.keyAngle` (a function of the model, which the writer does not
+  call) is minus 360 times the exact sum of an actor's turns before key `k`. The angle the writer
+  turns each link by is `PILean.Plane.linkOf_turn`'s.
 * `Motion.timeline_keys`: the timeline of a well-formed motion has as many keys as the motion.
 -/
 
@@ -100,6 +113,9 @@ structure MotionStep where
   duration : Option Rat := none
   /-- The easing; by default the pacing's (and none for an idle step). -/
   easing : Option Anim.Easing := none
+  /-- Whether the step may turn an actor by a whole turn or more (`|turns| ≥ 1`); without it, such
+  a turn is an error, because the arrival check cannot see whole turns. -/
+  allowFullTurns : Bool := false
   deriving Inhabited
 
 /-- A step in which nothing moves. -/
@@ -122,8 +138,9 @@ structure Motion where
   pacing : Anim.Pacing := {}
   /-- The title and description of the whole picture. -/
   info : ShapeInfo := {}
-  /-- How the problems of the motion (`Motion.problems`) apply when it is rendered. -/
-  checks : CheckLevel := .warn
+  /-- How the problems of the motion (`Motion.problems`) apply when it is rendered: by default an
+  error stops the rendering (`Motion.svg?` refuses to write the motion). -/
+  checks : CheckLevel := .fail
   /-- The key shown as the still (under reduced motion, and as the poster). -/
   poster : Nat := 0
   deriving Inhabited
@@ -440,9 +457,7 @@ def arrival (f : Frame) (st : Style) (t : Affine) (a b : Item) : Option String :
   if la.size != lb.size then
     return some s!"its drawing has {la.size} elements in one key and {lb.size} in the next"
   let mut worst : Float := 0
-  for i in [0:la.size] do
-    let x := la[i]!
-    let y := lb[i]!
+  for (i, x, y) in (la.zip lb).mapIdx fun i (x, y) => (i, x, y) do
     if leafKey x != leafKey y then
       return some s!"its element {i} differs in more than its position"
     let ma := measures f x.geom
@@ -562,15 +577,18 @@ def morphItems (K : MotionKeys) (j : Nat) (id : String) : Option (Array Item) :=
   (m.morphFigures K j).bind (·.mapM (·.actor? id))
 
 /-- Whether the layer `v` goes on to the item `it` of key `j + 1`, and with what: a turn or a slide
-declared for its actor; a morph declared for it, before any turn or slide, that can be
+declared for its actor that carries its drawing onto `it` (`arrival`; one that does not starts a
+new layer, and is an error of `stepProblems`); a morph declared for it, before any turn or slide,
+that can be
 interpolated (with its samples when the step is sampled); or nothing, when the two keys draw the
 item alike. -/
 def continuation (K : MotionKeys) (e : Env) (j : Nat) (v : MotionVersion) (it : Item) :
     Option (Option Move × Option (Array Item)) :=
   let prev := v.items.back?.getD it
+  let lands := fun (mv : Move) => (arrival e.frame e.style (mv.pageAffine e.frame) prev it).isNone
   match v.actor.bind (m.moveOf j) with
-  | some (.turn c q) => some (some (.turn c q), none)
-  | some (.slide w) => some (some (.slide w), none)
+  | some (.turn c q) => if lands (.turn c q) then some (some (.turn c q), none) else none
+  | some (.slide w) => if lands (.slide w) then some (some (.slide w), none) else none
   | some .morph =>
     if v.moves.any MotionVersion.isRigid then none
     else
@@ -591,16 +609,15 @@ def versions (K : MotionKeys) (e : Env) : Array MotionVersion × Array (Array Na
   let mut vs : Array MotionVersion := #[]
   let mut perKey : Array (Array Nat) := #[]
   let mut prev : Array Nat := #[]
-  for k in [0:keys.size] do
-    let fig := keys[k]!
+  for (k, fig) in keys.mapIdx fun k fig => (k, fig) do
     let mut order : Array Nat := #[]
     for it in fig.items do
       -- a layer shown on the key before, not yet continued on this key
       let candidates := prev.filter fun vi =>
-        let v := vs[vi]!
+        let v := vs.getD vi default
         v.last + 1 == k && v.actor == it.actorId? && !order.contains vi
       let cont := if k == 0 then none else candidates.findSome? fun vi =>
-        (m.continuation K e (k - 1) vs[vi]! it).map (vi, ·)
+        (m.continuation K e (k - 1) (vs.getD vi default) it).map (vi, ·)
       match cont with
       | some (vi, mv, smp) =>
         vs := vs.modify vi fun v =>
@@ -617,6 +634,26 @@ def versions (K : MotionKeys) (e : Env) : Array MotionVersion × Array (Array Na
   return (vs, perKey)
 
 end Motion
+
+/-- The layers of all keys in one drawing order: each key's layers in its order, a layer not seen
+before placed after the one before it in its key (at the start for the first). A key whose order
+disagrees with this one is reported by `Motion.keyProblems`. -/
+def mergeOrder (perKey : Array (Array Nat)) : Array Nat := Id.run do
+  let mut out : Array Nat := #[]
+  for seq in perKey do
+    let mut cursor : Nat := 0
+    for x in seq do
+      match out.idxOf? x with
+      | some i => cursor := i + 1
+      | none =>
+        out := out.insertIdxIfInBounds cursor x
+        cursor := cursor + 1
+  return out
+
+/-- Whether the layers `seq` of a key come in the order `order` has them. -/
+def inOrder (order seq : Array Nat) : Bool :=
+  let pos := seq.filterMap (order.idxOf? ·)
+  pos.size == seq.size && (pos.toList.zip pos.toList.tail).all fun (a, b) => a < b
 
 /-! ### Problems -/
 
@@ -647,7 +684,8 @@ private def changed (K : MotionKeys) (j : Nat) : Array String :=
   let b := K.figure (j + 1)
   (a.items.filterMap Item.actorId?).filter fun id =>
     match a.actor? id, b.actor? id with
-    | some x, some y => (m.moveOf j id).isNone && itemText K.env K.mode x != itemText K.env K.mode y
+    | some x, some y =>
+      (m.moveOf j id).isNone && itemText K.env K.mode x != itemText K.env K.mode y
     | _, _ => false
 
 /-- The drawings of the items without an id of key `j` that key `j + 1` does not have, and the
@@ -674,6 +712,9 @@ def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (j : Nat) :
   let mut out : Array MotionProblem := #[]
   let err := fun (s : String) => ({ severity := .error, message := s } : MotionProblem)
   let note := fun (s : String) => ({ severity := .note, message := s } : MotionProblem)
+  -- what crossfades for an actor: an error under `fail`, a note otherwise
+  let actorFade := fun (s : String) =>
+    ({ severity := if m.checks == .fail then .error else .note, message := s } : MotionProblem)
   let e := K.env
   let st := e.style
   let a := K.figure j
@@ -682,10 +723,10 @@ def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (j : Nat) :
   let name := s!"step {j + 1} (key {j} to key {j + 1})"
   if s.kind == .idle && !s.moves.isEmpty then
     out := out.push (err s!"{name} is idle but declares moves")
-  let ids := s.moves.map (·.1)
-  for i in [0:ids.size] do
-    if (ids.extract 0 i).contains ids[i]! then
-      out := out.push (err s!"{name}: {ids[i]!} has more than one move")
+  let mut seen : Array String := #[]
+  for (id, _) in s.moves do
+    if seen.contains id then out := out.push (err s!"{name}: {id} has more than one move")
+    seen := seen.push id
   for (id, mv) in s.moves do
     let inA := a.actor? id
     let inB := b.actor? id
@@ -701,9 +742,9 @@ def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (j : Nat) :
       match inA, inB with
       | some _, some _ =>
         if !vs.any fun v => v.actor == some id && v.visible j && v.visible (j + 1) then
-          out := out.push (note s!"{name}: the morph of {id} cannot be interpolated (its \
+          out := out.push (actorFade s!"{name}: the morph of {id} cannot be interpolated (its \
             drawings differ in more than their path data, a figure between its keys lacks it, or \
-            it comes after a turn or a slide); it is crossfaded")
+            it comes after a turn or a slide); it would be crossfaded")
       | _, _ => out := out.push (err s!"{name}: {id} morphs but is not in both keys")
     | .turn c _ | .slide c =>
       match inA, inB with
@@ -718,31 +759,40 @@ def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (j : Nat) :
           | some why =>
             out := out.push (err s!"{name}: the {mv.name} of {id} does not carry key {j} onto \
               key {j + 1}: {why}")
-          | none => pure ()
+          | none =>
+            if (arrival e.frame st Affine.id x y).isNone then
+              out := out.push (note s!"{name}: {id} is drawn alike before and after its \
+                {mv.name}, so the arrival check cannot see the {mv.name}")
+        if let .turn _ q := mv then
+          if (q ≥ 1 || q ≤ -1) && !s.allowFullTurns then
+            out := out.push (err s!"{name}: the turn of {id} is a whole turn or more, which the \
+              arrival check cannot see; set allowFullTurns on the step if it is meant")
       | none, _ => out := out.push (err s!"{name}: {id} has a {mv.name} but is not in key {j}")
       | _, none =>
         out := out.push (err s!"{name}: {id} has a {mv.name} but is not in key {j + 1}")
   for id in m.changed K j do
-    out := out.push (note s!"{name}: {id} changes without a declared move; it is crossfaded")
+    out := out.push (actorFade s!"{name}: {id} changes without a declared move; it would be \
+      crossfaded")
   for id in a.items.filterMap Item.actorId? do
     if !b.hasActor id && (m.moveOf j id).isNone then
-      out := out.push (note s!"{name}: {id} leaves without a declared disappearance; it fades \
-        out")
+      out := out.push (actorFade s!"{name}: {id} leaves without a declared disappearance; it \
+        would fade out")
   for id in b.items.filterMap Item.actorId? do
     if !a.hasActor id && (m.moveOf j id).isNone then
-      out := out.push (note s!"{name}: {id} comes without a declared appearance; it fades in")
+      out := out.push (actorFade s!"{name}: {id} comes without a declared appearance; it would \
+        fade in")
   let (gone, come) := staticChanges K j
   if gone + come > 0 then
     out := out.push (note s!"{name}: {gone} items without an id fade out and {come} fade in")
   return out
 
-/-- The problems of the motion: that it is not well formed (`WellFormed`); keys drawn in different
-frames; actor ids that are not unique in a key; the layout problems of every key as drawn
-(`resolved`, `Figure.problems`); and the problems of each step (`stepProblems`): moves that
-contradict the keys (a turn or slide that does not land on the next key, `arrival`; an
-appearance of an actor already there; a move of an actor not in both keys), and as notes, what
-crossfades. -/
-def problems : Array MotionProblem := Id.run do
+/-- The problems of the motion that its keys and steps show (`Motion.problems` adds the checks of
+its layout against the stills): that it is not well formed (`WellFormed`); keys drawn in
+different frames; actor ids that are not unique in a key; the layout problems of every key as
+drawn (`resolved`, `Figure.problems`); a key that draws its layers in another order than the
+motion (`mergeOrder`); an empty title or description (the picture has `role="img"`); and the
+problems of each step (`stepProblems`). -/
+def keyProblems : Array MotionProblem := Id.run do
   let err := fun (s : String) => ({ severity := .error, message := s } : MotionProblem)
   if !decide m.WellFormed then
     let mut out := #[]
@@ -761,27 +811,27 @@ def problems : Array MotionProblem := Id.run do
     let fig := K.figure k
     if fig.frame != f0 then
       out := out.push (err s!"key {k} is drawn in another frame than key 0 (a view of its own)")
-    let ids := fig.items.filterMap Item.actorId?
-    for i in [0:ids.size] do
-      if (ids.extract 0 i).contains ids[i]! then
-        out := out.push (err s!"key {k} has two actors with the id {ids[i]!}")
+    let mut seen : Array String := #[]
+    for id in fig.items.filterMap Item.actorId? do
+      if seen.contains id then out := out.push (err s!"key {k} has two actors with the id {id}")
+      seen := seen.push id
     for p in fig.problems do
       out := out.push (err s!"key {k}: {p.message}")
-  let (vs, _) := m.versions K K.env
+  let strict := fun (s : String) =>
+    ({ severity := if m.checks == .fail then .error else .note, message := s } : MotionProblem)
+  if m.info.title.isEmpty then
+    out := out.push (strict "the motion has no title (its picture has role=\"img\")")
+  if m.info.description.isEmpty then
+    out := out.push (strict "the motion has no description (its picture has role=\"img\")")
+  let (vs, perKey) := m.versions K K.env
+  let order := mergeOrder perKey
+  for (k, seq) in perKey.mapIdx fun k seq => (k, seq) do
+    if !inOrder order seq then
+      out := out.push (err s!"key {k} draws its items in another order (one above another) than \
+        the earlier keys; the motion cannot show both orders")
   for j in [0:m.steps.size] do
     out := out ++ m.stepProblems K vs j
   return out
-
-/-- The messages of the problems a build reports (unless the level is `ignore`), each with its
-severity. -/
-def checkMessages : Array String :=
-  if m.checks == .ignore then #[]
-  else m.problems.map fun p => match p.severity with
-    | .error => p.message
-    | .note => s!"note: {p.message}"
-
-/-- Whether the problems stop the motion from being rendered: an error under `CheckLevel.fail`. -/
-def problemsFail : Bool := m.checks == .fail && m.problems.any (·.severity == .error)
 
 end Motion
 

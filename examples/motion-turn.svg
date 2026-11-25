@@ -2,7 +2,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="320" height="323" viewBox="0 0 320 323" role="img">
   <title>A quarter turn</title>
   <desc>The point P turns about the origin O. Key 1 of 3: P at (1, 0). Key 2 of 3: P turned a quarter about O. Key 3 of 3: nothing moves.</desc>
-  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{display:none}}</style>
+  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{visibility:hidden;opacity:0}}</style>
   <path d="M0 0 L320 0 L320 323 L0 323 Z" fill="#ffffff"/>
   <g class="pilean-motion-live">
     <g>
@@ -18,18 +18,13 @@
         <animateTransform attributeName="transform" type="rotate" values="0 153.4493 169.4644;0 153.4493 169.4644;0 153.4493 169.4644;-90 153.4493 169.4644;-90 153.4493 169.4644;-90 153.4493 169.4644;-90 153.4493 169.4644;-90 153.4493 169.4644" dur="5.9s" keyTimes="0;0.03389831;0.23728814;0.40677966;0.50847458;0.66101695;0.96610169;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
         <g id="P" data-pilean-actor="P" data-pilean-anchor="293.8986 169.4644">
           <g>
-            <title>on the unit circle</title>
-            <g>
-              <animateTransform attributeName="transform" type="rotate" values="0 293.8986 169.4644;0 293.8986 169.4644;0 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644" dur="5.9s" keyTimes="0;0.03389831;0.23728814;0.40677966;0.50847458;0.66101695;0.96610169;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
-              <g data-pilean-upright="293.8986 169.4644">
+            <animateTransform attributeName="transform" type="rotate" values="0 293.8986 169.4644;0 293.8986 169.4644;0 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644" dur="5.9s" keyTimes="0;0.03389831;0.23728814;0.40677966;0.50847458;0.66101695;0.96610169;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
+            <g data-pilean-upright="293.8986 169.4644">
+              <g>
+                <title>on the unit circle</title>
                 <path d="M298.65 169.46 C298.65 172.09 296.52 174.21 293.9 174.21 C291.28 174.21 289.15 172.09 289.15 169.46 C289.15 166.84 291.28 164.71 293.9 164.71 C296.52 164.71 298.65 166.84 298.65 169.46 Z" fill="#ffffff"/>
                 <path d="M297.4 169.46 C297.4 171.4 295.83 172.96 293.9 172.96 C291.97 172.96 290.4 171.4 290.4 169.46 C290.4 167.53 291.97 165.96 293.9 165.96 C295.83 165.96 297.4 167.53 297.4 169.46 Z" fill="#0068a6"/>
               </g>
-            </g>
-          </g>
-          <g>
-            <animateTransform attributeName="transform" type="rotate" values="0 293.8986 169.4644;0 293.8986 169.4644;0 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644;90 293.8986 169.4644" dur="5.9s" keyTimes="0;0.03389831;0.23728814;0.40677966;0.50847458;0.66101695;0.96610169;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
-            <g data-pilean-upright="293.8986 169.4644">
               <path d="M301.19 163.051 L301.19 153.721 M301.19 153.721 L304.34 153.721 C305.665 153.721 306.74 154.97 306.74 156.511 C306.74 158.051 305.665 159.301 304.34 159.301 L301.19 159.301" fill="none" stroke="#0068a6" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
             </g>
           </g>

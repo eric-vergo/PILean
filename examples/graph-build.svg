@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="445" height="672" viewBox="0 0 445 672">
-  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{display:none}}</style>
+  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{visibility:hidden;opacity:0}}</style>
   <rect x="0" y="0" width="445" height="672" fill="#ffffff"/>
   <g class="pilean-motion-live">
     <g>

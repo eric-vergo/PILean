@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="360" height="305" viewBox="0 0 360 305" role="img">
   <title>Turns about two centres</title>
-  <desc>Key 1 of 4. Key 2 of 4: A and the triangle turned a quarter about O. Key 3 of 4: A turned a half about C; B appears. Key 4 of 4: S slides one to the right.</desc>
-  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{display:none}}</style>
+  <desc>A turns about O and then about C; the triangle turns with it about O. Key 1 of 4. Key 2 of 4: A and the triangle turned a quarter about O. Key 3 of 4: A turned a half about C; B appears. Key 4 of 4: S slides one to the right.</desc>
+  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{visibility:hidden;opacity:0}}</style>
   <path d="M0 0 L360 0 L360 305 L0 305 Z" fill="#ffffff"/>
   <g class="pilean-motion-live">
     <g>
@@ -41,11 +41,6 @@
               <g data-pilean-upright="233.1667 126.8542">
                 <path d="M237.92 126.85 C237.92 129.48 235.79 131.6 233.17 131.6 C230.54 131.6 228.42 129.48 228.42 126.85 C228.42 124.23 230.54 122.1 233.17 122.1 C235.79 122.1 237.92 124.23 237.92 126.85 Z" fill="#ffffff"/>
                 <path d="M236.67 126.85 C236.67 128.79 235.1 130.35 233.17 130.35 C231.23 130.35 229.67 128.79 229.67 126.85 C229.67 124.92 231.23 123.35 233.17 123.35 C235.1 123.35 236.67 124.92 236.67 126.85 Z" fill="#b44400"/>
-              </g>
-            </g>
-            <g>
-              <animateTransform attributeName="transform" type="rotate" values="0 233.1667 126.8542;0 233.1667 126.8542;0 233.1667 126.8542;90 233.1667 126.8542;90 233.1667 126.8542;270 233.1667 126.8542;270 233.1667 126.8542;270 233.1667 126.8542;270 233.1667 126.8542;270 233.1667 126.8542" dur="7.4s" keyTimes="0;0.02702703;0.18918919;0.32432432;0.40540541;0.54054054;0.62162162;0.72972973;0.97297297;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
-              <g data-pilean-upright="233.1667 126.8542">
                 <path d="M240.127 130.319 L244.327 120.989 L248.527 130.319 M241.327 127.679 L247.327 127.679" fill="none" stroke="#b44400" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
               </g>
             </g>

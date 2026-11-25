@@ -84,13 +84,29 @@ def quant (d : Nat) (x : Float) : Float := (Raster.parseNumber? (fmtNum x d)).ge
 /-- A page point rounded to 4 decimals. -/
 def quantPoint (p : Point) : Point := ⟨quant 4 p.x, quant 4 p.y⟩
 
+/-- The fraction of a step's time at which its easing `e` has done the fraction `y` of the step:
+the `x ∈ [0, 1]` with `e.eval x = y`, found by 64 halvings (`Easing.eval` does not decrease), as a
+rational to nine decimals. -/
+def easedTime (e : Easing) (y : Float) : Rat :=
+  let x := Id.run do
+    let mut lo : Float := 0
+    let mut hi : Float := 1
+    for _ in [0:64] do
+      let mid := (lo + hi) / 2
+      if e.eval mid < y then lo := mid else hi := mid
+    return (lo + hi) / 2
+  ((x * 1000000000).round.toInt64.toInt : Rat) / 1000000000
+
 namespace Motion
 
 variable (m : Motion)
 
 /-- The segments of the motion's timeline with the phases at their start and end: those of
-`Timeline.build` on `animSteps`, a sampled morph's move divided into `samplesOf` segments of equal
-time, not eased. -/
+`Timeline.build` on `animSteps`, a sampled morph's move divided into `samplesOf` segments, the
+`i`-th ending where the step's easing has done `(i + 1) / n` of the step (`easedTime`). The
+values at those boundaries are the exact fractions `i / n` of the step and the segments are not
+eased, so every animation of the step follows its eased motion piecewise linearly, within `1 / n`
+of the step's change. -/
 def segments (K : MotionKeys) : Array (Segment × MotionPhase × MotionPhase) :=
   let base := Timeline.build m.animSteps m.pacing
   let last := base.keys - 1
@@ -101,11 +117,15 @@ def segments (K : MotionKeys) : Array (Segment × MotionPhase × MotionPhase) :=
     | .move j =>
       let n := m.samplesOf K j
       if n ≤ 1 then #[(s, ⟨j, 0⟩, ⟨j + 1, 0⟩)]
-      else (Array.range n).map fun (i : Nat) =>
-        let q : Rat := i
-        let seg : Segment :=
-          { s with start := s.start + s.dur * q / n, dur := s.dur / n, easing := .linear }
-        (seg, MotionPhase.ofStep j (q / n), MotionPhase.ofStep j ((q + 1) / n))
+      else
+        let τ := fun (i : Nat) => if i == 0 then (0 : Rat) else if i ≥ n then 1
+          else easedTime s.easing (Exact.toFloat ((i : Rat) / n))
+        (Array.range n).map fun (i : Nat) =>
+          let q : Rat := i
+          let start := s.start + s.dur * τ i
+          let dur := s.dur * (τ (i + 1) - τ i)
+          let seg : Segment := { s with start, dur, easing := .linear }
+          (seg, MotionPhase.ofStep j (q / n), MotionPhase.ofStep j ((q + 1) / n))
 
 /-- The timeline of segments `segs` (see `segments`). -/
 def timelineOf (segs : Array (Segment × MotionPhase × MotionPhase)) : Timeline :=
@@ -180,6 +200,10 @@ inductive MotionLink where
 
 namespace MotionLink
 
+/-- The step of the link. -/
+def step : MotionLink → Nat
+  | .turn j .. | .slide j _ => j
+
 /-- Whether the link is a turn. -/
 def isTurn : MotionLink → Bool
   | .turn .. => true
@@ -212,6 +236,26 @@ def type : MotionLink → String
 
 end MotionLink
 
+/-- The link on the page, through the frame `f`, of a move in step `j`: a turn about the page
+point of its centre (rounded as written) by `pageDegrees` of its fraction of a turn, a slide by
+the page image of its vector (rounded as written); none for the other moves. -/
+def linkOf (f : Frame) (j : Nat) : Option Move → Option MotionLink
+  | some (.turn c q) => some (.turn j (quantPoint (f.toScreen c)) (pageDegrees q))
+  | some (.slide w) => some (.slide j ⟨quant 4 (f.scale * w.x), quant 4 (-(f.scale * w.y))⟩)
+  | _ => none
+
+/-- The link of a move in step `j` is in step `j`. -/
+theorem linkOf_step {f : Frame} {j : Nat} {mv : Option Move} {l : MotionLink}
+    (h : linkOf f j mv = some l) : l.step = j := by
+  unfold linkOf at h
+  split at h <;> (try simp at h) <;> (subst h; rfl)
+
+/-- The angle the writer turns by for a turn by `q` of a full turn is `pageDegrees q`, which is
+`Exact.toFloat (-(360 * q))`. -/
+theorem linkOf_turn (f : Frame) (j : Nat) (c : Point) (q : Rat) :
+    linkOf f j (some (.turn c q)) =
+      some (.turn j (quantPoint (f.toScreen c)) (Exact.toFloat (-(360 * q)))) := rfl
+
 namespace MotionVersion
 
 variable (v : MotionVersion)
@@ -233,34 +277,37 @@ def geomAt (φ : MotionPhase) : Item :=
       its.getD (φ.frac * n).floor.toNat (v.itemAtKey φ.key)
     | none => v.itemAtKey φ.key
 
-/-- Its chain of turns and slides on the page through the frame `f`, in order of time. -/
+/-- Its chain of turns and slides on the page through the frame `f`, in order of time: the link
+(`linkOf`) of each of its moves. -/
 def links (f : Frame) : Array MotionLink :=
-  (v.moves.mapIdx fun i mv => (v.first + i, mv)).filterMap fun (j, mv) => match mv with
-    | some (.turn c q) => some (.turn j (quantPoint (f.toScreen c)) (pageDegrees q))
-    | some (.slide w) => some (.slide j ⟨quant 4 (f.scale * w.x), quant 4 (-(f.scale * w.y))⟩)
-    | _ => none
+  ((List.range v.moves.size).filterMap fun i =>
+    linkOf f (v.first + i) (v.moves[i]?.getD none)).toArray
+
+/-- The links of a layer are in strictly increasing order of their steps (so `chainNodes` puts
+the earliest innermost). -/
+theorem steps_links (f : Frame) : ((v.links f).toList.map MotionLink.step).Pairwise (· < ·) := by
+  simp only [links, List.toList_toArray]
+  rw [List.pairwise_map]
+  refine List.Pairwise.filterMap (R := (· < ·)) _ ?_ List.pairwise_lt_range
+  intro a b hab x hx y hy
+  rw [linkOf_step hx, linkOf_step hy]
+  omega
+
+/-- A link of a layer is the link of one of its moves, and every move that is a turn or a slide
+gives one. -/
+theorem mem_links (f : Frame) (l : MotionLink) :
+    l ∈ v.links f ↔
+      ∃ i < v.moves.size, linkOf f (v.first + i) (v.moves[i]?.getD none) = some l := by
+  simp [links]
 
 end MotionVersion
 
-/-- The layers of all keys in one drawing order: each key's layers in its order, a layer not seen
-before placed after the one before it in its key (at the start for the first). -/
-def mergeOrder (perKey : Array (Array Nat)) : Array Nat := Id.run do
-  let mut out : Array Nat := #[]
-  for seq in perKey do
-    let mut cursor : Nat := 0
-    for x in seq do
-      match out.idxOf? x with
-      | some i => cursor := i + 1
-      | none =>
-        out := (out.toList.take cursor ++ [x] ++ out.toList.drop cursor).toArray
-        cursor := cursor + 1
-  return out
-
-/-- A label or a marker of a turning layer, held upright: its leaf, its anchor (the page point it
-turns back about) and the angle of its counter-rotation at each boundary. -/
+/-- Labels and markers of a turning layer held upright by one counter-rotation: their leaves
+(consecutive siblings in the item, with one anchor: a point's marker and its label), the anchor
+(the page point they turn back about) and the angle of the counter-rotation at each boundary. -/
 structure MotionUpright where
-  /-- The position of the leaf among the layer's leaves. -/
-  leaf : Nat
+  /-- The positions of the leaves among the layer's leaves. -/
+  leaves : Array Nat
   /-- The anchor, rounded as written. -/
   anchor : Point
   /-- The values `θ cx cy` of the counter-rotation at each boundary. -/
@@ -278,7 +325,7 @@ structure MotionLayer where
   linkValues : Array (Array (Array Float))
   /-- Its opacity at each boundary, unless it is shown on every key. -/
   opacity : Option (Array Float)
-  /-- Its upright leaves (when it turns). -/
+  /-- Its upright leaves (when it turns), in the order of their leaves. -/
   uprights : Array MotionUpright
   /-- The item that gives its drawing at each boundary, when it morphs. -/
   geoms : Option (Array Item)
@@ -323,6 +370,36 @@ def runsBy {α β : Type} [BEq β] (key : α → β) (xs : Array α) : Array (Ar
     | none => out := out.push #[x]
   return out
 
+/-- One child of a group, for `siblingRuns`: a leaf (its position) or the runs of a group. -/
+inductive SiblingPart where
+  /-- A leaf. -/
+  | leaf (k : Nat)
+  /-- The runs of a group. -/
+  | runs (rs : Array (Array Nat))
+
+/-- The runs of consecutive leaves that are children of one group (a shape item alone is one
+run), by position among the item's leaves. -/
+def siblingRuns : Item → StateM Nat (Array (Array Nat))
+  | .shape .. => do
+    let k ← getModify (· + 1)
+    pure #[#[k]]
+  | .group xs _ => do
+    let parts ← xs.attach.mapM fun ⟨x, _⟩ => do
+      match x with
+      | .shape .. => pure (SiblingPart.leaf (← getModify (· + 1)))
+      | .group .. => pure (SiblingPart.runs (← siblingRuns x))
+    let mut out : Array (Array Nat) := #[]
+    let mut cur : Array Nat := #[]
+    for part in parts do
+      match part with
+      | .leaf k => cur := cur.push k
+      | .runs rs =>
+        if !cur.isEmpty then out := out.push cur
+        cur := #[]
+        out := out ++ rs
+    if !cur.isEmpty then out := out.push cur
+    pure out
+
 namespace Motion
 
 variable (m : Motion)
@@ -338,8 +415,7 @@ def planIn (K : MotionKeys) (e : Env) : MotionPlan := Id.run do
   let keyCount := m.keys.size
   let mut layers : Array MotionLayer := #[]
   let mut seen : Array String := #[]
-  for vi in [0:vs.size] do
-    let v := vs[vi]!
+  for (vi, v) in vs.mapIdx fun vi v => (vi, v) do
     let links := v.links e.frame
     let linkValues := links.map fun l => phases.map (l.values ·)
     let turning := links.any MotionLink.isTurn
@@ -347,14 +423,19 @@ def planIn (K : MotionKeys) (e : Env) : MotionPlan := Id.run do
     -- the key at which the first turn starts: the drawing there is in the layer's own coordinates
     let turnKey := (links.find? MotionLink.isTurn).map (fun | .turn j .. => j | .slide j _ => j)
     let atTurn := v.itemAtKey (turnKey.getD v.first)
-    let uprights := if !turning then #[] else
-      (atTurn.leaves.mapIdx fun i lf => (i, lf)).filterMap fun (i, lf) =>
-        if !lf.geom.upright then none else
-          let a := quantPoint ((anchors e.frame st lf.geom).getD 0 ⟨0, 0⟩)
-          some { leaf := i, anchor := a, values := (Array.range phases.size).map fun b =>
-            let total := (links.zip linkValues).foldl (init := 0) fun acc (l, vals) =>
-              if l.isTurn then acc + ((vals.getD b #[]).getD 0 0) else acc
-            #[quant 6 (-total), a.x, a.y] }
+    let leaves := atTurn.leaves
+    let anchorOf := fun (i : Nat) => (leaves[i]?).bind fun lf =>
+      if lf.geom.upright then some (quantPoint ((anchors e.frame st lf.geom).getD 0 ⟨0, 0⟩))
+      else none
+    -- consecutive upright siblings with one anchor share one counter-rotation
+    let groups := ((siblingRuns base).run' 0).flatMap fun run =>
+      (runsBy anchorOf run).filter fun g => (anchorOf (g.getD 0 0)).isSome
+    let uprights := if !turning then #[] else groups.map fun g =>
+      let a := (anchorOf (g.getD 0 0)).getD ⟨0, 0⟩
+      { leaves := g, anchor := a, values := (Array.range phases.size).map fun b =>
+          let total := (links.zip linkValues).foldl (init := 0) fun acc (l, vals) =>
+            if l.isTurn then acc + ((vals.getD b #[]).getD 0 0) else acc
+          #[quant 6 (-total), a.x, a.y] }
     let always := v.first == 0 && v.last + 1 == keyCount
     let morphs := v.moves.any fun | some .morph => true | _ => false
     let anchor := v.actor.bind fun _ =>
@@ -447,8 +528,7 @@ def rotateAnim (vals : Array (Array Float)) : Option Node :=
     (vals.map fun v => s!"{fmtNum (v.getD 0 0) 6} {fmtNum (v.getD 1 0) 4} {fmtNum (v.getD 2 0) 4}")
 
 /-- The nodes of a leaf of a layer: its drawing, with an `animate` of `d` on each changing path
-when the layer morphs, held upright by a counter-rotation when it is an upright leaf of a turning
-layer. -/
+when the layer morphs. -/
 def leafNodes (L : MotionLayer) (i : Nat) (lf : Leaf) : Array Node :=
   let draw := fun (x : Leaf) => (Shape.group (drawGeom p.env x.look x.geom)).render p.mode
   let base := draw lf
@@ -457,18 +537,50 @@ def leafNodes (L : MotionLayer) (i : Nat) (lf : Leaf) : Array Node :=
     | some gs =>
       let alts := gs.map fun g => draw ((leafOf g i).getD lf)
       base.mapIdx fun j n => addMorphs p.timeline 256 n (alts.map (·.getD j (.text "")))
-  match L.uprights.find? (·.leaf == i) with
-  | some u =>
-    match p.rotateAnim u.values with
-    | some a => #[Smil.group a #[el "g" #[("data-pilean-upright", pointText u.anchor)] nodes]]
-    | none => nodes
+  nodes
+
+/-- The counter-rotation of upright leaves around their nodes. -/
+def uprightNodes (u : MotionUpright) (nodes : Array Node) : Array Node :=
+  match p.rotateAnim u.values with
+  | some a => #[Smil.group a #[el "g" #[("data-pilean-upright", pointText u.anchor)] nodes]]
   | none => nodes
 
-/-- The node of a layer: its item's drawing (`leafNodes`, `wrapInfo`); an actor's carries
-`data-pilean-actor` (its id) and `data-pilean-anchor` (the page point that stands for it). -/
+/-- The position among a layer's uprights of the one that holds leaf `i`. -/
+def _root_.PILean.Plane.uprightOf (L : MotionLayer) (i : Nat) : Option Nat :=
+  L.uprights.findIdx? (·.leaves.contains i)
+
+/-- The nodes of a group's children, those of one upright together inside its counter-rotation
+(`uprightNodes`). -/
+def closeUprights (L : MotionLayer) (parts : Array (Option Nat × Array Node)) : Array Node :=
+  (runsBy (·.1) parts).flatMap fun run =>
+    let nodes := run.flatMap (·.2)
+    match (run.getD 0 (none, #[])).1 with
+    | some u => p.uprightNodes (L.uprights.getD u default) nodes
+    | none => nodes
+
+/-- The nodes of an item of a layer below its top: each leaf's drawing in its metadata, marked
+with its upright; a group's children with their uprights closed (`closeUprights`), in its
+metadata. -/
+def writeItem (L : MotionLayer) : Item → StateM Nat (Array (Option Nat × Array Node))
+  | .shape g l i => do
+    let k ← getModify (· + 1)
+    pure #[(uprightOf L k, wrapInfo i (p.leafNodes L k ⟨g, l, i⟩))]
+  | .group xs i => do
+    let parts ← xs.attach.mapM fun ⟨x, _⟩ => writeItem L x
+    pure #[(none, wrapInfo i (p.closeUprights L parts.flatten))]
+
+/-- The node of a layer: its item's drawing (`writeItem`); an actor's carries `data-pilean-actor`
+(its id) and `data-pilean-anchor` (the page point that stands for it). -/
 def layerNode (L : MotionLayer) : Array Node :=
   let base := L.version.items.getD 0 default
-  let nodes := (walkItem (p.leafNodes L) wrapInfo base).run' 0
+  let nodes := match base with
+    | .shape g l i =>
+      -- a top-level leaf keeps its metadata outermost, to carry the actor's attributes
+      let ns := p.leafNodes L 0 ⟨g, l, i⟩
+      wrapInfo i (match uprightOf L 0 with
+        | some u => p.uprightNodes (L.uprights.getD u default) ns
+        | none => ns)
+    | .group .. => ((p.writeItem L base).run' 0).flatMap (·.2)
   let nodes := match L.version.actor, L.anchor with
     | some id, some a =>
       nodes.map (addAttrs #[("data-pilean-actor", safeToken id), ("data-pilean-anchor",
@@ -484,6 +596,38 @@ def chainNodes (links : Array MotionLink) (values : Array (Array (Array Float)))
         (vals.map l.text) with
     | some a => #[Smil.group a inner]
     | none => inner
+
+/-- Every animation element of the plan carries the timing of the plan's timeline and nothing
+else that depends on the element: its name, its own attributes, its values, then
+`Smil.smilTiming` of the timeline. So all of a plan's animations run on one clock. -/
+theorem anim_eq {tag : String} {head : Array (String × String)} {vals : Array String} {n : Node}
+    (h : p.anim tag head vals = some n) :
+    n = el tag (head ++ #[("values", ";".intercalate vals.toList)] ++
+      Smil.smilTiming p.timeline) := by
+  unfold anim Smil.emit at h
+  split at h
+  · simp at h
+  · simp only [Option.some.injEq] at h
+    subst h
+    rfl
+
+/-- A chain with no links is its children. -/
+theorem chainNodes_empty (children : Array Node) : p.chainNodes #[] #[] children = children := by
+  simp [chainNodes]
+
+/-- The link added last to a chain is its outermost group: the chain of `links.push l` is the
+group of `l`'s animation around the chain of `links` (the earliest link innermost, as turns about
+page points require). -/
+theorem chainNodes_push (links : Array MotionLink) (values : Array (Array (Array Float)))
+    (children : Array Node) (l : MotionLink) (vals : Array (Array Float))
+    (h : links.size = values.size) :
+    p.chainNodes (links.push l) (values.push vals) children =
+      match p.anim "animateTransform" #[("attributeName", "transform"), ("type", l.type)]
+          (vals.map l.text) with
+      | some a => #[Smil.group a (p.chainNodes links values children)]
+      | none => p.chainNodes links values children := by
+  simp only [chainNodes, Array.push_eq_append, Array.zip_append h]
+  simp
 
 /-- The nodes of the moving picture: every run of layers shown on the same keys in one opacity
 animation, inside it every run of layers that share a chain in one chain. -/
@@ -567,7 +711,7 @@ def leafShapes (L : MotionLayer) (t : Float) (i : Nat) (lf : Leaf) : Array Shape
       if a.size != c.size then a
       else ((a.zip c).mapM fun (x, y) => lerpShape 256 x y f).getD a
   let M := p.chainAt L t
-  let T := match L.uprights.find? (·.leaf == i) with
+  let T := match L.uprights.find? (·.leaves.contains i) with
     | some u =>
       let q := M.apply u.anchor
       Affine.translate (q.x - u.anchor.x) (q.y - u.anchor.y)
@@ -592,9 +736,10 @@ def figureAt (t : Float) : Shape :=
   .group #[p.background, .group content Affine.id (p.seamAt t)]
 
 /-- The page points that stand for the actors and the upright leaves at the time `t`, in the
-order of the SVG document, each with what it stands for (`actor` and the id, or `upright`) and
-its opacity then. -/
-def markersAt (t : Float) : Array (String × Point × Float) :=
+order of the SVG document, each with what it stands for (`actor` and the id, or `upright`), its
+opacity then and the transform its drawing is under (an actor's chain; for an upright, the
+translation that carries its anchor where the chain carries it). -/
+def markersAt (t : Float) : Array (String × Point × Float × Affine) :=
   p.runs.flatMap fun run =>
     let first := p.layers.getD ((run.getD 0 #[]).getD 0 0) default
     let o := p.seamAt t * p.opacityAt first t
@@ -602,9 +747,11 @@ def markersAt (t : Float) : Array (String × Point × Float) :=
       let L := p.layers.getD i default
       let M := p.chainAt L t
       let own := match L.version.actor, L.anchor with
-        | some id, some a => #[(s!"actor {safeToken id}", M.apply a, o)]
+        | some id, some a => #[(s!"actor {safeToken id}", M.apply a, o, M)]
         | _, _ => #[]
-      own ++ L.uprights.map fun u => ("upright", M.apply u.anchor, o)
+      own ++ L.uprights.map fun u =>
+        let q := M.apply u.anchor
+        ("upright", q, o, Affine.translate (q.x - u.anchor.x) (q.y - u.anchor.y))
 
 end MotionPlan
 
@@ -639,12 +786,162 @@ def svgRoot : Node :=
       #[el "g" #[("class", Animation.liveClass)] p.toNodes,
         el "g" #[("class", Animation.posterClass)] poster])
 
-/-- The motion as an animated SVG document (`svgRoot`). -/
+/-- The motion as an animated SVG document (`svgRoot`), whatever its problems; `svg?` refuses a
+motion whose problems stop it. -/
 def toSvg : String :=
   "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++ Svg.render 0 m.svgRoot ++ "\n"
 
 /-- The motion at the time `t` (seconds) as a drawing (`MotionPlan.figureAt`). -/
 def figureAt (t : Float) : Shape := m.plan.figureAt t
+
+end Motion
+
+/-! ### The baker against the stills -/
+
+/-- A drawn element as the rest check compares it: a path's paint (fill, stroke, the stroke's
+width under its transform, its opacity) with its page polylines, or a text with its page anchor
+point and the angle its transform turns it by. -/
+inductive Drawn where
+  /-- A path: its paint as text and its polylines on the page. -/
+  | path (paint : String) (lines : Array Polyline)
+  /-- A text: its string, size, colour, anchor, weight and opacity as text, its page point and the
+  angle (radians) of its transform. -/
+  | text (key : String) (at_ : Point) (turn : Float)
+  deriving Inhabited
+
+/-- The paint of a path as text, at the scale `k` and opacity `o`. -/
+def paintText (fill : Option Fill) (line : Option Line) (k o : Float) : String :=
+  let f := match fill with
+    | some (.solid c) => s!"{c.rgbHex}/{c.a}"
+    | some (.paint _) => "gradient"
+    | none => "none"
+  let l := match line with
+    | some l =>
+      s!"{l.ink.rgbHex}/{l.ink.a} {fmtNum (l.width * k) 3} {l.cap} {l.join} \
+        {l.dash.map fun d => fmtNum (d * k) 3}"
+    | none => "none"
+  s!"{f} | {l} | {fmtNum o 4}"
+
+/-- The elements a drawing shows, in order, under the transform `M` and the opacity `o`, at most
+`fuel` deep; what is drawn at an opacity of zero is left out. Curves are flattened to `0.01` px. -/
+def drawnOf : Nat → Affine → Float → Shape → Array Drawn
+  | 0, _, _, _ => #[]
+  | _, M, o, .path q fill line op =>
+    if o * op < 1e-6 then #[]
+    else #[.path (paintText fill line M.maxScale (o * op)) ((q.transform M).flatten 0.01)]
+  | _, M, o, .text str at_ size ink anchor w rot =>
+    if o < 1e-6 then #[]
+    else #[.text s!"{str} {fmtNum (size * M.maxScale) 3} {ink.rgbHex}/{ink.a} {reprStr anchor} \
+      {fmtNum w 3} {fmtNum o 4}" (M.apply at_) (rot + Float.atan2 M.b M.a)]
+  | fuel + 1, M, o, .group cs t op _ => cs.flatMap (drawnOf fuel (M.comp t) (o * op))
+  | fuel + 1, M, o, .tagged _ c => drawnOf fuel M o c
+
+/-- The farthest a point of the polylines `a` is from the polylines `b` (their segments, closing
+segments included). -/
+def farthest (a b : Array Polyline) : Float :=
+  let segs := b.flatMap fun pl => polylineSegments pl
+  let pts := b.flatMap (·.points)
+  a.foldl (init := 0) fun acc pl => pl.points.foldl (init := acc) fun acc q =>
+    let d := if segs.isEmpty then pts.foldl (init := 1e300) (fun m r => min m (q.dist r))
+      else distToSegments q segs
+    max acc d
+
+/-- How far two lists of polylines are apart: `0` when they have the same points within `tol`,
+else the larger of the two one-sided distances (Hausdorff's), or infinity when their numbers or
+kinds of polylines differ. -/
+def linesApart (a b : Array Polyline) (tol : Float) : Float :=
+  if a.size != b.size || (a.zip b).any (fun (x, y) => x.closed != y.closed) then 1e300
+  else if (a.zip b).all fun (x, y) => x.points.size == y.points.size &&
+      (x.points.zip y.points).all fun (u, v) => u.dist v ≤ tol then 0
+  else max (farthest a b) (farthest b a)
+
+/-- How far the baked drawing at a rest may be from the still: `restTolerance` (0.05 px), plus
+for each path `5.5e-4` times half the diagonal of its box, the most two cubic approximations of
+one circle can differ (each is within `2.73e-4 r` of the circle, `Path.arc`), since a circle or
+arc turned by a move is not drawn by the same cubics as the next key draws it. -/
+def restTolerance : Float := 0.05
+
+/-- The first way the drawing `baked` differs from the drawing `still` beyond the rest tolerance
+(see `restTolerance`): another number of elements, an element of another kind or paint, a path
+farther away, a text elsewhere or turned. -/
+def drawingDiff (baked still : Array Drawn) : Option String := Id.run do
+  if baked.size != still.size then
+    return some s!"draws {baked.size} elements where the still draws {still.size}"
+  for (i, b, k) in (baked.zip still).mapIdx fun i (b, k) => (i, b, k) do
+    match b, k with
+    | .path pb lb, .path pk lk =>
+      if pb != pk then return some s!"paints element {i} otherwise ({pb}, the still {pk})"
+      let pts := lk.flatMap (·.points)
+      let half := match pts[0]? with
+        | none => 0
+        | some q0 =>
+          let (lo, hi) := pts.foldl (init := (q0, q0)) fun (lo, hi) q =>
+            ((⟨min lo.x q.x, min lo.y q.y⟩ : Point), (⟨max hi.x q.x, max hi.y q.y⟩ : Point))
+          lo.dist hi / 2
+      let tol := restTolerance + 5.5e-4 * half
+      let d := linesApart lb lk tol
+      if !(d ≤ tol) then
+        return some s!"draws element {i} {fmtNum d 3} px from the still (tolerance {fmtNum tol 3})"
+    | .text kb ab tb, .text kk ak tk =>
+      if kb != kk then return some s!"writes text element {i} otherwise ({kb}, the still {kk})"
+      if !(ab.dist ak ≤ restTolerance) then
+        return some s!"places text element {i} {fmtNum (ab.dist ak) 3} px from the still"
+      if !((tb - tk).abs ≤ 1e-4) then
+        return some s!"turns text element {i} by {fmtNum ((tb - tk) * 180 / pi) 4}°"
+    | _, _ => return some s!"draws element {i} as another kind of element than the still"
+  return none
+
+namespace Motion
+
+variable (m : Motion)
+
+/-- The baker against the stills: at the middle of each key's rest, the whole baked drawing
+(`MotionPlan.figureAt`: every path and every text, in order) must be the still of that key (the
+drawing of `keyFigure k`) within the rest tolerance (`drawingDiff`). This pins the animation to
+the exact keys for every motion: a turn carried through many steps (each landing within
+`arrivalTolerance`), a wrong upright counter-rotation, or another stacking order shows here. -/
+def restProblems (K : MotionKeys) (p : MotionPlan) : Array MotionProblem :=
+  (Array.range m.keys.size).filterMap fun k =>
+    let t := Exact.toFloat (p.timeline.restTime k)
+    let baked := drawnOf 256 Affine.id 1 (p.figureAt t)
+    let still := drawnOf 256 Affine.id 1 (K.figure k).draw
+    (drawingDiff baked still).map fun why =>
+      { severity := .error, message := s!"at the rest on key {k} the animation {why}" }
+
+/-- The problems of the motion: those of its keys and steps (`keyProblems`), and, for a
+well-formed motion, those of its layout against the stills (`restProblems`). -/
+def problems : Array MotionProblem :=
+  let base := m.keyProblems
+  if !decide m.WellFormed then base
+  else
+    let K := m.keysOf
+    base ++ m.restProblems K (m.planIn K K.env)
+
+/-- The messages of the problems a build reports (unless the level is `ignore`), each with its
+severity. -/
+def checkMessages : Array String :=
+  if m.checks == .ignore then #[]
+  else m.problems.map fun p => match p.severity with
+    | .error => p.message
+    | .note => s!"note: {p.message}"
+
+/-- Whether the problems stop the motion from being rendered: an error under `CheckLevel.fail`
+(the default). -/
+def problemsFail : Bool := m.checks == .fail && m.problems.any (·.severity == .error)
+
+/-- The motion's animated SVG (`toSvg`), or, when its problems stop it (`problemsFail`), the
+messages of its errors: a motion that contradicts its keys is not written. -/
+def svg? : Except (Array String) String :=
+  let ps := m.problems
+  if m.checks == .fail && ps.any (·.severity == .error) then
+    .error ((ps.filter (·.severity == .error)).map (·.message))
+  else .ok m.toSvg
+
+end Motion
+
+namespace Motion
+
+variable (m : Motion)
 
 /-- The motion as an `Animation` of its baked drawings, for animated PNG and GIF: one cycle at
 `fps` frames a second, the poster at the middle of the poster key's rest. -/
