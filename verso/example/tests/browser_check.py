@@ -3,32 +3,36 @@
 """Checks the example site's figures in a headless Chromium (Playwright).
 
     python3 browser_check.py SITE [SHOTS] [--site-links DIR] [--no-links DIR] [--side-by-side DIR]
+        [--manual DIR]
 
 SITE is the generator's `html-multi` folder, built with `--figure-repo` and the default link mode
 (`ideil`); SHOTS, if given, is a folder for screenshots. The other folders are the same site
 built with `--figure-lean-links site`, with `--figure-lean-links none`, and with
-`--side-by-side --figure-lean-links site`; the checks of a folder not given are skipped.
+`--side-by-side --figure-lean-links site`; `--manual` names the Manual adapter's example
+(`pilean-verso-manual-example`). The checks of a folder not given are skipped.
 
 Each site is served on 127.0.0.1 with a strict content policy: scripts only from the site's files
 and the inline scripts of the head (by hash), no inline event handlers, no plug-ins, nothing from
 elsewhere. Checked: every picture loads in the light and the dark theme and the right one is shown;
 the source line's links, the link to the figure's page landing on the anchor at its start with the
-title in view and nothing highlighted; the figures page; the still frame under reduced motion; no
-horizontal scrolling at narrow widths; no content-policy report about a figure. For the explorers:
-the sliders (one for each parameter of a family of two) and the stepper change the frame (by pointer
-and by keyboard) and say what they show from the frames' data, whatever the captions hold; one
-status region speaks, only when asked; the page scrolls under a wheel or a one-finger swipe, the
-picture zooms under Ctrl and the wheel or two fingers; frames of different sizes keep their own
-view; the script set up twice acts once; the controls are large enough to touch; an inline element
-carries its title and its link; the inline tint follows the theme, also for an id that starts with a
-digit, and under a policy that allows the pictures' style elements by hash only; without script
-every frame is a grid cell in order after the poster, which comes first across the width, and
-nothing is focusable; reduced motion has no play button; at 360 px the narrow rendition is shown.
-The three link modes: `lean:` links, links into the site that a click follows to an existing anchor
-(also in the side-by-side layout), and no links. Everything a figure shows is centred in its
-container and stays within it: wide, in the narrow column of the side-by-side layout, and at 360 px,
-also with a word of 240 letters in a caption and in the figures page's list. Hostile captions, names
-and ids show as text and run nothing. """
+title in view and nothing highlighted, and the anchor adding no space above the picture (in both
+adapters' examples); the figures page; the still frame under reduced motion; no horizontal scrolling
+at narrow widths; no content-policy report about a figure. For the explorers: the sliders (one for
+each parameter of a family of two) and the stepper change the frame (by pointer and by keyboard) and
+say what they show from the frames' data, whatever the captions hold; one status region speaks, only
+when asked; the page scrolls under a wheel or a one-finger swipe, the picture zooms under Ctrl and
+the wheel or two fingers; frames of different sizes keep their own view; the script set up twice
+acts once; the controls are large enough to touch; an inline element carries its title and its link;
+the inline tint follows the theme, also for an id that starts with a digit, and under a policy that
+allows the pictures' style elements by hash only; without script every frame is a grid cell in order
+after the poster, which comes first across the width, and nothing is focusable; reduced motion has
+no play button; at 360 px the narrow rendition is shown. The three link modes: `lean:` links, links
+into the site that a click follows to an existing anchor (also in the side-by-side layout), and no
+links. Everything a figure shows is centred in its container and stays within it: wide, in the
+narrow column of the side-by-side layout, and at 360 px, also with a word of 240 letters in a
+caption and in the figures page's list. Hostile captions, names and ids show as text and run
+nothing.
+"""
 
 import base64
 import functools
@@ -932,6 +936,35 @@ def shown_pictures(page):
     })""")
 
 
+def anchor_space_checks(c, browser, base, label, urls):
+    """The empty anchor at the start of a figure's page takes no space: the picture's top, within
+    the page and below the page's title, is the same with the anchor as with it removed, at a
+    wide and a narrow width."""
+    measure = """() => {
+      const p = document.querySelector('.pilean-figure-page');
+      const pic = p.querySelector('.pilean-page-picture');
+      const h1 = document.querySelector('main h1');
+      return [pic.getBoundingClientRect().top - p.getBoundingClientRect().top,
+              pic.getBoundingClientRect().top - (h1 ? h1.getBoundingClientRect().bottom : 0)]; }"""
+    for width in [1440, 390]:
+        ctx, page = new_page(browser, viewport={"width": width, "height": 900})
+        for url in urls:
+            goto(page, base + url)
+            anchor = page.evaluate("""() => {
+              const a = document.querySelector('.pilean-figure-page > .pilean-figure-page-anchor');
+              if (!a) return null;
+              const r = a.getBoundingClientRect();
+              return [r.width, r.height, getComputedStyle(a).position]; }""")
+            with_anchor = page.evaluate(measure)
+            page.evaluate("document.querySelector('.pilean-figure-page-anchor').remove()")
+            without = page.evaluate(measure)
+            c.check(f"{label} {width} px: the anchor of {url} adds no space above the picture",
+                    anchor is not None and anchor[:2] == [0, 0] and
+                    all(abs(a - b) < 0.5 for a, b in zip(with_anchor, without)),
+                    f"anchor {anchor}; with {with_anchor}, without {without}")
+        ctx.close()
+
+
 def option(args, name):
     return args[args.index(name) + 1] if name in args else None
 
@@ -942,6 +975,7 @@ def main(argv):
     shots = rest[0] if rest and not rest[0].startswith("--") else None
     sites = {"ideil": site, "site": option(rest, "--site-links"),
              "none": option(rest, "--no-links"), "side-by-side": option(rest, "--side-by-side")}
+    manual = option(rest, "--manual")
     server, base = serve(site)
     c = Checks()
     with sync_playwright() as p:
@@ -1047,6 +1081,15 @@ def main(argv):
                       "side by side", [1400, 360], FIGURE_PAGES)
             sbs_server.shutdown()
         c.section("links", link_checks, c, browser, sites)
+        c.section("anchor space", anchor_space_checks, c, browser, base, "blueprint",
+                  ["Figures/Example.cubicPlot/", "Figures/Example.sketch/",
+                   "Figures/Example.radiusExplorer/"])
+        if manual:
+            manual_server, manual_base = serve(manual)
+            c.section("manual anchor space", anchor_space_checks, c, browser, manual_base,
+                      "manual", ["Figures/ManualExample.trianglePlot/",
+                                 "Figures/ManualExample.radiusSlider/"])
+            manual_server.shutdown()
 
         for width in [320, 360, 375, 600]:
             ctx = browser.new_context(viewport={"width": width, "height": 800})
