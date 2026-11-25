@@ -178,7 +178,7 @@ html[data-lean-links] .pilean-lean-text { display: none; }
 def pageCss : String := r##"
 .pilean-figure-page { max-width: 100%; overflow-wrap: anywhere; }
 .pilean-figure-page-anchor, .pilean-figure-page-anchor:target {
-  display: block; width: 0; height: 0; overflow: hidden; scroll-margin-top: 12rem;
+  position: absolute; width: 0; height: 0; overflow: hidden; scroll-margin-top: 12rem;
   margin: 0 !important; padding: 0 !important; border: 0 !important; outline: none !important;
   background: none !important; box-shadow: none !important; animation: none !important;
 }

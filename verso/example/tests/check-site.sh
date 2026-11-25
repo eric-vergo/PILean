@@ -6,7 +6,8 @@
 # manifest, every inline picture is the body of a file the manifest lists, every link reaches its
 # file and element, two builds write the same bytes, the checks fail on damaged folders and pages,
 # and the three link modes write the links they promise. It leaves the sites the browser check
-# reads in SCRATCH: a (the default mode), site, none and sbs (side by side, links into the site).
+# reads in SCRATCH: a (the default mode), site, none and sbs (side by side, links into the site),
+# and the Manual adapter's example in manual.
 #
 #   tests/check-site.sh [SCRATCH]     (run from verso/example; LAKE names the lake to use)
 set -euo pipefail
@@ -28,7 +29,7 @@ check() { if "$@"; then echo "ok: ${desc}"; else echo "FAIL: ${desc}"; fails=$((
 "$lake" build example-blueprint >/dev/null
 (cd .. && cd .. && "$lake" build pilean-verify >/dev/null)
 verify=../../.lake/build/bin/pilean-verify
-(cd ../manual && "$lake" build pilean-site-links >/dev/null)
+(cd ../manual && "$lake" build pilean-site-links pilean-verso-manual-example >/dev/null)
 links=../manual/.lake/build/bin/pilean-site-links
 
 desc="the adapter's checks hold (lake test)"; check "$lake" test
@@ -209,6 +210,12 @@ desc="the side-by-side site builds with links into the site"
 check bash -c "'$gen' --output '$scratch/sbs' --side-by-side --figure-lean-links site ${flags[*]} >/dev/null 2>&1"
 desc="side by side, every link of the site reaches its target"
 check "$links" "$scratch/sbs/html-multi" --all
+rm -rf "$scratch/manual"
+desc="the Manual adapter's example builds"
+check bash -c "cd ../manual && ./.lake/build/bin/pilean-verso-manual-example \
+  --output '$scratch/manual' >/dev/null 2>&1"
+desc="in the Manual adapter's example, every link of the site reaches its target"
+check "$links" "$scratch/manual/html-multi" --all
 desc="built in GitHub Actions, the figures' pages link the run"
 check bash -c "GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=77 \
   '$gen' --output '$scratch/ci' ${flags[*]} >/dev/null 2>&1 &&
