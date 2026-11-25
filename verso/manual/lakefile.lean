@@ -41,6 +41,11 @@ lean_exe «pilean-verso-manual-example» where
   root := `ManualExampleMain
   supportInterpreter := true
 
+/-- Checks the links of a built site: `lake exe pilean-site-links SITE [--all]`
+(`PILeanVerso.siteLinkProblems`). -/
+lean_exe «pilean-site-links» where
+  root := `SiteLinksMain
+
 /-- The checks of the Manual-genre adapter (`lake test`): the example manual is generated twice
 and its pages and files are inspected. -/
 @[test_driver]

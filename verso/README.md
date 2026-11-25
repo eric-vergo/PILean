@@ -151,8 +151,17 @@ Each figure the document uses has a page of its own below the figures page (a pa
 adds; a document without `{figure_list}` gets a "Figures" part at its end), at
 `Figures/<name>/`, where `<name>` is the declaration's name when it has only `[A-Za-z0-9._-]`, and
 otherwise the name with every other character replaced by `_`, cut to 100 characters and followed
-by `-` and the first 12 digits of the name's SHA-256. The source line under the figure ("Page")
-and its entry on the figures page link to it. From top to bottom:
+by `-` and the first 12 digits of the name's SHA-256. The source line under the figure ("Page":
+"code, standing and provenance") and its entry on the figures page link to it, at the anchor
+Verso gives the page's block (`figure-page-<name>`, made unique). The anchor is an empty element,
+the first child of the page's own element: `<span class="pilean-figure-page-anchor"
+aria-hidden="true" id="figure-page-…">`. Its stylesheet gives it no size and keeps a site's
+highlight of a link's target (a background, a shadow, an outline, an animation) off it, and its
+`scroll-margin-top` of 12rem keeps the page's title in view when the browser scrolls to it
+(Verso Blueprint's own script centres the target, which on a figure's page leaves the title in
+view as well). The page's own element (`div.pilean-figure-page`) and its sections have the ids
+`pilean-page-<name>`, `pilean-page-<name>-standing`, `-code`, `-provenance` and `-reproduce`.
+From top to bottom:
 
 1. The picture at full size: the light and the dark files, following the page's theme; an
    animation's still frame for readers who ask for reduced motion; an explorer embedded as it is
@@ -274,11 +283,17 @@ caption hold markup). `example/tests/` has the checks run on it:
   figure whose `figure_links` line is taken out: with the caption still naming the theorem the
   build fails, without it the page says it is an illustration; and a weakened theorem that no
   longer names the figure, which `figure_links` refuses. It leaves four sites in SCRATCH: `a` (the default
-  links), `site`, `none` and `sbs` (side by side, links into the site).
+  links), `site`, `none` and `sbs` (side by side, links into the site). In each, every link
+  PILean writes (a class that starts with `pilean-`) must reach its file and the element its
+  fragment names (`pilean-site-links`, below), and in `a` and `sbs` every link of the site; a
+  page whose anchor was taken away must be reported; and a figure's page link must name the
+  empty anchor at the start of the page.
 * `browser_check.py SCRATCH/a/html-multi [SHOTS] --site-links SCRATCH/site/html-multi --no-links
-  SCRATCH/none/html-multi --side-by-side SCRATCH/sbs/html-multi`: the pages in a headless
-  Chromium under a strict content policy: both themes, reduced motion, the source links, the
-  figures page, narrow windows, the explorers' controls, gestures, announcements and touch
-  targets, no script, a policy that allows the pictures' `style` elements by hash only, clicks
-  on the links of each mode, centring and overflow (wide, in the side-by-side text column, at
-  360 px) and hostile strings.
+  SCRATCH/none/html-multi --side-by-side SCRATCH/sbs/html-multi`: the pages in a headless Chromium
+  under a strict content policy: both themes, reduced motion, the source links, the figures page,
+  narrow windows, the explorers' controls, gestures, announcements and touch targets, no script, a
+  policy that allows the pictures' `style` elements by hash only, clicks on the links of each mode
+  and on the links to a figure's page (in both themes: they must land on the anchor at the start of
+  the page, of no size, with the page's title in view and the page's look unchanged, nothing
+  highlighted), centring and overflow (wide, in the side-by-side text column, at 360 px) and hostile
+  strings.

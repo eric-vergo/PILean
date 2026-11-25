@@ -95,15 +95,19 @@ page's theme, with no script. Every figure of this manual is made this way: its 
 the declaration that made it, its file and line, the start of its fingerprint, and its theorem
 when it has one, and a link to its page.
 
-Every figure has a page of its own, below the page that lists them: the picture at full size
-with its files to download; its number, caption and the places that show it; its standing,
-"Linked theorem: T" with the statement of T as Lean, the axioms it rests on and what PILean
-checked of it, or "Illustration: no theorem is linked to it", derived when the generator is built
-from the `figure_links` links that pass their rule again there; the figure's declaration in
-full and the definitions of the manual's own code that its value and the theorems' statements
-use, highlighted with their hovers and linked to their source; the fingerprint, renderer, text
-engine and `pilean-verify` verdict of each file, the toolchain, the packages, the commit and the
-continuous-integration run; and the commands that build the files again and check them. After
-the site is written, the generator checks every page against the files, the manifest and
-`pilean-verify`, and fails when one differs. The Verso Blueprint adapter's `README.md` has the
-caps and the exact rules.
+Every figure has a page of its own, below the page that lists them: the picture at full size with
+its files to download; its number, caption and the places that show it; its standing, "Linked
+theorem: T" with the statement of T as Lean, the axioms it rests on and what PILean checked of it,
+or "Illustration: no theorem is linked to it", derived when the generator is built from the
+`figure_links` links that pass their rule again there; the figure's declaration in full and the
+definitions of the manual's own code that its value and the theorems' statements use, highlighted
+with their hovers and linked to their source; the fingerprint, renderer, text engine and
+`pilean-verify` verdict of each file, the toolchain, the packages, the commit and the
+continuous-integration run; and the commands that build the files again and check them. After the
+site is written, the generator checks every page against the files, the manifest and
+`pilean-verify`, and fails when one differs. The links to a page (the caption's "code, standing and
+provenance" and the list's) lead to an empty anchor at the start of the page, which takes no space
+and is never highlighted, so the reader arrives at the top of the page with its title in view. The
+Verso Blueprint adapter's `README.md` has the caps and the exact rules. `lake exe pilean-site-links
+SITE` (from `pilean-verso-manual`) checks that every link PILean writes into a built site reaches
+its file and the element its fragment names; `--all` holds every link of the site to that rule.

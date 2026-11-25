@@ -200,15 +200,23 @@ def docsHref? (e : ExternalName) : Option String :=
 
 /-! ### The page -/
 
-/-- The page of the figure `decl`; `ciRun` is the run that built the site, `math` the class of
-TeX in captions, `idBase` the prefix of the page's element ids. -/
+/-- The page of the figure `decl`; `math` is the class of TeX in captions, and `idAttr` the
+anchor of the page's block (`TraverseState.htmlId`). The anchor is an empty element at the start
+of the page (`span.pilean-figure-page-anchor`, hidden from assistive technology, of no size and
+never highlighted; `pageCss`), where the links of `pageLink?` lead. The page's own element
+(`div.pilean-figure-page`) and its sections carry ids that start with
+`pilean-page-<pageSlug decl>`. -/
 def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : DeclStyle)
-    (math : String) (st : TraverseState) (site : SiteRender) (decl : String) :
-    HtmlT Manual m Html := do
+    (math : String) (st : TraverseState) (site : SiteRender) (decl : String)
+    (idAttr : Array (String × String)) : HtmlT Manual m Html := do
+  let anchor : Html := if idAttr.isEmpty then .empty else
+    el "span" "pilean-figure-page-anchor" .empty (#[("aria-hidden", "true")] ++ idAttr)
   let reg := Registry.get st
   let placed := (reg.placed.filter (·.data.decl == decl)).qsort (·.order < ·.order)
-  let some p := placed[0]? | return el "p" "pilean-figure-missing" (txt s!"{decl} is not shown.")
-  let some fig := site.figures[decl]? | return el "p" "pilean-figure-missing" (txt s!"{decl} was not rendered.")
+  let some p := placed[0]?
+    | return .seq #[anchor, el "p" "pilean-figure-missing" (txt s!"{decl} is not shown.")]
+  let some fig := site.figures[decl]?
+    | return .seq #[anchor, el "p" "pilean-figure-missing" (txt s!"{decl} was not rendered.")]
   let o := site.options
   let l := Links.of s st site
   let idBase := s!"pilean-page-{pageSlug decl}"
@@ -373,7 +381,7 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
   -- every part the empty path, is not what the check after the build reads
   unless path.isEmpty do (pageStatedRef.modify (·.insert decl stated) : IO _)
   let cls := if hasDark then "pilean-figure-page pilean-figure-has-dark" else "pilean-figure-page"
-  pure <| el "div" cls (.seq #[
+  pure <| el "div" cls (.seq #[anchor,
       el "div" "pilean-page-picture" (el "div" "pilean-figure-frame" picture),
       el "h2" "pilean-page-h" (txt "Files"), downloads,
       heading, standing, code, provenance, reproduce])

@@ -177,6 +177,11 @@ html[data-lean-links] .pilean-lean-text { display: none; }
 /-- The stylesheet of a figure's page (`PILeanVersoManual.Page`). -/
 def pageCss : String := r##"
 .pilean-figure-page { max-width: 100%; overflow-wrap: anywhere; }
+.pilean-figure-page-anchor, .pilean-figure-page-anchor:target {
+  display: block; width: 0; height: 0; overflow: hidden; scroll-margin-top: 12rem;
+  margin: 0 !important; padding: 0 !important; border: 0 !important; outline: none !important;
+  background: none !important; box-shadow: none !important; animation: none !important;
+}
 .pilean-figure-page li, .pilean-figure-page summary {
   font-family: var(--verso-text-font-family, inherit); line-height: 1.45;
 }

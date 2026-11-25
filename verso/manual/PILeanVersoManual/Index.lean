@@ -47,14 +47,15 @@ block_extension Block.figurePage (decl : String) via withHighlighting where
   traverse id json _ := do
     traversePageWith id json
     pure none
-  toHtml := some fun _goI _goB _id json _contents => do
+  toHtml := some fun _goI _goB id json _contents => do
     let .str decl := json
       | Verso.reportError "Malformed data of a figure's page"; pure .empty
     let some site ← (siteRef.get : IO _)
       | Verso.reportError s!"The page of {decl} has no rendered site: the generator must run \
           the document through PILeanVerso.Manual.withFigures"; pure .empty
     let style ← (declStyleRef.get : IO DeclStyle)
-    figurePageHtmlWith style "pilean-math" (← HtmlT.state) site decl
+    let st ← HtmlT.state
+    figurePageHtmlWith style "pilean-math" st site decl (st.htmlId id)
   toTeX := some fun _ _ _ _ _ => pure (.text "The figure's page is in the HTML version.")
   extraCss := [figureCss, explorerCss, pageCss]
   extraJsFiles := {explorerJsFile}

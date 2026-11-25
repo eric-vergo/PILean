@@ -11,25 +11,24 @@ built with `--figure-lean-links site`, with `--figure-lean-links none`, and with
 
 Each site is served on 127.0.0.1 with a strict content policy: scripts only from the site's files
 and the inline scripts of the head (by hash), no inline event handlers, no plug-ins, nothing from
-elsewhere. Checked: every picture loads in the light and the dark theme and the right one is
-shown; the source line's links; the figures page; the still frame under reduced motion; no
-horizontal scrolling at narrow widths; no content-policy report about a figure. For the
-explorers: the sliders (one for each parameter of a family of two) and the stepper change the
-frame (by pointer and by keyboard) and say what they show from the frames' data, whatever the
-captions hold; one status region speaks, only
-when asked; the page scrolls under a wheel or a one-finger swipe, the picture zooms under Ctrl
-and the wheel or two fingers; frames of different sizes keep their own view; the script set up
-twice acts once; the controls are large enough to touch; an inline element carries its title and
-its link; the inline tint follows the theme, also for an id that starts with a digit, and under
-a policy that allows the pictures' style elements by hash only; without script every frame is a
-grid cell in order after the poster, which comes first across the width, and nothing is
-focusable; reduced motion has no play button; at 360 px the
-narrow rendition is shown. The three link modes: `lean:` links, links into the site that a click
-follows to an existing anchor (also in the side-by-side layout), and no links. Everything a
-figure shows is centred in its container and stays within it: wide, in the narrow column of the
-side-by-side layout, and at 360 px, also with a word of 240 letters in a caption and in the
-figures page's list. Hostile captions, names and ids show as text and run nothing.
-"""
+elsewhere. Checked: every picture loads in the light and the dark theme and the right one is shown;
+the source line's links, the link to the figure's page landing on the anchor at its start with the
+title in view and nothing highlighted; the figures page; the still frame under reduced motion; no
+horizontal scrolling at narrow widths; no content-policy report about a figure. For the explorers:
+the sliders (one for each parameter of a family of two) and the stepper change the frame (by pointer
+and by keyboard) and say what they show from the frames' data, whatever the captions hold; one
+status region speaks, only when asked; the page scrolls under a wheel or a one-finger swipe, the
+picture zooms under Ctrl and the wheel or two fingers; frames of different sizes keep their own
+view; the script set up twice acts once; the controls are large enough to touch; an inline element
+carries its title and its link; the inline tint follows the theme, also for an id that starts with a
+digit, and under a policy that allows the pictures' style elements by hash only; without script
+every frame is a grid cell in order after the poster, which comes first across the width, and
+nothing is focusable; reduced motion has no play button; at 360 px the narrow rendition is shown.
+The three link modes: `lean:` links, links into the site that a click follows to an existing anchor
+(also in the side-by-side layout), and no links. Everything a figure shows is centred in its
+container and stays within it: wide, in the narrow column of the side-by-side layout, and at 360 px,
+also with a word of 240 letters in a caption and in the figures page's list. Hostile captions, names
+and ids show as text and run nothing. """
 
 import base64
 import functools
@@ -527,6 +526,49 @@ def figure_page_checks(c, browser, base, shots):
                 if status != 200:
                     bad.append((h, status))
     c.check("every link of the pages into the site is served", not bad, str(bad[:5]))
+    # The page's look with no fragment, then after a click on a link to it: the link lands on
+    # the empty anchor at the start of the page, the page's title stays in view, and nothing on
+    # the page takes the site's highlight of a link's target.
+    look = """() => { const p = document.querySelector('.pilean-figure-page');
+      const s = getComputedStyle(p);
+      return [s.backgroundColor, s.backgroundImage, s.boxShadow, s.outlineStyle]; }"""
+    for start, sel, scheme in [(base + PAGES[0], "figure#cubic a.pilean-page-link", "light"),
+                               (base + "Figures/", "a.pilean-page-link", "dark")]:
+        sctx, spage = new_page(browser, viewport={"width": 1100, "height": 900},
+                               color_scheme=scheme)
+        goto(spage, start)
+        href = spage.locator(sel).first.get_attribute("href") or ""
+        goto(spage, base + href.split("#")[0])
+        plain = spage.evaluate(look)
+        goto(spage, start)
+        spage.locator(sel).first.click()
+        spage.wait_for_load_state("networkidle")
+        spage.wait_for_timeout(150)
+        frag = spage.url.split("#", 1)[1] if "#" in spage.url else ""
+        landed = spage.evaluate("""(id) => {
+          const e = document.getElementById(decodeURIComponent(id));
+          if (!e) return null;
+          const r = e.getBoundingClientRect(), s = getComputedStyle(e);
+          const page = document.querySelector('.pilean-figure-page');
+          const h1 = document.querySelector('main h1');
+          return {anchor: e.classList.contains('pilean-figure-page-anchor'),
+                  first: page !== null && page.firstElementChild === e,
+                  size: [r.width, r.height],
+                  look: [s.backgroundColor, s.backgroundImage, s.boxShadow, s.outlineStyle],
+                  title: h1 ? Math.round(h1.getBoundingClientRect().top) : null}; }""", frag)
+        after = spage.evaluate(look)
+        where = start[len(base):] or "the start"
+        c.check(f"{scheme}: a page link from {where} lands on the anchor at the start of the page",
+                bool(frag) and landed is not None and landed["anchor"] and landed["first"] and
+                landed["size"] == [0, 0], f"{href} -> {spage.url}: {landed}")
+        c.check(f"{scheme}: after a page link from {where} nothing on the page is highlighted",
+                landed is not None and after == plain and
+                landed["look"] == ["rgba(0, 0, 0, 0)", "none", "none", "none"],
+                f"{plain} -> {after}; anchor {landed and landed['look']}")
+        c.check(f"{scheme}: after a page link from {where} the page's title is in view",
+                landed is not None and landed["title"] is not None and 0 <= landed["title"] < 900,
+                str(landed and landed["title"]))
+        sctx.close()
     goto(page, base + "Figures/Example.cubicPlot/")
     text = " ".join(page.locator(".pilean-page-standing").inner_text().split())
     c.check("a linked figure's page names its linked theorem and shows the statement",

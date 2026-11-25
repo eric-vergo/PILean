@@ -15,6 +15,7 @@ import PILeanVersoManual.Highlight
 import PILeanVersoManual.Page
 import PILeanVersoManual.Wrapper
 import PILeanVersoManual.Main
+import PILeanVersoManual.SiteLinks
 
 /-!
 # PILean figures in Verso's Manual genre

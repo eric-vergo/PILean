@@ -3,10 +3,10 @@
 # Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 #
 # Checks the example site end to end: it builds, its figures folder matches a fresh render and its
-# manifest, every inline picture is the body of a file the manifest lists, two builds write the
-# same bytes, the checks fail on damaged folders and pages, and the three link modes write the
-# links they promise. It leaves the sites the browser check reads in SCRATCH: a (the default
-# mode), site, none and sbs (side by side, links into the site).
+# manifest, every inline picture is the body of a file the manifest lists, every link reaches its
+# file and element, two builds write the same bytes, the checks fail on damaged folders and pages,
+# and the three link modes write the links they promise. It leaves the sites the browser check
+# reads in SCRATCH: a (the default mode), site, none and sbs (side by side, links into the site).
 #
 #   tests/check-site.sh [SCRATCH]     (run from verso/example; LAKE names the lake to use)
 set -euo pipefail
@@ -28,6 +28,8 @@ check() { if "$@"; then echo "ok: ${desc}"; else echo "FAIL: ${desc}"; fails=$((
 "$lake" build example-blueprint >/dev/null
 (cd .. && cd .. && "$lake" build pilean-verify >/dev/null)
 verify=../../.lake/build/bin/pilean-verify
+(cd ../manual && "$lake" build pilean-site-links >/dev/null)
+links=../manual/.lake/build/bin/pilean-site-links
 
 desc="the adapter's checks hold (lake test)"; check "$lake" test
 rm -rf "$scratch/a" "$scratch/b"
@@ -69,6 +71,16 @@ desc="a figure's source line links its page"
 check grep -q 'class="pilean-page-link" href="Figures/Example.cubicPlot/' "$page"
 desc="the figures page links each figure's page"
 check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 15
+desc="every link PILean writes reaches its file and element (pilean-site-links)"
+check "$links" "$scratch/a/html-multi"
+desc="every link of the site reaches its file and element (pilean-site-links --all)"
+check "$links" "$scratch/a/html-multi" --all
+pagelink=$(grep -o 'class="pilean-page-link" href="Figures/Example.cubicPlot/#[^"]*"' "$page" |
+  sed 's/.*#//; s/"$//')
+anchor="<span class=\"pilean-figure-page-anchor\" aria-hidden=\"true\" id=\"$pagelink\"></span>"
+desc="a figure's page link lands on the empty anchor at the start of the page"
+check grep -qF "id=\"pilean-page-Example.cubicPlot\">$anchor<div class=\"pilean-page-picture\">" \
+  "$cubic"
 desc="a linked figure's page shows its theorem's statement as highlighted Lean"
 check bash -c "grep -q 'class=\"pilean-page-decl pilean-page-theorem\" data-lean-decl=\"Example.cubicPlot_spec\"' '$cubic' && grep -q 'class=\"hl lean' '$cubic'"
 desc="the page shows the definitions the figure is built from"
@@ -95,6 +107,11 @@ assert old in s
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
 }
+anchor='class="pilean-figure-page-anchor" aria-hidden="true" id="'
+tamper_page Example.sketch "$anchor" "${anchor}x"
+desc="the link check refuses a site whose page lost the element its links name"
+check bash -c "'$links' '$scratch/page' |
+  grep -q 'Figures/Example.sketch/index.html has no element with the id'"
 tamper_page Example.sketch 'data-pilean-standing="illustration"' 'data-pilean-standing="linked"'
 desc="the page check refuses a page whose standing was changed"
 check bash -c "! python3 -I tests/page_check.py '$scratch/page' >/dev/null"
@@ -178,6 +195,10 @@ desc="with links into the site, an inline element links to its Blueprint entry"
 check grep -q 'href="Pictures-with-proofs/A-function/#--informal-external-decl-[0-9]*-Example___cubic" class="pilean-decl-link"' "$scratch/site/html-multi/Pictures-with-proofs/Explorers/index.html"
 desc="the site builds without links"
 check "$gen" --output "$scratch/none" --figure-lean-links none "${flags[@]}"
+desc="with links into the site, every link PILean writes reaches its target"
+check "$links" "$scratch/site/html-multi"
+desc="without links, every link PILean writes reaches its target"
+check "$links" "$scratch/none/html-multi"
 desc="without links, no figure links a declaration"
 check figures_lack "$scratch/none/html-multi" 'class="pilean-(decl|site|lean)-link"'
 desc="without links, the figures page links no declaration"
@@ -186,6 +207,8 @@ desc="in the default mode, figures have lean: links"
 check figures_have "$scratch/a/html-multi" 'href="lean:decl/Example\.cubic" class="pilean-decl-link"'
 desc="the side-by-side site builds with links into the site"
 check bash -c "'$gen' --output '$scratch/sbs' --side-by-side --figure-lean-links site ${flags[*]} >/dev/null 2>&1"
+desc="side by side, every link of the site reaches its target"
+check "$links" "$scratch/sbs/html-multi" --all
 desc="built in GitHub Actions, the figures' pages link the run"
 check bash -c "GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=77 \
   '$gen' --output '$scratch/ci' ${flags[*]} >/dev/null 2>&1 &&
