@@ -72,8 +72,8 @@ def main():
                 rpage.evaluate(f"document.documentElement.setCurrentTime({t})")
                 states.append(rpage.screenshot())
             display = rpage.evaluate(
-                "[getComputedStyle(document.querySelector('.poster')).display,"
-                " getComputedStyle(document.querySelector('.motion')).display]")
+                "[getComputedStyle(document.querySelector('.pilean-motion-poster')).display,"
+                " getComputedStyle(document.querySelector('.pilean-motion-live')).display]")
             still = states[0] == states[1]
             box = rpage.evaluate(
                 "(() => { const r = document.documentElement.getBoundingClientRect();"
@@ -86,7 +86,8 @@ def main():
             ok = moved and still and display == ["inline", "none"] and diff < 8
             failures += 0 if ok else 1
             print(f"{name}: frames at 0 s and 1.3 s differ: {moved}; reduced motion: "
-                  f".poster {display[0]}, .motion {display[1]}, picture static: {still}, "
+                  f".pilean-motion-poster {display[0]}, .pilean-motion-live {display[1]}, "
+                  f"picture static: {still}, "
                   f"mean difference from the poster PNG {diff:.2f} of 255 -> "
                   f"{'ok' if ok else 'FAILED'}")
     finally:

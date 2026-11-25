@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
-  <style>.poster{display:none}@media (prefers-reduced-motion: reduce){.poster{display:inline}.motion{display:none}}</style>
+  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{display:none}}</style>
   <rect x="0" y="0" width="640" height="360" fill="#ffffff"/>
-  <g class="motion">
+  <g class="pilean-motion-live">
     <g>
       <defs>
         <clipPath id="c0">
@@ -63,7 +63,7 @@
       <text x="26.78" y="184" font-size="12" fill="#484850" text-anchor="middle" font-family="Inter, &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif" transform="rotate(-90 26.78 184)">count</text>
     </g>
   </g>
-  <g class="poster">
+  <g class="pilean-motion-poster">
     <defs>
       <clipPath id="poster-c0">
         <path d="M53 57 L615 57 L615 311 L53 311 Z"/>

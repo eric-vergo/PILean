@@ -160,7 +160,7 @@ def animation : Array (String × Bool) :=
       let gb := (Animations.graphBuild).toSvg
       has gb "calcMode=\"linear\"" && !has gb "visibility" && has gb "attributeName=\"opacity\""),
     ("animation: a poster for reduced motion",
-      has svg "prefers-reduced-motion: reduce" && has svg "class=\"poster\""),
+      has svg "prefers-reduced-motion: reduce" && has svg "class=\"pilean-motion-poster\""),
     ("animation: GIF and APNG decode to every frame",
       match sw.toGif, sw.toApng with
       | .ok g, .ok p => match Anim.readGif g, Anim.readApng p with

@@ -26,7 +26,8 @@ frame rate, a duration and a loop setting. Frame `i` shows the drawing at `t = i
 * **Reduced motion.** Every animation has a poster frame (`Animation.poster`, the last frame by
   default), as a still SVG or PNG (`posterSvg`, `posterPng`); the animated SVG contains it too,
   shown instead of the motion when the viewer asks for reduced motion
-  (`prefers-reduced-motion: reduce`).
+  (`prefers-reduced-motion: reduce`), by a style rule on the classes `pilean-motion-poster` and
+  `pilean-motion-live` (prefixed, so that the rule reaches nothing else in a page).
 
 Everything is deterministic: the same animation gives the same bytes.
 
@@ -34,6 +35,7 @@ Everything is deterministic: the same animation gives the same bytes.
 
 * `Animation`, `Animation.frameCount`, `Animation.time`.
 * `Animation.toApng`, `Animation.toGif`, `Animation.toSvg`, `posterSvg`, `posterPng`.
+* `Animation.posterClass`, `Animation.liveClass`, `Animation.reducedMotionStyle`.
 * `sameShape`, `mergeFrames`: the test for interpolation and the merged tree.
 -/
 
@@ -227,10 +229,20 @@ namespace Animation
 
 variable (a : Animation)
 
-/-- The style element that shows the poster instead of the motion under reduced motion. -/
+/-- The class of the still shown instead of the motion under reduced motion. The names carry
+the library's prefix, so that the rules of `reducedMotionStyle` reach nothing else when the
+picture is put inline in a page. -/
+def posterClass : String := "pilean-motion-poster"
+
+/-- The class of the moving picture, hidden under reduced motion. -/
+def liveClass : String := "pilean-motion-live"
+
+/-- The style element that shows the poster (`posterClass`) instead of the motion (`liveClass`)
+under reduced motion. -/
 def reducedMotionStyle : Node :=
-  el "style" #[] #[.text (".poster{display:none}@media (prefers-reduced-motion: reduce)" ++
-    "{.poster{display:inline}.motion{display:none}}")]
+  el "style" #[] #[.text ("." ++ posterClass ++ "{display:none}" ++
+    "@media (prefers-reduced-motion: reduce){." ++ posterClass ++ "{display:inline}." ++
+    liveClass ++ "{display:none}}")]
 
 /-- The element trees of the frames, as the animated SVG writes them: frame `i` is the drawing
 at the time `time i`, rendered with text mode `mode`. -/
@@ -276,8 +288,8 @@ def toSvg : String := Id.run do
           ("repeatCount", reps), ("fill", "freeze")], tree])
   let bg := rect 0 0 w h (some a.background)
   let poster := prefixIds "poster-" 256
-    (el "g" #[("class", "poster")] (a.frame a.poster |>.render mode))
-  return document w h #[reducedMotionStyle, bg, el "g" #[("class", "motion")] #[motion], poster]
+    (el "g" #[("class", posterClass)] (a.frame a.poster |>.render mode))
+  return document w h #[reducedMotionStyle, bg, el "g" #[("class", liveClass)] #[motion], poster]
 
 end Animation
 

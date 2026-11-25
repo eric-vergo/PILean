@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-  <style>.poster{display:none}@media (prefers-reduced-motion: reduce){.poster{display:inline}.motion{display:none}}</style>
+  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{display:none}}</style>
   <rect x="0" y="0" width="200" height="200" fill="#ffffff"/>
-  <g class="motion">
+  <g class="pilean-motion-live">
     <g>
       <path d="M170 100 C170 138.66 138.66 170 100 170 C61.34 170 30 138.66 30 100 C30 61.34 61.34 30 100 30 C138.66 30 170 61.34 170 100 Z" fill="none" stroke="#bec3cd" stroke-width="2"/>
       <path d="M182 100 C182 106.63 176.63 112 170 112 C163.37 112 158 106.63 158 100 C158 93.37 163.37 88 170 88 C176.63 88 182 93.37 182 100 Z" fill="#2962ff">
@@ -10,7 +10,7 @@
       </path>
     </g>
   </g>
-  <g class="poster">
+  <g class="pilean-motion-poster">
     <path d="M170 100 C170 138.66 138.66 170 100 170 C61.34 170 30 138.66 30 100 C30 61.34 61.34 30 100 30 C138.66 30 170 61.34 170 100 Z" fill="none" stroke="#bec3cd" stroke-width="2"/>
     <path d="M168.63 58.86 C168.63 65.48 163.26 70.86 156.63 70.86 C150 70.86 144.63 65.48 144.63 58.86 C144.63 52.23 150 46.86 156.63 46.86 C163.26 46.86 168.63 52.23 168.63 58.86 Z" fill="#2962ff"/>
   </g>
