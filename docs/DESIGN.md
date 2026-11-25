@@ -1022,34 +1022,52 @@ saves little here (the growing-bars animation is 63 KB as APNG).
 ### Timelines and SMIL motions
 
 A motion through key frames has its timing in a `Timeline` (`PILean/Anim/Timeline.lean`), built
-from its steps (`Step`: a move, or an idle step in which nothing moves, each with a duration) and
-a `Pacing` (durations of turns, slides, fades, holds and idle steps, the first and last holds, the
-easing and the seam). The cycle is a rest on key 0, then each step's move and the rest on the key it
-reaches, closed by the seam: under `Seam.cut` the picture jumps back to key 0 when the cycle
-repeats; under `Seam.crossfade d` the cycle starts with a fade in and ends with a fade out, `d / 2`
-each, so that jump happens while nothing is visible. Durations are rationals (`Rat`): the start of
-every segment, the cycle and the key times are exact, and the tiling of the cycle, the key times
-from 0 to 1 and the segment found at a time are theorems (`PILean/Anim/TimelineProofs.lean`,
-[`PROOFS.md`](PROOFS.md)). Floating point begins with the eased progress through a segment:
-`Easing.eval` solves the cubic Bézier of SMIL's `keySplines` (and CSS's `cubic-bezier`) for its
-parameter by 64 halvings and has its control values clamped into `[0, 1]`, so it never overshoots.
+from its steps (`Step`: a move, or an idle step in which nothing moves, each with its duration and
+its easing) and a `Pacing` (durations of turns, slides, fades, holds and idle steps, the first and
+last holds, the easing that the steps made from it get, and the seam). The cycle is a rest on
+key 0, then each step's move and the rest on the key it reaches, closed by the seam: under
+`Seam.cut` the picture jumps back to key 0 when the cycle repeats; under `Seam.crossfade d` the
+cycle starts with a fade in and ends with a fade out, `d / 2` each, so that jump happens while
+nothing is visible. One function, `Timeline.spec`, gives every segment's duration and easing
+(rests and fades are not eased). Durations are rationals (`Rat`): the start of every segment, the
+cycle and the key times are exact, and the order of the segments, their durations and easings,
+the tiling of the cycle, the key times from 0 to 1 and the segment found at a time are theorems
+(`PILean/Anim/TimelineProofs.lean`, [`PROOFS.md`](PROOFS.md)). Floating point begins with the
+eased progress through a segment: `Easing.eval` solves the cubic Bézier of SMIL's `keySplines`
+(and CSS's `cubic-bezier`) for its parameter by 64 halvings and has its control values clamped
+into `[0, 1]`, so it never overshoots.
 
 `PILean/Anim/Smil.lean` writes SMIL animation elements on a timeline: `animateRotate` (values
 `θ cx cy` of an `animateTransform` of type `rotate`), `animateTranslate`, `animateOpacity`,
 `animateD` (a morph between paths with the same commands, checked with `interpolable`) and
-`seamOpacity` (the fades of the motion layer). Every element has the same timing (`smilTiming`:
-the cycle as `dur`, the key times, one spline per segment, `calcMode="spline"`, indefinite
-repetition, `begin="0s"`), so all the animations of a document run on one clock; the values are
-written at the segment boundaries, a rest repeating its value under the identity spline `0 0 1 1`.
-The builders write no static `transform`: a transform is only ever the animated value of an
-`animateTransform` that `group` places, alone, in a `g` without attributes, and only `transform`,
-`opacity` and `d` are animated, so the inline dark-theme rules, which restyle colours, keep working
-(`Smil.invariantProblem?` checks a tree). A segment of length zero would give two equal key times
-in a row; `Smil.Options.gap` (default `1/10000` of the cycle) pushes such times apart, and a gap
-of `0` writes them as they are. `Smil.valueAt` computes the value of an animation element at a
-time as SMIL defines it, so tests compare what a document shows with what the timeline means
-without a browser; key times are written to eight decimals, which on the tests' 22.6-second
-cycle moves an angle by less than `1e-5` degrees.
+`seamOpacity` (the fades of the motion layer). Each is first a `Smil.Track` (values at the
+boundaries, key times, one easing per interval) and then an element; a builder gives `none` for a
+cycle that is not longer than zero. Every element has the same timing (`smilTiming`: the cycle as
+`dur` to the microsecond, the key times to eight decimals, one spline per segment,
+`calcMode="spline"`, indefinite repetition, `begin="0s"`), so all the animations of a document run
+on one clock; `Smil.clockProblem?` checks a whole tree for that. The values are written at the
+segment boundaries, a rest repeating its value under the identity spline `0 0 1 1`. The builders
+write no static `transform`: a transform is only ever the animated value of an `animateTransform`
+that `group` places, alone, in a `g` without attributes, and only `transform`, `opacity` and `d`
+are animated, so the inline dark-theme rules, which restyle colours, keep working
+(`Smil.invariantProblem?` checks a tree, and also refuses `gradientTransform`,
+`patternTransform`, a `style` with a transform, and `additive` or `accumulate`). An actor turned in
+several steps sits in one group per turn with the earliest turn innermost, so that every centre is
+a point of the page (`Smil.nest` builds the chain in that order); `turnAngles` turns exact fractions
+of a full turn per step into the angles after each key, and `uprightAngles` gives the
+counter-rotation that keeps a label upright about its anchor.
+
+A segment of length zero would give two equal key times in a row. `Smil.Options.gap` (default
+`1/10000` of the cycle, at least `10⁻⁷` when above zero, at most `1/(2m)` for `m` intervals)
+keeps consecutive key times that far apart: a time too close to the one before it moves later,
+then one too close to the one after it moves earlier, so the first stays `0`, the last `1`, and
+only times next to a short segment move. The written key times are proved to start at `0`, end at
+`1`, lie in `[0, 1]` and increase strictly; a gap of `0` writes equal key times as they are.
+`Smil.valueAt` computes the value of an animation element at a time as SMIL defines it and refuses
+what SMIL makes an error (key times that do not start at `0` or end at `1` or decrease, counts that
+disagree, spline values outside `[0, 1]`, a `dur` that is not a positive clock value), so tests
+compare what a document shows with what the timeline means without a browser; key times written to
+eight decimals move an angle by less than `1e-5` degrees on the tests' 22.6-second cycle.
 
 ## Open design questions
 

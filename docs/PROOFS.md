@@ -228,6 +228,10 @@ not rational-valued.
   then for each step `j` the move of step `j` and the rest on key `j + 1`, with the fade in first
   and the fade out last under a crossfade; `build_size_cut`, `build_size_crossfade`: so there are
   `2 n - 1` segments for `n` key frames under a cut and `2 n + 1` under a crossfade.
+* `build_segment_spec`, `build_move_spec`, `build_rest_spec`, `build_seam_spec`: the move of step
+  `j` lasts as long as step `j` and has its easing; the rest on key `0` lasts `firstHold`, the rest
+  on the last key `lastHold`, any other rest `hold`; the fades exist only under a crossfade `d` and
+  last `d / 2` each; rests and fades are not eased (a negative duration counts as zero).
 * `build_start_zero`, `build_start_succ`, `build_stop_last`, `build_dur_nonneg`: the segments
   tile the cycle: the first starts at `0`, each starts where the one before it ends, the last ends
   at the end of the cycle, and no duration is negative (a negative one given counts as zero).
@@ -238,6 +242,22 @@ not rational-valued.
 * `wrap_mem`, `segmentAt_mem`, `progress_mem`, `locate_fst`: any rational time, brought into a
   cycle longer than zero, lies in `[0, cycle)` and in the segment `segmentAt` names (from its
   start, inclusive, to its end, exclusive), and the progress through that segment is in `[0, 1)`.
+
+What the SMIL builders write (`PILean/Anim/SmilProofs.lean`), for the same timelines:
+
+* `times_size`, `times_mono`, `times_zero`, `times_last`, `times_mem`, `times_strict`: the key
+  times written (`Smil.times`, the timeline's key times spread by the gap) are one more than the
+  segments and never decrease; when the cycle is longer than zero they start at `0`, end at `1`,
+  lie in `[0, 1]`, and with a gap above zero each is more than the one before it.
+* `keyValues_size`, `seamLevels_size`, `track_counts`: every track has as many values as key times
+  and one easing (`keySplines` entry) fewer.
+* `track_splines`, `track_splines_move`, `track_splines_still`: interval `i` has the easing of
+  segment `i`: the step's own for a move, the identity for a rest and for a fade.
+* `seamLevels_crossfade`: under a crossfade the motion layer's opacity is `0` at the first and the
+  last boundary.
+
+These stop before the conversion to text: that `fmtNum` of the converted key times keeps their
+order is tested, not proved.
 
 For one key frame (no steps) the timeline is the rest on key `0` (between the fade in and out under
 a crossfade); there are no timelines of zero key frames. When every duration is zero the cycle is
@@ -669,8 +689,9 @@ a root of the denominator, and there are no other complex roots.
   its parameter within `1e-12`, never decreasing), the SMIL attributes the builders of
   `PILean/Anim/Smil.lean` write (counts of values, key times and splines; key times that increase
   strictly), and what they mean: `Smil.valueAt`, an evaluator of SMIL timing, gives the eased value
-  of the timeline at 50 times within `1e-9`. That a browser follows SMIL as `valueAt` does is not
-  checked by the tests of the core.
+  of the timeline at 50 times within `1e-9`, refuses what SMIL makes an error, and reproduces
+  nested turns (`Smil.nest`) as the composed exact rotations. That a browser follows SMIL as
+  `valueAt` does is not checked by the tests of the core.
 * The hypotheses of the drawing theorems on the gallery pictures (every converted point has a
   page position) are checked at run time by `lake test`.
 

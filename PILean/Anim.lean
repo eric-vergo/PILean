@@ -15,6 +15,7 @@ import PILean.Anim.Proofs
 import PILean.Anim.Timeline
 import PILean.Anim.TimelineProofs
 import PILean.Anim.Smil
+import PILean.Anim.SmilProofs
 
 /-!
 # Animated images

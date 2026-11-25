@@ -31,7 +31,8 @@ segment (`Easing.eval`, `Timeline.locate`).
 
 * `Easing`, `Easing.eval`: the cubic Bézier timing functions of SMIL's `keySplines` and CSS.
 * `Pacing`, `Step`, `Seam`: the durations of a motion and how its loop closes.
-* `Segment`, `Timeline`, `Timeline.build`: the segments of a cycle.
+* `Segment`, `Timeline`, `Timeline.build`: the segments of a cycle, their kinds
+  (`Timeline.kinds`) and their durations and easings (`Timeline.spec`).
 * `Timeline.segmentAt`, `Timeline.locate`: the segment at a time and the eased progress through it.
 * `Timeline.restTime`, `Timeline.keyTimes`.
 
@@ -115,12 +116,12 @@ inductive Seam where
   | cut
   deriving Inhabited, Repr, DecidableEq
 
-/-- What a step between two key frames does. -/
+/-- What a step between two key frames does (for the caller; the timing depends only on the
+step's duration and easing). -/
 inductive StepKind where
-  /-- Something moves: the step's progress is eased with `Pacing.easing`. -/
+  /-- Something moves. -/
   | move
-  /-- Nothing moves (an operation that leaves the picture as it is): the step takes its time, with
-  no easing. -/
+  /-- Nothing moves (an operation that leaves the picture as it is): the step takes its time. -/
   | idle
   deriving Inhabited, Repr, DecidableEq
 
@@ -140,35 +141,44 @@ structure Pacing where
   firstHold : Rat := 1.2
   /-- The rest on the last key frame. -/
   lastHold : Rat := 1.8
-  /-- The easing of the steps that move. -/
+  /-- The easing the steps made from this pacing (`turnStep`, `slideStep`, `fadeStep`) get. -/
   easing : Easing := .standard
   /-- How the loop closes. -/
   seam : Seam := .crossfade 0.4
   deriving Inhabited, Repr
 
-/-- A step between two consecutive key frames: what it does and how long it takes, in seconds. -/
+/-- A step between two consecutive key frames: what it does, how long it takes, in seconds, and how
+its progress is eased. -/
 structure Step where
   /-- What the step does. -/
   kind : StepKind := .move
   /-- How long it takes, in seconds. -/
   dur : Rat
-  deriving Inhabited, Repr, DecidableEq
+  /-- How its progress is eased. -/
+  easing : Easing := .standard
+  deriving Inhabited, Repr
 
 namespace Pacing
 
 variable (p : Pacing)
 
-/-- A turn, `turn` seconds long. -/
-def turnStep : Step := { dur := p.turn }
+/-- A turn, `turn` seconds long, eased with `easing`. -/
+def turnStep : Step := { dur := p.turn, easing := p.easing }
 
-/-- A slide, `slide` seconds long. -/
-def slideStep : Step := { dur := p.slide }
+/-- A slide, `slide` seconds long, eased with `easing`. -/
+def slideStep : Step := { dur := p.slide, easing := p.easing }
 
-/-- An appearance or a disappearance, `fade` seconds long. -/
-def fadeStep : Step := { dur := p.fade }
+/-- An appearance or a disappearance, `fade` seconds long, eased with `easing`. -/
+def fadeStep : Step := { dur := p.fade, easing := p.easing }
 
-/-- A step in which nothing moves, `idle` seconds long. -/
-def idleStep : Step := { kind := .idle, dur := p.idle }
+/-- A step in which nothing moves, `idle` seconds long, not eased. -/
+def idleStep : Step := { kind := .idle, dur := p.idle, easing := .linear }
+
+/-- Half the length of the seam: the length of the fade in and of the fade out (`0` for a cut). -/
+def seamHalf : Rat :=
+  match p.seam with
+  | .crossfade d => d / 2
+  | .cut => 0
 
 end Pacing
 
@@ -218,21 +228,31 @@ namespace Timeline
 /-- A segment before its start is known: what happens, its duration and its easing. -/
 abbrev Piece := SegKind × Rat × Easing
 
-/-- The pieces of the steps from step `i` on: a move and the rest on the key after it, `hold`
-seconds long except after the last step (`lastHold`). -/
-def stepPieces (p : Pacing) : Nat → List Step → List Piece
-  | _, [] => []
-  | i, s :: rest =>
-    (.move i, s.dur, if s.kind = .move then p.easing else .linear) ::
-      (.rest (i + 1), (if rest.isEmpty then p.lastHold else p.hold), .linear) ::
-        stepPieces p (i + 1) rest
-
-/-- The pieces of the timeline of `steps`: the rest on key `0`, the steps, and the seam. -/
-def pieces (steps : Array Step) (p : Pacing) : List Piece :=
-  let body := (.rest 0, p.firstHold, .linear) :: stepPieces p 0 steps.toList
+/-- The kinds of the segments of the timeline of `steps`, in order: the rest on key `0`, then for
+each step `j` its move and the rest on key `j + 1`; under a crossfade, the fade in first and the
+fade out last. -/
+def kinds (steps : Array Step) (p : Pacing) : List SegKind :=
+  let body := .rest 0 :: (List.range steps.size).flatMap fun j => [.move j, .rest (j + 1)]
   match p.seam with
   | .cut => body
-  | .crossfade d => (.seamIn, d / 2, .linear) :: (body ++ [(.seamOut, d / 2, .linear)])
+  | .crossfade _ => .seamIn :: body ++ [.seamOut]
+
+/-- The duration (a negative one counting as zero once laid out) and the easing of the segment of
+kind `k`: the rest on key `0` lasts `firstHold`, the rest on the last key `lastHold`, any other rest
+`hold`; the move of step `j` lasts as long as the step, with its easing; a fade lasts half the
+seam. Rests and fades are not eased. -/
+def spec (steps : Array Step) (p : Pacing) : SegKind → Rat × Easing
+  | .rest k =>
+    (if k = 0 then p.firstHold else if k = steps.size then p.lastHold else p.hold, .linear)
+  | .move j =>
+    match steps[j]? with
+    | some s => (s.dur, s.easing)
+    | none => (0, .linear)
+  | .seamIn | .seamOut => (p.seamHalf, .linear)
+
+/-- The pieces of the timeline of `steps`: each kind with its duration and easing. -/
+def pieces (steps : Array Step) (p : Pacing) : List Piece :=
+  (kinds steps p).map fun k => (k, spec steps p k)
 
 /-- The segments of the pieces laid end to end from `start`, each lasting its duration (a negative
 one counts as zero). -/

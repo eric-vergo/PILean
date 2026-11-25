@@ -127,11 +127,11 @@ def timelineChecks : Array (String × Bool) := Id.run do
       (List.range (n + 1)).all fun k =>
         let t := cf.restTime k
         cf.locate t == (.rest k, 0.5) && cut.locate (cut.restTime k) == (.rest k, 0.5))
-    r := r.push (s!"timeline: {name}: moves are eased, steps that do not move are not",
-      (List.range n).all fun j => match cf.segments.find? (·.kind == .move j) with
-        | some s => s.easing == (if steps[j]!.kind == .move then p.easing else .linear) &&
-          s.dur == steps[j]!.dur
-        | none => false)
+    r := r.push (s!"timeline: {name}: each move has its step's duration and easing",
+      (List.range n).all fun j => match cf.segments.find? (·.kind == .move j), steps[j]? with
+        | some s, some st => s.easing == st.easing && s.dur == st.dur &&
+          st.easing == (if st.kind == .move then p.easing else .linear)
+        | _, _ => false)
   -- exact lengths
   r := r.push ("timeline: 1 key: the cycle is the first rest (and the crossfade)",
     (Timeline.build #[] cutPacing).cycle == 1.2 && (Timeline.build #[] p).cycle == 1.6)
@@ -162,6 +162,24 @@ def timelineChecks : Array (String × Bool) := Id.run do
       zero.locate 1 == (.rest 0, 0))
   r := r.push ("timeline: a rest that is missing has the time 0",
     tl.restTime 9 == 0)
+  -- every duration and easing, with steps of their own durations and easings
+  let custom : Array Step := #[{ dur := 0.7, easing := .spline 0.1 0.2 0.3 0.4 },
+    { kind := .idle, dur := 1.3, easing := .linear }, { dur := 0.25, easing := .linear }]
+  let cp : Pacing := { hold := 0.5, firstHold := 2, lastHold := 3, seam := .crossfade 0.6 }
+  let ct := Timeline.build custom cp
+  r := r.push ("timeline: every segment has the duration and easing of its kind",
+    (ct.segments.map fun s => (s.kind, s.dur)).toList ==
+        [(.seamIn, 0.3), (.rest 0, 2), (.move 0, 0.7), (.rest 1, 0.5), (.move 1, 1.3),
+          (.rest 2, 0.5), (.move 2, 0.25), (.rest 3, 3), (.seamOut, 0.3)] &&
+      (ct.segments.map (·.easing)).toList ==
+        [.linear, .linear, .spline 0.1 0.2 0.3 0.4, .linear, .linear, .linear, .linear, .linear,
+          .linear])
+  let ep : Pacing := { easing := .spline 0.3 0 0.7 1 }
+  r := r.push ("timeline: rests are not eased whatever the pacing's easing",
+    (Timeline.build (Array.replicate 3 ep.turnStep) ep).segments.all fun s =>
+      match s.kind with
+      | .move _ => s.easing == .spline 0.3 0 0.7 1
+      | _ => s.easing == .linear)
   return r
 
 /-! ### SMIL attributes -/
@@ -171,6 +189,9 @@ def attrOf (n : Node) (key : String) : String :=
   match n with
   | .element _ attrs _ => (Smil.attr? attrs key).getD ""
   | .text _ => ""
+
+/-- The element, or an empty text when there is none. -/
+def get (n : Option Node) : Node := n.getD (.text "")
 
 /-- The number of entries of a list separated by `;`. -/
 def count (s : String) : Nat := (Smil.entries s).size
@@ -207,6 +228,16 @@ def expected (tl : Timeline) (valueAt : Nat → Float) (t : Rat) : Float :=
   | (.seamIn, _) => valueAt 0
   | (.seamOut, _) => valueAt (tl.keys - 1)
 
+/-- Whether exact times start at `0`, end at `1` and are each at least `g` after the one before. -/
+def spreadWell (g : Rat) (ts : List Rat) : Bool :=
+  ts.head? == some 0 && ts.getLast? == some 1 && (ts.zip ts.tail).all fun (a, b) => a + g ≤ b
+
+/-- Whether written key times start at `0`, end at `1` and increase strictly. -/
+def writtenWell (s : String) : Bool :=
+  let ts := (Smil.entries s).filterMap Smil.decimal?
+  ts.size == count s && ts[0]? == some 0 && ts.back? == some 1 &&
+    (ts.toList.zip ts.toList.tail).all fun (a, b) => a < b
+
 /-- The SMIL checks. -/
 def smilChecks : Array (String × Bool) := Id.run do
   let mut r : Array (String × Bool) := #[]
@@ -216,14 +247,13 @@ def smilChecks : Array (String × Bool) := Id.run do
       let tl := Timeline.build steps p
       let n := tl.segments.size + 1
       let anims := #[Smil.animateRotate tl angleAt 50 60, Smil.animateTranslate tl (fun k =>
-        (k.toFloat, 2 * k.toFloat)), Smil.animateOpacity tl (fun k => if k == 1 then 0 else 1)] ++
-        (Smil.animateD tl pathAt).toArray ++ (Smil.seamOpacity tl).toArray
+        (k.toFloat, 2 * k.toFloat)), Smil.animateOpacity tl (fun k => if k == 1 then 0 else 1),
+        Smil.animateD tl pathAt, Smil.seamOpacity tl].filterMap id
       r := r.push (s!"smil: {name}, {seam}: n values, n key times, n - 1 splines, one clock",
         anims.size == (if seam == "cut" then 4 else 5) && anims.all (countsAgree n) &&
-          anims.all fun a => attrOf a "dur" == attrOf anims[0]! "dur" &&
-            attrOf a "keyTimes" == attrOf anims[0]! "keyTimes")
+          Smil.clockProblem? (Svg.el "g" #[] anims) == none)
   let tl := decimalTimeline
-  let rot := Smil.animateRotate tl angleAt 50 60
+  let rot := get (Smil.animateRotate tl angleAt 50 60)
   r := r.push ("smil: the decimal timeline is 10 seconds and its key times are written exactly",
     tl.cycle == 10 && attrOf rot "dur" == "10s" &&
       attrOf rot "keyTimes" == "0;0.05;0.2;0.3;0.4;0.5;0.6;0.7;0.95;1")
@@ -232,38 +262,80 @@ def smilChecks : Array (String × Bool) := Id.run do
       216 50 60;216 50 60;216 50 60" &&
       attrOf rot "keySplines" == "0 0 1 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0.42 0 0.58 1;\
         0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1")
+  let custom : Array Step := #[{ dur := 0.7, easing := .spline 0.1 0.2 0.3 0.4 },
+    { kind := .idle, dur := 1.3, easing := .linear }, { dur := 0.25, easing := .linear }]
+  r := r.push ("smil: each interval is written with its segment's easing",
+    attrOf (get (Smil.animateOpacity (Timeline.build custom {}) fun _ => 1)) "keySplines" ==
+      "0 0 1 1;0 0 1 1;0.1 0.2 0.3 0.4;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1")
   r := r.push ("smil: the motion layer fades in at the start of the cycle and out at its end",
     (Smil.seamOpacity tl).map (attrOf · "values") == some "0;1;1;1;1;1;1;1;1;0" &&
       (Smil.seamOpacity (Timeline.build (turns 3) cutPacing)).isNone)
   r := r.push ("smil: paths that cannot be interpolated give no morph",
     (Smil.animateD tl fun k => if k == 2 then "M0 0 L1 1" else pathAt k).isNone)
-  -- equal key times: a rest of length zero
-  let z := Timeline.build (turns 2) { hold := 0, seam := .cut }
-  let raw := z.keyTimes
-  let spread := Smil.times z
-  r := r.push ("smil: a segment of length zero gives equal key times, kept with a gap of 0",
-    (List.range (raw.size - 1)).any (fun i => raw[i]! == raw[i + 1]!) &&
-      Smil.times z { gap := 0 } == raw)
-  r := r.push ("smil: with the default gap the key times increase strictly from 0 to 1",
-    spread.size == raw.size && spread[0]? == some 0 && spread.back? == some 1 &&
-      (List.range (spread.size - 1)).all (fun i => spread[i]! + 1 / 10000 ≤ spread[i + 1]!) &&
-      (raw.zip spread).all fun (a, b) => (a - b) * (a - b) ≤ 1 / 10000 ^ 2 * 4)
-  r := r.push ("smil: the written key times increase strictly too",
-    let ts := (Smil.entries (attrOf (Smil.animateOpacity z fun _ => 1) "keyTimes")).filterMap
-      Raster.parseNumber?
-    (List.range (ts.size - 1)).all fun i => ts[i]! < ts[i + 1]!)
-  r := r.push ("smil: crowded times are spread by at most half of each interval",
-    let s := Smil.spread (1 / 2) #[0, 0, 0, 0, 1]
-    s == #[0, 1 / 8, 2 / 8, 3 / 8, 1])
+  r := r.push ("smil: a value with a ; is refused",
+    (Smil.animateD tl fun k => if k == 2 then "M0 0;L1 1" else pathAt k).isNone)
+  -- a cycle of length zero
+  let still : Pacing := { firstHold := 0, lastHold := 0, hold := 0, seam := .cut }
+  let zero := Timeline.build #[{ dur := 0 }] still
+  r := r.push ("smil: a cycle of length zero gives no element",
+    zero.cycle == 0 && (Smil.animateRotate zero angleAt 0 0).isNone &&
+      (Smil.animateOpacity zero fun _ => 1).isNone && (Smil.animateD zero pathAt).isNone &&
+      (Smil.animateTranslate zero fun _ => (0, 0)).isNone &&
+      (Smil.seamOpacity
+        (Timeline.build #[{ dur := 0 }] { still with seam := .crossfade 0 })).isNone &&
+      (Smil.nest zero [(0, 0, angleAt)] #[]).isNone)
+  -- coinciding boundaries
+  let cases : Array (String × Timeline) :=
+    #[("a rest of length zero", Timeline.build (turns 2) { hold := 0, seam := .cut }),
+      ("a crossfade of length zero", Timeline.build (turns 1) { seam := .crossfade 0 }),
+      ("a last rest of length zero", Timeline.build (turns 1) { seam := .cut, lastHold := 0 }),
+      ("a first rest of length zero", Timeline.build (turns 1) { seam := .cut, firstHold := 0 }),
+      ("five steps of length zero in a row", Timeline.build (Array.replicate 5 { dur := 0 })
+        { seam := .crossfade 0, hold := 0 })]
+  for (name, z) in cases do
+    let raw := z.keyTimes
+    let spread := Smil.times z
+    let written := attrOf (get (Smil.animateOpacity z fun _ => 1)) "keyTimes"
+    r := r.push (s!"smil: {name}: equal key times, kept as they are with a gap of 0",
+      (raw.toList.zip raw.toList.tail).any (fun (a, b) => a == b) &&
+        Smil.times z { gap := 0 } == raw)
+    r := r.push (s!"smil: {name}: the key times go from 0 to 1, at least the gap apart, \
+        each moved by at most the gap for each boundary",
+      spread.size == raw.size && spreadWell (1 / 10000) spread.toList &&
+        (raw.zip spread).all fun (a, b) => (a - b) * (a - b) ≤ ((raw.size : Rat) / 10000) ^ 2)
+    r := r.push (s!"smil: {name}: the written key times go from 0 to 1 and increase",
+      writtenWell written)
+    r := r.push (s!"smil: {name}: a browser model animates every element",
+      (Smil.valueAt (get (Smil.animateRotate z angleAt 0 0)) 0.1).isSome)
+  r := r.push ("smil: a gap larger than its neighbours spreads them",
+    Smil.spreadList (1 / 10) [0, 1 / 100, 2 / 100, 1] == [0, 1 / 10, 2 / 10, 1] &&
+      Smil.spreadList (1 / 4) [0, 0, 1, 1] == [0, 1 / 4, 3 / 4, 1] &&
+      Smil.spreadList (1 / 10) [0, 1 / 2, 1, 1] == [0, 1 / 2, 9 / 10, 1] &&
+      Smil.spreadList (1 / 10) [0, 0, 0, 1, 1, 1] == [0, 1 / 10, 2 / 10, 8 / 10, 9 / 10, 1])
+  r := r.push ("smil: the effective gap is at most half the cycle in all",
+    Smil.effectiveGap 1 4 == 1 / 8 && Smil.effectiveGap 0 4 == 0 && Smil.effectiveGap (-1) 4 == 0)
+  r := r.push ("smil: a gap below the printed precision is raised, so key times print apart",
+    let z := Timeline.build (turns 2) { hold := 0, seam := .cut }
+    Smil.effectiveGap (1 / 10 ^ 12) 5 == Smil.minGap &&
+      writtenWell (attrOf (get (Smil.animateOpacity z (fun _ => 1) { gap := 1 / 10 ^ 12 }))
+        "keyTimes"))
+  -- the duration
+  r := r.push ("smil: the same cycle is written alike, and a third of a second to the microsecond",
+    Smil.durText (Timeline.build (turns 2) cutPacing).cycle ==
+        Smil.durText (Timeline.build #[{ dur := 2.6 }] cutPacing).cycle &&
+      Smil.durText (1 / 3) == "0.333333s" && Smil.durText 22.6 == "22.6s")
   return r
 
 /-! ### The evaluator -/
+
+/-- An `animate` element with the attributes. -/
+def anim (attrs : Array (String × String)) : Node := Svg.el "animate" attrs
 
 /-- The evaluator checks. -/
 def evaluatorChecks : Array (String × Bool) := Id.run do
   let mut r : Array (String × Bool) := #[]
   let tl := decimalTimeline
-  let rot := Smil.animateRotate tl angleAt 50 60
+  let rot := get (Smil.animateRotate tl angleAt 50 60)
   -- 50 times spread over the cycle, none on a boundary, and the same times a cycle later
   let samples : List Rat := (List.range 50).map fun (j : Nat) => (j : Rat) / 5 + 7 / 100
   r := r.push ("evaluator: animateRotate gives the eased angle at 50 times within 1e-9",
@@ -281,46 +353,141 @@ def evaluatorChecks : Array (String × Bool) := Id.run do
   r := r.push ("evaluator: the motion layer's opacity is 1 between the seams, 0 at the wrap",
     match Smil.seamOpacity tl with
     | some a => Smil.valueAt a 0 == some #[0] && Smil.valueAt a 5 == some #[1] &&
-      (Smil.valueAt a 9.75).any (fun v => near v[0]! 0.5 1e-12) &&
-      (Smil.valueAt a 0.25).any (fun v => near v[0]! 0.5 1e-12)
+      (Smil.valueAt a 9.75).any (fun v => near (v.getD 0 9) 0.5 1e-12) &&
+      (Smil.valueAt a 0.25).any (fun v => near (v.getD 0 9) 0.5 1e-12)
     | none => false)
-  let morph := (Smil.animateD tl pathAt).getD (.text "")
+  let morph := get (Smil.animateD tl pathAt)
   r := r.push ("evaluator: the morph moves the path's coordinates with the easing",
     samples.all fun t => match Smil.valueAt morph (Exact.toFloat t) with
-      | some v => v.size == 8 && near v[0]! (expected tl (fun k => 10 * k.toFloat) t) 1e-9 &&
-        near v[2]! (expected tl (fun k => 10 * k.toFloat + 20) t) 1e-9
+      | some v => v.size == 8 &&
+        near (v.getD 0 0) (expected tl (fun k => 10 * k.toFloat) t) 1e-9 &&
+        near (v.getD 2 0) (expected tl (fun k => 10 * k.toFloat + 20) t) 1e-9
       | none => false)
   -- the default pacing, 13 keys: key times rounded to eight decimals of a 22.6-second cycle
   let big := Timeline.build mixed {}
-  let rotBig := Smil.animateRotate big angleAt 0 0
+  let rotBig := get (Smil.animateRotate big angleAt 0 0)
   r := r.push ("evaluator: 13 keys with the default pacing within 1e-3 degrees",
     (List.range 200).all fun j =>
       let t : Rat := (j : Rat) * big.cycle / 200 + 1 / 1000
       match Smil.valueAt rotBig (Exact.toFloat t) with
       | some #[θ, _, _] => near θ (expected big angleAt t) 1e-3
       | _ => false)
-  r := r.push ("evaluator: discrete and linear modes, and malformed input",
-    let el := fun (attrs : Array (String × String)) => Svg.el "animate" attrs
-    Smil.valueAt (el #[("values", "0;10;20"), ("dur", "3s"), ("calcMode", "discrete")]) 1.5 ==
+  r := r.push ("evaluator: discrete and linear modes, clock values",
+    Smil.valueAt (anim #[("values", "0;10;20"), ("dur", "3s"), ("calcMode", "discrete")]) 1.5 ==
         some #[10] &&
-      Smil.valueAt (el #[("values", "0;10"), ("dur", "2000ms")]) 0.5 == some #[2.5] &&
-      Smil.valueAt (el #[("values", "0;10"), ("dur", "2s"), ("keyTimes", "0;0.5;1")]) 1 == none &&
-      Smil.valueAt (el #[("values", "0;10"), ("dur", "0s")]) 1 == none &&
-      Smil.valueAt (el #[("values", "0 1;10"), ("dur", "1s")]) 0.5 == none &&
-      Smil.valueAt (el #[("values", "0;10"), ("dur", "1s"), ("calcMode", "paced")]) 0.5 == none)
+      Smil.valueAt (anim #[("values", "0;10"), ("dur", "2000ms")]) 0.5 == some #[2.5] &&
+      Smil.valueAt (anim #[("values", "0;10"), ("dur", "0.05min")]) 1.5 == some #[5] &&
+      Smil.valueAt (anim #[("values", "0;10"), ("dur", "4")]) 1 == some #[2.5])
+  let spline := fun (kt ks : String) => anim #[("values", "0;10;20"), ("dur", "1s"),
+    ("calcMode", "spline"), ("keyTimes", kt), ("keySplines", ks)]
+  r := r.push ("evaluator: a well-formed spline animation has a value",
+    (Smil.valueAt (spline "0;0.5;1" "0 0 1 1;0.42 0 0.58 1") 0.25).isSome)
+  r := r.push ("evaluator: what a browser refuses has no value",
+    let bad : List Node :=
+      [spline "0.1;0.5;1" "0 0 1 1;0 0 1 1", spline "0;0.5;0.9" "0 0 1 1;0 0 1 1",
+        spline "0;0.6;0.5" "0 0 1 1;0 0 1 1", spline "0;1" "0 0 1 1",
+        spline "0;0.5;1" "0 0 1 1", spline "0;0.5;1" "0 0 1 1;0 0 1 1.2",
+        spline "0;0.5;1" "0 0 1 1;-0.1 0 1 1", spline "0;0.5;1" "0 0 1 1;0 0 1",
+        anim #[("values", "0;10"), ("dur", "0s")], anim #[("values", "0;10"), ("dur", "-1s")],
+        anim #[("values", "0;10"), ("dur", "indefinite")],
+        anim #[("values", "0;10"), ("dur", "1e3s")],
+        anim #[("values", "0;10")], anim #[("values", "0 1;10"), ("dur", "1s")],
+        anim #[("values", "0;10"), ("dur", "1s"), ("calcMode", "paced")],
+        anim #[("values", "0;10"), ("dur", "2s"), ("keyTimes", "0;0.5;1")],
+        anim #[("values", "0;1;2"), ("dur", "1s"), ("calcMode", "discrete"),
+          ("keyTimes", "0.2;0.5;0.7")]]
+    bad.all fun n => (Smil.valueAt n 0.3).isNone)
+  r := r.push ("evaluator: the key times of a last rest of length zero, unspread, are refused",
+    (Smil.valueAt (spline "0;0.0001;1.0001" "0 0 1 1;0 0 1 1") 0.5).isNone &&
+      (Smil.valueAt (anim #[("values", "0;0;90;90;90;90"), ("dur", "4s"), ("calcMode", "spline"),
+        ("keyTimes", "0;0.0001;0.3;0.55;1;1.0001"),
+        ("keySplines", "0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1;0 0 1 1")]) 0.5).isNone)
   return r
 
-/-! ### The invariant and inertness -/
+/-! ### Turns -/
+
+/-- The rotation of a point by `θ` degrees about `(cx, cy)`, as SVG's `rotate(θ cx cy)`. -/
+def rotate (θ cx cy : Float) (q : Float × Float) : Float × Float :=
+  let a := θ * 3.141592653589793 / 180
+  let (x, y) := (q.1 - cx, q.2 - cy)
+  (cx + x * a.cos - y * a.sin, cy + x * a.sin + y * a.cos)
+
+/-- The `animateTransform` elements of a chain of groups, outermost first. -/
+partial def chain : Node → List Node
+  | .element "g" _ children =>
+    let own := children.toList.filter fun
+      | .element n _ _ => n == "animateTransform" | _ => false
+    own ++ (children.toList.flatMap fun c => match c with
+      | .element "g" _ _ => chain c | _ => [])
+  | _ => []
+
+/-- Where the point `q` is drawn at the time `t` inside a chain of turning groups: the innermost
+group's turn first. -/
+def drawnAt (tree : Node) (t : Float) (q : Float × Float) : Option (Float × Float) :=
+  (chain tree).reverse.foldlM (init := q) fun q a => do
+    let v ← Smil.valueAt a t
+    match v with
+    | #[θ, cx, cy] => some (rotate θ cx cy q)
+    | _ => none
+
+/-- The turn checks. -/
+def turnChecks : Array (String × Bool) := Id.run do
+  let mut r : Array (String × Bool) := #[]
+  r := r.push ("turns: the angles after each key are the exact sums of the turns",
+    (List.range 5).map (Smil.turnAngles #[1 / 4, 0, 1 / 2]) == [0, 90, 90, 270, 270] &&
+      (List.range 4).map (Smil.uprightAngles #[1 / 4, 0, 1 / 2]) == [0, -90, -90, -270] &&
+      (List.range 4).map (Smil.stepAngles 1 (1 / 3)) == [0, 0, 120, 120] &&
+      Smil.turnAngles #[1 / 3, 1 / 3, 1 / 3] 3 == 360)
+  -- a point at (2, 0) turned a quarter about (0, 0) in step 0, then a quarter about (1, 0)
+  let tl := Timeline.build (turns 2) { firstHold := 1, hold := 1, lastHold := 1, seam := .cut }
+  let turnsAt := [((0 : Float), (0 : Float), Smil.stepAngles 0 (1 / 4)),
+    ((1 : Float), (0 : Float), Smil.stepAngles 1 (1 / 4))]
+  let tree := get (Smil.nest tl turnsAt #[Svg.el "circle" #[("cx", "2"), ("cy", "0"), ("r", "1")]])
+  let posAt := fun (t : Rat) => drawnAt tree (Exact.toFloat t) (2, 0)
+  let closeTo := fun (a : Option (Float × Float)) (b : Float × Float) =>
+    a.any fun (x, y) => near x b.1 1e-9 && near y b.2 1e-9
+  r := r.push ("turns: nest puts the earliest turn innermost (exact positions at the rests)",
+    closeTo (posAt (tl.restTime 0)) (2, 0) && closeTo (posAt (tl.restTime 1)) (0, 2) &&
+      closeTo (posAt (tl.restTime 2)) (-1, -1) &&
+      Smil.invariantProblem? 64 tree == none && Smil.clockProblem? tree == none)
+  r := r.push ("turns: the drawn point is the composed exact turns at 40 times",
+    (List.range 40).all fun j =>
+      let t : Rat := (j : Rat) * tl.cycle / 40 + 1 / 1000
+      let θ₀ := expected tl (Smil.stepAngles 0 (1 / 4)) t
+      let θ₁ := expected tl (Smil.stepAngles 1 (1 / 4)) t
+      let q := rotate θ₁ 1 0 (rotate θ₀ 0 0 (2, 0))
+      closeTo (posAt t) q && (q.1 - 1) ^ 2 + q.2 ^ 2 > 0)
+  r := r.push ("turns: during a turn the point stays on its circle (a true arc)",
+    (List.range 20).all fun j =>
+      let t : Rat := 1 + (j : Rat) / 20
+      (posAt t).any fun (x, y) => near (x * x + y * y) 4 1e-9)
+  -- the other order puts the point elsewhere
+  let wrong := get (Smil.nest tl turnsAt.reverse #[])
+  r := r.push ("turns: the other order of the groups would draw another point",
+    !closeTo (drawnAt wrong (Exact.toFloat (tl.restTime 2)) (2, 0)) (-1, -1))
+  -- an upright label: the counter-rotation about its anchor undoes the whole angle
+  let upright := Smil.group (get (Smil.animateRotate tl (Smil.uprightAngles #[1 / 4, 1 / 4]) 2 0))
+    #[Svg.text 2 0 "P" 12 ⟨0, 0, 0, 255⟩ .start]
+  let label := get (Smil.nest tl turnsAt #[upright])
+  r := r.push ("turns: an upright label's net angle is zero at all times",
+    (chain label).length == 3 && Smil.invariantProblem? 64 label == none &&
+      (List.range 40).all fun j =>
+        let t := Exact.toFloat ((j : Rat) * tl.cycle / 40 + 1 / 1000)
+        let angles := (chain label).filterMap fun a => (Smil.valueAt a t).bind (·[0]?)
+        angles.length == 3 && near (angles.foldl (· + ·) 0) 0 1e-9)
+  return r
+
+/-! ### The invariant, the clock and inertness -/
 
 /-- A tree of everything the builders write: a turning group around a sliding group around a
 morphing path and a fading label, inside the faded motion layer. -/
 def sample (tl : Timeline) : Node :=
   let path := Svg.el "path" #[("d", pathAt 0), ("fill", "#336699")]
     ((Smil.animateD tl pathAt).toArray)
-  let label := Smil.group (Smil.animateOpacity tl fun k => if k == 1 then 0 else 1)
+  let label := Smil.group (get (Smil.animateOpacity tl fun k => if k == 1 then 0 else 1))
     #[Svg.text 10 10 "a" 12 ⟨0, 0, 0, 255⟩ .start]
-  let slide := Smil.group (Smil.animateTranslate tl fun k => (k.toFloat, 0)) #[path, label]
-  let turn := Smil.group (Smil.animateRotate tl angleAt 50 60) #[slide]
+  let slide := Smil.group (get (Smil.animateTranslate tl fun k => (k.toFloat, 0))) #[path, label]
+  let turn := Smil.group (get (Smil.animateRotate tl angleAt 50 60)) #[slide]
   match Smil.seamOpacity tl with
   | some s => Smil.group s #[turn]
   | none => turn
@@ -336,14 +503,24 @@ def invariantChecks : Array (String × Bool) := Id.run do
     r := r.push (s!"invariant: no static transform is written ({name})",
       !(doc.splitOn " transform=").length > 1 &&
         (doc.splitOn "attributeName=\"transform\"").length == 3)
+    r := r.push (s!"clock: every animation of the tree is on one clock ({name})",
+      Smil.clockProblem? tree == none)
     r := r.push (s!"inert: everything the builders write is inert ({name})", isInert doc)
   let tl := decimalTimeline
-  let rot := Smil.animateRotate tl angleAt 0 0
+  let rot := get (Smil.animateRotate tl angleAt 0 0)
   let planted : Array (String × Node) :=
     #[("a static transform", Svg.el "g" #[("transform", "rotate(3)")] #[]),
+      ("a gradientTransform", Svg.el "linearGradient" #[("gradientTransform", "rotate(3)")] #[]),
+      ("a patternTransform", Svg.el "g" #[("patternTransform", "rotate(3)")] #[]),
+      ("a style with a transform", Svg.el "g" #[("style", "Transform: rotate(3deg)")] #[]),
+      ("an additive animation", Svg.el "path" #[] #[Svg.el "animate"
+        #[("attributeName", "d"), ("additive", "sum")]]),
+      ("an accumulating animation", Svg.el "g" #[] #[Svg.el "animate"
+        #[("attributeName", "opacity"), ("accumulate", "sum")]]),
       ("an animated colour", Svg.el "g" #[] #[Svg.el "animate" #[("attributeName", "fill")]]),
       ("an animated fill-opacity",
         Svg.el "g" #[] #[Svg.el "animate" #[("attributeName", "fill-opacity")]]),
+      ("an animated style", Svg.el "g" #[] #[Svg.el "animate" #[("attributeName", "style")]]),
       ("an animateTransform in a g with a class", Svg.el "g" #[("class", "a")] #[rot]),
       ("an animateTransform in a path", Svg.el "path" #[] #[rot]),
       ("two animateTransforms in one g", Svg.el "g" #[] #[rot, rot]),
@@ -356,10 +533,20 @@ def invariantChecks : Array (String × Bool) := Id.run do
         #[Svg.el "rect" #[("transform", "scale(2)")]]]])]
   for (name, n) in planted do
     r := r.push (s!"invariant: {name} is reported", (Smil.invariantProblem? 64 n).isSome)
+  let other := get (Smil.animateRotate (Timeline.build (turns 3) {}) angleAt 0 0)
+  let noBegin := Svg.el "animate" #[("attributeName", "opacity"), ("values", "0;1"),
+    ("dur", "10s"), ("keyTimes", "0;1"), ("calcMode", "linear"), ("repeatCount", "indefinite")]
+  r := r.push ("clock: two timelines in one tree are reported",
+    (Smil.clockProblem? (Svg.el "g" #[] #[Smil.group rot #[], Smil.group other #[]])).isSome)
+  r := r.push ("clock: an animation without begin is reported",
+    (Smil.clockProblem? (Svg.el "g" #[] #[noBegin])).isSome)
+  r := r.push ("clock: a tree without animations is on no clock and fine",
+    Smil.clockProblem? (Svg.el "g" #[] #[Svg.el "rect" #[]]) == none)
   return r
 
 /-- All checks. -/
 def checks : Array (String × Bool) :=
-  easingChecks ++ timelineChecks ++ smilChecks ++ evaluatorChecks ++ invariantChecks
+  easingChecks ++ timelineChecks ++ smilChecks ++ evaluatorChecks ++ turnChecks ++
+    invariantChecks
 
 end PILeanTest.TimelineChecks

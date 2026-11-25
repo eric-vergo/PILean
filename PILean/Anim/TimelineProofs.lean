@@ -13,6 +13,10 @@ A timeline built from `n` steps (`Timeline.build`) has `n + 1` key frames, and:
   for each step `i` the move of step `i` and the rest on key `i + 1`, with the fade in first and
   the fade out last under a crossfade; so there are `2 (n + 1) - 1` segments under a cut and
   `2 (n + 1) + 1` under a crossfade (`build_size_cut`, `build_size_crossfade`).
+* `build_segment_spec`, `build_move_spec`, `build_rest_spec`, `build_seam_spec`: the move of step
+  `j` lasts as long as step `j` and has its easing; the rest on key `0` lasts `firstHold`, the rest
+  on the last key `lastHold`, any other rest `hold`; the fades, which exist only under a crossfade
+  `d`, last `d / 2` each; rests and fades are not eased (a negative duration counting as zero).
 * `build_start_zero`, `build_start_succ`, `build_stop_last`, `build_dur_nonneg`: the segments tile
   the cycle: the first starts at `0`, each starts where the one before it ends, the last ends at
   the end of the cycle, and none has a negative duration.
@@ -137,21 +141,12 @@ theorem findSeg_layout (s u : Rat) (l : List Piece) (h₁ : s ≤ u) (h₂ : u <
 
 /-! ### The kinds of the segments -/
 
-/-- The steps give two pieces each: the move and the rest after it. -/
-theorem length_stepPieces (p : Pacing) (i : Nat) (l : List Step) :
-    (stepPieces p i l).length = 2 * l.length := by
-  induction l generalizing i with
-  | nil => rfl
-  | cons a l ih => simp [stepPieces, ih]; omega
-
-/-- The kinds of the step pieces from step `i` on: the move of each step and the rest on the key
-after it. -/
-theorem kinds_stepPieces (p : Pacing) (i : Nat) (l : List Step) :
-    (stepPieces p i l).map (·.1) =
-      (List.range' i l.length).flatMap fun j => [.move j, .rest (j + 1)] := by
-  induction l generalizing i with
-  | nil => rfl
-  | cons a l ih => simp [stepPieces, ih, List.range'_succ]
+/-- The steps give two segments each: the move and the rest after it. -/
+theorem length_flatMap_steps (n : Nat) :
+    ((List.range n).flatMap fun j => [SegKind.move j, .rest (j + 1)]).length = 2 * n := by
+  induction n with
+  | zero => rfl
+  | succ n ih => simp [List.range_succ, List.flatMap_append, ih]; omega
 
 /-- Laying pieces end to end keeps their kinds. -/
 theorem kinds_layout (s : Rat) (l : List Piece) :
@@ -159,6 +154,35 @@ theorem kinds_layout (s : Rat) (l : List Piece) :
   induction l generalizing s with
   | nil => rfl
   | cons a l ih => obtain ⟨k, d, e⟩ := a; simp [layout, ih]
+
+/-- Segment `i` of pieces laid end to end has the kind, the duration (at least zero) and the
+easing of piece `i`. -/
+theorem layout_getElem (s : Rat) (l : List Piece) (i : Nat) (h : i < (layout s l).length) :
+    (layout s l)[i].kind = (l[i]'(by simpa [length_layout] using h)).1 ∧
+      (layout s l)[i].dur = max (l[i]'(by simpa [length_layout] using h)).2.1 0 ∧
+      (layout s l)[i].easing = (l[i]'(by simpa [length_layout] using h)).2.2 := by
+  induction l generalizing s i with
+  | nil => simp [layout] at h
+  | cons a l ih =>
+    obtain ⟨k, d, e⟩ := a
+    cases i with
+    | zero => simp [layout]
+    | succ i =>
+      simp only [layout, List.getElem_cons_succ]
+      exact ih _ _ (by simpa [layout] using h)
+
+/-- A piece with a duration adds at least that duration (counted as at least zero) to the total. -/
+theorem le_total_of_mem {x : Piece} {l : List Piece} (h : x ∈ l) : max x.2.1 0 ≤ total l := by
+  induction l with
+  | nil => simp at h
+  | cons a l ih =>
+    obtain ⟨k, d, e⟩ := a
+    have := total_nonneg l
+    have := max_nonneg d
+    simp only [total]
+    rcases List.mem_cons.mp h with h | h
+    · subst h; grind
+    · have := ih h; grind
 
 variable (steps : Array Step) (p : Pacing)
 
@@ -172,13 +196,17 @@ theorem build_cycle : (build steps p).cycle = total (pieces steps p) := rfl
 theorem build_segments : (build steps p).segments.toList = layout 0 (pieces steps p) := by
   simp [build]
 
+/-- The kinds of the segments are `kinds`. -/
+theorem build_kinds : (build steps p).segments.toList.map (·.kind) = kinds steps p := by
+  rw [build_segments, kinds_layout, pieces, List.map_map]
+  exact List.map_id _
+
 /-- Under a cut, the segments are the rest on key `0`, then for each step `i` the move of step `i`
 and the rest on key `i + 1`. -/
 theorem build_kinds_cut (h : p.seam = .cut) :
     (build steps p).segments.toList.map (·.kind) =
       .rest 0 :: (List.range steps.size).flatMap fun j => [.move j, .rest (j + 1)] := by
-  rw [build_segments, kinds_layout, pieces, h]
-  simp [kinds_stepPieces, List.range_eq_range']
+  rw [build_kinds, kinds, h]
 
 /-- Under a crossfade, the segments are the fade in, the rest on key `0`, then for each step `i`
 the move of step `i` and the rest on key `i + 1`, and the fade out. -/
@@ -186,31 +214,87 @@ theorem build_kinds_crossfade (d : Rat) (h : p.seam = .crossfade d) :
     (build steps p).segments.toList.map (·.kind) =
       .seamIn :: .rest 0 :: ((List.range steps.size).flatMap fun j => [.move j, .rest (j + 1)]) ++
         [.seamOut] := by
-  rw [build_segments, kinds_layout, pieces, h]
-  simp [kinds_stepPieces, List.range_eq_range']
+  rw [build_kinds, kinds, h]
 
 /-- There is one segment for each piece. -/
-theorem build_size_eq : (build steps p).segments.size = (pieces steps p).length := by
-  simp [build, length_layout]
+theorem build_size_eq : (build steps p).segments.size = (kinds steps p).length := by
+  simp [build, length_layout, pieces]
 
 /-- Under a cut, a timeline of `n` key frames has `2 n - 1` segments. -/
 theorem build_size_cut (h : p.seam = .cut) :
     (build steps p).segments.size = 2 * (build steps p).keys - 1 := by
-  rw [build_size_eq, build_keys, pieces, h]
-  simp [length_stepPieces]
+  rw [build_size_eq, build_keys, kinds, h]
+  simp only [List.length_cons, length_flatMap_steps]
   omega
 
 /-- Under a crossfade, a timeline of `n` key frames has `2 n + 1` segments. -/
 theorem build_size_crossfade (d : Rat) (h : p.seam = .crossfade d) :
     (build steps p).segments.size = 2 * (build steps p).keys + 1 := by
-  rw [build_size_eq, build_keys, pieces, h]
-  simp [length_stepPieces]
+  rw [build_size_eq, build_keys, kinds, h]
+  simp only [List.length_cons, List.length_append, length_flatMap_steps, List.length_nil]
   omega
 
 /-- A timeline has at least one segment (the rest on key `0`). -/
 theorem build_size_pos : 0 < (build steps p).segments.size := by
-  rw [build_size_eq, pieces]
+  rw [build_size_eq, kinds]
   split <;> simp
+
+/-! ### Durations and easings -/
+
+/-- Every segment has the duration (at least zero) and the easing `spec` gives its kind. -/
+theorem build_segment_spec (i : Nat) (h : i < (build steps p).segments.size) :
+    (build steps p).segments[i].dur = max (spec steps p (build steps p).segments[i].kind).1 0 ∧
+      (build steps p).segments[i].easing = (spec steps p (build steps p).segments[i].kind).2 := by
+  obtain ⟨hk, hd, he⟩ := layout_getElem 0 (pieces steps p) i (by simpa [build] using h)
+  simp only [build, List.getElem_toArray]
+  rw [hd, he, hk]
+  simp [pieces]
+
+/-- The kind of every segment is one of `kinds`. -/
+theorem build_kind_mem (i : Nat) (h : i < (build steps p).segments.size) :
+    (build steps p).segments[i].kind ∈ kinds steps p := by
+  rw [← build_kinds]
+  exact List.mem_map.mpr ⟨_, List.getElem_mem (by simpa using h), rfl⟩
+
+/-- The move of step `j` lasts as long as step `j` (at least zero) and has its easing. -/
+theorem build_move_spec (i j : Nat) (h : i < (build steps p).segments.size)
+    (hk : (build steps p).segments[i].kind = .move j) :
+    ∃ hj : j < steps.size, (build steps p).segments[i].dur = max steps[j].dur 0 ∧
+      (build steps p).segments[i].easing = steps[j].easing := by
+  have hm := build_kind_mem steps p i h
+  rw [hk] at hm
+  have hj : j < steps.size := by
+    simp only [kinds] at hm
+    split at hm <;> simp at hm <;> omega
+  obtain ⟨hd, he⟩ := build_segment_spec steps p i h
+  refine ⟨hj, ?_, ?_⟩ <;> simp [hd, he, hk, spec, hj]
+
+/-- The rest on key `k` lasts `firstHold` for `k = 0`, `lastHold` for the last key and `hold`
+otherwise (at least zero), and is not eased. -/
+theorem build_rest_spec (i k : Nat) (h : i < (build steps p).segments.size)
+    (hk : (build steps p).segments[i].kind = .rest k) :
+    (build steps p).segments[i].dur =
+        max (if k = 0 then p.firstHold else if k = steps.size then p.lastHold else p.hold) 0 ∧
+      (build steps p).segments[i].easing = .linear := by
+  obtain ⟨hd, he⟩ := build_segment_spec steps p i h
+  simp [hd, he, hk, spec]
+
+/-- The fades exist only under a crossfade `d`; each lasts `d / 2` (at least zero) and is not
+eased. -/
+theorem build_seam_spec (i : Nat) (h : i < (build steps p).segments.size)
+    (hk : (build steps p).segments[i].kind = .seamIn ∨
+      (build steps p).segments[i].kind = .seamOut) :
+    ∃ d, p.seam = .crossfade d ∧ (build steps p).segments[i].dur = max (d / 2) 0 ∧
+      (build steps p).segments[i].easing = .linear := by
+  have hm := build_kind_mem steps p i h
+  obtain ⟨hd, he⟩ := build_segment_spec steps p i h
+  match hs : p.seam, hk with
+  | .cut, hk =>
+    simp only [kinds, hs] at hm
+    rcases hk with hk | hk <;> rw [hk] at hm <;> simp at hm
+  | .crossfade d, hk =>
+    refine ⟨d, rfl, ?_, ?_⟩ <;>
+      rcases hk with hk | hk <;> simp [hd, he, hk, spec, Pacing.seamHalf, hs]
 
 /-! ### The segments tile the cycle -/
 
@@ -247,23 +331,13 @@ theorem build_cycle_nonneg : 0 ≤ (build steps p).cycle := total_nonneg _
 
 /-- The cycle is longer than zero when the rest on the first key is. -/
 theorem build_cycle_pos (h : 0 < p.firstHold) : 0 < (build steps p).cycle := by
-  have hb : ∀ l : List Piece, 0 < p.firstHold →
-      0 < total ((.rest 0, p.firstHold, .linear) :: l) := fun l h => by
-    simp only [total]
-    have := total_nonneg l
-    have : max p.firstHold 0 = p.firstHold := by grind
-    grind
-  rw [build_cycle, pieces]
-  split
-  · exact hb _ h
-  · rename_i d _
-    have := hb (stepPieces p 0 steps.toList ++ [(.seamOut, d / 2, .linear)]) h
-    simp only [List.cons_append, total] at this ⊢
-    have := total_nonneg ((.rest 0, p.firstHold, .linear) ::
-      (stepPieces p 0 steps.toList ++ [(.seamOut, d / 2, .linear)]))
-    have : 0 ≤ max (d / 2) 0 := max_nonneg _
-    simp only [total] at *
-    grind
+  have hm : (SegKind.rest 0, spec steps p (.rest 0)) ∈ pieces steps p := by
+    refine List.mem_map.mpr ⟨.rest 0, ?_, rfl⟩
+    simp only [kinds]; split <;> simp
+  have := le_total_of_mem hm
+  simp only [spec, ite_true] at this
+  rw [build_cycle]
+  grind
 
 /-! ### Key times -/
 
