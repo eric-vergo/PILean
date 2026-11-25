@@ -221,6 +221,30 @@ not rational-valued.
 * `Animation.frameSeq_getElem`, `Animation.frameTrees_getElem`: frame `i` of the raster frame
   sequence (animated PNG, GIF) and of the animated SVG is the drawing at that time.
 
+**Timelines** (`PILean/Anim/TimelineProofs.lean`), for every list of steps and every pacing
+(`Timeline.build steps p`, with `steps.size + 1` key frames):
+
+* `build_kinds_cut`, `build_kinds_crossfade`: the segments are, in order, the rest on key `0`,
+  then for each step `j` the move of step `j` and the rest on key `j + 1`, with the fade in first
+  and the fade out last under a crossfade; `build_size_cut`, `build_size_crossfade`: so there are
+  `2 n - 1` segments for `n` key frames under a cut and `2 n + 1` under a crossfade.
+* `build_start_zero`, `build_start_succ`, `build_stop_last`, `build_dur_nonneg`: the segments
+  tile the cycle: the first starts at `0`, each starts where the one before it ends, the last ends
+  at the end of the cycle, and no duration is negative (a negative one given counts as zero).
+* `keyTimes_size`, `keyTimes_zero`, `keyTimes_last`, `keyTimes_mono`: the key times (the
+  boundaries as fractions of the cycle) are one more than the segments, start at `0`, never
+  decrease, and end at `1` when the cycle is longer than zero, which it is when the first rest is
+  (`build_cycle_pos`).
+* `wrap_mem`, `segmentAt_mem`, `progress_mem`, `locate_fst`: any rational time, brought into a
+  cycle longer than zero, lies in `[0, cycle)` and in the segment `segmentAt` names (from its
+  start, inclusive, to its end, exclusive), and the progress through that segment is in `[0, 1)`.
+
+For one key frame (no steps) the timeline is the rest on key `0` (between the fade in and out under
+a crossfade); there are no timelines of zero key frames. When every duration is zero the cycle is
+zero, every key time is `0`, and the statements that need a cycle longer than zero do not apply.
+These are equalities and inequalities of rational numbers; the eased progress (`Easing.eval`,
+`Timeline.locate`'s second part) is floating point and tested.
+
 **Plane figures** (`PILean/Exact/Plane.lean`, `PILean/Exact/Spec.lean`, `PILean/Plane/Draw.lean`)
 
 * `Exact.PlanePoint.re_ratPair`, `im_ratPair`, `toPoint_ratPair`, `toPoint_intPair`,
@@ -641,6 +665,12 @@ a root of the denominator, and there are no other complex roots.
   statement "these are exactly the values of this function on this grid" matters.
 * `Animation.frameCount`, which rounds the duration times the frame rate as floating-point
   numbers.
+* `Easing.eval` (against cubic Bézier values computed in 60-digit decimal arithmetic, solved for
+  its parameter within `1e-12`, never decreasing), the SMIL attributes the builders of
+  `PILean/Anim/Smil.lean` write (counts of values, key times and splines; key times that increase
+  strictly), and what they mean: `Smil.valueAt`, an evaluator of SMIL timing, gives the eased value
+  of the timeline at 50 times within `1e-9`. That a browser follows SMIL as `valueAt` does is not
+  checked by the tests of the core.
 * The hypotheses of the drawing theorems on the gallery pictures (every converted point has a
   page position) are checked at run time by `lake test`.
 

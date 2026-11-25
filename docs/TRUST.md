@@ -165,7 +165,11 @@ animations, and files with a source record) and refuses anything else that could
   `image-set(`, `cross-fade(` and `src(`. A backslash in a value is refused. An animation
   (`animate`, `set`, `animateTransform`) of `href`, a name ending in `:href`, or a name starting
   with `on` is refused (`attributeName` is recognised in any letter case, as an HTML parser
-  reads it).
+  reads it). An animation starts and ends on the clock only: its `begin` and `end` (in any letter
+  case) must be lists, separated by `;`, of `indefinite` and clock values or offsets (an optional
+  sign, digits, `:` and `.`, an optional unit `h`, `min`, `s` or `ms`); an event (`click`,
+  `a.mouseover`, `accessKey(x)`), another element's timing (`a.end+1s`, `a.repeat(2)`) or the
+  wall clock is refused, so no animation waits for the reader to do anything.
 * Values are decoded before they are checked: the five XML entities and numeric character
   references are decoded, any other `&name;` is refused, so a reference cannot hide a word.
 * The text of a `style` element may not contain `@import`, `@font-face`, `url(` that is not

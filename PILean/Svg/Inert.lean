@@ -24,6 +24,8 @@ The rules, in short:
 * the values are decoded (the five XML entities and numeric character references) before they
   are checked, and any other entity is refused;
 * `<style>` text may not import, load, escape or compute anything;
+* an animation starts and ends on the clock only: its `begin` and `end` are clock values, offsets
+  or `indefinite`, never an event (`click`) or another element's timing;
 * elements are properly nested (at most 256 deep) and there is exactly one root, `svg`.
 
 ## Main definitions
@@ -190,6 +192,21 @@ def activeAttributeName (value : ByteArray) : Bool :=
     ByteArray.empty))
   n == "href" || n.endsWith ":href" || n.startsWith "on"
 
+/-- Whether a `begin` or `end` value is plain timing: a list separated by `;` of `indefinite` and
+clock values or offsets (an optional sign, then digits, `:` and `.`, then an optional unit `h`,
+`min`, `s` or `ms`). Event and synchronisation values (`click`, `a.mouseover`, `a.end`,
+`accessKey(x)`, `repeat(2)`, `wallclock(…)`) are not plain. -/
+def plainTiming (value : ByteArray) : Bool :=
+  let v := ascii (lowered value)
+  (v.splitOn ";").all fun item =>
+    let item := item.trimAscii.toString
+    item == "indefinite" ||
+      let body := (if item.startsWith "+" || item.startsWith "-" then item.drop 1 else
+        item.toSlice).trimAscii.toString
+      let count := body.toList.takeWhile fun c => c.isDigit || c == ':' || c == '.'
+      count.any Char.isDigit &&
+        ["", "h", "min", "s", "ms"].contains (String.ofList (body.toList.drop count.length))
+
 /-- Scans the attributes of a start tag whose name (already read and allowed) ends at `i`.
 Returns the position after the tag and whether it is self-closing. -/
 def scanAttributes (d : ByteArray) (name : String) (i : Nat) : Scan (Nat × Bool) := do
@@ -217,6 +234,8 @@ def scanAttributes (d : ByteArray) (name : String) (i : Nat) : Scan (Nat × Bool
     checkAttribute aname value
     if animates && aname.toLower == "attributename" && activeAttributeName value then
       throw s!"an animation of the link or event handler {(ascii value).take 40}"
+    if animates && (aname.toLower == "begin" || aname.toLower == "end") && !plainTiming value then
+      throw s!"the event-based timing {aname.take 40}=\"{(ascii value).take 40}\""
     j := ve + 1
   throw "internal error"
 
@@ -311,9 +330,9 @@ def inertProblem? (svg : String) : Option String :=
 from outside the document, or carrying event handlers. It accepts the SVG that PILean writes and
 refuses everything else that could be active: only the elements of `inertElements`, plain
 attributes, no event handlers, no link or `url(` to anything but a fragment of the document, no
-`javascript:` or `data:` value, a safe `<style>` text, proper nesting up to `maxInertDepth` and one
-`svg` root. Documents above `maxInertSize` bytes are refused without being read. This is a
-bounded scan over the text, not an XML parser. -/
+`javascript:` or `data:` value, a safe `<style>` text, no animation started or ended by an event,
+proper nesting up to `maxInertDepth` and one `svg` root. Documents above `maxInertSize` bytes are
+refused without being read. This is a bounded scan over the text, not an XML parser. -/
 def isInert (svg : String) : Bool := (inertProblem? svg).isNone
 
 end PILean.Svg

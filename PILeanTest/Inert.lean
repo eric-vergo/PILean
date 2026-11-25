@@ -10,8 +10,8 @@ import PILeanTest.Trust
 
 `Svg.isInert` accepts every SVG file of the gallery, a figure with a source record, and small
 hand-written documents; it refuses documents with script, outside references, event handlers,
-declarations, escapes in style text, unbalanced or too deep nesting, and inputs above the size
-cap.
+animations started or ended by events, declarations, escapes in style text, unbalanced or too deep
+nesting, and inputs above the size cap.
 -/
 
 namespace PILeanTest.Inert
@@ -115,6 +115,31 @@ def checks : Array (String × Bool) :=
         bad (doc "<g fill=\"image(&quot;http://e/x.png&quot;)\"/>") &&
         bad (doc "<set attributeName=\"cursor\" to=\"cross-fade(a, b)\"/>") &&
         bad (doc "<g fill=\"src(&quot;http://e/x&quot;)\"/>")),
+    ("inert: animations on the clock are accepted",
+      ok (doc ("<g><animate attributeName=\"opacity\" values=\"0;1\" dur=\"1s\" begin=\"0s\" " ++
+        "end=\"indefinite\"/><set attributeName=\"opacity\" to=\"0\" begin=\"-1.5s; 2min\" " ++
+        "end=\"01:02.5\"/><animateTransform attributeName=\"transform\" type=\"rotate\" " ++
+        "values=\"0;90\" dur=\"2s\" begin=\"+300ms;5\" end=\"1h\"/></g>"))),
+    ("inert: an animation that an event starts or ends is refused",
+      bad (doc "<animate attributeName=\"opacity\" values=\"0;1\" dur=\"1s\" begin=\"click\"/>") &&
+        bad (doc "<set attributeName=\"opacity\" to=\"0\" begin=\"foo.mouseover\"/>") &&
+        bad (doc "<set attributeName=\"opacity\" to=\"0\" end=\"accessKey(a)\"/>") &&
+        bad (doc ("<animate attributeName=\"opacity\" values=\"0;1\" dur=\"1s\" " ++
+          "begin=\"0s;click\"/>")) &&
+        bad (doc ("<animateTransform attributeName=\"transform\" type=\"rotate\" " ++
+          "values=\"0;90\" dur=\"1s\" end=\"focusin\"/>"))),
+    ("inert: an animation tied to another element's timing or the wall clock is refused",
+      bad (doc "<set attributeName=\"opacity\" to=\"0\" begin=\"a.end+1s\"/>") &&
+        bad (doc "<set attributeName=\"opacity\" to=\"0\" begin=\"a.repeat(2)\"/>") &&
+        bad (doc ("<set attributeName=\"opacity\" to=\"0\" " ++
+          "begin=\"wallclock(2026-01-01T00:00)\"/>")) &&
+        bad (doc "<set attributeName=\"opacity\" to=\"0\" begin=\"1s.click\"/>") &&
+        bad (doc "<set attributeName=\"opacity\" to=\"0\" begin=\"\"/>")),
+    ("inert: begin and end are checked in any letter case and through references",
+      bad (doc "<set attributeName=\"opacity\" to=\"0\" BEGIN=\"click\"/>") &&
+        bad (doc "<set attributeName=\"opacity\" to=\"0\" End=\"&#99;lick\"/>") &&
+        inertProblem? (doc "<set attributeName=\"opacity\" to=\"0\" begin=\"click\"/>") ==
+          some "the event-based timing begin=\"click\""),
     ("inert: an unknown entity is refused", bad (doc "<g fill=\"&foo;\"/>")),
     ("inert: an entity without a semicolon is refused", bad (doc "<g fill=\"a & b\"/>")),
     ("inert: a reference to NUL is refused", bad (doc "<g fill=\"&#0;\"/>")),

@@ -36,12 +36,14 @@ import PILeanTest.Standing
 import PILeanTest.Pdf
 import PILeanTest.Explorers
 import PILeanTest.ComplexDiagrams
+import PILeanTest.Timeline
 
 /-!
 # The test driver
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
-`PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`, `PILeanTest.Plots`,
+`PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`,
+`PILeanTest.Timeline`, `PILeanTest.Plots`,
 `PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.GraphRoutes`, `PILeanTest.Trust`,
 `PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`,
 `PILeanTest.Diagrams`, `PILeanTest.AlgebraDiagrams`, `PILeanTest.NumberDiagrams`,
@@ -149,7 +151,7 @@ def main (args : List String) : IO UInt32 := do
   | _ => pure ()
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++ Blur.checks ++
-    Anim.checks ++ (← Anim.ioChecks) ++ Plots.checks ++ Lettering.checks ++
+    Anim.checks ++ (← Anim.ioChecks) ++ TimelineChecks.checks ++ Plots.checks ++ Lettering.checks ++
     Graphs.checks ++ GraphOrder.checks ++ GraphRoutes.checks ++ GraphBundles.checks ++ GraphQuality.checks ++
     (← GraphQuality.ioChecks) ++ (← GraphBundles.ioChecks) ++ GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++

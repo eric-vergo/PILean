@@ -17,6 +17,9 @@ import PILeanManual.Api.PILean.Anim.GifRead
 import PILeanManual.Api.PILean.Anim.Lzw
 import PILeanManual.Api.PILean.Anim.Proofs
 import PILeanManual.Api.PILean.Anim.Quantize
+import PILeanManual.Api.PILean.Anim.Smil
+import PILeanManual.Api.PILean.Anim.Timeline
+import PILeanManual.Api.PILean.Anim.TimelineProofs
 import PILeanManual.Api.PILean.Canvas
 import PILeanManual.Api.PILean.CheckLevel
 import PILeanManual.Api.PILean.Color
@@ -170,7 +173,10 @@ The modules, by the folder they are in:
   {ref "api-PILean.Anim.GifRead"}[`PILean.Anim.GifRead`],
   {ref "api-PILean.Anim.Lzw"}[`PILean.Anim.Lzw`],
   {ref "api-PILean.Anim.Proofs"}[`PILean.Anim.Proofs`],
-  {ref "api-PILean.Anim.Quantize"}[`PILean.Anim.Quantize`]
+  {ref "api-PILean.Anim.Quantize"}[`PILean.Anim.Quantize`],
+  {ref "api-PILean.Anim.Smil"}[`PILean.Anim.Smil`],
+  {ref "api-PILean.Anim.Timeline"}[`PILean.Anim.Timeline`],
+  {ref "api-PILean.Anim.TimelineProofs"}[`PILean.Anim.TimelineProofs`]
 * *Diagram*:
   {ref "api-PILean.Diagram.Basic"}[`PILean.Diagram.Basic`],
   {ref "api-PILean.Diagram.CommDiagram"}[`PILean.Diagram.CommDiagram`],
@@ -314,6 +320,12 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.Anim.Proofs}
 
 {include 1 PILeanManual.Api.PILean.Anim.Quantize}
+
+{include 1 PILeanManual.Api.PILean.Anim.Smil}
+
+{include 1 PILeanManual.Api.PILean.Anim.Timeline}
+
+{include 1 PILeanManual.Api.PILean.Anim.TimelineProofs}
 
 {include 1 PILeanManual.Api.PILean.Canvas}
 
