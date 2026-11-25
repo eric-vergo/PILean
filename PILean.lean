@@ -41,6 +41,8 @@ import PILean.Exact.Algebraic
 import PILean.Exact.Spec
 import PILean.Explorer
 import PILean.Plane.Graph
+import PILean.Plane.Motion
+import PILean.Plane.MotionPlan
 import PILean.Diagram.Basic
 import PILean.Diagram.Graph
 import PILean.Diagram.Hasse

@@ -265,6 +265,19 @@ zero, every key time is `0`, and the statements that need a cycle longer than ze
 These are equalities and inequalities of rational numbers; the eased progress (`Easing.eval`,
 `Timeline.locate`'s second part) is floating point and tested.
 
+**Motions of plane figures** (`PILean/Plane/Motion.lean`)
+
+* `Motion.keyAngle_eq`: the angle of a turning actor's chain of groups at key `k`, as the writer
+  gives it (`Smil.turnAngles` of its turns, negated because the page's `y` points down), is minus
+  360 times the exact sum of its turns before key `k` (`Motion.turnSum`), converted by
+  `Exact.toFloat`.
+* `Motion.timeline_keys`: the timeline of a well-formed motion (`Motion.WellFormed`: one key more
+  than steps, a caption per key, the poster among the keys; decidable, and decided by
+  `Motion.problems`) has as many key frames as the motion.
+
+That a declared turn or slide lands on the next key is checked in floating point (within 0.01 px)
+by `Motion.problems`, not proved; so is everything between the keys.
+
 **Plane figures** (`PILean/Exact/Plane.lean`, `PILean/Exact/Spec.lean`, `PILean/Plane/Draw.lean`)
 
 * `Exact.PlanePoint.re_ratPair`, `im_ratPair`, `toPoint_ratPair`, `toPoint_intPair`,
@@ -692,6 +705,13 @@ a root of the denominator, and there are no other complex roots.
   of the timeline at 50 times within `1e-9`, refuses what SMIL makes an error, and reproduces
   nested turns (`Smil.nest`) as the composed exact rotations. That a browser follows SMIL as
   `valueAt` does is not checked by the tests of the core.
+* Motions of plane figures: that a declared move lands on the next key (`Motion.problems`, within
+  0.01 px), tested with wrong angles, wrong centres, turns of items that did not move and moves of
+  missing actors; that the written SVG and the baked frames agree (`Smil.valueAt` over the written
+  tree against the anchors of the plan `Motion.figureAt` draws, `MotionPlan.markersAt`, within
+  `1e-6` px at 50 times); that the stills are the key figures drawn in one view, byte for byte; and in Chromium (`tools/motion-browser-check.py`, outside `lake
+  test`), that the rests show the stills' positions, that turns follow true arcs at the eased
+  angle, that labels stay upright and that reduced motion shows the still.
 * The hypotheses of the drawing theorems on the gallery pictures (every converted point has a
   page position) are checked at run time by `lake test`.
 
