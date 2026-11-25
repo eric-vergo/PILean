@@ -593,6 +593,31 @@ def sampledError : Float :=
         let written := ((Smil.valueAt a t).bind (·[0]?)).getD 1e9
         max acc (written - (-90) * s.easing.eval x).abs
 
+/-- The largest difference, in degrees, between the written angle of the turn of `sampledTurn` and
+the eased angle at the times where the step's easing has done a quarter, a half and three
+quarters of the step (found here by 64 halvings of `Easing.eval`): there the piecewise linear
+motion of a sampled step meets the eased one. -/
+def sampledKnotError : Float :=
+  let base := Timeline.build sampledTurn.animSteps sampledTurn.pacing
+  let p := sampledTurn.plan
+  let o := pointText (quantPoint (p.env.frame.toScreen ⟨0, 0⟩))
+  let rot := (elements "animateTransform" 256 sampledTurn.svgRoot).find? fun a =>
+    attrOf a "type" == "rotate" && (attrOf a "values").startsWith s!"0 {o};"
+  match base.segments.find? (·.kind == .move 0), rot with
+  | some s, some a =>
+    [0.25, 0.5, 0.75].foldl (init := 0) fun acc (y : Float) =>
+      let x := Id.run do
+        let mut lo : Float := 0
+        let mut hi : Float := 1
+        for _ in [0:64] do
+          let mid := (lo + hi) / 2
+          if s.easing.eval mid < y then lo := mid else hi := mid
+        return (lo + hi) / 2
+      let t := Exact.toFloat s.start + x * Exact.toFloat s.dur
+      let written := ((Smil.valueAt a t).bind (·[0]?)).getD 1e9
+      max acc (written - (-90) * y).abs
+  | _, _ => 1e9
+
 /-- The checks of the writer against the baker and of the outputs. -/
 def outputChecks : Array (String × Bool) := Id.run do
   let mut r : Array (String × Bool) := #[]
@@ -607,9 +632,10 @@ def outputChecks : Array (String × Bool) := Id.run do
     r := r.push (s!"motion {name}: the SVG is inert, keeps the invariant and runs on one clock",
       Svg.isInert svg && Smil.invariantProblem? 256 m.svgRoot == none &&
         Smil.clockProblem? m.svgRoot == none && svg == m.toSvg)
-  r := r.push ("motion: a turn in a sampled step follows the eased angle within 90/4 degrees",
+  r := r.push ("motion: a turn in a sampled step meets the eased angle at the samples' times and \
+      follows it within 90/4 degrees between them",
     sampledTurn.problems.isEmpty && sampledTurn.samplesOf sampledTurn.keysOf 0 == 4 &&
-      sampledError < 90 / 4)
+      sampledError < 90 / 4 && sampledKnotError < 1e-3)
   for (name, m) in golden do
     r := r.push (s!"motion {name}: at every rest the baker draws the key still, every element",
       (m.restProblems m.keysOf m.plan).isEmpty &&
