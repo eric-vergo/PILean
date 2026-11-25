@@ -12,7 +12,8 @@ built with `--figure-lean-links site`, with `--figure-lean-links none`, and with
 Each site is served on 127.0.0.1 with a strict content policy: scripts only from the site's files
 and the inline scripts of the head (by hash), no inline event handlers, no plug-ins, nothing from
 elsewhere. Checked: every picture loads in the light and the dark theme and the right one is
-shown; the source line's links; the figures page; the still frame under reduced motion; no
+shown; the source line's links, the link to the figure's page landing on the page; the figures
+page; the still frame under reduced motion; no
 horizontal scrolling at narrow widths; no content-policy report about a figure. For the
 explorers: the sliders (one for each parameter of a family of two) and the stepper change the
 frame (by pointer and by keyboard) and say what they show from the frames' data, whatever the
@@ -527,6 +528,22 @@ def figure_page_checks(c, browser, base, shots):
                 if status != 200:
                     bad.append((h, status))
     c.check("every link of the pages into the site is served", not bad, str(bad[:5]))
+    for start, sel in [(base + PAGES[0], "figure#cubic a.pilean-page-link"),
+                       (base + "Figures/", "a.pilean-page-link")]:
+        goto(page, start)
+        link = page.locator(sel).first
+        href = link.get_attribute("href") or ""
+        link.click()
+        page.wait_for_load_state("networkidle")
+        frag = page.url.split("#", 1)[1] if "#" in page.url else ""
+        landed = page.evaluate("""(id) => {
+          const e = document.getElementById(decodeURIComponent(id));
+          return e ? [e.classList.contains('pilean-figure-page-root'),
+                      e.querySelector('.pilean-figure-page') !== null,
+                      Math.round(e.getBoundingClientRect().top)] : null; }""", frag)
+        c.check(f"a page link from {start[len(base):] or 'the start'} lands on the figure's page",
+                bool(frag) and landed is not None and landed[0] and landed[1],
+                f"{href} -> {page.url}: {landed}")
     goto(page, base + "Figures/Example.cubicPlot/")
     text = " ".join(page.locator(".pilean-page-standing").inner_text().split())
     c.check("a linked figure's page names its linked theorem and shows the statement",

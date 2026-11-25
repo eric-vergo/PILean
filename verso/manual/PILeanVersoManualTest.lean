@@ -168,6 +168,24 @@ def main : IO UInt32 := do
           (fun c => c.isAlphanum || c == '.' || c == '_' || c == '-') &&
         !(pageSlug "..").startsWith ".")
       "a page's address keeps a plain name and confines any other to safe characters"
+    -- the link check on a planted site: a page with a `<base>` whose links name a missing file,
+    -- a missing id, an id that exists (percent-escaped) and a link with a scheme
+    let planted : System.FilePath := ".lake" / s!"pilean-links-{← IO.monoNanosNow}"
+    IO.FS.createDirAll (planted / "A" / "B")
+    IO.FS.writeFile (planted / "index.html") "<p id=\"top\">x</p>"
+    IO.FS.writeFile (planted / "A" / "B" / "index.html") ("<base href=\"./../../\"/>" ++
+      "<div class=\"pilean-figure-page-root\" id=\"r\u00e9\"><a class=\"pilean-page-use\" " ++
+      "href=\"A/B/#r%C3%A9\">a</a><a class=\"pilean-page-link\" href=\"A/B/#gone\">b</a>" ++
+      "<a class=\"pilean-x\" href=\"C/\">c</a><a href=\"#nowhere\">d</a>" ++
+      "<a class=\"pilean-x\" href=\"https://e.org/#y\">e</a>" ++
+      "<a class=\"pilean-x\" href=\"#top\">f</a></div>")
+    let (n1, p1) ← siteLinkProblems planted
+    let (n2, p2) ← siteLinkProblems planted (all := true)
+    IO.FS.removeDirAll planted
+    check (n1 == 4 && p1.size == 2 && p1.any (has · "has no element with the id gone") &&
+        p1.any (has · "no file C/index.html") && n2 == 5 && p2.size == 3 &&
+        p2.any (has · "index.html has no element with the id nowhere"))
+      "the link check resolves links against the page's <base> and reports a missing file or id"
     check (ciRunHrefOf (some "https://github.com") (some "o/r") (some "42") ==
         some "https://github.com/o/r/actions/runs/42" &&
         ciRunHrefOf (some "https://github.com") (some "o/r") none == none &&
@@ -229,6 +247,20 @@ def main : IO UInt32 := do
     check ((list.splitOn "class=\"pilean-page-link\"").length - 1 == 9 &&
         has numbers "class=\"pilean-page-link\"")
       "the figures page and the source line link each figure's page"
+    let (linksChecked, dead) ← siteLinkProblems (out1 / "html-multi")
+    for d in dead do IO.println s!"  {d}"
+    check (dead.isEmpty && linksChecked > 0)
+      s!"each of the {linksChecked} links PILean writes reaches its file and element"
+    let pageHref :=
+      (((list.splitOn "class=\"pilean-page-link\" href=\"").getD 1 "").splitOn "\"").headD ""
+    let (pagePath, pageFrag) := match pageHref.splitOn "#" with
+      | [p, f] => (p, f)
+      | _ => ("", "")
+    let landing ← try IO.FS.readFile (out1 / "html-multi" / pagePath / "index.html")
+      catch _ => pure ""
+    check (pagePath.startsWith "Figures/" && !pageFrag.isEmpty &&
+        has landing s!"<div class=\"pilean-figure-page-root\" id=\"{pageFrag}\">")
+      s!"a link to a figure's page lands on the page's outermost element ({pageHref})"
     -- the figures' pages
     let pageOf := fun (d : String) => IO.FS.readFile (out1 / "html-multi" / "Figures" / d /
       "index.html")
@@ -330,6 +362,10 @@ def main : IO UInt32 := do
     let list3 ← IO.FS.readFile (out3 / "html-multi" / "Figures" / "index.html")
     check (has list3 "class=\"pilean-site-link\" href=\"Numbers/#triangle\"")
       "the figures page links a figure's declaration to the figure"
+    let (siteChecked, siteDead) ← siteLinkProblems (out3 / "html-multi")
+    for d in siteDead do IO.println s!"  {d}"
+    check (siteDead.isEmpty && siteChecked > linksChecked)
+      s!"with links into the site, each of the {siteChecked} links PILean writes reaches its target"
     let out4 := tmp / "ideil"
     let c6 ← generate ["--output", out4.toString, "--figure-lean-links", "ideil"]
     let ex4 ← IO.FS.readFile (out4 / "html-multi" / "Explorers" / "index.html")

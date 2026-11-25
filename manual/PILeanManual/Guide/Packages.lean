@@ -105,5 +105,8 @@ use, highlighted with their hovers and linked to their source; the fingerprint, 
 engine and `pilean-verify` verdict of each file, the toolchain, the packages, the commit and the
 continuous-integration run; and the commands that build the files again and check them. After
 the site is written, the generator checks every page against the files, the manifest and
-`pilean-verify`, and fails when one differs. The Verso Blueprint adapter's `README.md` has the
-caps and the exact rules.
+`pilean-verify`, and fails when one differs. The links to a page (the caption's "code, standing
+and provenance" and the list's) lead to the page's outermost element. The Verso Blueprint
+adapter's `README.md` has the caps and the exact rules. `lake exe pilean-site-links SITE` (from
+`pilean-verso-manual`) checks that every link PILean writes into a built site reaches its file
+and the element its fragment names; `--all` holds every link of the site to that rule.

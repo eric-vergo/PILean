@@ -5,6 +5,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILeanManual.ApiScope
 import PILeanManual.PageFiles
 import PILean
+import PILeanVersoManual.SiteLinks
 
 /-!
 # The manual's checks
@@ -18,14 +19,16 @@ import PILean
    any uncovered declaration fails the check, with its name. The environment is the core's, read
    from its built modules (`PILean` and `PILean.Trust.Attr`).
 3. *A generated site.* The generator (`pilean-manual`, built first) writes the site into a scratch
-   folder: it must exit 0; every core module must have its page; the figures folder must agree
-   with its manifest as `pilean-verify` checks it (`PILean.Trust.verifyDir`: every listed file
-   there, of its size, hash, format and source record, and no other file); every figure a page
-   refers to must be a file of that manifest, and every file of the manifest must be referred
-   to by a page; every SVG figure must pass `PILean.Svg.isInert`; every link must show text
-   (`emptyLinks`); the coverage page must print the counts of step 2; and no page may name a
-   path of the machine it was built on (`machinePaths`: the folders of this build and the home
-   folder, and the usual forms of home and temporary folders on macOS, Linux and Windows).
+   folder: it must exit 0; every core module must have its page; the figures folder must agree with
+   its manifest as `pilean-verify` checks it (`PILean.Trust.verifyDir`: every listed file there, of
+   its size, hash, format and source record, and no other file); every figure a page refers to must
+   be a file of that manifest, and every file of the manifest must be referred to by a page; every
+   SVG figure must pass `PILean.Svg.isInert`; every link must show text (`emptyLinks`), and every
+   link into the site must reach its file and the element its fragment names
+   (`PILeanVerso.siteLinkProblems`, over all the links of the site); the coverage page must print
+   the counts of step 2; and no page may name a path of the machine it was built on (`machinePaths`:
+   the folders of this build and the home folder, and the usual forms of home and temporary folders
+   on macOS, Linux and Windows).
 4. *The whole program of Getting Started.* `FirstProgram/Main.lean`, which the page shows, is run
    with `lean --run` against the core's built library in a scratch folder, and must write its
    four files.
@@ -169,6 +172,10 @@ unsafe def main : IO UInt32 := do
     if has t coverageText then coveragePrinted := true
   check clean s!"none of the {pages.size} pages names a path of this machine"
   check linked s!"every link of the {pages.size} pages shows text"
+  let (linksChecked, dead) ← PILeanVerso.siteLinkProblems site (all := true)
+  for d in dead do IO.println s!"  {d}"
+  check (dead.isEmpty && linksChecked > 0)
+    s!"each of the {linksChecked} links into the site reaches its file and element"
   let unknown := referred.toArray.filter fun r => r != "manifest.json" && !listed.contains r
   let unused := listed.filter (!referred.contains ·)
   for r in unknown do IO.println s!"  a page refers to a figure the manifest does not list: {r}"
