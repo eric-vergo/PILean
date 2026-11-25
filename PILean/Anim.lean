@@ -12,10 +12,16 @@ import PILean.Anim.Gif
 import PILean.Anim.GifRead
 import PILean.Anim.Animation
 import PILean.Anim.Proofs
+import PILean.Anim.Timeline
+import PILean.Anim.TimelineProofs
+import PILean.Anim.Smil
+import PILean.Anim.SmilProofs
 
 /-!
 # Animated images
 
 Frame sequences and the codecs for animated PNG and GIF: `FrameSeq.toApng`, `Anim.readApng`,
-`FrameSeq.toGif`, `Anim.readGif`. This module re-exports its parts.
+`FrameSeq.toGif`, `Anim.readGif`; animations (`Animation`); timelines of key-frame motions
+(`Anim.Timeline`) and the SMIL animations that follow them (`Anim.Smil`). This module re-exports
+its parts.
 -/
