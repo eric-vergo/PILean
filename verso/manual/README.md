@@ -64,7 +64,7 @@ number, caption and uses, its standing ("Linked theorem: T" with T's statement, 
 PILean checked of it, or "Illustration: no theorem is linked to it"), its code (the declaration and
 the definitions of the manual's project it uses, highlighted with hovers and linked to their
 source), its provenance and how to reproduce it. The source line under the figure and the figures
-page link to it, at the anchor its outermost element carries. What each section holds, the caps, how
+page link to it, at an empty anchor at the start of the page. What each section holds, the caps, how
 the standing is derived and checked and where the code comes from are in the [Verso Blueprint
 adapter's README](../README.md#figure-pages); the two adapters share the pages
 (`PILeanVersoManual.Page`, `PILeanVersoManual.Wrapper`). `--figure-code signatures` shows signatures
@@ -104,17 +104,16 @@ inline picture is restyled by its own `style` element under the same rules.
 ## The example and the checks
 
 `ManualExample` is a small manual with a plot, a graph, marks over a picture, two explorers, an
-inline figure, the documentation of a declaration a picture links to, and three pictures that
-claim false things linked to theorems that say nothing of them (their pages say only what PILean
-checked);
-`lake exe pilean-verso-manual-example --output _out` generates it, and `lake test` generates it
-and checks the pages and files (inert SVG, numbers, text alternatives, light and dark pictures,
-the source line, the theorem, the backdrop, the figures page, the explorers' markup, the inline
+inline figure, the documentation of a declaration a picture links to, and three pictures that claim
+false things linked to theorems that say nothing of them (their pages say only what PILean checked);
+`lake exe pilean-verso-manual-example --output _out` generates it, and `lake test` generates it and
+checks the pages and files (inert SVG, numbers, text alternatives, light and dark pictures, the
+source line, the theorem, the backdrop, the figures page, the explorers' markup, the inline
 pictures' theme rules and files, the link modes, identical bytes, `--check-figures` on a damaged
-copy), the figures' standing and page data from `site_figures%` (also for a figure whose theorem
-is not linked), the refusal of a caption naming an unlinked theorem, the pages' sentences against
-`docs/TRUST.md`, the pages' addresses, every link PILean writes reaching its file and element
-(in the default mode and with links into the site; the check itself on a planted site), a page
-link landing on the page's outermost element, and the pages themselves: the theorem with its
+copy), the figures' standing and page data from `site_figures%` (also for a figure whose theorem is
+not linked), the refusal of a caption naming an unlinked theorem, the pages' sentences against
+`docs/TRUST.md`, the pages' addresses, every link PILean writes reaching its file and element (in
+the default mode and with links into the site; the check itself on a planted site), a page link
+landing on the empty anchor at the start of the page, and the pages themselves: the theorem with its
 statement and axioms, the code, the files and verdicts, the commands, an illustration's words, no
 script.

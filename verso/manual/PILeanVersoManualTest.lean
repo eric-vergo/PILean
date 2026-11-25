@@ -174,7 +174,8 @@ def main : IO UInt32 := do
     IO.FS.createDirAll (planted / "A" / "B")
     IO.FS.writeFile (planted / "index.html") "<p id=\"top\">x</p>"
     IO.FS.writeFile (planted / "A" / "B" / "index.html") ("<base href=\"./../../\"/>" ++
-      "<div class=\"pilean-figure-page-root\" id=\"r\u00e9\"><a class=\"pilean-page-use\" " ++
+      "<div><span class=\"pilean-figure-page-anchor\" id=\"r\u00e9\"></span>" ++
+      "<a class=\"pilean-page-use\" " ++
       "href=\"A/B/#r%C3%A9\">a</a><a class=\"pilean-page-link\" href=\"A/B/#gone\">b</a>" ++
       "<a class=\"pilean-x\" href=\"C/\">c</a><a href=\"#nowhere\">d</a>" ++
       "<a class=\"pilean-x\" href=\"https://e.org/#y\">e</a>" ++
@@ -258,9 +259,11 @@ def main : IO UInt32 := do
       | _ => ("", "")
     let landing ← try IO.FS.readFile (out1 / "html-multi" / pagePath / "index.html")
       catch _ => pure ""
+    let slug := ((pagePath.drop 8).toString.splitOn "/").headD ""
     check (pagePath.startsWith "Figures/" && !pageFrag.isEmpty &&
-        has landing s!"<div class=\"pilean-figure-page-root\" id=\"{pageFrag}\">")
-      s!"a link to a figure's page lands on the page's outermost element ({pageHref})"
+        has landing (s!"id=\"pilean-page-{slug}\"><span class=\"pilean-figure-page-anchor\" " ++
+          s!"aria-hidden=\"true\" id=\"{pageFrag}\"></span><div class=\"pilean-page-picture\">"))
+      s!"a link to a figure's page lands on the empty anchor at the start of the page ({pageHref})"
     -- the figures' pages
     let pageOf := fun (d : String) => IO.FS.readFile (out1 / "html-multi" / "Figures" / d /
       "index.html")

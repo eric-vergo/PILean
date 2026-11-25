@@ -77,8 +77,10 @@ desc="every link of the site reaches its file and element (pilean-site-links --a
 check "$links" "$scratch/a/html-multi" --all
 pagelink=$(grep -o 'class="pilean-page-link" href="Figures/Example.cubicPlot/#[^"]*"' "$page" |
   sed 's/.*#//; s/"$//')
-desc="a figure's page link lands on the page's outermost element"
-check grep -q "<div class=\"pilean-figure-page-root\" id=\"$pagelink\">" "$cubic"
+anchor="<span class=\"pilean-figure-page-anchor\" aria-hidden=\"true\" id=\"$pagelink\"></span>"
+desc="a figure's page link lands on the empty anchor at the start of the page"
+check grep -qF "id=\"pilean-page-Example.cubicPlot\">$anchor<div class=\"pilean-page-picture\">" \
+  "$cubic"
 desc="a linked figure's page shows its theorem's statement as highlighted Lean"
 check bash -c "grep -q 'class=\"pilean-page-decl pilean-page-theorem\" data-lean-decl=\"Example.cubicPlot_spec\"' '$cubic' && grep -q 'class=\"hl lean' '$cubic'"
 desc="the page shows the definitions the figure is built from"
@@ -105,8 +107,8 @@ assert old in s
 open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 PY
 }
-root='class="pilean-figure-page-root" id="'
-tamper_page Example.sketch "$root" "${root}x"
+anchor='class="pilean-figure-page-anchor" aria-hidden="true" id="'
+tamper_page Example.sketch "$anchor" "${anchor}x"
 desc="the link check refuses a site whose page lost the element its links name"
 check bash -c "'$links' '$scratch/page' |
   grep -q 'Figures/Example.sketch/index.html has no element with the id'"
