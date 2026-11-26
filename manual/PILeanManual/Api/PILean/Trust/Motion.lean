@@ -11,6 +11,8 @@ import PILean.Trust.Motion
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Trust.Motion" =>
 %%%
 tag := "api-PILean.Trust.Motion"
