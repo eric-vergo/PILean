@@ -81,6 +81,7 @@ import PILeanManual.Api.PILean.Plane.Draw
 import PILeanManual.Api.PILean.Plane.Frame
 import PILeanManual.Api.PILean.Plane.Graph
 import PILeanManual.Api.PILean.Plane.Motion
+import PILeanManual.Api.PILean.Plane.MotionOutput
 import PILeanManual.Api.PILean.Plane.MotionPlan
 import PILeanManual.Api.PILean.Plane.Render
 import PILeanManual.Api.PILean.Plot.Check
@@ -241,6 +242,7 @@ The modules, by the folder they are in:
   {ref "api-PILean.Plane.Frame"}[`PILean.Plane.Frame`],
   {ref "api-PILean.Plane.Graph"}[`PILean.Plane.Graph`],
   {ref "api-PILean.Plane.Motion"}[`PILean.Plane.Motion`],
+  {ref "api-PILean.Plane.MotionOutput"}[`PILean.Plane.MotionOutput`],
   {ref "api-PILean.Plane.MotionPlan"}[`PILean.Plane.MotionPlan`],
   {ref "api-PILean.Plane.Render"}[`PILean.Plane.Render`]
 * *Plot*:
@@ -454,6 +456,8 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.Plane.Graph}
 
 {include 1 PILeanManual.Api.PILean.Plane.Motion}
+
+{include 1 PILeanManual.Api.PILean.Plane.MotionOutput}
 
 {include 1 PILeanManual.Api.PILean.Plane.MotionPlan}
 

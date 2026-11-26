@@ -62,7 +62,7 @@ This module holds the model and its checks.
 * `mergeOrder`, `inOrder`: one drawing order for the layers of all keys.
 * `anchors`, `leafKey`, `Move.pageAffine`, `arrival`, `Motion.stepProblems`, `Motion.keyProblems`
   (`Motion.problems`, with the rest check, `Motion.checkMessages` and `Motion.problemsFail` are
-  in `PILean.Plane.MotionPlan`).
+  in `PILean.Plane.MotionOutput`).
 * `Motion.turnsOf`, `Motion.turnSum`, `Motion.keyAngle`.
 
 ## Main results

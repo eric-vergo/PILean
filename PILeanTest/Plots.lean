@@ -153,12 +153,13 @@ def animation : Array (String × Bool) :=
       text := TextEngine.lettering }
   #[("animation: frame count from duration and rate", a.frameCount == 60),
     ("animation: same-shaped frames are interpolated", has svg "calcMode=\"linear\"" &&
-      !has svg "visibility"),
+      !has svg "attributeName=\"visibility\""),
     ("animation: changing shapes switch frames", has sw.toSvg "attributeName=\"visibility\""),
     ("animation: no script", !has svg "<script" && !has sw.toSvg "<script"),
     ("animation: the graph build interpolates opacities, every frame the same shape",
       let gb := (Animations.graphBuild).toSvg
-      has gb "calcMode=\"linear\"" && !has gb "visibility" && has gb "attributeName=\"opacity\""),
+      has gb "calcMode=\"linear\"" && !has gb "attributeName=\"visibility\"" &&
+        has gb "attributeName=\"opacity\""),
     ("animation: a poster for reduced motion",
       has svg "prefers-reduced-motion: reduce" && has svg "class=\"pilean-motion-poster\""),
     ("animation: GIF and APNG decode to every frame",

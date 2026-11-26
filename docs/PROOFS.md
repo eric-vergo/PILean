@@ -265,7 +265,7 @@ zero, every key time is `0`, and the statements that need a cycle longer than ze
 These are equalities and inequalities of rational numbers; the eased progress (`Easing.eval`,
 `Timeline.locate`'s second part) is floating point and tested.
 
-**Motions of plane figures** (`PILean/Plane/Motion.lean`, `PILean/Plane/MotionPlan.lean`)
+**Motions of plane figures** (`PILean/Plane/Motion.lean`, `MotionPlan.lean`, `MotionOutput.lean`)
 
 * `MotionPlan.anim_eq`: every animation element the writer builds is its name, its own
   attributes, its values, then `Smil.smilTiming` of the plan's timeline: the timing depends on
