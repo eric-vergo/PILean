@@ -108,6 +108,17 @@ also shows instead of the motion when the viewer asks for reduced motion.
 | **Growing bars**, played once (`growing-bars`) | ![](growing-bars.svg) | ![](growing-bars.png) | ![](growing-bars.gif) | ![](growing-bars-poster.png) |
 | **A graph building up**, layer by layer: every element in every frame, only opacities change, so the SVG interpolates (`graph-build`) | ![](graph-build.svg) | ![](graph-build.png) | ![](graph-build.gif) | ![](graph-build-poster.png) |
 
+## Motions
+
+Motions of plane figures through exact key frames (`PILeanTest/Motion.lean`): the animated SVG,
+and the contact sheet the build writes for print (every key's still with its caption).
+
+| Motion | Animated SVG | Contact sheet |
+|---|---|---|
+| **A quarter turn** (`motion-turn`) | ![](motion-turn.svg) | ![](motion-turn-keys.svg) |
+| **Turns about two centres** (`motion-two-centres`) | ![](motion-two-centres.svg) | ![](motion-two-centres-keys.svg) |
+| **A fifth of a turn** (`motion-fifth`) | ![](motion-fifth.svg) | ![](motion-fifth-keys.svg) |
+
 ## Raster pictures
 
 Drawn directly with `PILean.Raster.Draw` (`PILeanTest/Examples.lean`, `rasters`), written as PNG.

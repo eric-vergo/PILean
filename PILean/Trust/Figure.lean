@@ -30,6 +30,8 @@ It covers the values a function takes where the figure samples it, not the funct
 * `Format`, `Output`, `ToOutputs`
 * `Standing`: whether a theorem is linked to a figure or the figure is an illustration
 * `InlineSvg`, `FrameSet`: pictures and families of frames a web page puts inline
+* `MotionSummary`, `MotionStepRow`, `MotionMoveRow`, `MotionData`: what the outputs of a motion
+  record and what a page needs to show one (the outputs themselves are in `PILean.Trust.Motion`)
 * instances for `Plot.Figure`, `Plane.Figure`, `Explorer`, `Graph`, `GraphFigure`,
   `Animation`, `Diagram.Diagram` and `DomainColouring`
 -/
@@ -165,6 +167,93 @@ structure FrameSet where
   poster : Nat := 0
   deriving Inhabited
 
+/-- What every file of a motion records about it (the manifest's keys `kind`, `keys`, `cycle`
+and `captions`): the number of its key frames, the length of its cycle in seconds, exactly, and
+the number of its captions. -/
+structure MotionSummary where
+  /-- The number of key frames. -/
+  keys : Nat
+  /-- The length of one cycle, in seconds. -/
+  cycle : Rat
+  /-- The number of captions (one per key frame). -/
+  captions : Nat
+  deriving BEq, Repr, Inhabited
+
+/-- One move of a step of a motion, as a figure page lists it. -/
+structure MotionMoveRow where
+  /-- The panel of a picture of several panels the actor belongs to; empty for one motion. -/
+  panel : String := ""
+  /-- The actor's id. -/
+  actor : String
+  /-- The kind of move: `turn`, `slide`, `appearance`, `disappearance` or `morph`. -/
+  kind : String
+  /-- For a turn: its centre, in the figure's (world) coordinates. -/
+  centre : Option Point := none
+  /-- For a turn: the exact fraction of a full turn, counterclockwise. -/
+  turns : Option Rat := none
+  /-- For a slide: its vector, in the figure's (world) coordinates. -/
+  vector : Option Point := none
+  deriving Inhabited
+
+/-- A point of the figure's coordinates as a page writes it: `(x, y)`, at most four decimals. -/
+def pointWords (p : Point) : String := s!"({fmtNum p.x 4}, {fmtNum p.y 4})"
+
+/-- A fraction of a full turn as degrees, exactly: `90°`, or `360/7°` when not whole. -/
+def turnDegreesWords (q : Rat) : String :=
+  let d := 360 * q
+  if d.den == 1 then s!"{d.num}°" else s!"{d.num}/{d.den}°"
+
+/-- The move in words, for a page: `turn about (0, 0) by 1/4 of a full turn (90°)`,
+`slide by (1, 0)`, or the kind alone. -/
+def MotionMoveRow.words (r : MotionMoveRow) : String :=
+  match r.kind, r.centre, r.turns, r.vector with
+  | "turn", some c, some q, _ =>
+    s!"turn about {pointWords c} by {q} of a full turn ({turnDegreesWords q})"
+  | "slide", _, _, some v => s!"slide by {pointWords v}"
+  | k, _, _, _ => k
+
+/-- One step of a motion, from key `step` to key `step + 1`, as a figure page lists it. -/
+structure MotionStepRow where
+  /-- The step's number, from `0`: it goes from key `step` to key `step + 1`. -/
+  step : Nat
+  /-- How long the step takes, in seconds. -/
+  duration : Rat
+  /-- Whether nothing moves in the step (it takes its time). -/
+  idle : Bool := false
+  /-- The moves of its actors, in the order the motion declares them. -/
+  moves : Array MotionMoveRow := #[]
+  deriving Inhabited
+
+/-- What a page needs to show a motion inline: its summary, the moving picture without what the
+standalone file adds for itself, the key stills with their captions, and the table of its steps.
+
+`live` is the body of the animated SVG file without its `title`, `desc`, its `style` element (the
+reduced-motion rule) and its poster group: the background and the group of class
+`pilean-motion-live` that holds every animation. The file's root holds, in order, the title and the
+description (when the motion has them), that `style` element, the nodes of `live`, and the poster
+group; so a site check can rebuild the file from `live` and compare. `stills` holds every key's
+still (the picture of the output `-key-k`, `k` from 0) with the captions (`stepCaptions`) and the
+poster key (`poster`). -/
+structure MotionData where
+  /-- The number of keys, the cycle and the number of captions. -/
+  summary : MotionSummary
+  /-- The moving picture, for a page that puts it inline (with the theme's colour pairs). -/
+  live : InlineSvg
+  /-- The key stills with their captions. -/
+  stills : FrameSet
+  /-- The steps, in order. -/
+  steps : Array MotionStepRow
+  deriving Inhabited
+
+/-- What a figure page says of a motion besides its standing: `An animation drawn from N exact key
+frames. Between key frames the browser turns or slides the drawn items about the stated centres;
+the key frames are the exact data.` -/
+def MotionData.words (d : MotionData) : String :=
+  let n := d.summary.keys
+  s!"An animation drawn from {n} exact key frame{if n == 1 then "" else "s"}. Between key frames \
+    the browser turns or slides the drawn items about the stated centres; the key frames are the \
+    exact data."
+
 /-- One file a figure is rendered to. -/
 structure Output where
   /-- The suffix of the file's stem, for instance `""`, `"-dark"` or `"-poster"`. -/
@@ -189,6 +278,12 @@ structure Output where
   /-- Problems of the figure's layout a build should report as warnings (on one output of a
   figure, so that they are reported once). -/
   problems : Unit → Array String := fun _ => #[]
+  /-- For every output of a motion: what the manifest records about the motion
+  (`MotionSummary`); none for other figures. -/
+  motion : Unit → Option MotionSummary := fun _ => none
+  /-- For the animated SVG of a motion (and of its narrow rendition): what a page needs to show
+  the motion inline (`MotionData`). -/
+  motionPage : Unit → Option MotionData := fun _ => none
   /-- The standing of the figure the output belongs to. `ToOutputs` instances leave it at an
   unmarked illustration; `figures%` sets it on every output of a figure from the links
   `figure_links` recorded and the figure's `@[figure illustration]` marking. -/
@@ -239,16 +334,20 @@ def planeBytes (fig : Plane.Figure) (bytes : Unit → Except String ByteArray) :
     Except String ByteArray :=
   checkedBytes (fig.checks == .fail) (fun _ => fig.checkMessages) bytes
 
+/-- The plane figure as a picture a page puts inline: its SVG nodes (its `auto` labels placed) at
+its page size, with the theme of its style. -/
+def _root_.PILean.Plane.Figure.inline (fig : Plane.Figure) : InlineSvg :=
+  let g := fig.autoPlaced
+  InlineSvg.ofStyle g.frame.width.round g.frame.height.round fig.svgNodes fig.style
+
 /-- The SVG and PNG outputs of one plane figure, named with `suffix`, and its PDF when `pdf`;
 the SVG carries the figure's layout warnings when `warn`. -/
 def planeOutputs (fig : Plane.Figure) (suffix : String) (warn : Bool) (pdf : Bool := true) :
     Array Output :=
-  let g := fig.autoPlaced
   #[{ name := suffix, format := .svg,
       bytes := fun _ => planeBytes fig fun _ => .ok fig.toSvg.toUTF8,
       spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
-      inline := fun _ => some
-        (InlineSvg.ofStyle g.frame.width.round g.frame.height.round fig.svgNodes fig.style),
+      inline := fun _ => some fig.inline,
       theme := fun _ => InlineSvg.themeOf fig.style,
       problems := fun _ => if warn && fig.checks == .warn then fig.checkMessages else #[] },
     { name := suffix, format := .png,

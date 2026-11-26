@@ -5,6 +5,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import PILean.Trust.Manifest
 import PILean.Trust.Files
 import PILean.Pdf.Check
+import PILean.Svg.Inert
 
 /-!
 # `pilean-build`
@@ -62,8 +63,10 @@ fingerprint of the output's specification) inserted, and the manifest entry. Fai
 output with text the built-in lettering cannot draw (`Lettering.missing`), since the figure's
 PNG, APNG or GIF would show a box for each such character; if the finished file is larger than
 `maxOutputBytes`; if its bytes are not of the output's format (`detectedFormat?`), so that
-every file of a build is one `pilean-verify` accepts; and, for a PDF, if the finished file fails
-the structural check (`Pdf.check`). -/
+every file of a build is one `pilean-verify` accepts; for an SVG, if the finished file is not
+inert (`Svg.inertProblem?`: it could run script, load something or wait for an event); and, for a
+PDF, if the finished file fails the structural check (`Pdf.check`). The entry records the motion
+of an output of a motion (`Output.motion`). -/
 def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     Except String BuiltFile := do
   let path ← outputPath e.toSourceData o
@@ -82,6 +85,12 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     throw s!"{path}: the file with its source record is larger than {maxOutputBytes} bytes"
   if detectedFormat? bytes != some o.format.name then
     throw s!"{path}: the bytes are not a file of the format {o.format.name}"
+  if o.format == .svg then
+    match String.fromUTF8? bytes with
+    | none => throw s!"{path}: the SVG is not UTF-8"
+    | some text =>
+      if let some why := Svg.inertProblem? text then
+        throw s!"{path}: the SVG is not inert ({why})"
   if o.format == .pdf then
     if let .error err := Pdf.check bytes then throw s!"{path}: the PDF is malformed: {err}"
   let m : ManifestEntry := {
@@ -89,7 +98,7 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     fingerprint := (src.fingerprint.getD ""), module := e.module, decl := e.decl, file := e.file,
     line := e.line, column := e.column, version := src.version, repo := opts.repo,
     commit := opts.commit, darkColours := (o.theme ()).1, darkOpacities := (o.theme ()).2,
-    standing := src.standing, theorems := src.theorems }
+    standing := src.standing, theorems := src.theorems, motion := o.motion () }
   return { entry := m, bytes }
 
 /-- The declarations of the entries whose figure is an illustration not marked as one

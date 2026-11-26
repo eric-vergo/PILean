@@ -7,12 +7,14 @@ import PILeanTest.Examples
 import PILeanTest.Diagrams
 import PILeanTest.AlgebraDiagrams
 import PILeanTest.NumberDiagrams
+import PILeanTest.Motion
 
 /-!
 # PDF tests
 
 The PDF writer on every picture of the gallery (plots, plane figures, diagrams, graphs, the
-animations' posters, every frame of the gallery's explorer) and on samples that use every part of
+animations' posters, every frame of the gallery's explorer, the contact sheets of the golden
+motions) and on samples that use every part of
 it (gradients, clips, group opacity, dashes, the even-odd rule, a raster image with alpha): each
 file passes the structural check (`Pdf.check`), is the same on a second run, and has a page of
 `0.75` points per pixel of the picture. The check refuses planted faults, one per thing it checks.
@@ -90,7 +92,10 @@ def galleryPdfs : Array (String × ByteArray × Float × Float) :=
   let x := Examples.PlaneFigures.windowRadius
   let frames := x.frames.zipIdx.map fun (f, k) =>
     (s!"window-radius-frame-{k}", f.toPdf, f.width, f.height)
-  plots ++ planes ++ graphs ++ anims ++ frames ++
+  let sheets := MotionChecks.golden.map fun (n, m) =>
+    let sh := m.report.checked.sheet
+    (n ++ "-keys", sh.toPdf, sh.width, sh.height)
+  plots ++ planes ++ graphs ++ anims ++ frames ++ sheets ++
     #[("pdf-sampler", samplerPdf, 320, 200), ("pdf-image", imagePdf, 40, 30)]
 
 /-- The page's `/MediaBox` of a file, as text of four numbers (`0 0 w h`), read with the bounded
@@ -343,6 +348,8 @@ def writeCompare (dir : System.FilePath) : IO Unit := do
       ((a.frame a.poster).render (.shapes a.text)) a.background)
   for (f, k) in Examples.PlaneFigures.windowRadius.frames.zipIdx do
     pngs := pngs.push (s!"window-radius-frame-{k}", f.toPng.getD .empty)
+  for (n, m) in MotionChecks.golden do
+    pngs := pngs.push (n ++ "-keys", m.report.checked.sheet.toPng.getD .empty)
   pngs := pngs.push ("pdf-sampler", png 320 200 samplerNodes ⟨255, 255, 255, 255⟩)
   for (n, pdf, _, _) in galleryPdfs do
     IO.FS.writeBinFile (dir / s!"{n}.pdf") pdf

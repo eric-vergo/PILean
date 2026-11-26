@@ -4,6 +4,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Trust.Manifest
 import PILean.Trust.Files
+import PILean.Svg.Inert
 
 /-!
 # `pilean-verify`
@@ -15,9 +16,9 @@ must be a regular file there, read with a size cap (`readRegular`) and the bound
 `PILean.Trust.Json`, and a path with `..`, an absolute path, a backslash or any other unsafe
 character makes the whole manifest invalid before any file is touched. Each listed file must be
 a regular file inside the directory, every directory on its way a real directory, with the size
-and the SHA-256 of the manifest, its bytes of the manifest's format (`detectedFormat?`), and the
-source record inside the file (`Source.read?`) must agree with the manifest's fields and
-fingerprint. A file below the directory that the manifest does not list is reported as extra.
+and the SHA-256 of the manifest, its bytes of the manifest's format (`detectedFormat?`), an SVG
+file inert (`Svg.inertProblem?`), and the source record inside the file (`Source.read?`) must
+agree with the manifest's fields and fingerprint. A file below the directory that the manifest does not list is reported as extra.
 The directory must be listed completely (`listFiles` has a bound on depth and on entries): if it
 cannot be, the answer is an error, never `ok`. Every string from the directory is printed
 through `escapeControl`.
@@ -47,6 +48,8 @@ inductive Verdict where
   | notRegular
   /-- The file's bytes are not of the format the manifest gives (`detectedFormat?`). -/
   | formatDiffers
+  /-- An SVG file that is not inert (`Svg.inertProblem?`), which no build writes. -/
+  | notInert
   /-- The file has a source record but it differs from the manifest. -/
   | sourceDiffers
   /-- The file has no readable source record. -/
@@ -62,6 +65,7 @@ def Verdict.text : Verdict → String
   | .changed => "changed"
   | .notRegular => "not a regular file"
   | .formatDiffers => "format differs"
+  | .notInert => "not inert"
   | .sourceDiffers => "source differs"
   | .noSource => "no source"
   | .extra => "extra"
@@ -97,6 +101,10 @@ def verifyFile (root : System.FilePath) (m : ManifestEntry) : IO Verdict := do
       if bytes.size != m.bytes || Sha256.hex (Sha256.hash bytes) != m.sha256 then
         return .changed
       if detectedFormat? bytes != some m.format then return .formatDiffers
+      if m.format == "svg" then
+        match String.fromUTF8? bytes with
+        | some text => if (Svg.inertProblem? text).isSome then return .notInert
+        | none => return .notInert
       match Source.read? bytes with
       | .error _ => return .noSource
       | .ok s => return if m.matches s then .ok else .sourceDiffers

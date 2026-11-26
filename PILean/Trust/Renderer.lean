@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Trust.Figure
+import PILean.Trust.Motion
 import PILean.Trust.Provenance
 import PILean.Trust.Sha256
 
@@ -11,11 +12,12 @@ import PILean.Trust.Sha256
 
 `rendererId` names the code that turns a figure into bytes: the SHA-256 of the source text of
 every PILean module this module imports, directly or not (the plots, plane figures, graphs,
-animations, the SVG writer, the rasteriser, the lettering, the PNG, APNG, GIF and PDF writers and
-the source records), and of the Lean version the library is compiled with. The texts are read when
-this module is compiled (`include_str`), so the identity changes with any change to that code,
-comments included, and nobody has to remember to change it: Lake recompiles this module whenever
-one of those files changes, because they are its imports.
+animations, the motions of plane figures and their outputs, the SVG writer, the rasteriser, the
+lettering, the PNG, APNG, GIF and PDF writers and the source records), and of the Lean version
+the library is compiled with. The texts are read when this module is compiled (`include_str`), so
+the identity changes with any change to that code, comments included, and nobody has to remember
+to change it: Lake recompiles this module whenever one of those files changes, because they are
+its imports.
 
 ## Main definitions
 
@@ -43,6 +45,8 @@ def rendererSources : Array (String × String) :=
     ("PILean.Anim.Gif", include_str "../Anim/Gif.lean"),
     ("PILean.Anim.Lzw", include_str "../Anim/Lzw.lean"),
     ("PILean.Anim.Quantize", include_str "../Anim/Quantize.lean"),
+    ("PILean.Anim.Smil", include_str "../Anim/Smil.lean"),
+    ("PILean.Anim.Timeline", include_str "../Anim/Timeline.lean"),
     ("PILean.Canvas", include_str "../Canvas.lean"),
     ("PILean.CheckLevel", include_str "../CheckLevel.lean"),
     ("PILean.Color", include_str "../Color.lean"),
@@ -75,6 +79,10 @@ def rendererSources : Array (String × String) :=
     ("PILean.Plane.Check", include_str "../Plane/Check.lean"),
     ("PILean.Plane.Draw", include_str "../Plane/Draw.lean"),
     ("PILean.Plane.Frame", include_str "../Plane/Frame.lean"),
+    ("PILean.Plane.Graph", include_str "../Plane/Graph.lean"),
+    ("PILean.Plane.Motion", include_str "../Plane/Motion.lean"),
+    ("PILean.Plane.MotionOutput", include_str "../Plane/MotionOutput.lean"),
+    ("PILean.Plane.MotionPlan", include_str "../Plane/MotionPlan.lean"),
     ("PILean.Plane.Render", include_str "../Plane/Render.lean"),
     ("PILean.Plot.Check", include_str "../Plot/Check.lean"),
     ("PILean.Plot.Figure", include_str "../Plot/Figure.lean"),
@@ -113,6 +121,7 @@ def rendererSources : Array (String × String) :=
     ("PILean.Text.LetteringSymbols", include_str "../Text/LetteringSymbols.lean"),
     ("PILean.Text.LetteringTypo", include_str "../Text/LetteringTypo.lean"),
     ("PILean.Trust.Figure", include_str "../Trust/Figure.lean"),
+    ("PILean.Trust.Motion", include_str "../Trust/Motion.lean"),
     ("PILean.Trust.Provenance", include_str "../Trust/Provenance.lean"),
     ("PILean.Trust.Sha256", include_str "../Trust/Sha256.lean"),
     ("PILean.Version", include_str "../Version.lean")]

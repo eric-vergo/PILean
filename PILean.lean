@@ -90,6 +90,7 @@ import PILean.Trust.Sha256
 import PILean.Trust.Sha256Proofs
 import PILean.Trust.Provenance
 import PILean.Trust.Figure
+import PILean.Trust.Motion
 import PILean.Trust.Fingerprint
 import PILean.Trust.Json
 import PILean.Trust.Manifest

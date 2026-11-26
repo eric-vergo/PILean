@@ -39,7 +39,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`, `pHYs` (written); the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Anim` | a `FrameSeq` (equally sized RGBA frames, a rational delay each, a loop count) and its codecs. APNG: writer (frame differencing to the changed rectangle, equal frames merged, delays as reduced fractions) and reader (composes `dispose_op` and `blend_op`, any PNG colour type, caps on size, frames and bytes). GIF89a: writer (LZW, one global palette by median cut or the exact colours, optional Floyd–Steinberg dithering, differencing with a transparent index, delays in centiseconds with exact cumulative time, loop extension) and reader (global and local tables, interlacing, disposal 0–3, transparency, caps) | done |
 | `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips, metadata through `Shape.tagged` and `ShapeInfo`; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark`, with the plane colours and sizes `PlaneStyle` | done |
-| `PILean.Plane` (`Basic`, `Frame`, `Draw`, `Check`, `Render`, `Graph`, `Motion`, `MotionPlan`, `MotionOutput`) | plane figures: elements in world coordinates (`Geom`: points, lines, arcs, regions of disks, ticks, labels, …), looks by role (`Look`, `Tone`, named roles), items with metadata (`Item`), builders and modifiers; the frame (`Frame`, one scale, `y` up) fitted to the items' reaches (`Frame.fit`), clipping (`clipLine`); the figure (`Figure`) drawn on the canvas; layout checks and automatic label placement; outputs (sRGB images, outlined text, narrow renditions); graphs inside plane figures, step animations; motions through exact key frames (turns, slides, fades, morphs) written as SMIL and baked as frames | done; motions not yet among the build's outputs |
+| `PILean.Plane` (`Basic`, `Frame`, `Draw`, `Check`, `Render`, `Graph`, `Motion`, `MotionPlan`, `MotionOutput`) | plane figures: elements in world coordinates (`Geom`: points, lines, arcs, regions of disks, ticks, labels, …), looks by role (`Look`, `Tone`, named roles), items with metadata (`Item`), builders and modifiers; the frame (`Frame`, one scale, `y` up) fitted to the items' reaches (`Frame.fit`), clipping (`clipLine`); the figure (`Figure`) drawn on the canvas; layout checks and automatic label placement; outputs (sRGB images, outlined text, narrow renditions); graphs inside plane figures, step animations; motions through exact key frames (turns, slides, fades, morphs) written as SMIL and baked as frames | done; motions are build outputs (`PILean.Trust.Motion`) |
 | `PILean.CheckLevel` | how strictly a figure's checks apply (`ignore`, `warn`, `fail`), shared by plots and plane figures | done |
 | `PILean.Explorer` | families of frames for web pages (a parameter axis, steps with captions, or the values of a second parameter), figures as functions of one or two parameters over a grid (`Explorer.family`, `family₂`), caps on frames and bytes, their poster files and animations | done |
 | `PILean.Exact.Plane`, `PILean.Exact.Algebraic`, `PILean.Exact.Spec` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn; exact incidence with a disk; ℚ(√d), ℤ[ζ₅], exact square roots, constructions with certified enclosures; what an item of a figure is in exact terms (`IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`), for specifications | done |
@@ -49,7 +49,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
 | `PILean.Anim.Timeline`, `PILean.Anim.Smil` | timelines of looping motions through key frames (exact rational durations, cubic Bézier easing, the seam that closes the loop; tiling of the cycle proved) and SMIL animation elements on such a timeline, with an evaluator of SMIL timing for tests | done; used by the motions of plane figures |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline, orthogonal or bundled edges (one entry and one exit port per node, tracks in channels, concentric corners), arrowheads, edge labels and clusters, circular and tree layouts, components laid out apart and packed, mirrored layouts, drawing on the canvas as SVG and PNG, and as SVG for a web page | done; layering proved, see below |
-| `PILean.Trust` | done: a figure's standing (`linked` or `illustration`, recorded in its files and the manifest, `--require-standing`); SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG, GIF and PDF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_links` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
+| `PILean.Trust` | done: a figure's standing (`linked` or `illustration`, recorded in its files and the manifest, `--require-standing`); SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG, GIF and PDF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_links` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)); motions as build outputs (`PILean.Trust.Motion`: the animated SVG, key stills, contact sheet, the manifest's `motion` kind) | done |
 
 ## Public API in Pillow's spirit
 
@@ -1176,6 +1176,34 @@ the eased angle with 4 samples, 2.92° with 8 and 1.45° with 16, and a fifth of
 with the default 16. The plan (`MotionPlan`) holds every animated value as a function of a phase (a
 key, or a fraction of a step) and is computed in a drawing environment (`Motion.planIn`), so that a
 picture of several panels can lay out each motion in a frame of its own on one shared timeline.
+
+### Outputs of a motion
+
+`PILean/Trust/Motion.lean` makes a motion a figure of the build (`@[figure illustration]` on a
+`Plane.Motion`). The outputs read a *checked motion* (`CheckedMotion`), computed once from
+`Motion.report`: the animated SVG of the checked route (`MotionReport.svg?`, never a route that
+ends in `Unchecked`), the key stills as plane figures (`Motion.keyFigure`), the captions, the
+poster, the cycle, the table of the steps and the problems. Any type with a `ToCheckedMotion`
+instance is rendered the same way (`motionOutputs`), so a picture of several panels on one clock
+needs only that instance. For a motion declared as `d` with `n` keys the files are:
+
+| Suffix | Formats | What it is |
+|---|---|---|
+| (none) | SVG | the animated SVG; for a page also its body without the file's own reduced-motion `style` and poster group (`MotionData.live`), the stills with their captions and the step table (`Output.motionPage`) |
+| `-poster` | PNG, PDF | the poster key's still |
+| `-keys` | SVG, PNG, PDF | the contact sheet: the title, then every key's still at its own size in a grid with its caption wrapped below it (`sheetOf`, one drawing, written like a frame of an explorer); for print, PDF and the LeAnTeX path |
+| `-key-k` | SVG, PNG | the still of key `k` (from 0), byte for byte the files of `Motion.keyFigure k`, drawn by the plane figures' pipeline (`planeOutputs`) |
+| `-narrow`, `-narrow-key-k` | SVG; SVG, PNG | the narrow rendition and its stills, when the checked motion has one (a single motion has none) |
+| (none) | APNG, GIF | the baked frames (`MotionReport.animation?`), only with `MotionFigure.rasters` |
+
+The grid has as many columns as fit in 800 pixels (two stills of 360 pixels), then as few as keep
+the number of rows, so the rows are filled evenly; printed across a page of 6.5 inches its
+14-pixel captions are about eight points tall. A motion whose errors stop it renders none of the
+files: each output fails with the messages of the errors. Every output records the motion's
+summary (keys, cycle, captions), which the manifest writes (`kind` `motion`, `docs/TRUST.md`).
+The dark twin of a motion, for a site with a dark theme, is the same outputs of
+`Motion.withStyle d` with `d` the dark twin of `Motion.style`: the stills and the sheet are drawn
+by the plane figures' route in that style, with no drawing code of their own.
 
 ## Open design questions
 

@@ -220,8 +220,8 @@ def ioChecks : IO (Array (String × Bool)) := do
       checkLinked.any (·.startsWith "stale: PILeanTest/") &&
         !checkLinked.any (·.startsWith "missing: PILeanTest/"))
     -- the renderer's identity covers exactly the imported modules, with their current text
-    let closure ← importClosure #["PILean.Trust.Figure", "PILean.Trust.Provenance",
-      "PILean.Trust.Sha256"]
+    let closure ← importClosure #["PILean.Trust.Figure", "PILean.Trust.Motion",
+      "PILean.Trust.Provenance", "PILean.Trust.Sha256"]
     let listed := rendererSources.map (·.1)
     let missing := closure.filter (!listed.contains ·)
     let extra := listed.filter (!closure.contains ·)
