@@ -235,6 +235,7 @@ def check(browser, root, name):
     spage.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     spage.goto("file://" + path)
     spage.wait_for_timeout(300)
+    hidden_at = spage.evaluate("document.documentElement.getCurrentTime()")
     spage.emulate_media(reduced_motion="reduce")
     spage.wait_for_timeout(1500)
     spage.emulate_media(reduced_motion="no-preference")
@@ -243,10 +244,23 @@ def check(browser, root, name):
     spage.wait_for_timeout(150)
     shown = spage.screenshot(clip=clip)
     now = spage.evaluate("document.documentElement.getCurrentTime()")
-    spage.evaluate(f"document.documentElement.setCurrentTime({now})")
-    spage.wait_for_timeout(150)
-    seeked = spage.screenshot(clip=clip)
-    switch = spage.evaluate(PIXELS, [uri(shown), uri(seeked)])
+
+    def off_at(t):
+        spage.evaluate(f"document.documentElement.setCurrentTime({t})")
+        spage.wait_for_timeout(60)
+        return spage.evaluate(PIXELS, [uri(shown), uri(spage.screenshot(clip=clip))])
+    # the paused clock and the last frame drawn can be a frame or two apart while something
+    # moves: the picture shown must match the running clock's near the pause (5 ms steps within
+    # 100 ms before it and 50 ms after) better than half as far as the picture of the time it was
+    # hidden, which a picture frozen then would match exactly
+    switch = None
+    for k in range(31):
+        n = off_at(now - 0.1 + 0.005 * k)
+        switch = n if switch is None else min(switch, n)
+        if switch == 0:
+            break
+    frozen = off_at(hidden_at)
+    switch_ok = switch == 0 or switch * 2 < frozen
     sctx.close()
     # it plays: no seeking, two moments of the running clock
     pctx = browser.new_context(viewport={"width": 800, "height": 700})
@@ -264,13 +278,14 @@ def check(browser, root, name):
     uprights_ok = uprights_found == {spec["uprights"]} and spec["uprights"] > 0
     ok = (ok and rest_err <= REST_TOL and radius_err <= RADIUS_TOL and angle_err <= ANGLE_TOL
           and upright <= UPRIGHT_TOL and uprights_ok and all(n == 0 for n in rest_pixels)
-          and display == ["hidden 0", "inline"] and diff < 8 and switch == 0 and not errors
+          and display == ["hidden 0", "inline"] and diff < 8 and switch_ok and not errors
           and plays)
     print(f"{name}: rests {rest_err:.2e} px and {rest_pixels} pixels off the stills, "
           f"arcs {radius_err:.2e} px and {angle_err:.2e} deg, uprights {sorted(uprights_found)} "
           f"of {spec['uprights']} found, turned {upright:.2e} deg; reduced motion: live "
           f"{display[0]}, poster {display[1]}, {diff:.2f} of 255 from the poster PNG, switched "
-          f"off again {switch} pixels off the clock; plays ({t1:.2f} s, {t2:.2f} s): {plays}; "
+          f"off again {switch} pixels off the clock ({frozen} off the time it was hidden); "
+          f"plays ({t1:.2f} s, {t2:.2f} s): {plays}; "
           f"console errors: {len(errors)} -> {'ok' if ok else 'FAILED'}")
     for e in errors:
         print(f"  console: {e}")

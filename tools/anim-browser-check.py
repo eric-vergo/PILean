@@ -121,9 +121,15 @@ def main():
             spage.wait_for_timeout(150)
             shown = spage.screenshot(clip=clip)
             now = spage.evaluate("document.documentElement.getCurrentTime()")
-            spage.evaluate(f"document.documentElement.setCurrentTime({now})")
-            spage.wait_for_timeout(150)
-            switch = spage.evaluate(PIXELS, [uri(shown), uri(spage.screenshot(clip=clip))]) == 0
+            # the paused clock and the last frame drawn can be a frame or two apart: the picture
+            # shown must be one of the running clock's within 50 ms
+            switch = False
+            for dt in (0, -0.01, 0.01, -0.02, 0.02, -0.03, 0.03, -0.05, 0.05):
+                spage.evaluate(f"document.documentElement.setCurrentTime({now + dt})")
+                spage.wait_for_timeout(100)
+                if spage.evaluate(PIXELS, [uri(shown), uri(spage.screenshot(clip=clip))]) == 0:
+                    switch = True
+                    break
             sctx.close()
             ok = moved and still and display == ["inline", "hidden 0"] and diff < 8 and switch
             failures += 0 if ok else 1
