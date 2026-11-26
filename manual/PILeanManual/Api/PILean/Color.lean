@@ -11,6 +11,8 @@ import PILean.Color
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Color" =>
 %%%
 tag := "api-PILean.Color"

@@ -11,6 +11,8 @@ import PILean.Text.Engine
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Text.Engine" =>
 %%%
 tag := "api-PILean.Text.Engine"

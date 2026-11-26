@@ -41,6 +41,7 @@ import PILeanTest.Explorers
 import PILeanTest.ComplexDiagrams
 import PILeanTest.Timeline
 import PILeanTest.Motion
+import PILeanTest.MotionPanels
 
 /-!
 # The axioms of the library, checked by the build

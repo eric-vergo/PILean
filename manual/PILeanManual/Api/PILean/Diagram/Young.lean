@@ -11,6 +11,8 @@ import PILean.Diagram.Young
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Diagram.Young" =>
 %%%
 tag := "api-PILean.Diagram.Young"

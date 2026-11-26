@@ -11,6 +11,8 @@ import PILean.Plot.Figure
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Plot.Figure" =>
 %%%
 tag := "api-PILean.Plot.Figure"

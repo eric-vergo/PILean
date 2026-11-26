@@ -11,6 +11,8 @@ import PILean.Graph.Ordering
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Ordering" =>
 %%%
 tag := "api-PILean.Graph.Ordering"

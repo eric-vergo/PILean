@@ -11,6 +11,8 @@ import PILean.Trust.Verify
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Trust.Verify" =>
 %%%
 tag := "api-PILean.Trust.Verify"

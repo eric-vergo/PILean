@@ -38,13 +38,14 @@ import PILeanTest.Explorers
 import PILeanTest.ComplexDiagrams
 import PILeanTest.Timeline
 import PILeanTest.Motion
+import PILeanTest.MotionPanels
 
 /-!
 # The test driver
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
 `PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`,
-`PILeanTest.Timeline`, `PILeanTest.Motion`, `PILeanTest.Plots`,
+`PILeanTest.Timeline`, `PILeanTest.Motion`, `PILeanTest.MotionPanels`, `PILeanTest.Plots`,
 `PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.GraphRoutes`, `PILeanTest.Trust`,
 `PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`,
 `PILeanTest.Diagrams`, `PILeanTest.AlgebraDiagrams`, `PILeanTest.NumberDiagrams`,
@@ -53,7 +54,8 @@ changes to the figures that their specifications must catch (`PILeanTest.SpecMut
 compares every gallery figure's SVG and PNG, every gallery plane figure's (the diagrams' among
 them) and graph's SVG and
 PNG, every gallery animation's SVG, APNG, GIF and poster, and the SVG of every golden motion of
-plane figures (`PILeanTest.Motion`), with its files in `examples/` (the goldens), byte for byte;
+plane figures and picture of panels (`PILeanTest.Motion`, `PILeanTest.MotionPanels`), with its
+files in `examples/` (the goldens), byte for byte;
 it also renders each figure twice to check that the output is
 deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
@@ -75,9 +77,10 @@ folders; `--bounds` runs only these two.
 `lake exe pilean-test --png-out DIR` writes the PNG writer's files to `DIR` for
 `tools/png-check.py`.
 `lake exe pilean-test --anim-out DIR` writes sample GIF and APNG files to `DIR` for other software
-to check; `--motion-out DIR` writes the golden motions, their key stills and what
-`tools/motion-browser-check.py` expects of them to `DIR`, and `--motion-checks` runs the checks of
-`PILeanTest.Motion` alone.
+to check; `--motion-out DIR` writes the golden motions and pictures of panels (with their narrow
+renditions), their key stills and what `tools/motion-browser-check.py` expects of them to `DIR`,
+and `--motion-checks` runs the checks of `PILeanTest.Motion` and `PILeanTest.MotionPanels`
+alone.
 -/
 
 open PILeanTest
@@ -108,9 +111,12 @@ def main (args : List String) : IO UInt32 := do
   | "--png-out" :: _ => IO.eprintln "usage: --png-out DIR"; return 1
   | ["--anim-out", dir] => AnimFiles.writeSamples dir; return 0
   | "--anim-out" :: _ => IO.eprintln "usage: --anim-out DIR"; return 1
-  | ["--motion-out", dir] => MotionChecks.writeBrowserFiles dir; return 0
+  | ["--motion-out", dir] =>
+    MotionChecks.writeBrowserFiles dir
+    MotionPanelsChecks.writeBrowserFiles dir
+    return 0
   | ["--motion-checks"] =>
-    let r := MotionChecks.checks
+    let r := MotionChecks.checks ++ MotionPanelsChecks.checks
     for (name, ok) in r do if !ok then IO.eprintln s!"FAIL {name}"
     IO.println s!"{(r.filter (·.2)).size} of {r.size} hold"
     return if r.all (·.2) then 0 else 1
@@ -163,7 +169,7 @@ def main (args : List String) : IO UInt32 := do
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++ Blur.checks ++
     Anim.checks ++ (← Anim.ioChecks) ++ TimelineChecks.checks ++ MotionChecks.checks ++
-    Plots.checks ++ Lettering.checks ++
+    MotionPanelsChecks.checks ++ Plots.checks ++ Lettering.checks ++
     Graphs.checks ++ GraphOrder.checks ++ GraphRoutes.checks ++ GraphBundles.checks ++ GraphQuality.checks ++
     (← GraphQuality.ioChecks) ++ (← GraphBundles.ioChecks) ++ GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
@@ -274,8 +280,10 @@ def main (args : List String) : IO UInt32 := do
             the change)"
           failed := failed + 1
         else IO.println s!"golden {path}: same"
-  for (name, m) in MotionChecks.golden do
-    let svg := match m.svg? with
+  let motionGoldens := MotionChecks.golden.map (fun (name, m) => (name, m.svg?)) ++
+    MotionPanelsChecks.golden.map fun (name, P) => (name, P.svg?)
+  for (name, out) in motionGoldens do
+    let svg := match out with
       | .ok svg => svg
       | .error es => s!"refused: {es}"
     let path : System.FilePath := "examples" / s!"{name}.svg"

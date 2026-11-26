@@ -44,16 +44,23 @@ which every animation of the picture runs at constant speed.
 
 **The internal form for several motions on one clock.** Every animated value is a function of
 a `MotionPhase` (a key, or a fraction of a step), evaluated at the boundaries of the timeline; the
-plan
-is computed in a drawing environment (`Motion.planIn`), so a picture of several panels can lay
-each motion out in a frame of its own (its origin shifted) on a timeline they share.
+plan is computed in a drawing environment on a given timeline (`Motion.planOn`; `Motion.planIn`
+on the motion's own), so a picture of several panels (`PILean.Plane.MotionPanels`) lays each
+motion out in a frame of its own (its origin shifted) on the timeline they share.
 
 ## Main definitions
 
 * `MotionPhase`, `MotionClock`, `MotionLink`, `MotionLayer`, `MotionUpright`,
-  `MotionPlan`, `Motion.planIn`, `Motion.plan`.
-* `Motion.segments`, `Motion.timelineOf`, `Motion.phasesOf`, `Motion.timeline`.
-* `MotionPlan.toNodesUnchecked`, `MotionPlan.figureAtUnchecked`, `MotionPlan.markersAt`.
+  `MotionPlan`, `Motion.planLayers`, `Motion.planOn`, `Motion.planIn`, `Motion.plan`.
+* `sampledSegments`, `Motion.segments`, `Motion.timelineOf`, `Motion.phasesOf`,
+  `Motion.timeline`, `seamOf`.
+* `MotionPlan.toNodesUnchecked`, `MotionPlan.contentNodes`, `MotionPlan.figureAtUnchecked`,
+  `MotionPlan.contentAt`, `MotionPlan.markersAt`.
+
+## Main results
+
+* `Motion.planOn_timeline`: a plan laid out on a timeline has that timeline.
+* `MotionPlan.anim_eq`: every animation element of a plan has the timing of its timeline.
 
 The motion's checked outputs (`Motion.report`, `Motion.svg?`, `Motion.animation?`) and its checks
 against the stills and between writer and baker (`Motion.problems`) are in
@@ -102,25 +109,20 @@ def easedTime (e : Easing) (y : Float) : Rat :=
     return (lo + hi) / 2
   ((x * 1000000000).round.toInt64.toInt : Rat) / 1000000000
 
-namespace Motion
-
-variable (m : Motion)
-
-/-- The segments of the motion's timeline with the phases at their start and end: those of
-`Timeline.build` on `animSteps`, a sampled morph's move divided into `samplesOf` segments, the
-`i`-th ending where the step's easing has done `(i + 1) / n` of the step (`easedTime`). The
-values at those boundaries are the exact fractions `i / n` of the step and the segments are not
-eased, so every animation of the step follows its eased motion piecewise linearly, within `1 / n`
-of the step's change. -/
-def segments (K : MotionKeys) : Array (Segment × MotionPhase × MotionPhase) :=
-  let base := Timeline.build m.animSteps m.pacing
+/-- The segments of the timeline `base` with the phases at their start and end, the move of each
+step `j` divided into `samples j` segments when that is more than one, the `i`-th ending where the
+step's easing has done `(i + 1) / n` of the step (`easedTime`). The values at those boundaries are
+the exact fractions `i / n` of the step and the segments are not eased, so every animation of the
+step follows its eased motion piecewise linearly, within `1 / n` of the step's change. -/
+def sampledSegments (base : Timeline) (samples : Nat → Nat) :
+    Array (Segment × MotionPhase × MotionPhase) :=
   let last := base.keys - 1
   base.segments.flatMap fun s => match s.kind with
     | .rest k => #[(s, ⟨k, 0⟩, ⟨k, 0⟩)]
     | .seamIn => #[(s, ⟨0, 0⟩, ⟨0, 0⟩)]
     | .seamOut => #[(s, ⟨last, 0⟩, ⟨last, 0⟩)]
     | .move j =>
-      let n := m.samplesOf K j
+      let n := samples j
       if n ≤ 1 then #[(s, ⟨j, 0⟩, ⟨j + 1, 0⟩)]
       else
         let τ := fun (i : Nat) => if i == 0 then (0 : Rat) else if i ≥ n then 1
@@ -131,6 +133,16 @@ def segments (K : MotionKeys) : Array (Segment × MotionPhase × MotionPhase) :=
           let dur := s.dur * (τ (i + 1) - τ i)
           let seg : Segment := { s with start, dur, easing := .linear }
           (seg, MotionPhase.ofStep j (q / n), MotionPhase.ofStep j ((q + 1) / n))
+
+namespace Motion
+
+variable (m : Motion)
+
+/-- The segments of the motion's timeline with the phases at their start and end: those of
+`Timeline.build` on `animSteps`, a sampled morph's move divided into `samplesOf` segments
+(`sampledSegments`). -/
+def segments (K : MotionKeys) : Array (Segment × MotionPhase × MotionPhase) :=
+  sampledSegments (Timeline.build m.animSteps m.pacing) (m.samplesOf K)
 
 /-- The timeline of segments `segs` (see `segments`). -/
 def timelineOf (segs : Array (Segment × MotionPhase × MotionPhase)) : Timeline :=
@@ -409,11 +421,11 @@ namespace Motion
 
 variable (m : Motion)
 
-/-- The motion laid out in the environment `e` (its frame and style), its keys as drawn `K`. -/
-def planIn (K : MotionKeys) (e : Env) : MotionPlan := Id.run do
-  let segs := m.segments K
-  let tl := m.timelineOf segs
-  let phases := phasesOf segs
+/-- The layers of the motion laid out in the environment `e`, its keys as drawn `K`, every animated
+value given at the phases `phases` (one per boundary of a timeline), and the layers in drawing
+order as runs (see `MotionPlan.runs`). -/
+def planLayers (K : MotionKeys) (e : Env) (phases : Array MotionPhase) :
+    Array MotionLayer × Array (Array (Array Nat)) := Id.run do
   let st := e.style
   let (vs, perKey) := m.versions K e
   let order := mergeOrder perKey
@@ -463,12 +475,33 @@ def planIn (K : MotionKeys) (e : Env) : MotionPlan := Id.run do
     if v.first == 0 && v.last + 1 == keyCount then (0, 0) else (v.first + 1, v.last + 1)
   let runs := (runsBy visKey order).map fun run =>
     runsBy (fun i => (layers.getD i default).links) run
-  let seam := if tl.segments.any (fun s => s.kind == .seamIn || s.kind == .seamOut) then
+  return (layers, runs)
+
+/-- The opacity of the whole moving picture at each boundary of the timeline `tl` under a
+crossfade seam (`Smil.seamLevels`), or `none` under a cut. -/
+def _root_.PILean.Plane.seamOf (tl : Timeline) : Option (Array Float) :=
+  if tl.segments.any (fun s => s.kind == .seamIn || s.kind == .seamOut) then
     some (Smil.seamLevels tl) else none
-  let plan : MotionPlan :=
-    { env := e, mode := K.mode, timeline := tl, phases, clock := MotionClock.ofTimeline tl,
-      layers, runs, seam, background := (K.figure 0).background, keys := keyCount }
-  return plan
+
+/-- The motion laid out in the environment `e` (its frame and style), its keys as drawn `K`, on
+the timeline `tl` whose boundaries have the phases `phases`. A picture of several motions lays
+each out on one timeline they share (`PILean.Plane.MotionPanels`). -/
+def planOn (K : MotionKeys) (e : Env) (tl : Timeline) (phases : Array MotionPhase) :
+    MotionPlan :=
+  let lr := m.planLayers K e phases
+  { env := e, mode := K.mode, timeline := tl, phases, clock := MotionClock.ofTimeline tl,
+    layers := lr.1, runs := lr.2, seam := seamOf tl, background := (K.figure 0).background,
+    keys := m.keys.size }
+
+/-- A plan laid out on a timeline has that timeline. -/
+theorem planOn_timeline (K : MotionKeys) (e : Env) (tl : Timeline) (phases : Array MotionPhase) :
+    (m.planOn K e tl phases).timeline = tl := rfl
+
+/-- The motion laid out in the environment `e` (its frame and style), its keys as drawn `K`, on
+its own timeline (`segments`). -/
+def planIn (K : MotionKeys) (e : Env) : MotionPlan :=
+  let segs := m.segments K
+  m.planOn K e (m.timelineOf segs) (phasesOf segs)
 
 /-- The motion laid out in its own environment (`Motion.env`). -/
 def plan : MotionPlan := let K := m.keysOf; m.planIn K K.env
@@ -736,16 +769,21 @@ def layerShape (L : MotionLayer) (t : Float) : Array Shape :=
   (walkItem (p.leafShapes L t) (fun i xs => if i.isEmpty then xs else #[.tagged i (.group xs)])
     base).run' 0
 
-/-- The motion at the time `t` (seconds from its start, repeated every cycle) as a drawing: the
-background, then the runs of layers at their opacities, each layer turned and slid as its chain
-has it then (see the module docstring). -/
-def figureAtUnchecked (t : Float) : Shape :=
-  let content := p.runs.flatMap fun run =>
+/-- The moving picture at the time `t` (seconds from its start, repeated every cycle), without the
+background and the seam's fades: the runs of layers at their opacities, each layer turned and slid
+as its chain has it then. -/
+def contentAt (t : Float) : Array Shape :=
+  p.runs.flatMap fun run =>
     let first := p.layers.getD ((run.getD 0 #[]).getD 0 0) default
     let inner := run.flatMap fun sub => sub.flatMap fun i =>
       p.layerShape (p.layers.getD i default) t
     if first.opacity.isSome then #[.group inner Affine.id (p.opacityAt first t)] else inner
-  .group #[p.background, .group content Affine.id (p.seamAt t)]
+
+/-- The motion at the time `t` (seconds from its start, repeated every cycle) as a drawing: the
+background, then the runs of layers at their opacities, each layer turned and slid as its chain
+has it then (see the module docstring). -/
+def figureAtUnchecked (t : Float) : Shape :=
+  .group #[p.background, .group (p.contentAt t) Affine.id (p.seamAt t)]
 
 /-- The page points that stand for the actors and the upright leaves at the time `t`, in the
 order of the SVG document, each with what it stands for (`actor` and the id, or `upright`), its

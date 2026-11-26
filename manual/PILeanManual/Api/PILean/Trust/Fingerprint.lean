@@ -11,6 +11,8 @@ import PILean.Trust.Fingerprint
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Trust.Fingerprint" =>
 %%%
 tag := "api-PILean.Trust.Fingerprint"

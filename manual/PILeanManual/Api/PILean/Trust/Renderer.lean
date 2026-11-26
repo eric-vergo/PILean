@@ -11,6 +11,8 @@ import PILean.Trust.Renderer
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Trust.Renderer" =>
 %%%
 tag := "api-PILean.Trust.Renderer"

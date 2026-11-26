@@ -11,6 +11,8 @@ import PILean.Plane.Draw
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Plane.Draw" =>
 %%%
 tag := "api-PILean.Plane.Draw"

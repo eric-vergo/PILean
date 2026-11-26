@@ -11,6 +11,8 @@ import PILean.Raster.DomainColouring
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Raster.DomainColouring" =>
 %%%
 tag := "api-PILean.Raster.DomainColouring"

@@ -11,6 +11,8 @@ import PILean.Canvas
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Canvas" =>
 %%%
 tag := "api-PILean.Canvas"

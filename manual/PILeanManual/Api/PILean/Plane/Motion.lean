@@ -11,6 +11,8 @@ import PILean.Plane.Motion
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Plane.Motion" =>
 %%%
 tag := "api-PILean.Plane.Motion"

@@ -11,6 +11,8 @@ import PILean.Graph.Proofs
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Proofs" =>
 %%%
 tag := "api-PILean.Graph.Proofs"

@@ -11,6 +11,8 @@ import PILean.Graph.Layout
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Layout" =>
 %%%
 tag := "api-PILean.Graph.Layout"

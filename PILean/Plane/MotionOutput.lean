@@ -29,7 +29,7 @@ problems of the keys and steps (`Motion.keyProblems`) with these.
 * `Motion.svgRootUnchecked`, `Motion.toSvgUnchecked`, `Motion.figureAtUnchecked`,
   `Motion.toAnimationUnchecked`.
 * `Drawn`, `drawnOf`, `drawingDiff`, `restTolerance`, `Motion.restProblems`.
-* `writtenMarkers`, `writerDiff`, `Motion.writerProblems`.
+* `writtenMarkers`, `markersDiff`, `writerDiff`, `Motion.writerProblems`.
 -/
 
 namespace PILean.Plane
@@ -223,17 +223,16 @@ def affineNear (a b : Affine) (tol : Float) : Bool :=
   [(a.a, b.a), (a.b, b.b), (a.c, b.c), (a.d, b.d), (a.e, b.e), (a.f, b.f)].all fun (x, y) =>
     (x - y).abs < tol
 
-/-- The first way the written moving picture `nodes` disagrees, at the time `t`, with the baker
-of the plan `p`: another number of actors or of upright groups than the plan declares, an anchor
-farther than `1e-6` px, an opacity or a coefficient of a transform off by more than `1e-6`. -/
-def writerDiff (p : MotionPlan) (nodes : Array Node) (t : Float) : Option String :=
+/-- The first way the written moving picture `nodes` disagrees, at the time `t`, with the marked
+points `baked` of a baker (`MotionPlan.markersAt`, in document order): another number of actors
+than `actors` or of upright groups than `ups`, an anchor farther than `1e-6` px, an opacity or a
+coefficient of a transform off by more than `1e-6`. -/
+def markersDiff (baked : Array (String × Point × Float × Affine)) (actors ups : Nat)
+    (nodes : Array Node) (t : Float) : Option String :=
   match nodes.mapM (writtenMarkers t 256 Affine.id 1) with
   | none => some "has an animation that does not evaluate"
   | some ws =>
     let written := ws.flatten
-    let baked := p.markersAt t
-    let actors := (p.layers.filter fun L => L.version.actor.isSome).size
-    let ups := (p.layers.map (·.uprights.size)).foldl (· + ·) 0
     if (written.filter (·.1 != "upright")).size != actors then
       some s!"shows {(written.filter (·.1 != "upright")).size} actors where the plan has {actors}"
     else if (written.filter (·.1 == "upright")).size != ups then
@@ -248,6 +247,13 @@ def writerDiff (p : MotionPlan) (nodes : Array Node) (t : Float) : Option String
         else if !((o - o').abs < 1e-6) then some s!"shows {n} at another opacity"
         else if !affineNear M M' 1e-6 then some s!"puts {n} under another transform"
         else none
+
+/-- The first way the written moving picture `nodes` disagrees, at the time `t`, with the baker
+of the plan `p`: another number of actors or of upright groups than the plan declares, an anchor
+farther than `1e-6` px, an opacity or a coefficient of a transform off by more than `1e-6`. -/
+def writerDiff (p : MotionPlan) (nodes : Array Node) (t : Float) : Option String :=
+  markersDiff (p.markersAt t) ((p.layers.filter fun L => L.version.actor.isSome).size)
+    ((p.layers.map (·.uprights.size)).foldl (· + ·) 0) nodes t
 
 namespace Motion
 

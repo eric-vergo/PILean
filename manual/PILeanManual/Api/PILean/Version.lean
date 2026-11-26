@@ -11,6 +11,8 @@ import PILean.Version
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Version" =>
 %%%
 tag := "api-PILean.Version"

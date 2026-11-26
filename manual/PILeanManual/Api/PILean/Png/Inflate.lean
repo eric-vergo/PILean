@@ -11,6 +11,8 @@ import PILean.Png.Inflate
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Png.Inflate" =>
 %%%
 tag := "api-PILean.Png.Inflate"

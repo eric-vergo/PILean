@@ -11,6 +11,8 @@ import PILean.Anim.Lzw
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Anim.Lzw" =>
 %%%
 tag := "api-PILean.Anim.Lzw"

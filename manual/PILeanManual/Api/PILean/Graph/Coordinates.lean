@@ -11,6 +11,8 @@ import PILean.Graph.Coordinates
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Coordinates" =>
 %%%
 tag := "api-PILean.Graph.Coordinates"

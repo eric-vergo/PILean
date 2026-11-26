@@ -11,6 +11,8 @@ import PILean.Anim.Smil
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Anim.Smil" =>
 %%%
 tag := "api-PILean.Anim.Smil"

@@ -11,6 +11,8 @@ import PILean.Trust.Sha256
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Trust.Sha256" =>
 %%%
 tag := "api-PILean.Trust.Sha256"

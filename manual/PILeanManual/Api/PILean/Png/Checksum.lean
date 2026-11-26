@@ -11,6 +11,8 @@ import PILean.Png.Checksum
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Png.Checksum" =>
 %%%
 tag := "api-PILean.Png.Checksum"

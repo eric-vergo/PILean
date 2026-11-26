@@ -11,6 +11,8 @@ import PILean.Graph.Layering
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Layering" =>
 %%%
 tag := "api-PILean.Graph.Layering"

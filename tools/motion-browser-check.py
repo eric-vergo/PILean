@@ -1,10 +1,11 @@
 # Released under Apache 2.0 license as described in the file LICENSE.
 # Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 #
-# Loads the golden motions of plane figures in a headless Chromium (through Playwright), each
-# standalone SVG file opened directly, and checks what a reader sees against what the motion
-# means. The files and the expectations come from `lake exe pilean-test --motion-out DIR`; every
-# motion with a `.json` of expectations in DIR is checked.
+# Loads the golden motions of plane figures and pictures of panels (with their narrow
+# renditions) in a headless Chromium (through Playwright), each standalone SVG file opened
+# directly, and checks what a reader sees against what the motion means. The files and the
+# expectations come from `lake exe pilean-test --motion-out DIR`; every motion with a `.json` of
+# expectations in DIR is checked.
 #
 # With the clock paused and set (`setCurrentTime`), every `[data-pilean-actor]` anchor is read
 # through `getCTM()`:
@@ -21,7 +22,12 @@
 #   (d) under `prefers-reduced-motion: reduce` the moving picture is not shown, the poster
 #       still is, and the page matches the poster key's PNG; switching reduced motion on and off
 #       again without seeking shows the picture of the running clock (not a frozen one);
-#   (e) no console errors.
+#   (e) no console errors;
+#   (f) for a picture of panels (its expectations list the panels' boxes and `phase`): at every
+#       rest each panel's part of the picture is its part of the composed still (the pixel rule
+#       of (a), within the panel's box), and at every rest and at a quarter, a half and three
+#       quarters of every move every actor of every panel is where the composed baker has it
+#       (0.05 px) at the same clock time: the panels are in phase.
 # Without seeking, the motion plays: two screenshots at different `getCurrentTime()` differ.
 #
 # Needs the `playwright` Python package and a Chromium it can find (nothing is installed or
@@ -44,6 +50,8 @@ except ImportError:
 
 
 REST_TOL = 0.05
+PHASE_TOL = 0.05
+VIEWPORT = {"width": 800, "height": 1000}
 RADIUS_TOL = 0.05
 ANGLE_TOL = 0.5
 UPRIGHT_TOL = 0.01
@@ -159,7 +167,7 @@ def check(browser, root, name):
         spec = json.load(f)
     path = os.path.abspath(os.path.join(root, spec["svg"]))
     errors = []
-    ctx = browser.new_context(viewport={"width": 800, "height": 700})
+    ctx = browser.new_context(viewport=VIEWPORT)
     page = ctx.new_page()
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(str(e)))
@@ -173,6 +181,7 @@ def check(browser, root, name):
         " return [r.width, r.height]; })()")
     clip = {"x": 0, "y": 0, "width": box[0], "height": box[1]}
     uprights_found = set()
+    panel_pixels = {}
     for rest in spec["rests"]:
         seen = page.evaluate(READ, rest["t"])
         uprights_found.add(len(seen["uprights"]))
@@ -187,6 +196,17 @@ def check(browser, root, name):
         still = still_page.screenshot(clip=clip)
         still_page.close()
         rest_pixels.append(sum(page.evaluate(UNEXPLAINED, [uri(shot), uri(still)])))
+        for panel in spec.get("panels", []):
+            x, y, w, h = panel["box"]
+            box_clip = {"x": x, "y": y, "width": w, "height": h}
+            part = page.screenshot(clip=box_clip)
+            still_page = ctx.new_page()
+            still_page.goto("file://" + os.path.abspath(
+                os.path.join(root, f"{name}-key{rest['key']}.svg")))
+            part_still = still_page.screenshot(clip=box_clip)
+            still_page.close()
+            n = sum(page.evaluate(UNEXPLAINED, [uri(part), uri(part_still)]))
+            panel_pixels[panel["id"]] = max(panel_pixels.get(panel["id"], 0), n)
         for a in rest["actors"]:
             xy = first(seen["actors"], a["id"])
             if xy is None:
@@ -210,9 +230,20 @@ def check(browser, root, name):
             if r >= 1:  # an anchor on the centre itself has no angle
                 a = math.degrees(math.atan2(xy[1] - c[1], xy[0] - c[0]))
                 angle_err = max(angle_err, abs(wrap((a - a0) - turn["sweep"] * sample["f"])))
+    # panels in phase: every actor of every panel where the composed baker has it, at one time
+    phase_err = {}
+    for sample in spec.get("phase", []):
+        seen = page.evaluate(READ, sample["t"])
+        if [i for i, _ in seen["actors"]] != [i for i, _ in sample["actors"]]:
+            ok = False
+            print(f"{name}: at {sample['t']:.3f} s the actors differ from the expected ones")
+            continue
+        for (ident, xy), (_, want) in zip(seen["actors"], sample["actors"]):
+            panel = ident.split("-")[0]
+            phase_err[panel] = max(phase_err.get(panel, 0.0), math.dist(xy, want))
     ctx.close()
     # reduced motion: the still, not the moving picture
-    rctx = browser.new_context(viewport={"width": 800, "height": 700}, reduced_motion="reduce")
+    rctx = browser.new_context(viewport=VIEWPORT, reduced_motion="reduce")
     rpage = rctx.new_page()
     rpage.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     rpage.on("pageerror", lambda e: errors.append(str(e)))
@@ -230,7 +261,7 @@ def check(browser, root, name):
     rctx.close()
     # reduced motion switched on, the clock running on, and off again: the picture shown is the
     # one of the running clock, not one frozen when it was hidden
-    sctx = browser.new_context(viewport={"width": 800, "height": 700})
+    sctx = browser.new_context(viewport=VIEWPORT)
     spage = sctx.new_page()
     spage.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     spage.goto("file://" + path)
@@ -263,7 +294,7 @@ def check(browser, root, name):
     switch_ok = switch == 0 or switch * 2 < frozen
     sctx.close()
     # it plays: no seeking, two moments of the running clock
-    pctx = browser.new_context(viewport={"width": 800, "height": 700})
+    pctx = browser.new_context(viewport=VIEWPORT)
     ppage = pctx.new_page()
     ppage.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     ppage.goto("file://" + path)
@@ -276,17 +307,25 @@ def check(browser, root, name):
     pctx.close()
     plays = t2 > t1 and s1 != s2
     uprights_ok = uprights_found == {spec["uprights"]} and spec["uprights"] > 0
+    panels_ok = (all(n == 0 for n in panel_pixels.values())
+                 and len(panel_pixels) == len(spec.get("panels", []))
+                 and all(e <= PHASE_TOL for e in phase_err.values())
+                 and (not spec.get("phase") or len(phase_err) == len(spec.get("panels", []))))
     ok = (ok and rest_err <= REST_TOL and radius_err <= RADIUS_TOL and angle_err <= ANGLE_TOL
           and upright <= UPRIGHT_TOL and uprights_ok and all(n == 0 for n in rest_pixels)
           and display == ["hidden 0", "inline"] and diff < 8 and switch_ok and not errors
-          and plays)
+          and plays and panels_ok)
     print(f"{name}: rests {rest_err:.2e} px and {rest_pixels} pixels off the stills, "
           f"arcs {radius_err:.2e} px and {angle_err:.2e} deg, uprights {sorted(uprights_found)} "
           f"of {spec['uprights']} found, turned {upright:.2e} deg; reduced motion: live "
           f"{display[0]}, poster {display[1]}, {diff:.2f} of 255 from the poster PNG, switched "
           f"off again {switch} pixels off the clock ({frozen} off the time it was hidden); "
           f"plays ({t1:.2f} s, {t2:.2f} s): {plays}; "
-          f"console errors: {len(errors)} -> {'ok' if ok else 'FAILED'}")
+          f"console errors: {len(errors)}"
+          + (f"; panels: pixels off their stills {panel_pixels}, in phase within "
+             f"{ {k: float(f'{v:.2e}') for k, v in phase_err.items()} } px over "
+             f"{len(spec.get('phase', []))} times" if spec.get("panels") else "")
+          + f" -> {'ok' if ok else 'FAILED'}")
     for e in errors:
         print(f"  console: {e}")
     return ok
