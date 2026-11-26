@@ -24,8 +24,9 @@ def main (args : List String) : IO UInt32 := PILean.Trust.buildMain figures% arg
 * `BuildOptions`, `renderAll`: the files and the manifest of a build, in memory
 * `build`: writes them, or with `check := true` compares them with the directory
 * `buildMain`: the command line
-  `[--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]`
+  `[--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing] [--require-checked]`
 * `unmarkedIllustrations`: the figures `--require-standing` refuses
+* `uncheckedMotions`: the motions `--require-checked` refuses
 
 ## Implementation notes
 
@@ -49,6 +50,10 @@ structure BuildOptions where
   mark as one (`Standing.unmarked`): every figure must have a linked theorem
   (`figure_links`) or carry `@[figure illustration]`. -/
   requireStanding : Bool := false
+  /-- Refuse to build or check when a motion was not stopped by every error its checks find
+  (`MotionSummary`: its check level is not `fail`, or errors were left): only motions checked
+  strictly are built. -/
+  requireChecked : Bool := false
 
 /-- A file of a build: its manifest entry and its bytes. -/
 structure BuiltFile where
@@ -106,7 +111,18 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
 def unmarkedIllustrations (entries : Array FigureEntry) : Array String :=
   entries.filterMap fun e => if e.standing.unmarked then some e.decl else none
 
-/-- Every file of a build, sorted by path. With `opts.requireStanding`, fails first, before
+/-- The declarations of the entries that are motions not checked strictly (`requireChecked`), each
+with the check level and whether errors were left, in the entries' order. -/
+def uncheckedMotions (entries : Array FigureEntry) : Array String :=
+  entries.filterMap fun e => ((e.outputs ())[0]?.bind (·.motion ())).bind fun mo =>
+    if mo.checks == "fail" && !mo.unchecked then none
+    else some s!"{e.decl} is a motion built at the check level {mo.checks}\
+      {if mo.unchecked then " with errors left" else ""}: build it at the level fail without \
+      errors"
+
+/-- Every file of a build, sorted by path. With `opts.requireChecked`, fails first, before anything
+is rendered, with one message for each motion of `uncheckedMotions`. With `opts.requireStanding`,
+fails first, before
 anything is rendered, with one message for each figure of `unmarkedIllustrations`. Fails with all
 the messages (one per line) if there
 are more than `maxEntries` entries or more than `maxManifestFiles` outputs in all (checked
@@ -116,6 +132,9 @@ def renderAll (entries : Array FigureEntry) (opts : BuildOptions := {}) :
     IO (Except String (Array BuiltFile)) := do
   if entries.size > maxEntries then
     return .error s!"more than {maxEntries} figures"
+  if opts.requireChecked then
+    let bad := uncheckedMotions entries
+    if !bad.isEmpty then return .error ("\n".intercalate bad.toList)
   if opts.requireStanding then
     let bad := unmarkedIllustrations entries
     if !bad.isEmpty then
@@ -211,7 +230,8 @@ def build (entries : Array FigureEntry) (outDir : System.FilePath) (opts : Build
 
 /-- The usage text of `pilean-build`. -/
 def buildUsage : String :=
-  "usage: pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]"
+  "usage: pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing] \
+    [--require-checked]"
 
 /-- Whether the string is 4 to 64 lowercase hexadecimal digits, as a commit is. -/
 def isCommit (s : String) : Bool :=
@@ -219,7 +239,7 @@ def isCommit (s : String) : Bool :=
 
 /-- The options of a command line, or a message: `--out DIR` (default `figures`), `--repo URL`
 (`http` or `https`, see `safeLink?`), `--commit SHA` (`isCommit`), `--check`,
-`--require-standing`. -/
+`--require-standing`, `--require-checked`. -/
 def parseArgs (args : List String) :
     Except String (System.FilePath × BuildOptions) := do
   let mut out : System.FilePath := "figures"
@@ -230,6 +250,7 @@ def parseArgs (args : List String) :
     | [] => break
     | "--check" :: r => opts := { opts with check := true }; rest := r
     | "--require-standing" :: r => opts := { opts with requireStanding := true }; rest := r
+    | "--require-checked" :: r => opts := { opts with requireChecked := true }; rest := r
     | "--out" :: d :: r => out := d; rest := r
     | "--repo" :: u :: r =>
       if (safeLink? u).isNone then throw s!"the repository {u} is not an http or https link"

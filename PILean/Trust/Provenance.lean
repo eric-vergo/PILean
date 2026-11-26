@@ -24,6 +24,8 @@ SVG, PNG, APNG, GIF and PDF files and read back; `docs/TRUST.md` describes the v
   source inserted into finished PNG, APNG, GIF and PDF files, so every writer gets it without
   change.
 * `Trust.Source.read?`: reads the record back from any of the formats.
+* `Trust.MotionSummary`, `Trust.MotionSummary.text`, `Trust.MotionSummary.ofText?`,
+  `Trust.cycleText`, `Trust.cycleOfText?`: what a file of a motion records about it.
 * `Trust.safeLink?`, `Trust.escapeControl`, `Trust.infoLines`: how a reader shows what it read.
 
 ## Implementation notes
@@ -73,10 +75,89 @@ def maxField : Nat := 4096
 /-- The first line of the GIF comment. -/
 def gifMagic : String := "PILean source 1"
 
+
+/-! ### The record of a motion -/
+
+/-- The length of a cycle in seconds as a record writes it, exactly: `n` for a whole number,
+`n/d` in lowest terms otherwise. -/
+def cycleText (q : Rat) : String := if q.den == 1 then s!"{q.num}" else s!"{q.num}/{q.den}"
+
+/-- The non-negative rational number a record's cycle writes: decimal digits (at most 18, no
+leading zero), optionally followed by `/` and a denominator of the same form other than `1`, in
+lowest terms, so that the text is exactly `cycleText` of the number; none for anything else. A
+cycle whose text this does not read back cannot be recorded (`MotionSummary.recordable`). -/
+def cycleOfText? (t : String) : Option Rat := do
+  let digits := fun (d : String) =>
+    if d.isEmpty || d.length > 18 || !d.all Char.isDigit || (d.length > 1 && d.startsWith "0")
+    then none else d.toNat?
+  let q : Rat ← match t.splitOn "/" with
+    | [n] => (digits n).map fun n => (n : Rat)
+    | [n, d] => do
+      let n ← digits n
+      let d ← digits d
+      if d == 0 then none else some ((n : Rat) / (d : Rat))
+    | _ => none
+  if cycleText q == t then some q else none
+
+/-- What every file of a motion records about it, in its source record (the key `motion`,
+`MotionSummary.text`) and in the manifest (the keys `kind`, `keys`, `cycle`, `captions`, `checks`
+and `unchecked`): the number of its key frames, the length of its cycle in seconds, exactly, the
+number of its captions, the level its checks were applied at (`fail`, `warn` or `ignore`), and
+whether its checks found errors that did not stop it (`unchecked`). Only a motion recorded with
+`checks` `fail` and not `unchecked` was stopped by every error its checks find. -/
+structure MotionSummary where
+  /-- The number of key frames. -/
+  keys : Nat
+  /-- The length of one cycle, in seconds. -/
+  cycle : Rat
+  /-- The number of captions (one per key frame). -/
+  captions : Nat
+  /-- The level the motion's checks were applied at: `fail`, `warn` or `ignore`. -/
+  checks : String := "fail"
+  /-- Whether the checks found errors that did not stop the motion (under `warn` or `ignore`). -/
+  unchecked : Bool := false
+  deriving BEq, Repr, Inhabited
+
+/-- The levels a motion's checks can be applied at, as a record writes them. -/
+def motionCheckWords : Array String := #["fail", "warn", "ignore"]
+
+/-- The record of a motion as one value: `keys=3;cycle=59/10;captions=3;checks=fail;unchecked=no`
+(`unchecked=yes` when errors remained). -/
+def MotionSummary.text (m : MotionSummary) : String :=
+  s!"keys={m.keys};cycle={cycleText m.cycle};captions={m.captions};checks={m.checks};\
+    unchecked={if m.unchecked then "yes" else "no"}"
+
+/-- The record of a motion `MotionSummary.text` writes, read back: exactly its five fields in its
+order, the numbers in decimal (at most nine digits, no leading zero), the cycle as
+`cycleOfText?` reads it, a known level; none for anything else. -/
+def MotionSummary.ofText? (t : String) : Option MotionSummary := do
+  let num := fun (d : String) =>
+    if d.isEmpty || d.length > 9 || !d.all Char.isDigit || (d.length > 1 && d.startsWith "0")
+    then none else d.toNat?
+  match t.splitOn ";" with
+  | [k, c, n, l, u] =>
+    let keys ← num (← (k.dropPrefix? "keys=").map (·.toString))
+    let cycle ← cycleOfText? (← (c.dropPrefix? "cycle=").map (·.toString))
+    let captions ← num (← (n.dropPrefix? "captions=").map (·.toString))
+    let checks := (← (l.dropPrefix? "checks=").map (·.toString))
+    if !motionCheckWords.contains checks then none
+    let unchecked ← match (← (u.dropPrefix? "unchecked=").map (·.toString)) with
+      | "yes" => some true
+      | "no" => some false
+      | _ => none
+    if keys == 0 then none
+    let m : MotionSummary := { keys, cycle, captions, checks, unchecked }
+    if m.text == t then some m else none
+  | _ => none
+
+/-- Whether the record of a motion can be written and read back: its text reads back as itself
+(a cycle whose numerator or denominator has more than 18 digits cannot be recorded). -/
+def MotionSummary.recordable (m : MotionSummary) : Bool := MotionSummary.ofText? m.text == some m
+
 /-- The keys of the fields, in the order they are written. -/
 def keys : Array String :=
   #["module", "decl", "file", "line", "column", "repo", "commit", "version", "fingerprint",
-    "standing", "theorems"]
+    "standing", "theorems", "motion"]
 
 /-- The key an earlier writer gave the theorems of a figure's standing; the readers take it for
 `theorems`. -/
@@ -113,6 +194,9 @@ structure Source where
   with `«` and `»` around a component that needs them), in order; written as an escaped list
   (`theoremsText`). -/
   theorems : Option (Array String) := none
+  /-- For a file of a motion, the record of the motion (`MotionSummary`), written as one value
+  (`MotionSummary.text`). -/
+  motion : Option MotionSummary := none
 deriving BEq, Repr, Inhabited
 
 /-- The characters a name is escaped from in a source record's list of theorems
@@ -191,7 +275,8 @@ def Source.fields (s : Source) : Array (String × String) :=
   #[("version", s.version)] ++
   (match s.fingerprint with | some r => #[("fingerprint", r)] | none => #[]) ++
   (match s.standing with | some r => #[("standing", r)] | none => #[]) ++
-  (match s.theorems with | some ts => #[("theorems", theoremsText ts)] | none => #[])
+  (match s.theorems with | some ts => #[("theorems", theoremsText ts)] | none => #[]) ++
+  (match s.motion with | some m => #[("motion", m.text)] | none => #[])
 
 /-- Whether a recorded standing and list of theorems are well formed: no standing and no
 theorems, `illustration` without theorems, or `linked` with a non-empty list of distinct names,
@@ -226,6 +311,10 @@ def Source.validate (s : Source) : Except String Unit := do
     if !isFingerprint f then throw "the fingerprint is not 64 lowercase hexadecimal digits"
   if !standingOk s.standing s.theorems then
     throw "the standing is not linked with its theorems or illustration without any"
+  if let some m := s.motion then
+    if !m.recordable then
+      throw s!"the record of the motion ({m.text}) does not read back: its cycle has more than 18 \
+        digits in its numerator or denominator"
 
 /-- The record from a list of `(key, value)` pairs, as the readers collect them: unknown keys are
 ignored, a known key twice is an error, a value above `maxField` bytes or with a character XML
@@ -269,8 +358,13 @@ def Source.ofFields (kvs : Array (String × String)) : Except String Source := d
     | some _, some _ => throw s!"the keys theorems and {oldTheoremsKey} occur together"
   if !standingOk standing theorems then
     throw "the standing is not linked with its theorems or illustration without any"
+  let motion ← match find "motion" with
+    | some t => match MotionSummary.ofText? t with
+      | some mo => pure (some mo)
+      | none => throw "the record of the motion is malformed"
+    | none => pure none
   return { module := m, decl := d, file := f, line := l, column := c, repo := find "repo",
-           commit := find "commit", version := v, fingerprint := fp, standing, theorems }
+           commit := find "commit", version := v, fingerprint := fp, standing, theorems, motion }
 
 /-- Whether `url` is safe to offer as a link: it starts with `http://` or `https://` (lowercase),
 has something after that, is at most `maxField` bytes, and consists of printable ASCII only
@@ -353,8 +447,31 @@ def tagEnd (d : ByteArray) (i : Nat) : Option Nat := Id.run do
     else if b == 62 then return some j
   return none
 
-/-- `svg` with the source information as the first children of the root element, indented like
-the writer's output. Fails if the text has no `<svg ` root tag or already has a source. -/
+/-- The index just after the root's leading `title` element and the `desc` element after it,
+when the root's first child is a `title` (or a `desc`); `e`, the end of the root's tag, otherwise. -/
+def afterLeadingTitle (d : ByteArray) (e : Nat) : Nat := Id.run do
+  let skip := fun (i : Nat) => Id.run do
+    let mut j := i
+    for _ in [0:d.size] do
+      if j < d.size && (Png.byteAt d j == 32 || Png.byteAt d j == 10 || Png.byteAt d j == 13 ||
+          Png.byteAt d j == 9) then j := j + 1
+      else break
+    return j
+  let element := fun (i : Nat) (name : String) =>
+    let j := skip i
+    if (d.extract j (j + name.length + 2)) == ("<" ++ name ++ ">").toUTF8 then
+      (findBytes d ("</" ++ name ++ ">").toUTF8 j).map (· + name.length + 3)
+    else none
+  let mut pos := e + 1
+  if let some p := element pos "title" then pos := p
+  if let some p := element pos "desc" then pos := p
+  return pos - 1
+
+/-- `svg` with the source information as children of the root element, indented like the
+writer's output: the first children, or after the root's leading `title` and `desc` when the
+document has them (a motion's own title, which then stays the picture's accessible name, the
+first `title` child of the root). Fails if the text has no `<svg ` root tag or already has a
+source. -/
 def withSourceSvg (svg : String) (s : Source) : Except String String := do
   s.validate
   let d := svg.toUTF8
@@ -366,7 +483,9 @@ def withSourceSvg (svg : String) (s : Source) : Except String String := do
     if Png.byteAt d (e - 1) == 47 then
       d.extract 0 (e - 1) ++ ">\n".toUTF8 ++ nodes.toUTF8 ++ "\n</svg>".toUTF8 ++
         d.extract (e + 1) d.size
-    else d.extract 0 (e + 1) ++ "\n".toUTF8 ++ nodes.toUTF8 ++ d.extract (e + 1) d.size
+    else
+      let at_ := afterLeadingTitle d e
+      d.extract 0 (at_ + 1) ++ "\n".toUTF8 ++ nodes.toUTF8 ++ d.extract (at_ + 1) d.size
   match String.fromUTF8? out with
   | some o => return o
   | none => throw "the SVG is not valid UTF-8"

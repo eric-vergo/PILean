@@ -302,10 +302,11 @@ def main (args : List String) : IO UInt32 := do
         failed := failed + 1
       else IO.println s!"golden {path}: same"
   -- the contact sheets of the golden motions
-  for (name, m) in MotionChecks.golden do
-    let sh := m.report.checked.sheet
+  let sheets := MotionChecks.golden.map (fun (n, m) => (n, PILean.Trust.ToCheckedMotion.checked m))
+    ++ MotionPanelsChecks.golden.map fun (n, P) => (n, PILean.Trust.ToCheckedMotion.checked P)
+  for (name, c) in sheets do
     let outs : Array (String × ByteArray) :=
-      #[(s!"{name}-keys.svg", sh.toSvg.toUTF8), (s!"{name}-keys.png", sh.toPng.getD .empty)]
+      #[(s!"{name}-keys.svg", c.sheetSvg.toUTF8), (s!"{name}-keys.png", c.sheet.toPng.getD .empty)]
     for (file, bytes) in outs do
       let path : System.FilePath := "examples" / file
       if args == ["--update"] then

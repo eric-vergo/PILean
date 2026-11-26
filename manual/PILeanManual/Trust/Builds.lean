@@ -139,8 +139,13 @@ tag := "trust-pilean-build"
 %%%
 
 ```
-pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check]
+pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]
+             [--require-checked]
 ```
+
+`--require-standing` refuses an illustration that is not marked as one; `--require-checked`
+refuses a motion that was not built at the check level `fail` without errors left. A site that
+publishes motions builds with both.
 
 Without `--check`, every output of every entry is rendered, its source record (with the
 fingerprint, and the repository and commit if given) is written into it, and the file goes to
@@ -173,10 +178,12 @@ line per output, sorted by path: the path, the format, the size, the SHA-256 of 
 the fingerprint recorded in it, the source record's fields, and the repository and commit when
 the build was given them. The theorems of a linked figure are a JSON array of strings, so a name
 written with `«` and `»` that holds a space or a quote is read back as it is. Every file of a
-motion records it: the key `kind` is `motion`, `keys` the number of key frames, `cycle` the
-length of one cycle in seconds, exactly (`n` or `n/d` in lowest terms), and `captions` the number
-of captions; the files of one declaration must all record the same motion, and an entry with a
-key this format does not have is refused. The readers also take the earlier formats,
+motion records it, in its source record and here: the key `kind` is `motion`, `keys` the number
+of key frames, `cycle` the length of one cycle in seconds, exactly (`n` or `n/d` in lowest
+terms), `captions` the number of captions, `checks` the level its checks were applied at (`fail`,
+`warn`, `ignore`) and `unchecked` whether errors were left; the files of one declaration must all
+record the same motion, they must list exactly the key stills it counts, and an entry with a key
+this format does not have is refused. The readers also take the earlier formats,
 `pilean-manifest-3` (before motions), `pilean-manifest-2` (one string of names separated by single
 spaces) and `pilean-manifest-1` (the same under the key `proves`).
 

@@ -10,6 +10,7 @@ import PILean.Anim.Animation
 import PILean.Diagram.Basic
 import PILean.Pdf.Figures
 import PILean.Raster.DomainColouring
+import PILean.Trust.Provenance
 
 /-!
 # Renderable figures
@@ -30,8 +31,9 @@ It covers the values a function takes where the figure samples it, not the funct
 * `Format`, `Output`, `ToOutputs`
 * `Standing`: whether a theorem is linked to a figure or the figure is an illustration
 * `InlineSvg`, `FrameSet`: pictures and families of frames a web page puts inline
-* `MotionSummary`, `MotionStepRow`, `MotionMoveRow`, `MotionData`: what the outputs of a motion
-  record and what a page needs to show one (the outputs themselves are in `PILean.Trust.Motion`)
+* `MotionStepRow`, `MotionMoveRow`, `MotionData`, `motionLinkedWords`: what a page needs to show
+  a motion (its record, `MotionSummary`, is in `PILean.Trust.Provenance`; its outputs in
+  `PILean.Trust.Motion`)
 * instances for `Plot.Figure`, `Plane.Figure`, `Explorer`, `Graph`, `GraphFigure`,
   `Animation`, `Diagram.Diagram` and `DomainColouring`
 -/
@@ -167,25 +169,14 @@ structure FrameSet where
   poster : Nat := 0
   deriving Inhabited
 
-/-- What every file of a motion records about it (the manifest's keys `kind`, `keys`, `cycle`
-and `captions`): the number of its key frames, the length of its cycle in seconds, exactly, and
-the number of its captions. -/
-structure MotionSummary where
-  /-- The number of key frames. -/
-  keys : Nat
-  /-- The length of one cycle, in seconds. -/
-  cycle : Rat
-  /-- The number of captions (one per key frame). -/
-  captions : Nat
-  deriving BEq, Repr, Inhabited
-
-/-- One move of a step of a motion, as a figure page lists it. -/
+/-- One move of a step of a motion, as a figure page lists it: what the motion declares, and what
+the animation draws for it (`drawn`). -/
 structure MotionMoveRow where
   /-- The panel of a picture of several panels the actor belongs to; empty for one motion. -/
   panel : String := ""
   /-- The actor's id. -/
   actor : String
-  /-- The kind of move: `turn`, `slide`, `appearance`, `disappearance` or `morph`. -/
+  /-- The kind of move declared: `turn`, `slide`, `appearance`, `disappearance` or `morph`. -/
   kind : String
   /-- For a turn: its centre, in the figure's (world) coordinates. -/
   centre : Option Point := none
@@ -193,6 +184,10 @@ structure MotionMoveRow where
   turns : Option Rat := none
   /-- For a slide: its vector, in the figure's (world) coordinates. -/
   vector : Option Point := none
+  /-- What the animation draws for the move: `kind` when it is drawn as declared, `crossfade` when
+  the declared move does not carry the actor onto the next key and the two drawings crossfade
+  instead (possible only under the check levels `warn` and `ignore`). -/
+  drawn : String := ""
   deriving Inhabited
 
 /-- A point of the figure's coordinates as a page writes it: `(x, y)`, at most four decimals. -/
@@ -203,14 +198,20 @@ def turnDegreesWords (q : Rat) : String :=
   let d := 360 * q
   if d.den == 1 then s!"{d.num}°" else s!"{d.num}/{d.den}°"
 
+/-- Whether the move is drawn as it is declared. -/
+def MotionMoveRow.asDeclared (r : MotionMoveRow) : Bool := r.drawn.isEmpty || r.drawn == r.kind
+
 /-- The move in words, for a page: `turn about (0, 0) by 1/4 of a full turn (90°)`,
-`slide by (1, 0)`, or the kind alone. -/
+`slide by (1, 0)`, or the kind alone; followed by `, drawn as a crossfade (the move does not land
+on the next key)` when the animation does not draw it as declared. -/
 def MotionMoveRow.words (r : MotionMoveRow) : String :=
-  match r.kind, r.centre, r.turns, r.vector with
-  | "turn", some c, some q, _ =>
-    s!"turn about {pointWords c} by {q} of a full turn ({turnDegreesWords q})"
-  | "slide", _, _, some v => s!"slide by {pointWords v}"
-  | k, _, _, _ => k
+  let declared := match r.kind, r.centre, r.turns, r.vector with
+    | "turn", some c, some q, _ =>
+      s!"turn about {pointWords c} by {q} of a full turn ({turnDegreesWords q})"
+    | "slide", _, _, some v => s!"slide by {pointWords v}"
+    | k, _, _, _ => k
+  if r.asDeclared then declared
+  else s!"{declared}, drawn as a {r.drawn} (the move does not land on the next key)"
 
 /-- One step of a motion, from key `step` to key `step + 1`, as a figure page lists it. -/
 structure MotionStepRow where
@@ -224,18 +225,21 @@ structure MotionStepRow where
   moves : Array MotionMoveRow := #[]
   deriving Inhabited
 
-/-- What a page needs to show a motion inline: its summary, the moving picture without what the
-standalone file adds for itself, the key stills with their captions, and the table of its steps.
+/-- What a page needs to show a motion inline: its record, the moving picture without what the
+standalone file adds for itself, the key stills with their captions, the table of its steps, and
+whether items change between keys without a declared move.
 
 `live` is the body of the animated SVG file without its `title`, `desc`, its `style` element (the
-reduced-motion rule) and its poster group: the background and the group of class
-`pilean-motion-live` that holds every animation. The file's root holds, in order, the title and the
-description (when the motion has them), that `style` element, the nodes of `live`, and the poster
-group; so a site check can rebuild the file from `live` and compare. `stills` holds every key's
-still (the picture of the output `-key-k`, `k` from 0) with the captions (`stepCaptions`) and the
-poster key (`poster`). -/
+reduced-motion rule) and its poster group: the background (and the panels' titles) and the group
+of class `pilean-motion-live` that holds every animation. The file's root holds, in order, the
+title and the description (when the motion has them), that `style` element, the nodes of `live`,
+and the poster group; so a site check can rebuild the file from `live` and compare. `stills`
+holds every key's still (the picture of the output `-key-k`, `k` from 0) with the captions
+(`stepCaptions`) and the poster key (`poster`, always among the frames).
+
+A page must say so when `MotionData.unchecked` holds (`MotionData.checkWords`). -/
 structure MotionData where
-  /-- The number of keys, the cycle and the number of captions. -/
+  /-- The record of the motion: keys, cycle, captions, check level, errors left. -/
   summary : MotionSummary
   /-- The moving picture, for a page that puts it inline (with the theme's colour pairs). -/
   live : InlineSvg
@@ -243,16 +247,62 @@ structure MotionData where
   stills : FrameSet
   /-- The steps, in order. -/
   steps : Array MotionStepRow
+  /-- Whether items change between two keys without a declared move, and crossfade. -/
+  crossfades : Bool := false
   deriving Inhabited
 
-/-- What a figure page says of a motion besides its standing: `An animation drawn from N exact key
-frames. Between key frames the browser turns or slides the drawn items about the stated centres;
-the key frames are the exact data.` -/
+/-- Whether the motion was not stopped by every error its checks find: built at the check level
+`warn` or `ignore`, or with errors left (`MotionSummary.unchecked`). A page must say so
+(`MotionData.checkWords`). -/
+def MotionData.unchecked (d : MotionData) : Bool :=
+  d.summary.checks != "fail" || d.summary.unchecked
+
+/-- `a`, `a and b`, `a, b and c`. -/
+def listWords : List String → String
+  | [] => ""
+  | [a] => a
+  | [a, b] => a ++ " and " ++ b
+  | a :: rest => a ++ ", " ++ listWords rest
+
+/-- What the browser does between key frames, from the moves the animation draws: turns, slides,
+fades, changes of outline, and crossfades of items that change without a declared move. -/
+def MotionData.betweenWords (d : MotionData) : String :=
+  let drawn := d.steps.flatMap (·.moves.map fun r => if r.asDeclared then r.kind else r.drawn)
+  let parts :=
+    (if drawn.contains "turn" then ["turns drawn items about the stated centres"] else []) ++
+    (if drawn.contains "slide" then ["slides drawn items along the stated vectors"] else []) ++
+    (if drawn.contains "appearance" || drawn.contains "disappearance" then
+      ["fades items in or out"] else []) ++
+    (if drawn.contains "morph" then ["changes the outlines of drawn items"] else []) ++
+    (if d.crossfades || drawn.contains "crossfade" then
+      ["crossfades items that change without a declared move"] else [])
+  if parts.isEmpty then "Nothing moves between the key frames."
+  else s!"Between key frames the browser {listWords parts}."
+
+/-- What a page says when the motion is `unchecked`; none otherwise. -/
+def MotionData.checkWords (d : MotionData) : Option String :=
+  if d.summary.unchecked then
+    some s!"Its checks found errors that were not allowed to stop it (check level \
+      {d.summary.checks}): between some key frames the animation is not what the steps declare."
+  else if d.summary.checks != "fail" then
+    some s!"It was built at the check level {d.summary.checks}, which does not stop a motion \
+      whose moves miss its key frames; no error was found."
+  else none
+
+/-- What a figure page says of a motion besides its standing: the number of key frames and what
+the stills are (`the key figures as drawn`; a claim that their data is exact belongs to the
+figure's own description), what the browser does between them (`betweenWords`), and
+`checkWords` when the motion is unchecked. -/
 def MotionData.words (d : MotionData) : String :=
   let n := d.summary.keys
-  s!"An animation drawn from {n} exact key frame{if n == 1 then "" else "s"}. Between key frames \
-    the browser turns or slides the drawn items about the stated centres; the key frames are the \
-    exact data."
+  " ".intercalate ([s!"An animation drawn from {n} key frame{if n == 1 then "" else "s"}; the \
+    stills are the key figures as drawn.", d.betweenWords] ++ d.checkWords.toList)
+
+/-- What a figure page says of a theorem linked to a motion: what such a theorem can state. -/
+def motionLinkedWords : String :=
+  "A theorem about a motion can state its key figures and its declared moves (the actors, the \
+    centres and fractions of the turns, the vectors of the slides); the frames the browser draws \
+    between the key frames are not part of any statement."
 
 /-- One file a figure is rendered to. -/
 structure Output where

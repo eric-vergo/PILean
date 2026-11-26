@@ -110,14 +110,16 @@ also shows instead of the motion when the viewer asks for reduced motion.
 
 ## Motions
 
-Motions of plane figures through exact key frames (`PILeanTest/Motion.lean`): the animated SVG,
-and the contact sheet the build writes for print (every key's still with its caption).
+Motions of plane figures through key frames (`PILeanTest/Motion.lean`) and a picture of two
+motions as panels on one clock (`PILeanTest/MotionPanels.lean`): the animated SVG, and the contact
+sheet the build writes for print (every key's still with its caption).
 
 | Motion | Animated SVG | Contact sheet |
 |---|---|---|
 | **A quarter turn** (`motion-turn`) | ![](motion-turn.svg) | ![](motion-turn-keys.svg) |
 | **Turns about two centres** (`motion-two-centres`) | ![](motion-two-centres.svg) | ![](motion-two-centres-keys.svg) |
 | **A fifth of a turn** (`motion-fifth`) | ![](motion-fifth.svg) | ![](motion-fifth-keys.svg) |
+| **Two frames on one clock**, two panels (`motion-panels`) | ![](motion-panels.svg) | ![](motion-panels-keys.svg) |
 
 ## Raster pictures
 

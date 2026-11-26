@@ -18,8 +18,9 @@ character makes the whole manifest invalid before any file is touched. Each list
 a regular file inside the directory, every directory on its way a real directory, with the size
 and the SHA-256 of the manifest, its bytes of the manifest's format (`detectedFormat?`), an SVG
 file inert (`Svg.inertProblem?`), and the source record inside the file (`Source.read?`) must
-agree with the manifest's fields and fingerprint. A file below the directory that the manifest does not list is reported as extra.
-The directory must be listed completely (`listFiles` has a bound on depth and on entries): if it
+agree with the manifest's fields, fingerprint and record of a motion. The files of a motion must
+list exactly its key stills (`motionKeyProblem?`, part of reading the manifest). A file below the
+directory that the manifest does not list is reported as extra. The directory must be listed completely (`listFiles` has a bound on depth and on entries): if it
 cannot be, the answer is an error, never `ok`. Every string from the directory is printed
 through `escapeControl`.
 
@@ -74,7 +75,8 @@ def Verdict.text : Verdict → String
 def ManifestEntry.matches (m : ManifestEntry) (s : Source) : Bool :=
   s.module == m.module && s.decl == m.decl && s.file == m.file && s.line == m.line &&
     s.column == m.column && s.version == m.version && s.repo == m.repo && s.commit == m.commit &&
-    s.fingerprint == some m.fingerprint && s.standing == m.standing && s.theorems == m.theorems
+    s.fingerprint == some m.fingerprint && s.standing == m.standing && s.theorems == m.theorems &&
+    s.motion == m.motion
 
 /-- What a line of `pilean-verify` adds after the path of a file that agrees with its manifest:
 the standing the file records, as recorded (` [recorded: linked to T₁, T₂]`, the names separated

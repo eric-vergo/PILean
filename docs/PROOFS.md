@@ -82,6 +82,8 @@ pinned:
 | Diagram (`Diagram.Diagram`, the combinatorial, algebraic and number-theoretic kinds) | title, description, width, every mark (part, exact shape, text, colour role), and through the data the names of vertices, objects, arrows, sets, sequences, cells and headings | all |
 | Graph (`Graph`) | the node labels, the edges | all |
 | Animation (`Animation`) | width, height, frame rate, duration, loops, the drawing at every time (so every frame's content: the shapes, their colours, sizes and positions), the text engine | all |
+| Motion (`Plane.Motion`) | title and description, captions, poster, every key figure in full (as for a plane figure), every step's moves (the actor, the kind, a turn's centre and exact fraction, a slide's vector), each step's duration and easing, the pacing, the check level; not the frames the browser draws between the keys, which no statement can name | all |
+| Picture of panels (`Plane.MotionPanels`) | as a motion, for each panel with its title, and the picture's captions, timing, arrangement, scale, width and narrow width | all |
 | Explorer (`Explorer`) | the parameters' names, values and the labels the slider writes, the frame at every point of the grid (each frame's figure in full), the poster | all |
 
 Nothing of a gallery figure is left unpinned on purpose. What no theorem states, by design, is

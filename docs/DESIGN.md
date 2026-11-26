@@ -1257,31 +1257,36 @@ the picture.
 
 ### Outputs of a motion
 
-`PILean/Trust/Motion.lean` makes a motion a figure of the build (`@[figure illustration]` on a
-`Plane.Motion`). The outputs read a *checked motion* (`CheckedMotion`), computed once from
-`Motion.report`: the animated SVG of the checked route (`MotionReport.svg?`, never a route that
-ends in `Unchecked`), the key stills as plane figures (`Motion.keyFigure`), the captions, the
-poster, the cycle, the table of the steps and the problems. Any type with a `ToCheckedMotion`
-instance is rendered the same way (`motionOutputs`), so a picture of several panels on one clock
-needs only that instance. For a motion declared as `d` with `n` keys the files are:
+`PILean/Trust/Motion.lean` makes a motion, or a picture of panels, a figure of the build
+(`@[figure illustration]` on a `Plane.Motion` or a `Plane.MotionPanels`). The outputs read a
+*checked motion* (`CheckedMotion`), made only from the checked report (`MotionReport.checked`,
+`MotionPanelsReport.checked`; the constructor is private): the animated SVG of the checked route
+(`svg?`, never a route that ends in `Unchecked`), the key stills ready-made (`MotionStill`), the
+captions, the poster, the cycle, the table of the steps, the check level and the problems.
+`ToCheckedMotion` says which report a type is checked by; `motionOutputs` writes the files. For a
+motion declared as `d` with `n` keys the files are:
 
 | Suffix | Formats | What it is |
 |---|---|---|
 | (none) | SVG | the animated SVG; for a page also its body without the file's own reduced-motion `style` and poster group (`MotionData.live`), the stills with their captions and the step table (`Output.motionPage`) |
 | `-poster` | PNG, PDF | the poster key's still |
-| `-keys` | SVG, PNG, PDF | the contact sheet: the title, then every key's still at its own size in a grid with its caption wrapped below it (`sheetOf`, one drawing, written like a frame of an explorer); for print, PDF and the LeAnTeX path |
-| `-key-k` | SVG, PNG | the still of key `k` (from 0), byte for byte the files of `Motion.keyFigure k`, drawn by the plane figures' pipeline (`planeOutputs`) |
-| `-narrow`, `-narrow-key-k` | SVG; SVG, PNG | the narrow rendition and its stills, when the checked motion has one (a single motion has none) |
-| (none) | APNG, GIF | the baked frames (`MotionReport.animation?`), only with `MotionFigure.rasters` |
+| `-keys` | SVG, PNG, PDF | the contact sheet: the title, then every key's still at its own size in a grid with its caption wrapped below it (`sheetOf`, one drawing, written like a frame of an explorer; its SVG with a `title` and a `desc` listing the captions); for print, PDF and the LeAnTeX path |
+| `-key-k` | SVG, PNG | the still of key `k` (from 0): for a motion, byte for byte the files of `Motion.keyFigure k` (through `ExplorerFrame.ofPlane` and `stillOutputs`); for a picture of panels, `keyStillSvg k` and `keyStillPng k` |
+| `-narrow`, `-narrow-key-k` | SVG; SVG, PNG | the narrow rendition and its stills: a picture of panels with a `narrowWidth` (stacked panels); a single motion has none |
+| (none) | APNG, GIF | the baked frames, only with `MotionFigure.rasters` |
 
 The grid has as many columns as fit in 800 pixels (two stills of 360 pixels), then as few as keep
 the number of rows, so the rows are filled evenly; printed across a page of 6.5 inches its
-14-pixel captions are about eight points tall. A motion whose errors stop it renders none of the
-files: each output fails with the messages of the errors. Every output records the motion's
-summary (keys, cycle, captions), which the manifest writes (`kind` `motion`, `docs/TRUST.md`).
-The dark twin of a motion, for a site with a dark theme, is the same outputs of
-`Motion.withStyle d` with `d` the dark twin of `Motion.style`: the stills and the sheet are drawn
-by the plane figures' route in that style, with no drawing code of their own.
+14-pixel captions are about eight points tall. A stopped motion (an error under `fail`; at every
+level, a motion that is not well formed, an id written twice, panels with different text engines)
+renders none of the files, and gives no inline picture and no page data; a narrow rendition is
+also stopped by its own errors. Every output records the motion (keys, cycle, captions, check
+level, errors left) in its source record and the manifest (`docs/TRUST.md`, "Motions"). A picture
+of panels uses one text engine, so that its stills and its sheet are drawn with it. The dark twin
+of a motion, for a site with a dark theme, is the same outputs of `Motion.withStyle d`
+(`MotionPanels.withStyle d`) with `d` the dark twin of `Motion.style` (`MotionPanels.style`): the
+stills and the sheet are drawn by the same routes in that style, with no drawing code of their
+own.
 
 ## Open design questions
 

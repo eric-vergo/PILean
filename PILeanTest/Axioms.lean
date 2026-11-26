@@ -76,10 +76,10 @@ reported even when the build of this file comes from the cache.
 `#assert_figure_links` checks every link made by `figure_links` in the imported modules again,
 by the check of `figure_links` (`PILean.Trust.figureTheoremProblem?`).
 
-`#assert_figures_pinned PILeanTest except PILeanTest.Standing PILeanTest.MotionFigures` checks
-that every theorem linked to a figure of the test modules writes out the whole figure, with every
-definition of the test modules it is built from (`PILean.Trust.figurePinProblem?`); the fixtures
-of the standing, whose theorems are weak on purpose, and the linked motion, are left out.
+`#assert_figures_pinned PILeanTest except PILeanTest.Standing` checks that every theorem linked to
+a figure of the test modules writes out the whole figure, with every definition of the test
+modules it is built from (`PILean.Trust.figurePinProblem?`); the fixtures of the standing, whose
+theorems are weak on purpose, are left out.
 
 `#assert_standard_axioms` and `#assert_modules_imported` are defined in `PILean.Trust.Attr`, so
 that a package built on PILean can run them on its own modules; the Mathlib package does.
@@ -228,8 +228,7 @@ def Axioms.ioChecks : IO (Array (String × Bool)) := do
 #assert_figure_links 20
 
 -- Every theorem linked to a figure of the test modules determines the whole figure, except the
--- fixtures of `PILeanTest.Standing`, whose theorems are weak on purpose, and the linked motion of
--- `PILeanTest.MotionFigures`, whose theorem shows that a motion can be linked.
-#assert_figures_pinned PILeanTest except PILeanTest.Standing PILeanTest.MotionFigures
+-- fixtures of `PILeanTest.Standing`, whose theorems are weak on purpose.
+#assert_figures_pinned PILeanTest except PILeanTest.Standing
 
 end PILeanTest

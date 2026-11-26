@@ -82,6 +82,7 @@ def rendererSources : Array (String × String) :=
     ("PILean.Plane.Graph", include_str "../Plane/Graph.lean"),
     ("PILean.Plane.Motion", include_str "../Plane/Motion.lean"),
     ("PILean.Plane.MotionOutput", include_str "../Plane/MotionOutput.lean"),
+    ("PILean.Plane.MotionPanels", include_str "../Plane/MotionPanels.lean"),
     ("PILean.Plane.MotionPlan", include_str "../Plane/MotionPlan.lean"),
     ("PILean.Plane.Render", include_str "../Plane/Render.lean"),
     ("PILean.Plot.Check", include_str "../Plot/Check.lean"),
