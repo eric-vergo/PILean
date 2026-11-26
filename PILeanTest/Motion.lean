@@ -699,6 +699,11 @@ def outputChecks : Array (String × Bool) := Id.run do
   let shifted := fun (dx : Float) => drawnOf 256 (Affine.translate dx 0) 1 paths.draw
   r := r.push ("rest check: a drawing 0.25 px off is refused, 0.03 px off passes",
     (drawingDiff (shifted 0.25) still).isSome && (drawingDiff (shifted 0.03) still).isNone)
+  -- a circle of radius 100 px: its allowance is 0.05 + 5.5e-4 · 100 = 0.105 px
+  let ring := fun (dx : Float) =>
+    #[Drawn.path "p" ((Canvas.circle ⟨200 + dx, 200⟩ 100).flatten 0.01)]
+  r := r.push ("rest check: a circle of radius 100 px 0.2 px off is refused, 0.04 px off passes",
+    (drawingDiff (ring 0.2) (ring 0)).isSome && (drawingDiff (ring 0.04) (ring 0)).isNone)
   let labelled : Figure := { paths with items := paths.items.push (Plane.label "T" ⟨0, 0⟩) }
   let lstill := drawnOf 256 Affine.id 1 labelled.draw
   let textMoved := fun (dx turn : Float) => lstill.map fun
