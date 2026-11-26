@@ -230,12 +230,12 @@ def pointRec (p : Q) (outside : Bool) (tone : Nat := 0) : Item :=
   let pt := if outside then pt.incident .outside "the small disk" else pt
   (group #[pt, Plane.Exact.label "P" p .aboveRight |>.accent tone]).actor "P"
 
-/-- `turnMotion` with a point whose recorded incidences change from key 0 to key 1 (and, with
-`tone := 1`, whose colour changes too). -/
+/-- `turnMotion` with a point whose recorded incidences change in the idle step, from key 1 to
+key 2 (and, with `tone := 1`, whose colour changes in the turn too). -/
 def incidenceMotion (tone : Nat := 0) : Motion :=
   { turnMotion with keys :=
     #[{ items := incidenceBackdrop.push (pointRec (1, 0) false), width := 320 },
-      { items := incidenceBackdrop.push (pointRec (0, 1) true tone), width := 320 },
+      { items := incidenceBackdrop.push (pointRec (0, 1) false tone), width := 320 },
       { items := incidenceBackdrop.push (pointRec (0, 1) true tone), width := 320 }] }
 
 /-- The placement of the first label among the leaves of the actor `id` of a figure. -/
@@ -724,12 +724,25 @@ def outputChecks : Array (String × Bool) := Id.run do
   r := r.push ("motion: an actor whose recorded incidences change is one actor, written plain",
     inc.problems.isEmpty && (inc.plan.layers.filter (·.version.actor == some "P")).size == 1 &&
       !has live "outside the small disk" && !has live "on the unit circle" &&
-      has (inc.keyFigure 1).toSvg "on the unit circle, outside the small disk")
+      has (inc.keyFigure 2).toSvg "on the unit circle, outside the small disk")
+  r := r.push ("motion: an item without an id whose records change is not crossfaded",
+    let o := fun (outside : Bool) =>
+      let pt := Plane.Exact.point ((0, -1) : Q) |>.faint |>.incident .on "the unit circle"
+      if outside then pt.incident .outside "the small disk" else pt
+    let m := { inc with keys := inc.keys.mapIdx fun k f =>
+      { f with items := f.items.push (o (k == 2)) } }
+    m.problems.isEmpty && !hasNote (warned m) "items without an id")
   r := r.push ("motion: an actor whose look changes in anything else is still refused",
     hasError (incidenceMotion 1) "does not carry key 0 onto key 1")
   r := r.push ("motion: the base title drops exactly the recorded words",
     baseTitle #[(.on, "c"), (.outside, "d")] "A, on c, outside d" == "A" &&
       baseTitle #[(.on, "c")] "on c" == "" && baseTitle #[(.on, "c")] "A, on b" == "A, on b")
+  r := r.push ("motion: a plan whose counter-rotations are off is refused by the writer check",
+    let p := turnMotion.plan
+    let bad : MotionPlan := { p with layers := p.layers.map fun L =>
+      { L with uprights := L.uprights.map fun u =>
+        { u with values := u.values.map fun v => #[2 * v.getD 0 0, v.getD 1 0, v.getD 2 0] } } }
+    (Motion.writerProblems p).isEmpty && !(Motion.writerProblems bad).isEmpty)
   for (name, m) in golden do
     r := r.push (s!"motion {name}: at every rest the baker draws the key still, every element",
       (m.restProblems m.keysOf m.plan).isEmpty &&
