@@ -89,12 +89,20 @@ A point turned a quarter about the origin.
 ```
 
 The motion's own captions (`Motion.captions`, one per key) are the captions of its stills
-("Step 2 of 3: …"); write them without a counter. `width` sets the picture's width; `inline` is
-implied; `format` does not apply. The caption ends with the Blueprint's link to its motion switch,
-"Animations can be turned off in the page menu.", shown only when scripts run. A motion that was
+("Step 2 of 3: …"); write them without a counter. Give the motion an `alt` (the doc string, without
+its code marks, stands in otherwise). `width` sets the picture's width; `inline` is implied;
+`format` does not apply. The caption ends with the hint that the animation pauses
+(`PILeanVerso.motionHintText`) and the Blueprint's link to its motion switch, "Animations can be
+turned off in the page menu.", shown only when scripts run. A motion that was
 not checked strictly (built at the check level `warn` or `ignore`, or with errors left) fails the
 build; `--figure-allow-unchecked` builds it, for drafts only, and its page then says what its
 checks found.
+
+A figure's files are named after its declaration, every character other than an ASCII letter,
+a digit, `.`, `_` and `-` written as `_`: declarations that differ only there, such as `wordLoop₁`
+and `wordLoop₂`, would share their files, and the build stops with `two outputs have the path …`.
+Name such figures with ASCII digits (`wordLoop1`), or give them names that differ in those
+characters.
 
 ## Links to Lean
 
@@ -126,13 +134,14 @@ A link is never put inside another.
   its animated SVG, and a reader who asks for reduced motion sees its still frame instead. A
   figure shown as a file is an `<img>` of the site and needs no script; the stylesheet switches
   the light and dark files.
-* A motion moves inline, in the theme of the page, on its own clock. Hovering it (with a mouse)
-  or focusing it (with the keyboard, or a tap) shows its poster key's still in the same place;
-  with animations turned off (the Blueprint's switch beside the theme control), with the
-  system's reduced motion, and in print, it shows its key frames as stills in a grid with their
-  captions, which are also its text description for assistive technology. On small screens it
-  shows its narrow rendition, when it has one. None of this needs a script
-  ([`docs/DESIGN.md`](../docs/DESIGN.md), "A motion shown in a page").
+* A motion moves inline, in the theme of the page, on its own clock, its caption saying
+  "Animation; it pauses on a still while you point at it or focus it." Hovering it (with a mouse)
+  or focusing it (with the keyboard, a click or a tap, until the focus leaves) shows its poster
+  key's still in the same place; with animations turned off (the Blueprint's switch beside the
+  theme control), with the system's reduced motion, and in print, it shows its key frames as stills
+  in a grid with their captions, which assistive technology reads after the picture's text
+  alternative. On small screens it shows its narrow rendition, when it has one. None of this needs
+  a script ([`docs/DESIGN.md`](../docs/DESIGN.md), "A motion shown in a page").
 * With `inline := true`, the picture is an `svg` element of the page (its narrow rendition on
   screens up to 560 px wide, when it has one): the titles of its elements show on hover, the
   elements that name a declaration link to it (see "Links to Lean"), and one picture serves both
@@ -297,9 +306,14 @@ lake exe example-blueprint --output _out/site
 
 It also has explorers, inline pictures, a figure and an explorer inside a Blueprint entry, and
 captions, names and ids that a page must escape (among them a figure whose declaration's name and
-caption hold markup). `example/tests/` has the checks run on it:
+caption hold markup, and a motion whose title, captions, labels, panel titles and actor ids do),
+and motions of plane figures on the pages "Motion" and "Escaping". `example/tests/` has the checks
+run on it; those that are not about this example are PILean's site checks (below), which it runs
+as one consumer:
 
-* `check-site.sh SCRATCH`: the build, the folder check, the reproducibility of two builds,
+* `check-site.sh SCRATCH`: the build, the expectations of both examples' motions written into
+  `SCRATCH/motions` (`example-test --motion-out`, `pilean-verso-manual-test --motion-out`), the
+  folder check, the reproducibility of two builds,
   `--check-figures` on a damaged copy, `pilean-verify`, the figures' markup (`markup_check.py`),
   every inline picture against its file and the manifest (`inline_check.py`, also on a page whose
   picture was changed), the three link modes and their warnings, `figure_explorer` on a plot; every
@@ -313,9 +327,12 @@ caption hold markup). `example/tests/` has the checks run on it:
   link PILean writes (a class that starts with `pilean-`) must reach its file and the element its
   fragment names (`pilean-site-links`, below), and in `a`, `sbs` and `manual` every link of the
   site; a page whose anchor was taken away must be reported; and a figure's page link must name the
-  empty anchor at the start of the page.
-* `browser_check.py SCRATCH/a/html-multi [SHOTS] --site-links SCRATCH/site/html-multi --no-links
-  SCRATCH/none/html-multi --side-by-side SCRATCH/sbs/html-multi --manual SCRATCH/manual/html-multi`:
+  empty anchor at the start of the page. Each site check is also shown to fail on a page or a
+  folder damaged where it looks (a motion's picture, poster, still, stills, style, poster group,
+  record, step table, words, an added event, link or unescaped string).
+* `python3 -I tests/browser_check.py SCRATCH/a/html-multi [SHOTS] --site-links
+  SCRATCH/site/html-multi --no-links SCRATCH/none/html-multi --side-by-side SCRATCH/sbs/html-multi
+  --manual SCRATCH/manual/html-multi --motions SCRATCH/motions`:
   the pages in a headless Chromium under a strict content policy: both themes, reduced motion, the
   source links, the figures page, narrow windows, the explorers' controls, gestures, announcements
   and touch targets, no script, a policy that allows the pictures' `style` elements by hash only,
@@ -324,4 +341,38 @@ caption hold markup). `example/tests/` has the checks run on it:
   page's look unchanged, nothing highlighted), the anchor adding no space above a figure page's
   picture (at 1440 and 390 px, in both adapters' examples: the picture's place is the same with the
   anchor removed), centring and overflow (wide, in the side-by-side text column, at 360 px) and
-  hostile strings.
+  hostile strings; and, on every page of both examples that shows a motion, the motion checks of
+  `tools/site/motion_browser.py` with the expectations in `SCRATCH/motions` (a motion without its
+  expectations fails).
+
+## Site checks
+
+`tools/site/` (in the repository's root) holds the checks any site built with these adapters can
+run on its published folder (the generator's `html-multi`); the example runs them as one site of
+many. They read the site and its figures folder (`-verso-data/pilean-figures` with its
+`manifest.json`, or `--figures DIR`), need Python 3 and, for the browser checks, the `playwright`
+package with a Chromium it can find (nothing is installed or downloaded):
+
+```
+python3 -I tools/site/inline_check.py SITE      # each inline picture and moving picture is its file
+python3 -I tools/site/markup_check.py SITE      # no script, handler or active markup in a figure
+python3 -I tools/site/page_check.py SITE        # each figure's page agrees with the manifest
+lake exe pilean-site-links SITE [--all]         # (verso/manual) every link reaches its target
+python3 -I tools/site/motion_browser.py SITE --expect DIR [--shots DIR]   # motions in Chromium
+```
+
+`motion_browser.py` checks every page with a motion; DIR holds, for each motion the site shows,
+`<decl>.json` (and `<decl>-narrow.json` for a narrow rendition) with the animated SVG, the keys'
+stills and the poster's PNG beside it, as PILean's tests write them
+(`PILeanTest.MotionChecks.expectations` for a `Plane.Motion`,
+`PILeanTest.MotionPanelsChecks.expectations` for a `Plane.MotionPanels`; `example/ExampleTest.lean`,
+`writeMotion` and `writePanels`, is a writer to copy): a site needs only its own writer. A motion
+shown without expectations fails. `tools/motion-browser-check.py` checks the same files on their
+own, pixel by pixel against the stills.
+
+A site with motions under its own Content-Security-Policy must allow the `style` element of every
+inline picture, a motion's moving picture included (`style-src 'unsafe-inline'`, or the hash of
+each), and, on a Blueprint site, the motion switch's inline head script by its hash. A site's own
+stylesheet must not reach into the pictures: a rule on `.pilean-inline-svg` or its descendants
+(`.pilean-inline-svg path`, `svg *`) also matches a motion's moving picture, and must not set
+`display`, `visibility`, `opacity`, `transform` or `animation` there.

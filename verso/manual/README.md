@@ -58,7 +58,8 @@ README](../README.md#what-a-reader-sees). A motion (`PILean.Plane.Motion`,
 `PILean.Plane.MotionPanels`) is shown with `:::figure` and the same options, always inline, its
 own captions under its stills; it follows the page's `data-motion="reduce"` and the reader's
 reduced-motion setting by the stylesheet alone, so it works on a manual without the Blueprint's
-switch (this genre adds no link to one). A motion not checked strictly fails the build unless
+switch (its caption ends with the hint that it pauses on a still; this genre adds no link to a
+switch). A motion not checked strictly fails the build unless
 `--figure-allow-unchecked` is given (for drafts).
 
 ## Figure pages

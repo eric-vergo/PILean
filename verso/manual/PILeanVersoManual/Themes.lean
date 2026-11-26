@@ -14,10 +14,17 @@ figures, graphs and motions of plane figures), the same files drawn in the dark 
 suffix `-dark` after the light file's suffix (`-key-2` becomes `-key-2-dark`).
 
 A page shows a motion's moving picture inline, restyled in the dark theme by its own rules
-(`PILeanVersoManual.Inline`); its dark files are the key stills, the poster and the contact sheet
-that the page shows as pictures, and the dark animated SVG offered with them. The dark motion is
-the motion with every key drawn in the dark style (`Plane.Motion.withStyle`), checked as the light
-one is: an error of the dark motion fails its files as one of the light motion fails theirs.
+(`PILeanVersoManual.Inline`); of the dark motion it writes only what the pages show, the SVG of
+each key's still (`-key-k-dark`, and `-narrow-key-k-dark` for a narrow rendition;
+`motionDarkOutput`), not a dark animated SVG, PNG, poster or contact sheet, which no page
+references. The dark motion is the motion with every key drawn in the dark style
+(`Plane.Motion.withStyle`), checked as the light one is: an error of the dark motion fails its
+files as one of the light motion fails theirs. A motion of `n` keys thus has `7 + 6 n` files with
+a narrow rendition and `6 + 3 n` without (light: the animated SVG, the poster's PNG and PDF, the
+contact sheet's SVG, PNG and PDF, the SVG and PNG of each key, and with a narrow rendition its
+animated SVG and the SVG and PNG of each of its keys; dark: the SVG of each key at each width),
+and `7 + 4 n` and `6 + 2 n` in a style without a dark twin (`tools/site/page_check.py`,
+`motion_files`).
 
 A figure is drawn dark only when its style uses the light colours (`Style.darkVariant?`): an
 author who chose other colours chose them for one background, and the site shows that figure in
@@ -90,22 +97,29 @@ instance : SiteOutputs GraphFigure where
 instance : SiteOutputs Graph where
   siteOutputs g := SiteOutputs.siteOutputs ({ graph := g } : GraphFigure)
 
-/-- A motion of plane figures: its files, and the same in the dark style when its keys have the
-light colours (`Plane.Motion.withStyle`, `Plane.Motion.style`). -/
+/-- Whether an output of a motion drawn dark is one a page shows: the SVG of a key's still
+(`-key-k`, `-narrow-key-k`). -/
+def motionDarkOutput (o : Output) : Bool :=
+  o.format == .svg && (o.name.startsWith "-key-" || o.name.startsWith "-narrow-key-")
+
+/-- A motion of plane figures: its files, and, when its keys have the light colours, the SVG of
+each key's still in the dark style (`Plane.Motion.withStyle`, `Plane.Motion.style`,
+`motionDarkOutput`). -/
 instance : SiteOutputs Plane.Motion where
   siteOutputs m :=
     ToOutputs.outputs m ++
       match Style.darkVariant? m.style with
-      | some d => darkOutputs (ToOutputs.outputs (m.withStyle d))
+      | some d => darkOutputs ((ToOutputs.outputs (m.withStyle d)).filter motionDarkOutput)
       | none => #[]
 
-/-- A picture of several motions as panels: its files, and the same in the dark style when its
-panels have the light colours (`Plane.MotionPanels.withStyle`). -/
+/-- A picture of several motions as panels: its files, and, when its panels have the light
+colours, the SVG of each key's still in the dark style (`Plane.MotionPanels.withStyle`,
+`motionDarkOutput`). -/
 instance : SiteOutputs Plane.MotionPanels where
   siteOutputs P :=
     ToOutputs.outputs P ++
       match Style.darkVariant? P.style with
-      | some d => darkOutputs (ToOutputs.outputs (P.withStyle d))
+      | some d => darkOutputs ((ToOutputs.outputs (P.withStyle d)).filter motionDarkOutput)
       | none => #[]
 
 end PILeanVerso

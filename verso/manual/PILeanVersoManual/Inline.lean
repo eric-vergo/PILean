@@ -26,8 +26,8 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   unchanged. A content policy must allow these `style` elements (`style-src 'unsafe-inline'`, or the
   hash of each); nothing else of an inline picture needs inline style.
 * **Files.** Each inline picture names the file of the figures folder it is the body of
-  (`data-pilean-file`), so a check of the published site can compare the two (the example's
-  `tests/inline_check.py`).
+  (`data-pilean-file`), so a check of the published site can compare the two (PILean's
+  `tools/site/inline_check.py`).
 * **Explorers** (`explorerHtml`). Every frame is in the page, each in a list item that carries its
   value and its step caption as data attributes (`data-value-text`, `data-step-text`) and shows
   them under the picture. Without script the frames are a grid in their order, as many columns as
@@ -540,19 +540,25 @@ a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
 }
 "##
 
-/-- The rules that hide a motion's moving picture and show its stills, below the selector prefix
-`pre` (`html[data-motion="reduce"] ` for the motion switch, empty inside a media query). The
-moving picture is hidden with `visibility: hidden` and taken out of the flow, never with
-`display: none`: an inline SVG animation that is not rendered can stay frozen when it is shown
-again, although its clock runs. -/
+/-- The rules that turn a motion's animation off, below the selector prefix `pre`
+(`html[data-motion="reduce"] ` for the motion switch, empty inside a media query): the stage is
+hidden and taken out of the flow and the stills are shown as a grid with their captions; a motion
+shown without its stills (`pilean-motion-bare`, on the figure's page, whose stills are shown
+below it) keeps its stage and shows the poster's still over the moving picture; the caption's
+hint about pausing is hidden. The moving picture is hidden by `visibility` or `opacity`, never by
+`display: none`, also in print: an inline SVG animation that is not rendered can stay frozen when
+it is shown again, although its clock runs. -/
 def motionOffRules (pre : String) : String :=
-  s!"{pre}.pilean-motion-stage \{visibility:hidden;position:absolute;top:0;left:0;\
-    pointer-events:none}\
+  s!"{pre}.pilean-motion:not(.pilean-motion-bare) .pilean-motion-stage \{visibility:hidden;\
+    position:absolute;top:0;left:0;pointer-events:none}\
+    {pre}.pilean-motion-bare svg.pilean-motion-live \{opacity:0}\
+    {pre}.pilean-motion-bare .pilean-motion-still \{opacity:1}\
     {pre}.pilean-motion-keys \{position:static;width:auto;height:auto;margin:0;overflow:visible;\
     clip:auto;clip-path:none;white-space:normal;display:grid;\
     grid-template-columns:repeat(auto-fit,minmax(min(14rem,100%),1fr));gap:0.75rem;\
     justify-items:center;align-items:start}\
-    {pre}.pilean-motion-key-pic \{display:block}"
+    {pre}.pilean-motion-key-pic \{display:block}\
+    {pre}.pilean-motion-hint \{display:none}"
 
 /-- The rules of the hidden rendition of a motion (the narrow one on wide screens, the wide one
 on small screens): kept rendered, so that its clock keeps the picture in step, but invisible and
@@ -563,21 +569,20 @@ def motionHiddenRendition : String :=
 /-- The stylesheet of motions shown in a page (`PILeanVerso.motionHtml`), scoped under
 `.pilean-motion`. While motion is on, the moving picture is shown and the key stills' captions
 are kept for assistive technology only (visually hidden; their pictures are not drawn). Hovering
-the picture (on a device that hovers) or focusing it shows the poster key's still in the
-picture's own box instead, so nothing around it moves. Motion is off under the page's
+the picture (on a device that hovers) or focusing it (by the keyboard, a click or a tap) shows the
+poster key's still in the picture's own box instead, so nothing around it moves; the moving
+picture is then only made transparent, so its text alternative stays in the accessibility tree,
+and the focused stage has a ring in `--pilean-focus`. Motion is off under the page's
 `data-motion="reduce"` (the Verso Blueprint motion switch), under the reader's
-`prefers-reduced-motion: reduce`, and in print: the moving picture is hidden (`motionOffRules`;
-left out of print) and the stills are shown as a grid with their captions. The narrow rendition is
-shown on small screens (the plane figures' breakpoint, 560 pixels), the wide one elsewhere
+`prefers-reduced-motion: reduce`, and in print (`motionOffRules`). The narrow rendition is shown
+on small screens (the plane figures' breakpoint, 560 pixels), the wide one elsewhere
 (`motionHiddenRendition`). No rule needs a script, and none depends on the Blueprint's own
 classes. -/
 def motionCss : String :=
   ".pilean-motion{position:relative;width:100%;max-width:100%;min-width:0}\
   .pilean-motion-stage{position:relative;width:fit-content;max-width:100%;margin:0 auto;\
     border-radius:6px}\
-  .pilean-motion-stage:focus{outline:none}\
-  .pilean-motion-stage:focus-visible{outline:3px solid var(--pilean-focus, #2563eb);\
-    outline-offset:4px}\
+  .pilean-motion-stage:focus{outline:3px solid var(--pilean-focus);outline-offset:4px}\
   .pilean-motion svg.pilean-motion-live{display:block;max-width:100%;height:auto;margin:0 auto}\
   .pilean-motion-sized svg.pilean-motion-live{width:100%}\
   @media not all and (max-width: 560px){.pilean-motion svg.pilean-motion-narrow" ++
@@ -585,11 +590,11 @@ def motionCss : String :=
   @media (max-width: 560px){.pilean-motion-has-narrow svg.pilean-motion-wide" ++
     motionHiddenRendition ++ "}\
   .pilean-motion-still{position:absolute;inset:0;opacity:0;pointer-events:none}\
-  .pilean-motion-still picture,.pilean-motion-still img{display:block;width:100%;height:100%}\
+  .pilean-motion-still img{position:absolute;inset:0;display:block;width:100%;height:100%}\
   @media (hover: hover){\
-    .pilean-motion-stage:hover svg.pilean-motion-live{visibility:hidden}\
+    .pilean-motion-stage:hover svg.pilean-motion-live{opacity:0}\
     .pilean-motion-stage:hover .pilean-motion-still{opacity:1}}\
-  .pilean-motion-stage:focus svg.pilean-motion-live{visibility:hidden}\
+  .pilean-motion-stage:focus svg.pilean-motion-live{opacity:0}\
   .pilean-motion-stage:focus .pilean-motion-still{opacity:1}\
   .pilean-motion-keys{list-style:none;padding:0;position:absolute;width:1px;height:1px;\
     margin:-1px;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);\
@@ -599,9 +604,9 @@ def motionCss : String :=
   .pilean-motion-key-pic img{display:block;max-width:100%;height:auto;margin:0 auto;\
     border-radius:4px}\
   .pilean-motion-key-caption{margin:0.2rem 0 0;font-size:0.85em;overflow-wrap:anywhere}\
-  .pilean-motion-note{display:block;font-size:0.85em}" ++
+  .pilean-motion-note{display:block;font-size:0.85em;color:var(--pilean-muted, inherit)}" ++
   motionOffRules "html[data-motion=\"reduce\"] " ++
   "@media (prefers-reduced-motion: reduce){" ++ motionOffRules "" ++ "}" ++
-  "@media print{.pilean-motion-stage{display:none}" ++ motionOffRules "" ++ "}"
+  "@media print{" ++ motionOffRules "" ++ "}"
 
 end PILeanVerso

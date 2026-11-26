@@ -15,21 +15,24 @@ link to it. From top to bottom it shows:
 
 1. the picture at full size (the light and the dark files, following the page's theme; an
    animation's still frame for readers who ask for reduced motion; an explorer as it is shown
-   where it is used), and every file of the figure to download, with its size;
+   where it is used; a motion moving, without its stills), and every file of the figure to
+   download, with its size (folded in a `details` element above `foldFilesAbove` files);
 2. its number and caption, and every place the document shows it;
 3. its *standing* (`PILean.Trust.Standing`), as `site_figures%` derived it from the environment
    of the site's generator: "Linked theorem: T" with each theorem's statement as Lean, the axioms
    it rests on and what PILean checked of it (`linkCheckedText`), then what a linked theorem does
    and does not cover (`theoremScopeText`, `theoremLinkText`; all three sentences of
    `docs/TRUST.md`); or "Illustration: no theorem is linked to it";
-4. the code: the figure's declaration in full, then the declarations of the project that its
+4. for a motion (`motionSection`): what the animation is, the table of its steps and its key
+   stills with their captions;
+5. the code: the figure's declaration in full, then the declarations of the project that its
    value and its theorems' statements use (`figurePageData`, with its caps), each highlighted with
    the hovers of the genre's Lean code and linked to its source at the build's commit, then the
    declarations of other packages they name;
-5. provenance: each file's fingerprint, renderer and text engine, what `pilean-verify` says of
+6. provenance: each file's fingerprint, renderer and text engine, what `pilean-verify` says of
    the file against the site's manifest, the toolchain and the packages that draw the picture,
    the build's commit and the continuous-integration run;
-6. how to reproduce: the commands that build the site again and check the files.
+7. how to reproduce: the commands that build the site again and check the files.
 
 Everything on the page that comes from the project (names, captions, code, paths) is text, which
 the HTML writer escapes; the pictures are the site's own inert files. The page adds no script:
@@ -198,6 +201,11 @@ def docsHref? (e : ExternalName) : Option String :=
         if c.isAlphanum || c == '.' || c == '_' then c.toString else "_")}"
   else none
 
+/-- The most files a figure's page lists unfolded; a figure with more (a motion, with its key
+stills at each width and in each theme) has its lists of files and of their provenance in a
+`details` element. -/
+def foldFilesAbove : Nat := 12
+
 /-! ### A motion -/
 
 /-- A duration in seconds, exactly: `1 s`, `3/2 s`. -/
@@ -236,8 +244,9 @@ def motionStepTable (rows : Array MotionStepRow) : Html :=
 
 /-- The section of a figure's page about a motion (`m`, with its narrow rendition `n`): what the
 animation is (`MotionData.words`, with `MotionData.checkWords` when it was not checked strictly),
-the table of its steps (`motionStepTable`), its key stills with their captions, always shown here,
-and its contact sheet. -/
+the table of its steps (`motionStepTable`) and its key stills with their captions, as a grid,
+always shown here (the motion at the top of the page is shown without them, `pilean-motion-bare`,
+so nothing is shown twice; the contact sheet is offered among the files). -/
 def motionSection (idBase : String) (m : MotionData) (n : Option MotionData)
     (files : Array FileInfo) : Html :=
   let captions := m.stills.stepCaptions
@@ -246,7 +255,6 @@ def motionSection (idBase : String) (m : MotionData) (n : Option MotionData)
     Html.element "li" #[("class", "pilean-page-motion-key")] (.seq #[
       themedPictures files s!"-key-{k}" (narrowOf k) (lazy := true),
       el "p" "pilean-motion-key-caption" (txt (motionStepText captions k))])
-  let sheet := themedPictures files "-keys" none (lazy := true)
   el "section" "pilean-page-motion" (.seq #[
     el "h2" "pilean-page-h" (txt "Animation"),
     el "p" (if m.unchecked then "pilean-motion-words pilean-motion-unchecked"
@@ -254,8 +262,8 @@ def motionSection (idBase : String) (m : MotionData) (n : Option MotionData)
     motionStepTable m.steps,
     el "h3" "pilean-page-decl-title" (txt "Key frames"),
     el "ol" "pilean-page-motion-keys" (.seq stills),
-    el "h3" "pilean-page-decl-title" (txt "Contact sheet"),
-    el "div" "pilean-page-motion-sheet" sheet]) #[("id", s!"{idBase}-animation")]
+    el "p" "pilean-page-note" (txt "The contact sheet of these stills, for print, is among the \
+      files.")]) #[("id", s!"{idBase}-animation")]
 
 /-! ### The page -/
 
@@ -282,10 +290,12 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
   -- the picture, full size
   let full : Placed := { p with data := { p.data with width := none } }
   let motion := motionOf? fig.files
-  let picture ← match ← (inlinePicture? l site full #[("id", idBase)] : IO _) with
+  let picture ← match ← (inlinePicture? l site full #[("id", idBase)]
+      (motionStills := false) : IO _) with
     | some h => pure (if p.data.explorer || motion.isSome then h else (pictureHtml full).getD h)
     | Option.none => pure ((pictureHtml full).getD (el "p" "pilean-figure-missing" (txt "No file.")))
-  let hasDark := (pick? p.files p.data.format "-dark").isSome
+  let hasDark := (pick? p.files p.data.format "-dark").isSome ||
+    p.files.any (·.name.endsWith "-dark")
   let verdicts := fig.files.map fun f => (f, builtVerdict f.built)
   let downloads := el "ul" "pilean-page-files" (.seq (verdicts.map fun (f, _) =>
     let info := (fileInfos fig).find? (·.path == f.built.entry.path)
@@ -295,6 +305,12 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
           ("class", "pilean-page-download"), ("data-sha256", f.built.entry.sha256),
           ("data-bytes", toString f.built.entry.bytes)] (txt label),
       txt s!", {groupDigits f.built.entry.bytes} bytes"])))
+  -- a figure with many files (a motion: its stills at each width) lists them folded
+  let folded := fun (what : String) (body : Html) =>
+    if verdicts.size ≤ foldFilesAbove then body
+    else .element "details" #[("class", "pilean-page-files-more")] (.seq #[
+      .element "summary" #[] (txt s!"{verdicts.size} {what}"), body])
+  let downloads := folded "files" downloads
   -- caption, number, uses
   let caption : Html := .seq <| p.data.caption.map fun (isMath, t) =>
     if isMath then .element "code" #[("class", math)] (txt t) else txt t
@@ -421,7 +437,8 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
     el "p" "pilean-page-note" (txt "Each file of the figure, with what pilean-verify says of it \
       against the site's manifest (the file's size, SHA-256, format and source record) and the \
       standing the file records:"),
-    el "ul" "pilean-page-prov-files" (.seq fileRows)]) #[("id", s!"{idBase}-provenance")]
+    folded "files with what pilean-verify says of each" (el "ul" "pilean-page-prov-files"
+      (.seq fileRows))]) #[("id", s!"{idBase}-provenance")]
   -- reproduce
   let gen := if pr.generator.isEmpty then "GENERATOR" else pr.generator
   let flags := " ".intercalate pr.flags.toList

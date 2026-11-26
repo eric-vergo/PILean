@@ -171,6 +171,10 @@ def docSummary (doc : String) : String :=
   let s := collapseSpace para
   if s.length ≤ 400 then s else (s.take 399).toString ++ "…"
 
+/-- A doc string's summary as a text alternative: its code marks (backticks) taken out, so that
+an accessible name read aloud carries no markup characters. -/
+def plainText (s : String) : String := collapseSpace (s.replace "`" "")
+
 /-- Where a declaration is: its module, the module's file and the line its range starts at (0 if
 unknown). -/
 def declRef (n : Name) : CoreM DeclRef := do
@@ -294,7 +298,8 @@ def expandFigure (g : FigureGenre) (explorer : Bool) : DirectiveExpanderOf Figur
     let summary := (← findDocString? env decl).map docSummary
     let alt ← match cfg.alt, summary with
       | some a, _ => pure a
-      | none, some s => if g.requireAlt then throwErrorAt cfg.decl (altMissing decl) else pure s
+      | none, some s =>
+        if g.requireAlt then throwErrorAt cfg.decl (altMissing decl) else pure (plainText s)
       | none, none =>
         if g.requireAlt then throwErrorAt cfg.decl (altMissing decl)
         logWarningAt cfg.decl m!"{decl} has no doc string; give the figure a text \
@@ -746,15 +751,18 @@ def motionStepText (captions : Array String) (k : Nat) : String :=
 /-- The markup of a motion shown in a page (see `motionCss`): a wrapper `div.pilean-motion` that
 carries `data-bp-motion` (what the Verso Blueprint motion switch looks for), holding
 
-* the stage: the moving picture inline (`main.live`, the class `pilean-motion-live`), and, when
-  the motion has one, its narrow rendition's (`narrow`), both present from the page's load (an
-  `svg` inserted later would start a clock of its own), each with the accessible name `alt` and
-  described by the stills' captions; and over them the poster key's still, shown while the stage
-  is hovered or focused. The stage is focusable, so that a reader at the keyboard can stop the
-  motion. The moving picture has no declaration links: they could not be reached, since hovering
-  and focusing it show the still instead;
-* the key stills, in order, as pictures of their files (`-key-k`, the narrow rendition's
-  `-narrow-key-k`, and their dark twins), each with its caption (`motionStepText`).
+* the stage (a group named `name, animation`): the moving picture inline (`main.live`, the class
+  `pilean-motion-live`), and, when the motion has one, its narrow rendition's (`narrow`), both
+  present from the page's load (an `svg` inserted later would start a clock of its own), each with
+  the accessible name `alt`; and over them the poster key's still (`-key-k` of the poster, its
+  narrow and dark twins), shown while the stage is hovered or focused. The stage is focusable, so
+  that a reader at the keyboard can stop the motion. The moving picture has no declaration links:
+  they could not be reached, since hovering and focusing it show the still instead;
+* unless `stills` is false (the figure's page, which shows them below): the key stills, in order,
+  as pictures of their files (`-key-k`, the narrow rendition's `-narrow-key-k`, and their dark
+  twins), each with its caption (`motionStepText`), read once by assistive technology after the
+  picture. Without them the motion has the class `pilean-motion-bare`, and turning motion off
+  shows the poster's still in the stage instead (`motionOffRules`).
 
 `base` is unique in the page: every id and `data-pilean-actor` of a moving picture gets the
 prefix `base-mw-` (its narrow rendition `base-mn-`), and the list of stills has the id
@@ -762,7 +770,7 @@ prefix `base-mw-` (its narrow rendition `base-mn-`), and the list of stills has 
 the file a rendition is the body of (`""` or `"-narrow"`), `width` its CSS width if given. -/
 def motionHtml (base : String) (name alt : String) (main : MotionData)
     (narrow : Option MotionData) (files : Array FileInfo) (path : String → Option String)
-    (width : Option String := none) : Html :=
+    (width : Option String := none) (stills : Bool := true) : Html :=
   let base := domSafe base
   let keysId := s!"{base}-keys"
   let poster := main.stills.poster
@@ -770,7 +778,7 @@ def motionHtml (base : String) (name alt : String) (main : MotionData)
     Html.raw (inlineSvgText s!"{base}-{suffix}" d.live (fun _ => none) alt
       (cls := s!"pilean-motion-live pilean-motion-{rendition}") (file := path
         (if rendition == "narrow" then "-narrow" else ""))
-      (attrs := #[("aria-describedby", keysId), ("data-pilean-poster", toString poster)]))
+      (attrs := #[("data-pilean-poster", toString poster)]))
   let posterPics := themedPictures files s!"-key-{poster}"
     (narrow.map fun _ => s!"-narrow-key-{poster}") (lazy := false)
   let captions := main.stills.stepCaptions
@@ -785,25 +793,27 @@ def motionHtml (base : String) (name alt : String) (main : MotionData)
     | some w => #[("style", s!"width: {w}")]
     | none => #[]
   let cls := "pilean-motion" ++ (if narrow.isSome then " pilean-motion-has-narrow" else "") ++
-    (if width.isSome then " pilean-motion-sized" else "")
+    (if width.isSome then " pilean-motion-sized" else "") ++
+    (if stills then "" else " pilean-motion-bare")
   .element "div" #[("class", cls), ("data-bp-motion", ""), ("id", base)] (.seq #[
     .element "div" (#[("class", "pilean-motion-stage"), ("tabindex", "0"), ("role", "group"),
-        ("aria-label", s!"{name}: an animation; while it has the focus, a still of it is shown")] ++
+        ("aria-label", s!"{name}, animation")] ++
         stageStyle) (.seq #[
       live "mw" "wide" main,
       match narrow with
       | some n => live "mn" "narrow" n
       | none => .empty,
       .element "span" #[("class", "pilean-motion-still"), ("aria-hidden", "true")] posterPics]),
-    .element "ol" #[("class", "pilean-motion-keys"), ("id", keysId),
-      ("aria-label", s!"The key frames of {name}")] (.seq keys)])
+    if stills then .element "ol" #[("class", "pilean-motion-keys"), ("id", keysId),
+      ("aria-label", s!"The key frames of {name}")] (.seq keys) else .empty])
 
 /-- The inline markup of a figure (`inline := true`, explorers and motions), from the site's
 render: the picture (and its narrow rendition, shown on small screens) as `svg` elements, an
 explorer's frames and controls, or a motion's moving picture and stills (`motionHtml`); `none`
-when the figure is shown as files. Each picture names its file. -/
+when the figure is shown as files. Each picture names its file. A motion's stills are left out
+when `motionStills` is false (the figure's page shows them in a section of their own). -/
 def inlinePicture? (l : Links) (site : Option SiteRender) (p : Placed)
-    (idAttr : Array (String × String)) : IO (Option Html) := do
+    (idAttr : Array (String × String)) (motionStills : Bool := true) : IO (Option Html) := do
   let d := p.data
   let base := figureDomId p idAttr
   let some site := site | return none
@@ -812,7 +822,7 @@ def inlinePicture? (l : Links) (site : Option SiteRender) (p : Placed)
   let path := fun (name : String) => (file name).map (·.built.entry.path)
   if let some (main, narrow) := motionOf? fig.files then
     return some (motionHtml s!"{base}-motion" s!"Figure {p.number}" d.alt main narrow p.files path
-      d.width)
+      d.width (stills := motionStills))
   if !d.inline && !d.explorer then return none
   if d.explorer then
     let some f := file "" | return none
@@ -834,16 +844,21 @@ def inlinePicture? (l : Links) (site : Option SiteRender) (p : Placed)
   | none => return some (.element "div" #[("class", "pilean-inline-frame")] (.raw wide))
 
 open Verso.Output.Html in
+/-- What a motion's caption says, in every adapter: that the animation pauses on a still, and
+how (a hover, or the focus: the keyboard, a click or a tap). Hidden while motion is off, when the
+stills are shown, and in print (`motionOffRules`). -/
+def motionHintText : String := "Animation; it pauses on a still while you point at it or focus it."
+
 /-- The HTML of a figure block; `site` is the site's render, which inline pictures, explorers and
-motions are read from and which sets the link mode. `motionNote` is added to the caption of a
-motion (the Blueprint adapter's link to its motion switch). -/
+motions are read from and which sets the link mode. The caption of a motion ends with
+`motionHintText` and `motionNote` (the Blueprint adapter's link to its motion switch). -/
 def figureHtmlWith (s : DeclStyle) (st : TraverseState) (p : Placed)
     (idAttr : Array (String × String)) (caption : Html) (site : Option SiteRender := none)
-    (motionNote : Html := .empty) : IO Html := do
+    (motionNote : Option Html := none) : IO Html := do
   let d := p.data
   let l := Links.of s st site
   let hasDark := (pick? p.files d.format "-dark").isSome ||
-    (d.backdrop.map backdropThemed).getD false
+    p.files.any (·.name.endsWith "-dark") || (d.backdrop.map backdropThemed).getD false
   let cls := if hasDark then "pilean-figure pilean-figure-has-dark" else "pilean-figure"
   let picture := match ← inlinePicture? l site p idAttr with
     | some h => h
@@ -858,7 +873,13 @@ def figureHtmlWith (s : DeclStyle) (st : TraverseState) (p : Placed)
   let source ← sourceLineWith s l st p (shownFingerprint p) (here := placedLink? st p)
   let isMotion := (site.bind fun x => x.figures[d.decl]?).any fun f => (motionOf? f.files).isSome
   let cls := if isMotion then cls ++ " pilean-figure-has-motion" else cls
-  let note : Html := if isMotion then motionNote else .empty
+  let note : Html := if isMotion then
+      .element "span" #[("class", "pilean-motion-note")] (.seq #[
+        .element "span" #[("class", "pilean-motion-hint")] (.text motionHintText),
+        match motionNote with
+        | some h => .seq #[.text " ", h]
+        | none => .empty])
+    else .empty
   pure <| .element "figure" (idAttr ++ #[("class", cls), ("data-lean-decl", d.decl)] ++ role)
     (.seq #[
       html%{<div class="pilean-figure-frame">{picture}</div>},
