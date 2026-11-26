@@ -376,6 +376,10 @@ structure MotionPlan where
   /-- The number of keys. -/
   keys : Nat
 
+instance : Inhabited MotionPlan :=
+  ⟨{ env := default, mode := .native "", timeline := default, phases := #[], clock := default,
+     layers := #[], runs := #[], seam := none, background := default, keys := 0 }⟩
+
 /-- Consecutive elements of `xs` with equal `key`, as runs. -/
 def runsBy {α β : Type} [BEq β] (key : α → β) (xs : Array α) : Array (Array α) := Id.run do
   let mut out : Array (Array α) := #[]
@@ -525,6 +529,19 @@ def walkItem {α : Type} (leaf : Nat → Leaf → Array α)
 def leafOf (it : Item) (i : Nat) : Option Leaf := it.leaves[i]?
 
 /-! ### The SVG writer -/
+
+/-- The tree with the prefix `pre` on the value of every `id` and `data-pilean-actor` attribute
+and in every reference `url(#…)` of an attribute value, at most `fuel` deep. Other references
+(`href="#…"`, which the drawings do not write) and the texts are left as they are. -/
+def prefixNodeIds (pre : String) : Nat → Node → Node
+  | 0, n => n
+  | _, .text t => .text t
+  | fuel + 1, .element name attrs children =>
+    let attrs := attrs.map fun (k, v) =>
+      if k == "id" || k == "data-pilean-actor" then (k, pre ++ v)
+      else if v.startsWith "url(#" then (k, "url(#" ++ pre ++ (v.drop 5).toString)
+      else (k, v)
+    .element name attrs (children.map (prefixNodeIds pre fuel))
 
 /-- The node with the attributes `extra` added. -/
 def addAttrs (extra : Array (String × String)) : Node → Node
@@ -688,13 +705,22 @@ def contentNodes : Array Node :=
     | some a => #[Smil.group a inner]
     | none => inner
 
-/-- The moving picture: the content, inside the seam's fades when there are some. -/
-def toNodesUnchecked : Array Node :=
-  let content := p.contentNodes
+/-- The nodes `content` inside the seam's fades of the plan's timeline when there are some (an
+`animate` of `opacity` built by `anim`). -/
+def withSeam (content : Array Node) : Array Node :=
   match p.seam.bind fun s => p.anim "animate" #[("attributeName", "opacity")]
       (s.map (fmtNum · 4)) with
   | some a => #[Smil.group a content]
   | none => content
+
+/-- The moving picture: the content, inside the seam's fades when there are some. -/
+def toNodesUnchecked : Array Node := p.withSeam p.contentNodes
+
+/-- The number of the plan's actor layers and of its upright groups: what the written moving
+picture must mark (`data-pilean-actor`, `data-pilean-upright`). -/
+def markerCounts : Nat × Nat :=
+  ((p.layers.filter fun L => L.version.actor.isSome).size,
+    (p.layers.map (·.uprights.size)).foldl (· + ·) 0)
 
 /-! ### The baker -/
 

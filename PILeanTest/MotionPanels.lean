@@ -164,10 +164,15 @@ def attrValues (key : String) : Nat → Node → Array String
 def distinct (xs : Array String) : Bool :=
   (xs.toList.zip (List.range xs.size)).all fun (x, i) => !(xs.toList.drop (i + 1)).contains x
 
+/-- The number of actor layers and of upright groups of all panels of a picture. -/
+def markerCounts (r : MotionPanelsReport) : Nat × Nat :=
+  (r.panels.foldl (fun a pr => a + pr.plan.markerCounts.1) 0,
+    r.panels.foldl (fun a pr => a + pr.plan.markerCounts.2) 0)
+
 /-- Whether, at 50 times through the cycle, the written moving picture (`liveNodes`, read with
 `Smil.valueAt`) shows what the composed baker draws (`markersDiff`). -/
 def agrees (r : MotionPanelsReport) : Bool :=
-  let (actors, ups) := r.markerCounts
+  let (actors, ups) := markerCounts r
   let live := r.liveNodes
   (sampleTimes r.timeline.cycle).all fun tr =>
     (markersDiff (r.markersAt (Exact.toFloat tr)) actors ups live (Exact.toFloat tr)).isNone
@@ -196,6 +201,26 @@ def unitLength (r : MotionPanelsReport) (i : Nat) : Float :=
   match r.panels[i]? with
   | some pr => (pr.env.frame.toScreen ⟨1, 0⟩).dist (pr.env.frame.toScreen ⟨0, 0⟩)
   | none => 0
+
+/-- `MotionChecks.sampledMotion` with figures between its keys only at the quarters of the step. -/
+def quarters : Motion :=
+  { MotionChecks.sampledMotion with
+    morphSamples := 4
+    between := fun j q =>
+      if (q * 4).den == 1 then MotionChecks.sampledMotion.between j q else none }
+
+/-- Two motions of two keys as panels `A` and `B`. -/
+def pair (a b : Motion) : MotionPanels :=
+  { turnSlide with
+    panels := #[{ title := "A", motion := a }, { title := "B", motion := b }]
+    captions := #["Start.", "End."] }
+
+/-- `turnSlide` with the title `t` on its first panel and a share six times as wide for the
+second. -/
+def titled (t : String) : MotionPanels :=
+  { turnSlide with
+    panels := turnSlide.panels.modify 0 ({ · with title := t })
+    shares := #[1, 6] }
 
 /-- The checks of the shared timeline. -/
 def timelineChecks : Array (String × Bool) := Id.run do
@@ -246,15 +271,24 @@ def timelineChecks : Array (String × Bool) := Id.run do
       rs.panels.all (·.plan.timeline.segments.size == rs.timeline.segments.size) && agrees rs)
   let morph := fun (n : Nat) =>
     { MotionChecks.sampledMotion with morphSamples := n }
-  let clash : MotionPanels :=
-    { turnSlide with panels := #[{ title := "Four", motion := morph 4 },
-        { title := "Eight", motion := morph 8 }], captions := #["Start.", "End."] }
-  out := out.push ("panels: two panels sampling one step in different numbers is an error",
-    hasError clash "sample a morph in different numbers of intervals (4, 8)" &&
+  out := out.push ("panels: panels sampling one step in 4 and 6 intervals share 12 when their \
+      figures between the keys answer there",
+    let both := pair (morph 4) (morph 6)
+    both.problems.isEmpty && both.report.samples == #[12] &&
+      both.report.timeline.segments.size == both.baseTimeline.segments.size + 11 &&
+      agrees both.report)
+  let clash := pair quarters (morph 6)
+  out := out.push ("panels: sampling that cannot be shared is an error that says what is drawn",
+    hasError clash "sample a morph in different numbers of intervals (4, 6)" &&
+      hasError clash "the step is drawn unsampled" && clash.report.samples == #[1] &&
       (match clash.svg? with | .error _ => true | .ok _ => false))
+  out := out.push ("panels: under warn, unshared sampling is a note saying what is drawn, and the \
+      picture is written",
+    let w : MotionPanels := { clash with checks := .warn }
+    w.problems.any (fun p => p.severity == .note && has p.message "drawn unsampled") &&
+      (match w.svg? with | .ok _ => true | .error _ => false) && outputsOk w.report)
   out := out.push ("panels: the same numbers of intervals are one sampling",
-    let same : MotionPanels := { clash with panels := #[{ title := "Four", motion := morph 4 },
-      { title := "Again", motion := morph 4 }] }
+    let same := pair (morph 4) (morph 4)
     same.problems.isEmpty && same.report.samples == #[4])
   return out
 
@@ -330,9 +364,11 @@ def idChecks : Array (String × Bool) := Id.run do
       match rp.panelKeyFigure? i k with
       | some fig =>
         let place := rp.layout.places[i]!
-        let env := shiftEnv fig.env place.x place.y
+        let f := fig.env.frame
+        let env : Env :=
+          { fig.env with frame := { f with ox := f.ox + place.x, oy := f.oy + place.y } }
         ((Canvas.Shape.group (fig.items.flatMap (drawItem env))).render fig.svgMode).map
-          (prefixPanel (panelPrefix i) 256)
+          (prefixNodeIds (panelPrefix i) 256)
       | none => #[]
     Svg.document rp.layout.width.round rp.layout.height.round
       (rp.background.render rp.mode ++ rp.titleNodes ++ nodes)
@@ -342,12 +378,13 @@ def idChecks : Array (String × Bool) := Id.run do
   -- each panel's part of the still is its own still moved to its place
   out := out.push ("panels: each panel's part of a key is that panel's still moved to its place",
     (List.range 5).all fun k => (List.range 2).all fun i =>
-      match rp.panelKeyFigure? i k, rp.panels[i]? with
-      | some fig, some pr =>
+      match rp.panelKeyFigure? i k, rp.stillShape k with
+      | some fig, .group cs .. =>
         let place := rp.layout.places[i]!
         let own := drawnOf 256 (Affine.translate place.x place.y) 1
           (.group (fig.items.flatMap (drawItem fig.env)))
-        let part := drawnOf 256 Affine.id 1 (MotionPanelsReport.panelStill pr k)
+        -- the still is the background, the titles, then the panels
+        let part := drawnOf 256 Affine.id 1 (cs.getD (cs.size - 2 + i) (.group #[]))
         own.size == part.size && own.size > 0 &&
           (drawingDiff part own).isNone &&
           (own.zip part).all fun
@@ -470,9 +507,113 @@ def outputChecks : Array (String × Bool) := Id.run do
         (actorAt r "p2-B" t).any (·.dist (pr.env.frame.toScreen rightCentres[k]!.2) < 1e-3))
   return out
 
+
+/-! ### What a turn sweeps, the layout's inputs, ids -/
+
+/-- A point turned half a turn about the far centre `(0, 2)`, from `(0, 0)` to `(0, 4)`: half way
+it is at `(2, 2)`, outside the box of its keys; with `view`, its keys show only that box. -/
+def farTurn (view : Option Box := none) : Motion where
+  keys := #[⟨0, 0⟩, ⟨0, 4⟩, ⟨0, 4⟩].map fun p =>
+    { items := #[Plane.point ⟨-1, 0⟩ |>.faint, Plane.point ⟨1, 4⟩ |>.faint,
+        (Plane.point p |>.accent 0).actor "X"], view }
+  captions := #["a", "b", "c"]
+  steps := #[{ moves := #[("X", .turn ⟨0, 2⟩ (1 / 2))] }, MotionStep.idle]
+  info := testInfo
+
+/-- A neighbour for `farTurn`: a point slid by one. -/
+def neighbour : Motion where
+  keys := #[⟨0, 0⟩, ⟨1, 0⟩, ⟨1, 0⟩].map fun p =>
+    { items := #[Plane.point ⟨-1, -1⟩ |>.faint, Plane.point ⟨2, 5⟩ |>.faint,
+      (Plane.point p |>.accent 1).actor "Y"] }
+  steps := #[{ moves := #[("Y", .slide ⟨1, 0⟩)] }, MotionStep.idle]
+
+/-- `farTurn` beside `neighbour`. -/
+def farPanels (view : Option Box := none) : MotionPanels where
+  panels := #[{ title := "Far turn", motion := farTurn view },
+    { title := "Neighbour", motion := neighbour }]
+  captions := #["a", "b", "c"]
+  info := testInfo
+
+/-- `turnSlide` under `warn` with a slide in its second panel that misses its key. -/
+def missedSlide : MotionPanels :=
+  { turnSlide with
+    checks := .warn
+    panels := turnSlide.panels.modify 1 fun p =>
+      { p with motion := { p.motion with steps := p.motion.steps.modify 0 fun _ =>
+        { moves := #[("X", .slide ⟨2, 0⟩)] } } } }
+
+/-- The checks of what turns sweep, of the layout's inputs and of the ids. -/
+def sweepChecks : Array (String × Bool) := Id.run do
+  let mut out : Array (String × Bool) := #[]
+  let box : Box := ⟨-1, 0, 1, 4⟩
+  out := out.push ("motion: the view includes what a turn sweeps; nothing leaves the picture",
+    let f := (farTurn).keysOf.env.frame
+    (farTurn).problems.isEmpty && (f.toScreen ⟨2, 2⟩).x < f.width - 3)
+  out := out.push ("motion: a turn that leaves a view the keys set is an error",
+    (farTurn (some box)).problems.any fun p =>
+      p.severity == .error && has p.message "X leaves the picture during step 1")
+  out := out.push ("panels: a panel's extent includes what its turns sweep",
+    let r := (farPanels).report
+    let pr := r.panels[0]!
+    (farPanels).problems.isEmpty && (pr.env.frame.toScreen ⟨2, 2⟩).x <
+      r.layout.places[0]!.x + r.layout.places[0]!.frame.width - 3)
+  out := out.push ("panels: a turn that leaves a panel with a view of its own is an error",
+    hasError (farPanels (some box)) "panel Far turn: X leaves its panel during step 1")
+  out := out.push ("panels: a gap below zero is an error",
+    hasError { turnSlide with gap := -10 } "the gap between the panels (-10 px)")
+  -- titles on a narrow share: made smaller to fit, or refused
+  out := out.push ("panels: a title wider than its panel is made smaller to fit it",
+    let P := titled "Turning the point"
+    let r := P.report
+    let pl := r.layout.places[0]!
+    let st := r.style
+    let w := st.text.measure "Turning the point" pl.titleSize
+    P.problems.isEmpty && pl.titleSize < st.panelTitleSize && pl.titleFits &&
+      pl.titleAt.x - w / 2 ≥ pl.x && pl.titleAt.x + w / 2 ≤ pl.x + pl.frame.width)
+  out := out.push ("panels: a title too wide even at the smallest size is an error",
+    hasError (titled "A rather long title for the first of the two panels")
+      "panel A rather long title for the first of the two panels: its title is wider")
+  -- every id of the document is distinct, checked at run time
+  out := out.push ("panels: an id twice in the document is an error",
+    let r := turnSlide.report
+    let bad : MotionPanelsReport :=
+      { r with panels := r.panels.modify 1 ({ · with idPrefix := "p1-" }) }
+    r.idProblems.isEmpty && bad.idProblems.any fun p => has p.message "has the id p1-X twice")
+  -- a picture written under warn despite errors says it was not checked as a whole
+  out := out.push ("panels: under warn, a picture with errors says it was not composed-checked",
+    let wrong := missedSlide
+    wrong.problems.any (fun p => p.severity == .note && has p.message "was not checked") &&
+      (match wrong.svg? with | .ok _ => true | .error _ => false) &&
+      !turnSlide.problems.any fun p => has p.message "was not checked")
+  -- several pictures in one page: a prefix of their own
+  out := out.push ("motion: two motions with the same actor ids and prefixes of their own have \
+      distinct ids",
+    let a : Motion := { MotionChecks.turnMotion with idPrefix := "a-" }
+    let b : Motion := { MotionChecks.turnMotion with idPrefix := "b-" }
+    let ids := attrValues "id" 256 a.svgRootUnchecked ++ attrValues "id" 256 b.svgRootUnchecked
+    a.problems.isEmpty && ids.size ≥ 4 && distinct ids &&
+      (attrValues "data-pilean-actor" 256 a.svgRootUnchecked).all (·.startsWith "a-") &&
+      Svg.isInert a.toSvgUnchecked)
+  out := out.push ("panels: two pictures with the same actor ids and prefixes of their own have \
+      distinct ids, stills included",
+    let a : MotionPanels := { turnSlide with idPrefix := "a-" }
+    let b : MotionPanels := { turnSlide with idPrefix := "b-" }
+    let idsOf := fun (P : MotionPanels) =>
+      attrValues "id" 256 P.report.svgRootUnchecked ++
+        (P.report.stillNodes 0).flatMap (attrValues "id" 256)
+    a.problems.isEmpty && distinct (attrValues "id" 256 a.report.svgRootUnchecked) &&
+      (idsOf a).all (fun x => !(idsOf b).contains x) && (idsOf a).size ≥ 4 &&
+      (attrValues "data-pilean-actor" 256 a.report.svgRootUnchecked).toList.eraseDups ==
+        ["a-p1-X", "a-p2-X"] && outputsOk a.report)
+  out := out.push ("panels: the table of steps lists each step's kind, duration and every move",
+    let rows := framesPanels.report.stepRows
+    rows.size == 4 && rows[2]!.kind == .idle && rows[0]!.moves.size == 6 &&
+      rows[0]!.duration == 1 && (rows[0]!.moves.filter (·.1 == 1)).size == 5)
+  return out
+
 /-- All checks. -/
 def checks : Array (String × Bool) :=
-  timelineChecks ++ layoutChecks ++ idChecks ++ problemChecks ++ outputChecks
+  timelineChecks ++ layoutChecks ++ idChecks ++ problemChecks ++ outputChecks ++ sweepChecks
 
 /-! ### Files for the browser check -/
 
@@ -518,7 +659,7 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
             \"centre\": {pt c}, \"start\": {pt start}, \"sweep\": {num deg}, \
             \"samples\": [{", ".intercalate samples}]}"
         | .slide .. => none
-  let ups := r.markerCounts.2
+  let ups := (markerCounts r).2
   let panels := (r.panels.zip r.layout.places).toList.map fun (pr, place) =>
     s!"\{\"id\": \"{pr.idPrefix.dropEnd 1}\", \"box\": [{num place.x}, {num place.y}, \
       {num place.frame.width}, {num place.frame.height}]}"
@@ -532,17 +673,20 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
     let actors := ((r.markersAt t).filter (·.1.startsWith "actor ")).toList.map fun (n, q, _) =>
       s!"[\"{(n.drop 6).toString}\", {pt q}]"
     s!"\{\"t\": {num t}, \"actors\": [{", ".intercalate actors}]}"
+  let marks := r.figure.panels.any fun p => MotionChecks.turningMarks p.motion
   s!"\{\"name\": \"{name}\", \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
     \"cycle\": {num (Exact.toFloat r.timeline.cycle)}, \"uprights\": {ups}, \
+    \"turning_marks\": {marks}, \"band\": {num r.layout.band}, \
     \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}], \
     \"panels\": [{", ".intercalate panels}], \"phase\": [{", ".intercalate phase}]}\n"
 
-/-- Writes the golden pictures and their narrow renditions into `dir` for
+/-- Writes the golden pictures and their narrow renditions, and `farPanels`, into `dir` for
 `tools/motion-browser-check.py`: each picture's SVG, the SVG of each key of the picture, the
 poster key's PNG and the expectations (`expectations`). -/
 def writeBrowserFiles (dir : System.FilePath) : IO Unit := do
   IO.FS.createDirAll dir
-  for (name, P) in golden do
+  -- the golden pictures, and a picture whose turn sweeps far outside its keys (no labels)
+  for (name, P) in golden.push ("motion-panels-far", farPanels) do
     let all := #[(name, P)] ++ (P.narrow.map fun n => #[(name ++ "-narrow", n)]).getD #[]
     for (file, Q) in all do
       let r := Q.report

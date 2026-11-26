@@ -56,16 +56,20 @@ def Exact.graph {α : Type} [Exact.PlanePoint α] (g : PILean.Graph) (pos : Arra
     (node : Nat → Item → Item := fun _ it => it) : Item :=
   Plane.graph g (pos.map Exact.PlanePoint.toPoint) node
 
-/-- The figures with one view: the world box that the figure of every item of every step shows
-(steps that have a `view` keep it). -/
-def commonView (figs : Array Figure) : Array Figure :=
+/-- The figures with one view: the world box that the figure of every item of every step, and of
+the items `extra`, shows (steps that have a `view` keep it). -/
+def commonViewWith (figs : Array Figure) (extra : Array Item) : Array Figure :=
   match figs[0]? with
   | none => figs
   | some f0 =>
-    let all : Figure := { f0 with items := figs.flatMap (·.items), view := none }
+    let all : Figure := { f0 with items := figs.flatMap (·.items) ++ extra, view := none }
     let v := all.frame.view
     figs.map fun f => if f.view.isSome then f else
       { f with view := some v, height := some all.frame.height, padding := 0 }
+
+/-- The figures with one view: the world box that the figure of every item of every step shows
+(steps that have a `view` keep it). -/
+def commonView (figs : Array Figure) : Array Figure := commonViewWith figs #[]
 
 /-- The steps as an animation of `secondsPerStep` each (see the module docstring). -/
 def animation (steps : Array Figure) (secondsPerStep : Float := 1) : Animation :=

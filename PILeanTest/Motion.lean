@@ -773,6 +773,14 @@ def num (x : Float) : String := if x.isFinite then toString x else "0"
 /-- A page point as JSON. -/
 def pt (p : Point) : String := s!"[{num p.x}, {num p.y}]"
 
+/-- Whether some actor that turns has a label or a point's marker, from the motion's model: then
+its picture must have upright groups. -/
+def turningMarks (m : Motion) : Bool :=
+  (m.steps.mapIdx fun j s => (j, s)).any fun (j, s) => s.moves.any fun (id, mv) =>
+    match mv, (m.keys.getD j default).actor? id with
+    | .turn .., some it => it.leaves.any (·.geom.upright)
+    | _, _ => false
+
 /-- What `tools/motion-browser-check.py` expects of the motion's SVG, as JSON: the cycle; at the
 middle of each key's rest, every actor's anchor in the key's still and every upright group's
 anchor where the plan draws it (which the rest check holds to the still); and for every turn, its
@@ -812,6 +820,7 @@ def expectations (name : String) (m : Motion) : String :=
   let ups := (p.layers.map (·.uprights.size)).foldl (· + ·) 0
   s!"\{\"name\": \"{name}\", \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
     \"cycle\": {num (Exact.toFloat p.timeline.cycle)}, \"uprights\": {ups}, \
+    \"turning_marks\": {turningMarks m}, \
     \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}]}\n"
 
 /-- Writes the golden motions into `dir` for `tools/motion-browser-check.py`: each motion's SVG,

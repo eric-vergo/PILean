@@ -19,46 +19,58 @@ description are the picture's.
   picture's own duration for the step (`MotionPanels.timing`); a panel's step does not set a
   duration or an easing of its own. A morph sampled in one panel (`Motion.between`) divides the
   step for every panel at the same times (`sampledSegments`), so the other panels' turns follow
-  their eased motion piecewise linearly there, as in a single motion; two panels that sample one
-  step in different numbers of intervals are an error. Every panel is laid out on this timeline
+  their eased motion piecewise linearly there, as in a single motion. Panels that sample one step
+  in different numbers of intervals are sampled in their least common multiple when each one's
+  figures between its keys answer at its fractions (`Motion.stepSamples`); otherwise the step is
+  drawn unsampled (each morph interpolated directly between its keys, or crossfaded where it
+  cannot be), which is an error under `.fail` and a note saying so under `.warn`. Every panel is
+  laid out on this timeline
   (`Motion.planOn`), so every animation element of the picture has its timing
   (`MotionPanelsReport.panel_anim_eq`).
 * **The layout.** Each panel gets a share of the width (`beside`, proportional to its content, or
   the shares given) or the whole width (`stacked`), a title above it, and a frame of its own: at
   one common scale for all panels (`PanelScale.common`: the smallest of the scales at which each
   fits its share, every panel centred again at that scale, so that a unit length is as long in
-  every panel), or each at its own (`PanelScale.independent`, for a panel that zooms in). The
-  panels are placed by shifting the origin of each panel's frame on the page; no `transform` is
-  written. The narrow rendition (`MotionPanels.narrow`) stacks the panels at the narrow width.
+  every panel), or each at its own (`PanelScale.independent`, for a panel that zooms in). A
+  panel's extent includes what its turns sweep (`Motion.sweptItems`), so that nothing turns out
+  of it. The panels are placed by shifting the origin of each panel's frame on the page; no
+  `transform` is written. A title is made smaller, down to `titleFloor` of its size, to fit its
+  panel's width (`titleFit`). The narrow rendition (`MotionPanels.narrow`) stacks the panels at
+  the narrow width.
 * **Ids.** Every id, every reference to one and every `data-pilean-actor` of panel `i` carries the
   prefix `p{i + 1}-` (`panelPrefix`; the poster's `poster-p{i + 1}-`), so that two panels may use
-  the same actor ids: prefixed ids of different panels differ (`panelPrefix_append_ne`).
+  the same actor ids: prefixed ids of different panels differ (`panelPrefix_append_ne`), and the
+  report checks that the document's ids are distinct (`idProblems`). The picture's own prefix
+  (`MotionPanels.idPrefix`) comes before them, for several pictures inline in one page.
 * **Stills.** Key `k` of the picture (`MotionPanelsReport.stillShape`, `keyStillSvg`,
   `keyStillPng`) is the composition of the panels' key-`k` stills (`Motion.keyFigure` of each
   panel as laid out, `MotionPanelsReport.panelKeyFigure?`), each drawn in its panel's shifted
   frame, under the titles.
 * **Checks.** `MotionPanels.report` gives every problem of every panel as a motion (the arrival
   and step checks, the layout checks of its keys, the stacking order, the rest check of its whole
-  drawing against its stills and its writer against its baker, all on the shared timeline),
-  labelled with the panel, then the problems of the picture: unequal numbers of keys, captions
-  that are not one per key, sampling the panels disagree on, two panels with one title, a panel
-  whose content does not fit its share, a panel's own step timing, a line or a ray in a panel
-  (drawn to the edge of the whole page), panels on different backgrounds, and the composed
-  picture's own rest check and writer against baker. `checks := .fail` by default: then
+  drawing against its stills, its writer against its baker and what leaves its panel while it
+  moves, all on the shared timeline), labelled with the panel, then the problems of the picture:
+  unequal numbers of keys, captions that are not one per key, sampling the panels disagree on, two
+  panels with one title, a gap below zero, a panel whose content or title does not fit its share,
+  a panel's own step timing, a line or a ray in a panel (drawn to the edge of the whole page),
+  panels on different backgrounds, an id twice in the document, and the composed picture's own
+  rest check and writer against baker. Those two run only when nothing else is an error; a note
+  says when they did not. `checks := .fail` by default: then
   `svg?` and `animation?` write nothing for a picture with errors; the routes that write whatever
   the problems say end in `Unchecked`.
 
 ## Main definitions
 
 * `MotionPanel`, `PanelTiming`, `PanelScale`, `PanelArrangement`, `MotionPanels`,
-  `MotionPanels.WellFormed`, `MotionPanels.narrow`, `panelPrefix`, `prefixPanel`.
+  `MotionPanels.WellFormed`, `MotionPanels.narrow`, `panelPrefix`.
 * `MotionPanels.stepAt`, `MotionPanels.animSteps`, `MotionPanels.baseTimeline`,
   `MotionPanels.timelineOf`.
-* `PanelPlace`, `PanelsLayout`, `MotionPanels.layout`, `MotionPanels.panelMotion`.
+* `PanelPlace`, `PanelsLayout`, `titleFit`, `MotionPanels.layout`, `MotionPanels.panelMotion`.
 * `PanelReport`, `MotionPanelsReport`, `MotionPanels.report`, `MotionPanelsReport.svg?`,
   `MotionPanelsReport.animation?`, `MotionPanelsReport.svgRootUnchecked`,
   `MotionPanelsReport.figureAtUnchecked`, `MotionPanelsReport.stillShape`,
-  `MotionPanelsReport.keyStillSvg`, `MotionPanelsReport.keyStillPng`.
+  `MotionPanelsReport.keyStillSvg`, `MotionPanelsReport.keyStillPng`,
+  `MotionPanelsReport.stepRows`, `MotionPanelsReport.idProblems`, `SamplingConflict`.
 
 ## Main results
 
@@ -139,6 +151,10 @@ structure MotionPanels where
   empty: proportional to their content (at one scale under `common`, to the width of each
   panel's key `0` under `independent`). -/
   shares : Array Float := #[]
+  /-- A prefix for every id, every reference to one and every `data-pilean-actor` of the
+  picture's SVG and stills, before the panels' own (`panelPrefix`), so that several pictures can
+  be put inline in one page (none when empty). -/
+  idPrefix : String := ""
   deriving Inhabited
 
 /-- The id of panel `i` in the picture's SVG: `p1`, `p2`, …. -/
@@ -183,18 +199,6 @@ theorem panelPrefix_append_ne {i j : Nat} (h : i ≠ j) (x y : String) :
   have hj := @Nat.ofDigitChars_toDigits 10 (j + 1) (by decide) (by decide)
   have : i + 1 = j + 1 := by rw [← hi, ← hj, this]
   omega
-
-/-- The tree with the prefix `pre` on every `id` and `data-pilean-actor`, and in every reference
-`url(#…)`, at most `fuel` deep. -/
-def prefixPanel (pre : String) : Nat → Node → Node
-  | 0, n => n
-  | _, .text t => .text t
-  | fuel + 1, .element name attrs children =>
-    let attrs := attrs.map fun (k, v) =>
-      if k == "id" || k == "data-pilean-actor" then (k, pre ++ v)
-      else if v.startsWith "url(#" then (k, "url(#" ++ pre ++ (v.drop 5).toString)
-      else (k, v)
-    .element name attrs (children.map (prefixPanel pre fuel))
 
 namespace MotionPanels
 
@@ -274,8 +278,8 @@ end MotionPanels
 /-! ### The layout -/
 
 /-- Where a panel is: its frame on a page of its own (origin at its top left corner), the page
-point of that corner, the baseline centre of its title, and whether its content fits its share
-at its scale. -/
+point of that corner, its title's baseline centre and size, whether its title fits its width at
+that size, and whether its content fits its share at its scale. -/
 structure PanelPlace where
   /-- The frame on the panel's own page. -/
   frame : Frame
@@ -285,6 +289,10 @@ structure PanelPlace where
   y : Float
   /-- The baseline centre of the title. -/
   titleAt : Point
+  /-- The size of the title in pixels. -/
+  titleSize : Float
+  /-- Whether the title fits the panel's width at its size. -/
+  titleFits : Bool
   /-- Whether the content fits the panel at its scale. -/
   fits : Bool
   deriving Inhabited
@@ -302,39 +310,44 @@ structure PanelsLayout where
   places : Array PanelPlace
   deriving Inhabited
 
+/-- The style of a motion: that of its key `0`. -/
+private def motionStyle (m : Motion) : Style := ((m.keys[0]?).map (·.style)).getD {}
+
 /-- The reaches of a motion's keys (`Figure.frame`): the items' reaches, or the corners of a key's
-view; the box `[-1, 1]²` when none is finite. -/
-def motionReaches (m : Motion) : Array Reach :=
+view; when its key `0` has no view of its own, also the reaches of what its turns sweep
+(`Motion.sweptItems`), so that a turning actor stays in its panel; the box `[-1, 1]²` when none is
+finite. -/
+private def motionReaches (m : Motion) : Array Reach :=
   let rs := m.keys.flatMap fun f => match f.view with
     | some b => #[Reach.around ⟨b.x0, b.y0⟩ 0, Reach.around ⟨b.x1, b.y1⟩ 0]
     | none => f.items.flatMap (itemReaches f.style)
-  let fin := rs.filter (·.finite)
+  let swept := match (m.keys[0]?).bind (·.view) with
+    | some _ => #[]
+    | none => m.sweptItems.flatMap (itemReaches (motionStyle m))
+  let fin := (rs ++ swept).filter (·.finite)
   if fin.isEmpty then #[Reach.around ⟨-1, -1⟩ 0, Reach.around ⟨1, 1⟩ 0] else fin
 
 /-- The padding of a motion: that of its key `0`. -/
-def motionPadding (m : Motion) : Float := ((m.keys[0]?).map (·.padding)).getD 12
-
-/-- The style of a motion: that of its key `0`. -/
-def motionStyle (m : Motion) : Style := ((m.keys[0]?).map (·.style)).getD {}
+private def motionPadding (m : Motion) : Float := ((m.keys[0]?).map (·.padding)).getD 12
 
 /-- The least page width at which the reaches fit across at the scale `s` inside `pad`. -/
-def widthAt (rs : Array Reach) (s pad : Float) : Float :=
+private def widthAt (rs : Array Reach) (s pad : Float) : Float :=
   rs.foldl (fun a r => max a (s * r.at_.x + r.off.x1)) (-1e300) -
     rs.foldl (fun a r => min a (s * r.at_.x + r.off.x0)) 1e300 + 2 * pad
 
 /-- The least page height at which the reaches fit down at the scale `s` inside `pad`. -/
-def heightAt (rs : Array Reach) (s pad : Float) : Float :=
+private def heightAt (rs : Array Reach) (s pad : Float) : Float :=
   2 * pad + rs.foldl (fun a r => max a (s * r.at_.y - r.off.y0)) (-1e300) +
     rs.foldl (fun a r => max a (r.off.y1 - s * r.at_.y)) (-1e300)
 
 /-- Whether the reaches fit across a page `w` wide at the scale `s` inside `pad`. -/
-def fitsAt (rs : Array Reach) (s w pad : Float) : Bool :=
+private def fitsAt (rs : Array Reach) (s w pad : Float) : Bool :=
   let (lo, hi) := originRange rs s w pad 1 (·.at_.x) (·.off.x0) (·.off.x1)
   lo ≤ hi + 1e-6
 
 /-- The frame at the scale `s` of a page `w × h` with the reaches centred in it across, and down in
 the height they need (`heightAt`), as `Frame.fit` centres them. -/
-def frameAt (rs : Array Reach) (s w h pad : Float) : Frame :=
+private def frameAt (rs : Array Reach) (s w h pad : Float) : Frame :=
   let (lx, hx) := originRange rs s w pad 1 (·.at_.x) (·.off.x0) (·.off.x1)
   let ox := if lx ≤ hx then (lx + hx) / 2 else lx
   let top := rs.foldl (fun a r => max a (pad + s * r.at_.y - r.off.y0)) (-1e300)
@@ -342,9 +355,26 @@ def frameAt (rs : Array Reach) (s w h pad : Float) : Frame :=
 
 /-- The positive numbers `xs` scaled to add up to `total` (equal parts when they add up to no
 more than zero). -/
-def toShares (xs : Array Float) (total : Float) : Array Float :=
+private def toShares (xs : Array Float) (total : Float) : Array Float :=
   let sum := xs.foldl (· + ·) 0
   if sum > 0 then xs.map (· * total / sum) else xs.map fun _ => total / xs.size.toFloat
+
+/-- The smallest size of a panel title, as a fraction of the style's `panelTitleSize`. -/
+def titleFloor : Float := 0.75
+
+/-- The size of the title `title` over a panel `w` pixels wide in the style `st`, and whether it
+fits: the style's `panelTitleSize`, or smaller in proportion until the title is as wide as the
+panel less 2 px on each side (measured by the style's text engine), but not below `titleFloor` of
+it; it fits when it is no wider than that at the size chosen. -/
+def titleFit (st : Style) (title : String) (w : Float) : Float × Bool :=
+  let size := st.panelTitleSize
+  let text := labelText title
+  let room := w - 4
+  let wide := st.text.measure text size
+  if text.isEmpty || wide ≤ room then (size, true)
+  else
+    let s := max (titleFloor * size) (size * room / wide)
+    (s, st.text.measure text s ≤ room)
 
 namespace MotionPanels
 
@@ -362,7 +392,7 @@ def band : Float :=
 `common`, the least widths at which each panel fits at one scale (the largest scale at which they
 add up to no more than `avail`), scaled to add up to `avail`; under `independent`, proportional to
 the width of each panel's key `0`. -/
-def besideWidths (avail : Float) : Array Float :=
+private def besideWidths (avail : Float) : Array Float :=
   let ms := P.panels.map (·.motion)
   if !P.shares.isEmpty && P.shares.size == ms.size then toShares P.shares avail
   else match P.scale with
@@ -376,15 +406,15 @@ def besideWidths (avail : Float) : Array Float :=
       toShares (fits.map fun (rs, pad) => widthAt rs s pad) avail
 
 /-- The layout of the picture (see the module docstring): each panel's width (`besideWidths`, or
-the whole width when stacked) and scale (each panel's scale fitted to its width, `Frame.fit`, or
-the smallest of them for all under `common`); side by side, every panel as tall as the tallest
-needs at its scale, its content centred in it; stacked, each as tall as it needs. -/
+the whole width when stacked) and scale (each panel's scale fitted to its width, `Frame.fit`, on
+the reaches of its keys and of what its turns sweep, or the smallest of them for all under
+`common`); side by side, every panel as tall as the tallest needs at its scale, its content
+centred in it; stacked, each as tall as it needs; each title sized to its panel (`titleFit`). -/
 def layout : PanelsLayout := Id.run do
   let ms := P.panels.map (·.motion)
   let n := ms.size
   let band := P.band
   let g := P.gap
-  let titleSize := fun (m : Motion) => (motionStyle m).panelTitleSize
   let widths := match P.arrangement with
     | .stacked => ms.map fun _ => P.width
     | .beside => P.besideWidths (P.width - g * (n - 1).toFloat)
@@ -404,18 +434,19 @@ def layout : PanelsLayout := Id.run do
     let pad := motionPadding m
     let w := widths.getD i 0
     let s := scales.getD i 1
+    let (ts, tf) := titleFit (motionStyle m) (P.panels.getD i default).title w
     match P.arrangement with
     | .stacked =>
       let h := heights.getD i 0
       let place : PanelPlace :=
-        { frame := frameAt rs s w h pad, x := 0, y := y + band, titleAt := ⟨w / 2, y + titleSize m⟩,
-          fits := fitsAt rs s w pad }
+        { frame := frameAt rs s w h pad, x := 0, y := y + band, titleAt := ⟨w / 2, y + ts⟩,
+          titleSize := ts, titleFits := tf, fits := fitsAt rs s w pad }
       places := places.push place
       y := y + band + h + g
     | .beside =>
       let place : PanelPlace :=
-        { frame := frameAt rs s w tallest pad, x, y := band, titleAt := ⟨x + w / 2, titleSize m⟩,
-          fits := fitsAt rs s w pad }
+        { frame := frameAt rs s w tallest pad, x, y := band, titleAt := ⟨x + w / 2, ts⟩,
+          titleSize := ts, titleFits := tf, fits := fitsAt rs s w pad }
       places := places.push place
       x := x + w + g
   let height := match P.arrangement with
@@ -434,27 +465,16 @@ def panelMotion (L : PanelsLayout) (i : Nat) : Motion :=
     keys := m.keys.map fun k =>
       { k with view := some f.view, width := f.width, height := some f.height, padding := 0 },
     captions := m.keys.map fun _ => "", pacing := P.pacing, checks := P.checks,
-    poster := if P.poster < m.keys.size then P.poster else 0,
+    poster := if P.poster < m.keys.size then P.poster else 0, idPrefix := "",
     info := { title := P.name i, description := P.name i } }
 
 end MotionPanels
 
 /-- The environment `e` with the origin of its frame moved by `(x, y)` on the page. -/
-def shiftEnv (e : Env) (x y : Float) : Env :=
+private def shiftEnv (e : Env) (x y : Float) : Env :=
   { e with frame := { e.frame with ox := e.frame.ox + x, oy := e.frame.oy + y } }
 
 /-! ### The report -/
-
-instance : Inhabited Env := ⟨{ frame := {}, style := {} }⟩
-
-instance : Inhabited MotionKeys :=
-  ⟨{ viewed := #[], placed := #[], figs := #[], env := { frame := {}, style := {} },
-     mode := .native "" }⟩
-
-instance : Inhabited MotionPlan :=
-  ⟨{ env := { frame := {}, style := {} }, mode := .native "", timeline := default, phases := #[],
-     clock := default, layers := #[], runs := #[], seam := none, background := default,
-     keys := 0 }⟩
 
 /-- A panel of a picture checked and laid out: its motion as laid out (`panelMotion`), its keys as
 drawn, the prefix of its ids, its environment on the picture's page (its frame shifted to its
@@ -474,6 +494,18 @@ structure PanelReport where
   plan : MotionPlan
   deriving Inhabited
 
+/-- A step that panels sample in different numbers of intervals and that cannot be sampled in
+their least common multiple: the step, each panel's number of intervals (`1` for a panel that
+does not sample it) and the least common multiple. -/
+structure SamplingConflict where
+  /-- The step. -/
+  step : Nat
+  /-- Each panel's number of intervals. -/
+  counts : Array Nat
+  /-- Their least common multiple. -/
+  lcm : Nat
+  deriving Inhabited
+
 /-- A picture of panels with its layout, its shared timeline and its panels laid out on it, and
 its problems, computed once (`MotionPanels.report`). -/
 structure MotionPanelsReport where
@@ -483,8 +515,8 @@ structure MotionPanelsReport where
   layout : PanelsLayout
   /-- The number of intervals each step's move is divided into. -/
   samples : Array Nat
-  /-- The steps whose sampling the panels disagree on, with each panel's number of intervals. -/
-  conflicts : Array (Nat × Array Nat)
+  /-- The steps whose sampling the panels disagree on and that are drawn unsampled. -/
+  conflicts : Array SamplingConflict
   /-- The shared timeline. -/
   timeline : Timeline
   /-- The phase at each boundary of the shared timeline. -/
@@ -494,13 +526,16 @@ structure MotionPanelsReport where
   /-- The problems. -/
   problems : Array MotionProblem
 
+/-- The most intervals a step is divided into to sample the morphs of several panels alike. -/
+def maxSharedSamples : Nat := 1024
+
 namespace MotionPanels
 
 variable (P : MotionPanels)
 
-/-- Panel `i` of the motions laid out `m` with its keys `K`, on the timeline `tl` with the phases
-`phases`, placed as the layout `L` has it. -/
-def panelReport (L : PanelsLayout) (tl : Timeline) (phases : Array MotionPhase) (i : Nat)
+/-- Panel `i` with its motion `mK.1` and keys `mK.2`, placed as the layout `L` has it and laid
+out on the timeline `tl` whose boundaries have the phases `phases`. -/
+private def panelReport (L : PanelsLayout) (tl : Timeline) (phases : Array MotionPhase) (i : Nat)
     (mK : Motion × MotionKeys) : PanelReport :=
   let (m, K) := mK
   let place := L.places.getD i default
@@ -508,37 +543,47 @@ def panelReport (L : PanelsLayout) (tl : Timeline) (phases : Array MotionPhase) 
   { motion := m, keys := K, idPrefix := panelPrefix i, env := e,
     ownPlan := m.planOn K K.env tl phases, plan := m.planOn K e tl phases }
 
-/-- The number of intervals of step `j` for the panels laid out `mks`: the number of every panel
-that samples a morph in it (`Motion.samplesOf`), when they agree; else one, with the numbers. -/
-def sharedSamples (mks : Array (Motion × MotionKeys)) (j : Nat) : Nat × Option (Array Nat) :=
-  let all := mks.map fun (m, K) => m.samplesOf K j
-  let ns := all.filter (· > 1)
+/-- The motion `m` with the morph of step `j` sampled in `n` intervals. -/
+private def sampledIn (m : Motion) (j n : Nat) : Motion :=
+  { m with stepSamples := fun i => if i == j then some n else m.stepSamples i }
+
+/-- How step `j` is sampled for the panels laid out `mks`: in the number of intervals of every
+panel that samples a morph in it (`Motion.samplesOf`) when they agree; else in their least common
+multiple when every such panel's figures between its keys (`Motion.between`) answer at its
+fractions and it is at most `maxSharedSamples`; else not at all, with the conflict. -/
+private def stepSampling (mks : Array (Motion × MotionKeys)) (j : Nat) :
+    Nat × Option SamplingConflict :=
+  let own := mks.map fun (m, K) => m.samplesOf K j
+  let ns := own.filter (· > 1)
   match ns[0]? with
   | none => (1, none)
-  | some n => if ns.all (· == n) then (n, none) else (1, some all)
+  | some n =>
+    if ns.all (· == n) then (n, none)
+    else
+      let l := ns.foldl Nat.lcm 1
+      let answer := l ≤ maxSharedSamples && mks.all fun (m, K) =>
+        !(m.samplesOf K j > 1) || ((sampledIn m j l).morphFigures K j).isSome
+      if answer then (l, none) else (1, some { step := j, counts := own, lcm := l })
 
-/-- The picture laid out, before its problems. -/
-def laidOut : MotionPanelsReport :=
+/-- The picture laid out, before its problems: its layout, its panels as laid out with each
+sampled step's number of intervals set alike (`stepSampling`), the shared timeline, and every
+panel's plans on it. -/
+private def laidOut : MotionPanelsReport :=
   let L := P.layout
-  let mks := (Array.range P.panels.size).map fun i =>
+  let mks0 := (Array.range P.panels.size).map fun i =>
     let m := P.panelMotion L i
     (m, m.keysOf)
-  let shared := (Array.range P.stepCount).map (sharedSamples mks)
+  let shared := (Array.range P.stepCount).map (stepSampling mks0)
   let samples := shared.map (·.1)
+  let mks := mks0.map fun (m, K) =>
+    ({ m with stepSamples := fun j =>
+        if m.samplesOf K j > 1 then some (samples.getD j 1) else m.stepSamples j }, K)
   let segs := sampledSegments P.baseTimeline fun j => samples.getD j 1
   let tl := P.timelineOf fun j => samples.getD j 1
   let phases := Motion.phasesOf segs
-  { figure := P, layout := L, samples,
-    conflicts := (shared.zipIdx.filterMap fun ((_, c), j) => c.map (j, ·)),
+  { figure := P, layout := L, samples, conflicts := shared.filterMap (·.2),
     timeline := tl, phases, problems := #[],
     panels := mks.mapIdx (panelReport L tl phases) }
-
-/-- Every panel of the laid-out picture has its plans on the shared timeline. -/
-theorem laidOut_timeline {pr : PanelReport} (h : pr ∈ P.laidOut.panels) :
-    pr.plan.timeline = P.laidOut.timeline ∧ pr.ownPlan.timeline = P.laidOut.timeline := by
-  simp only [laidOut, Array.mem_mapIdx] at h
-  obtain ⟨i, _, rfl⟩ := h
-  exact ⟨rfl, rfl⟩
 
 end MotionPanels
 
@@ -546,7 +591,7 @@ namespace MotionPanelsReport
 
 variable (r : MotionPanelsReport)
 
-/-- The panels' styles: that of the first panel's key `0`. -/
+/-- The panels' style: that of the first panel's key `0`. -/
 def style : Style := ((r.panels[0]?).map (·.keys.env.style)).getD {}
 
 /-- The text mode of the first panel. -/
@@ -556,22 +601,26 @@ def mode : TextMode := ((r.panels[0]?).map (·.keys.mode)).getD (.native "sans-s
 def background : Shape :=
   .path (Canvas.rect 0 0 r.layout.width r.layout.height) (some (.solid r.style.background))
 
-/-- The title of each panel that has one, as a shape centred above it in its style's panel title
-size and weight and its ink, with its text mode. -/
-def titles : Array (Shape × TextMode) :=
+/-- The title of each panel that has one, as a shape centred above it at its size (`titleFit`) in
+its style's panel title weight and its ink, with its text mode. -/
+private def titles : Array (Shape × TextMode) :=
   (r.panels.zip r.figure.panels).zipIdx.filterMap fun ((pr, p), i) =>
     if p.title.isEmpty then none
     else
       let st := pr.keys.env.style
       let place := r.layout.places.getD i default
-      some (.text (labelText p.title) place.titleAt st.panelTitleSize st.plane.ink .middle
+      some (.text (labelText p.title) place.titleAt place.titleSize st.plane.ink .middle
         st.titleWeight, pr.keys.mode)
+
+/-- The ids of the picture's SVG with the picture's prefix (`MotionPanels.idPrefix`). -/
+private def outer (ns : Array Node) : Array Node :=
+  if r.figure.idPrefix.isEmpty then ns else ns.map (prefixNodeIds r.figure.idPrefix 256)
 
 /-- The SVG nodes of the titles. -/
 def titleNodes : Array Node := r.titles.flatMap fun (s, mode) => s.render mode
 
 /-- Key `k` of panel `pr` drawn in its environment on the page, without its background. -/
-def panelStill (pr : PanelReport) (k : Nat) : Shape :=
+private def panelStill (pr : PanelReport) (k : Nat) : Shape :=
   .group ((pr.keys.figure k).items.flatMap (drawItem pr.env))
 
 /-- Key `k` of the picture: the background, the titles, then each panel's key-`k` still
@@ -581,14 +630,14 @@ def stillShape (k : Nat) : Shape :=
   .group (#[r.background] ++ r.titles.map (·.1) ++ r.panels.map (panelStill · k))
 
 /-- The SVG nodes of key `k` of panel `pr`, its ids prefixed with `pre`. -/
-def panelStillNodes (pr : PanelReport) (k : Nat) (pre : String) : Array Node :=
-  ((panelStill pr k).render pr.keys.mode).map (prefixPanel pre 256)
+private def panelStillNodes (pr : PanelReport) (k : Nat) (pre : String) : Array Node :=
+  ((panelStill pr k).render pr.keys.mode).map (prefixNodeIds pre 256)
 
 /-- The SVG nodes of key `k` of the picture (`stillShape`), each panel's ids prefixed with its
-prefix (`panelPrefix`). -/
+prefix (`panelPrefix`) and all with the picture's (`MotionPanels.idPrefix`). -/
 def stillNodes (k : Nat) : Array Node :=
   r.background.render r.mode ++ r.titleNodes ++
-    r.panels.flatMap fun pr => panelStillNodes pr k pr.idPrefix
+    r.outer (r.panels.flatMap fun pr => panelStillNodes pr k pr.idPrefix)
 
 /-- Key `k` of the picture as an SVG document (`stillNodes`). -/
 def keyStillSvg (k : Nat) : String :=
@@ -614,36 +663,54 @@ def keyStillPng (k : Nat) : Option ByteArray := (r.keyStillImage k).writePng.toO
 out). -/
 def panelKeyFigure? (i k : Nat) : Option Figure := (r.panels[i]?).map (·.keys.figure k)
 
+/-- A row of the picture's table of steps: the step (from key `step` to key `step + 1`), its kind
+and duration on the shared timeline, and every move of every panel in it (the panel, the actor,
+the move). -/
+structure _root_.PILean.Plane.PanelStepRow where
+  /-- The step. -/
+  step : Nat
+  /-- Whether something moves in it. -/
+  kind : StepKind
+  /-- Its duration in seconds. -/
+  duration : Rat
+  /-- The moves: the panel's position, the actor and its move. -/
+  moves : Array (Nat × String × Move)
+  deriving Inhabited
+
+/-- The picture's table of steps (`PanelStepRow`), one row per step. -/
+def stepRows : Array PanelStepRow :=
+  r.figure.animSteps.mapIdx fun j s =>
+    { step := j, kind := s.kind, duration := s.dur,
+      moves := r.figure.panels.zipIdx.flatMap fun (p, i) =>
+        (((p.motion.steps[j]?).map (·.moves)).getD #[]).map fun (id, mv) => (i, id, mv) }
+
 /-- The text alternative of the picture: its description and the captions. -/
-def description : String :=
+private def description : String :=
   " ".intercalate ((if r.figure.info.description.isEmpty then [] else
     [r.figure.info.description]) ++ r.figure.captions.toList)
 
-/-- The moving picture: each panel's (`MotionPlan.contentNodes`, its ids prefixed) in a group
-marked `data-pilean-panel` with the panel's id, all inside the seam's fades when there are some
-(built by the first panel's plan, on the shared timeline). -/
+/-- The moving picture: each panel's (`MotionPlan.contentNodes`, its ids prefixed with its prefix
+and all with the picture's) in a group marked `data-pilean-panel` with the panel's id, all inside
+the seam's fades when there are some (`MotionPlan.withSeam` of the first panel's plan, on the
+shared timeline). -/
 def liveNodes : Array Node :=
-  let content := r.panels.mapIdx fun i pr =>
+  let content := r.outer (r.panels.mapIdx fun i pr =>
     el "g" #[("data-pilean-panel", panelId i)]
-      (pr.plan.contentNodes.map (prefixPanel pr.idPrefix 256))
+      (pr.plan.contentNodes.map (prefixNodeIds pr.idPrefix 256)))
   match r.panels[0]? with
-  | some pr =>
-    match (seamOf r.timeline).bind fun s =>
-        pr.plan.anim "animate" #[("attributeName", "opacity")] (s.map (fmtNum · 4)) with
-    | some a => #[Smil.group a content]
-    | none => content
+  | some pr => pr.plan.withSeam content
   | none => content
 
 /-- The root of the picture's animated SVG, whatever its problems: the title and the description
 with the captions, the reduced-motion rule, the background, the titles, the moving picture
 (`liveNodes`) in a group of class `pilean-motion-live`, and the poster key of the picture (each
-panel's still, its ids prefixed with `poster-` and the panel's prefix) in a group of class
-`pilean-motion-poster`. The root has `role="img"`. -/
+panel's still, its ids prefixed with `poster-` and the panel's prefix, and the picture's) in a
+group of class `pilean-motion-poster`. The root has `role="img"`. -/
 def svgRootUnchecked : Node :=
   let w := r.layout.width.round
   let h := r.layout.height.round
-  let poster := r.panels.flatMap fun pr =>
-    panelStillNodes pr r.figure.poster ("poster-" ++ pr.idPrefix)
+  let poster := r.outer (r.panels.flatMap fun pr =>
+    panelStillNodes pr r.figure.poster ("poster-" ++ pr.idPrefix))
   let head := (if r.figure.info.title.isEmpty then #[] else
       #[el "title" #[] #[.text r.figure.info.title]]) ++
     (if r.description.isEmpty then #[] else #[el "desc" #[] #[.text r.description]])
@@ -658,7 +725,7 @@ def toSvgUnchecked : String :=
   "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++ Svg.render 0 r.svgRootUnchecked ++ "\n"
 
 /-- The opacity of the seam at the time `t` (the first panel's, on the shared timeline). -/
-def seamAt (t : Float) : Float := ((r.panels[0]?).map (·.plan.seamAt t)).getD 1
+private def seamAt (t : Float) : Float := ((r.panels[0]?).map (·.plan.seamAt t)).getD 1
 
 /-- The picture at the time `t` (seconds) as a drawing, whatever its problems: the background,
 the titles, then every panel's moving picture (`MotionPlan.contentAt`) inside the seam's
@@ -668,15 +735,11 @@ def figureAtUnchecked (t : Float) : Shape :=
     #[.group (r.panels.flatMap (·.plan.contentAt t)) Affine.id (r.seamAt t)])
 
 /-- The marked points of every panel at the time `t` (`MotionPlan.markersAt`), actors named with
-their panel's prefix, in the order of the document. -/
+their panel's prefix and the picture's, in the order of the document. -/
 def markersAt (t : Float) : Array (String × Point × Float × Affine) :=
   r.panels.flatMap fun pr => (pr.plan.markersAt t).map fun (n, q, o, M) =>
-    (if n.startsWith "actor " then "actor " ++ pr.idPrefix ++ (n.drop 6).toString else n, q, o, M)
-
-/-- The number of actor layers and of upright groups of all panels. -/
-def markerCounts : Nat × Nat :=
-  (r.panels.foldl (fun a pr => a + (pr.plan.layers.filter fun L => L.version.actor.isSome).size)
-    0, r.panels.foldl (fun a pr => a + (pr.plan.layers.map (·.uprights.size)).foldl (· + ·) 0) 0)
+    (if n.startsWith "actor " then
+      "actor " ++ r.figure.idPrefix ++ pr.idPrefix ++ (n.drop 6).toString else n, q, o, M)
 
 /-- The composed picture against its stills: at the middle of each key's rest, the whole baked
 drawing (`figureAtUnchecked`) must be the picture's still of that key (`stillShape`) within the
@@ -690,10 +753,12 @@ def restProblems : Array MotionProblem :=
 
 /-- The composed writer against the composed baker: at the middle of every segment of the shared
 timeline, the written moving picture (`liveNodes`) read with `Smil.valueAt` must show what the
-panels' bakers draw (`markersAt`, `markersDiff`). -/
+panels' bakers draw (`markersAt`, `markersDiff`), as many actors and upright groups as the panels'
+plans have (`MotionPlan.markerCounts`). -/
 def writerProblems : Array MotionProblem :=
   let nodes := r.liveNodes
-  let (actors, ups) := r.markerCounts
+  let actors := r.panels.foldl (fun a pr => a + pr.plan.markerCounts.1) 0
+  let ups := r.panels.foldl (fun a pr => a + pr.plan.markerCounts.2) 0
   match r.timeline.segments.findSome? fun s =>
       let t := Exact.toFloat (s.start + s.dur / 2)
       (markersDiff (r.markersAt t) actors ups nodes t).map fun why =>
@@ -701,8 +766,26 @@ def writerProblems : Array MotionProblem :=
   | some msg => #[{ severity := .error, message := msg }]
   | none => #[]
 
+/-- The values of the `id` attributes of a tree, at most `fuel` deep, in document order. -/
+private def idsOf : Nat → Node → Array String
+  | 0, _ => #[]
+  | _, .text _ => #[]
+  | fuel + 1, .element _ attrs cs =>
+    (Smil.attr? attrs "id").toArray ++ cs.flatMap (idsOf fuel)
+
+/-- An id that the picture's SVG (`svgRootUnchecked`) has more than once: an error, which the
+panel prefixes (`panelPrefix_append_ne`) exclude when the ids within each panel are unique. -/
+def idProblems : Array MotionProblem := Id.run do
+  let ids := idsOf 256 r.svgRootUnchecked
+  let mut seen : Std.HashSet String := {}
+  for id in ids do
+    if seen.contains id then
+      return #[{ severity := .error, message := s!"the picture's SVG has the id {id} twice" }]
+    seen := seen.insert id
+  return #[]
+
 /-- The problems of the picture as a whole (see the module docstring). -/
-def figureProblems : Array MotionProblem := Id.run do
+private def figureProblems : Array MotionProblem := Id.run do
   let P := r.figure
   let err := fun (s : String) => ({ severity := .error, message := s } : MotionProblem)
   let strict := fun (s : String) =>
@@ -727,7 +810,10 @@ def figureProblems : Array MotionProblem := Id.run do
         panels")
     else if P.shares.any fun s => !(s > 0) || !s.isFinite then
       out := out.push (err "a share of the width is not a positive number")
-  if !(P.width - P.gap * (P.panels.size - 1).toFloat > 0) then
+  if !(P.gap ≥ 0) || !P.gap.isFinite then
+    out := out.push (err s!"the gap between the panels ({fmtNum P.gap 1} px) is not a number of \
+      pixels at least zero; the panels would overlap")
+  else if !(P.width - P.gap * (P.panels.size - 1).toFloat > 0) then
     out := out.push (err "the gaps leave no width for the panels")
   let mut titles : Array String := #[]
   for p in P.panels do
@@ -738,6 +824,7 @@ def figureProblems : Array MotionProblem := Id.run do
   let bg := r.style.background
   for (pr, i) in r.panels.zipIdx do
     let p := P.panels.getD i default
+    let place := r.layout.places.getD i default
     for (s, j) in p.motion.steps.zipIdx do
       if s.duration.isSome || s.easing.isSome then
         out := out.push (err s!"panel {P.name i}: step {j + 1} sets its own duration or easing; \
@@ -749,12 +836,19 @@ def figureProblems : Array MotionProblem := Id.run do
     if pr.keys.env.style.background != bg then
       out := out.push (err s!"panel {P.name i} is drawn on another background than panel \
         {P.name 0}")
-    if !(r.layout.places.getD i default).fits then
+    if !place.fits then
       out := out.push (err s!"panel {P.name i}: its content does not fit its share of the width \
-        ({fmtNum (r.layout.places.getD i default).frame.width 1} px) at its scale")
-  for (j, ns) in r.conflicts do
-    out := out.push (err s!"step {j + 1}: the panels sample a morph in different numbers of \
-      intervals ({", ".intercalate (ns.toList.map toString)}); give them the same morphSamples")
+        ({fmtNum place.frame.width 1} px) at its scale")
+    if !place.titleFits then
+      out := out.push (err s!"panel {P.name i}: its title is wider than the panel \
+        ({fmtNum place.frame.width 1} px) even at the smallest title size \
+        ({fmtNum place.titleSize 1} px); shorten it")
+  for c in r.conflicts do
+    out := out.push (strict s!"step {c.step + 1}: the panels sample a morph in different numbers \
+      of intervals ({", ".intercalate (c.counts.toList.map toString)}), and a figure between the \
+      keys (`Motion.between`) is missing at the fractions of their least common multiple \
+      ({c.lcm}) or that is more than {maxSharedSamples}; the step is drawn unsampled: each morph \
+      is interpolated directly between its keys, or crossfaded where it cannot be")
   if P.info.title.isEmpty then
     out := out.push (strict "the picture has no title (it has role=\"img\")")
   if P.info.description.isEmpty && P.captions.all (·.isEmpty) then
@@ -763,21 +857,27 @@ def figureProblems : Array MotionProblem := Id.run do
   return out
 
 /-- The problems of every panel as a motion (`Motion.keyProblems`, and for a well-formed picture
-`Motion.restProblems` and `Motion.writerProblems` of its plan on its own page, on the shared
-timeline), each labelled with its panel. -/
-def panelProblems : Array MotionProblem :=
+`Motion.restProblems`, `Motion.writerProblems` and `boundsProblems` within the panel of its plan
+on its own page, on the shared timeline), each labelled with its panel. -/
+private def panelProblems : Array MotionProblem :=
   let P := r.figure
   r.panels.zipIdx.flatMap fun (pr, i) =>
+    let f := pr.keys.env.frame
     let own := pr.motion.keyProblems ++ (if !decide P.WellFormed then #[] else
-      pr.motion.restProblems pr.keys pr.ownPlan ++ Motion.writerProblems pr.ownPlan)
+      pr.motion.restProblems pr.keys pr.ownPlan ++ Motion.writerProblems pr.ownPlan ++
+        boundsProblems pr.ownPlan ⟨0, 0, f.width, f.height⟩ "its panel")
     own.map fun p => { p with message := s!"panel {P.name i}: {p.message}" }
 
-/-- All the problems: the picture's (`figureProblems`), every panel's (`panelProblems`), and, for
-a well-formed picture without errors so far, the composed picture's rest check (`restProblems`)
-and writer against baker (`writerProblems`). -/
-def computeProblems : Array MotionProblem :=
-  let base := r.figureProblems ++ r.panelProblems
-  if !decide r.figure.WellFormed || base.any (·.severity == .error) then base
+/-- All the problems: the picture's (`figureProblems`), every panel's (`panelProblems`), the ids
+of its SVG (`idProblems`), and, for a well-formed picture without errors so far, the composed
+picture's rest check (`restProblems`) and writer against baker (`writerProblems`); when those are
+not run, a note says so (a picture written under `warn` despite errors was not checked as a
+whole). -/
+private def computeProblems : Array MotionProblem :=
+  let base := r.figureProblems ++ r.panelProblems ++ r.idProblems
+  if !decide r.figure.WellFormed || base.any (·.severity == .error) then
+    base.push { severity := .note, message := "the composed picture was not checked against its \
+      stills or its writer against its baker, because of the errors above" }
   else base ++ r.restProblems ++ r.writerProblems
 
 end MotionPanelsReport
@@ -789,11 +889,13 @@ variable (P : MotionPanels)
 /-- The picture checked (see the module docstring): laid out, with its problems. -/
 def report : MotionPanelsReport := let r := P.laidOut; { r with problems := r.computeProblems }
 
-/-- Every panel of the picture has its plans, on its own page and on the picture's, on the shared
-timeline: one clock across the panels holds by construction. -/
+/-- Every panel of the picture has its plans, on its own page and on the picture's page, on the
+shared timeline: one clock across the panels holds by construction. -/
 theorem report_timeline {pr : PanelReport} (h : pr ∈ P.report.panels) :
-    pr.plan.timeline = P.report.timeline ∧ pr.ownPlan.timeline = P.report.timeline :=
-  P.laidOut_timeline h
+    pr.plan.timeline = P.report.timeline ∧ pr.ownPlan.timeline = P.report.timeline := by
+  simp only [report, laidOut, Array.mem_mapIdx] at h ⊢
+  obtain ⟨i, _, rfl⟩ := h
+  exact ⟨rfl, rfl⟩
 
 /-- The problems of the picture (`report`). -/
 def problems : Array MotionProblem := P.report.problems
