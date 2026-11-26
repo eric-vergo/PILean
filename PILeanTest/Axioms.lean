@@ -40,6 +40,7 @@ import PILeanTest.Pdf
 import PILeanTest.Explorers
 import PILeanTest.ComplexDiagrams
 import PILeanTest.Timeline
+import PILeanTest.Motion
 
 /-!
 # The axioms of the library, checked by the build

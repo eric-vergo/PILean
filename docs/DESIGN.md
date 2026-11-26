@@ -39,7 +39,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Png` | PNG writer and reader: CRC-32, Adler-32, DEFLATE (stored, fixed and dynamic Huffman; inflate with every bound checked), filters, `tEXt`/`iTXt`/`zTXt`, `sRGB`, `gAMA`, `pHYs` (written); the reader takes every colour type and depth and Adam7 (the writer does not interlace) | done |
 | `PILean.Anim` | a `FrameSeq` (equally sized RGBA frames, a rational delay each, a loop count) and its codecs. APNG: writer (frame differencing to the changed rectangle, equal frames merged, delays as reduced fractions) and reader (composes `dispose_op` and `blend_op`, any PNG colour type, caps on size, frames and bytes). GIF89a: writer (LZW, one global palette by median cut or the exact colours, optional Floyd–Steinberg dithering, differencing with a transparent index, delays in centiseconds with exact cumulative time, loop extension) and reader (global and local tables, interlacing, disposal 0–3, transparency, caps) | done |
 | `PILean.Canvas`, `PILean.Style` | the vector canvas (`Shape`: paths with fills and strokes, text, groups with transforms, opacity and clips, metadata through `Shape.tagged` and `ShapeInfo`; gradients), written as SVG or drawn as PNG from the same SVG nodes; the `Style` record of every visual constant, `Style.light` and `Style.dark`, with the plane colours and sizes `PlaneStyle` | done |
-| `PILean.Plane` (`Basic`, `Frame`, `Draw`, `Check`, `Render`, `Graph`) | plane figures: elements in world coordinates (`Geom`: points, lines, arcs, regions of disks, ticks, labels, …), looks by role (`Look`, `Tone`, named roles), items with metadata (`Item`), builders and modifiers; the frame (`Frame`, one scale, `y` up) fitted to the items' reaches (`Frame.fit`), clipping (`clipLine`); the figure (`Figure`) drawn on the canvas; layout checks and automatic label placement; outputs (sRGB images, outlined text, narrow renditions); graphs inside plane figures, step animations | done |
+| `PILean.Plane` (`Basic`, `Frame`, `Draw`, `Check`, `Render`, `Graph`, `Motion`, `MotionPlan`, `MotionOutput`) | plane figures: elements in world coordinates (`Geom`: points, lines, arcs, regions of disks, ticks, labels, …), looks by role (`Look`, `Tone`, named roles), items with metadata (`Item`), builders and modifiers; the frame (`Frame`, one scale, `y` up) fitted to the items' reaches (`Frame.fit`), clipping (`clipLine`); the figure (`Figure`) drawn on the canvas; layout checks and automatic label placement; outputs (sRGB images, outlined text, narrow renditions); graphs inside plane figures, step animations; motions through exact key frames (turns, slides, fades, morphs) written as SMIL and baked as frames | done; motions not yet among the build's outputs |
 | `PILean.CheckLevel` | how strictly a figure's checks apply (`ignore`, `warn`, `fail`), shared by plots and plane figures | done |
 | `PILean.Explorer` | families of frames for web pages (a parameter axis, steps with captions, or the values of a second parameter), figures as functions of one or two parameters over a grid (`Explorer.family`, `family₂`), caps on frames and bytes, their poster files and animations | done |
 | `PILean.Exact.Plane`, `PILean.Exact.Algebraic`, `PILean.Exact.Spec` | exact points: rational balls (`RatBall`, `sqrtBall`), the classes `RealValue` and `PlanePoint` with their laws, instances for `Rat`, `Int` and their pairs, builders from exact points, theorems on where they are drawn; exact incidence with a disk; ℚ(√d), ℤ[ζ₅], exact square roots, constructions with certified enclosures; what an item of a figure is in exact terms (`IsPoint`, `IsDisk`, `IsSegment`, `IsRegion`), for specifications | done |
@@ -47,7 +47,7 @@ outline, what is exact and what is floating point, and the open choices.
 | `PILean.Graph.Fixed` | graphs at given positions (page, world or exact), edges straight or bent around nodes | done |
 | `PILean.Text` | `TextEngine` (measure, ascent, descent, shapes, identity, whether its strings are plain text) and the built-in single-stroke lettering that draws text into images; LeAnTeX implements it in the package `pilean-leantex` (`leantex/`) | done |
 | `PILean.Anim.Animation` | an animation as a drawing over time, written as animated SVG (SMIL), APNG and GIF, with a poster frame | done |
-| `PILean.Anim.Timeline`, `PILean.Anim.Smil` | timelines of looping motions through key frames (exact rational durations, cubic Bézier easing, the seam that closes the loop; tiling of the cycle proved) and SMIL animation elements on such a timeline, with an evaluator of SMIL timing for tests | done; not yet used by any output |
+| `PILean.Anim.Timeline`, `PILean.Anim.Smil` | timelines of looping motions through key frames (exact rational durations, cubic Bézier easing, the seam that closes the loop; tiling of the cycle proved) and SMIL animation elements on such a timeline, with an evaluator of SMIL timing for tests | done; used by the motions of plane figures |
 | `PILean.Graph` | `Graph` (nodes, edges, clusters), the layered (Sugiyama) layout with spline, orthogonal or bundled edges (one entry and one exit port per node, tracks in channels, concentric corners), arrowheads, edge labels and clusters, circular and tree layouts, components laid out apart and packed, mirrored layouts, drawing on the canvas as SVG and PNG, and as SVG for a web page | done; layering proved, see below |
 | `PILean.Trust` | done: a figure's standing (`linked` or `illustration`, recorded in its files and the manifest, `--require-standing`); SHA-256 (`Sha256`, padding and digest size proved, FIPS and NIST vectors tested); source information (module, declaration, file, line, repository, commit, version, fingerprint) written into SVG, PNG, APNG, GIF and PDF and read back by a bounded reader, `lake exe pilean-info`, see [`TRUST.md`](TRUST.md). `@[figure]` and `figures%` (declaration, file, line, source hash), fingerprints of figure specifications (SHA-256), `lake exe pilean-build` (deterministic build with `manifest.json`, `--check`) and `lake exe pilean-verify`; `figure_links` links a figure to a theorem about it ([`PROOFS.md`](PROOFS.md)) | done |
 
@@ -1008,7 +1008,14 @@ same text between their numbers (path data with the same commands, coordinates, 
 steps otherwise (then every frame is a keyframe); when the frames' structure differs, each frame is
 its own group shown in turn. Every animation has a poster frame (the last frame by default),
 written as still SVG and PNG, and contained in the animated SVG, where a style rule shows it
-instead of the motion under `prefers-reduced-motion: reduce`. `tools/anim-browser-check.py` loads
+instead of the motion under `prefers-reduced-motion: reduce`. The rule's classes carry the
+library's prefix (`pilean-motion-poster`, `pilean-motion-live`), so that it reaches nothing else
+when such a picture is put inline in a page; generic names (`.poster`, `.motion`) were the
+alternative rejected, since a page's own elements of those classes would be hidden by them. The
+moving picture is hidden and made transparent (`visibility:hidden; opacity:0`), not taken out of
+the rendering (`display:none`): a browser that stops rendering a group and renders it again can
+show it frozen until each animation next repeats. The transparency hides the frames of a
+frame-switching animation, which animate their own `visibility`. `tools/anim-browser-check.py` loads
 the wave and the graph-build animations in headless Chromium (through Playwright): the pictures at
 0 s and 1.3 s differ, and with `prefers-reduced-motion: reduce` the motion is hidden, the picture
 does not change with time and it matches the poster PNG.
@@ -1068,6 +1075,107 @@ what SMIL makes an error (key times that do not start at `0` or end at `1` or de
 disagree, spline values outside `[0, 1]`, a `dur` that is not a positive clock value), so tests
 compare what a document shows with what the timeline means without a browser; key times written to
 eight decimals move an angle by less than `1e-5` degrees on the tests' 22.6-second cycle.
+
+### Motions of plane figures
+
+A `Plane.Motion` (`PILean/Plane/Motion.lean`, `MotionPlan.lean`, `MotionOutput.lean`) animates a
+plane figure through exact key frames: key `k` is a `Plane.Figure` (exact data, as any figure), and
+each step between two keys says what its *actors* do (`MotionStep`, `Move`): an actor is a top-level
+item with an id (`Item.actor`), which turns about a centre by an exact fraction of a full turn
+(`Plane.Exact.turnAbout`), slides (`Plane.Exact.slideFromTo`), appears, vanishes or morphs.
+
+*What is exact.* The key frames are the figures as written, drawn by the plane figures' own
+pipeline in one view (`commonView`, so nothing rescales during the loop), an actor's automatic
+labels placed as on the first key where it appears: the stills (`Motion.keyFigure`) are those
+drawings, byte for byte, and no still or raster is derived from the animation. The timing is the
+exact rational `Anim.Timeline` of the steps.
+
+*What the checks promise.* The arrival check compares the actor in key `k`, carried by the declared
+turn or slide (applied in floating point to the page points that fix its drawing, `anchors`: a
+point, the ends of a segment, a circle's centre, a polygon's vertices, the ends of an arc, a label's
+point), with the actor in key `k + 1`: the same leaves in order, of the same kinds, looks, texts,
+placements and metadata, radii and every anchor within 0.01 px. It does not determine the direction
+or the number of revolutions of a turn (for a turn by `1/5`, `6/5` and `-4/5` land too; a turn by a
+whole turn or more is an error unless the step sets `allowFullTurns`), says nothing about what the
+turn leaves alike (a disk centred on the turn's centre, a whole turn: a note says so), and does not
+tell a slide from a turn with the same end points; for a single point and an angle that is not a
+whole turn, the centre is determined. A polygon whose vertex list is the same after a symmetry turn
+is refused (the next key lists the turned vertices in the turned order). A move that misses its key
+is an error and is not animated as that move. The stronger guarantee is the rest check
+(`Motion.restProblems`, part of `Motion.problems` for every motion): at the middle of every key's
+rest the whole baked drawing, every path and every text in order, must be the key's still within
+0.05 px (plus `5.5e-4 r` for a path of half-width `r`, the most two cubic approximations of one
+circle of radius `r` differ, since a turned circle is not drawn by the same cubics as the next key
+draws it; a text also unturned within `1e-4` radians); this bounds what the per-step tolerance adds
+up to along a chain, and catches a wrong upright position or stacking order. The comparison is
+between outlines: it does not see the phase of a dash pattern, so a dashed circle turned about its
+own centre passes while its dashes move. The writer is checked against the baker for every motion
+too (`Motion.writerProblems`): at the middle of every rest and every move, the written picture, read
+with `Smil.valueAt`, must show what the baker draws, which checks what the baker never reads, such
+as the angles of the counter-rotations. A key that draws its layers in another order than the
+earlier keys is an error. An item without an id that changes between two keys is crossfaded with a
+note; an actor that changes without a declared move, leaves without `vanish`, comes without `appear`
+or has a morph that cannot be interpolated, an empty title, and neither a description nor a caption,
+are errors under `checks := .fail`, the default, under which `Motion.svg?` and `Motion.animation?`
+give the errors instead of the picture. `Motion.report` computes the keys, the plan and the problems
+once, for all the checked outputs. The names that end in `Unchecked` (`Motion.toSvgUnchecked`,
+`figureAtUnchecked`, `toAnimationUnchecked`) write whatever the problems say, for tests and tools.
+An actor's recorded incidences (`Item.incident`) describe a key, not the drawing: two keys draw an
+item alike, and a move carries it, whatever its records and their words in its title
+(`Item.baseForm`); a layer whose records change between its keys is written without them, and the
+stills keep each key's. Every key passes the layout checks as drawn; an automatic label of an actor
+keeps its first key's placement on the later keys, where it must pass the checks too. Lines and rays
+(drawn to the edge of the page) cannot turn or slide; a segment can. Labels and point markers keep
+their look and ride the turns upright; ticks, angle marks and every other element turn with their
+actor (a tick marks a direction, and the next key draws it turned).
+
+*What the browser interpolates.* The animated SVG (`Motion.svg?`) writes every drawable part of
+the motion once (a *layer*: an actor for as long as its steps carry it, an item without an id for
+as long as the keys draw it alike) and moves it with SMIL on one clock: each turn is the
+`animateTransform` of type `rotate` of a group of its own, the earliest turn innermost, so that
+each centre is a point of the page and the browser draws true circular arcs; each slide is one of
+type `translate`; labels and point markers sit inside a counter-rotation about their anchor by
+minus the angle so far, so that they ride the turns upright; fades animate `opacity` and morphs
+`d` (between drawings whose paths have the same commands, else the two crossfade). Between the
+keys the browser computes the eased angle, offset, opacity and path data: that is floating point
+in the browser, checked in Chromium. Actors that move alike in every step share one chain of
+groups (a rigid body of many items is one chain), and consecutive layers shown on the same keys
+share one opacity animation (points that appear together are one animation). Every group with an
+actor carries `data-pilean-actor` and `data-pilean-anchor`, and every group of upright leaves
+`data-pilean-upright` (a point's marker and its label, siblings with one anchor, share one
+counter-rotation), so that tests can find them. The root has `role="img"` and the motion's
+title, and a description with the captions; the poster key's still is inside, shown instead under
+reduced motion. Only `transform`, `opacity` and `d` are animated and no static transform is
+written, so the inline dark-theme rules keep working.
+
+*The baked frames.* `MotionPlan.figureAtUnchecked` draws the same plan on the vector canvas at a
+time: every layer's shapes turned and slid by its chain's transform then (labels and markers
+translated only), at its opacity, with the values the SVG writes (rounded as written) at the key
+times it writes; `Motion.animation?` makes it an `Animation` for APNG and GIF. What pins what is
+listed in [`PROOFS.md`](PROOFS.md): the stills are the keys; the baker is the stills at every rest
+(`Motion.restProblems`, every element); the tests read the written tree with `Smil.valueAt` and
+require as many actors and upright groups as the plan declares, each anchor, opacity and whole
+transform where the baker has it (`1e-6`), at 50 times, and compare the baker with the model
+computed apart from the plan (`1e-3` px); `tools/motion-browser-check.py` checks in Chromium that
+each key's rest is the key's still up to antialiasing (every channel of every pixel within the range
+of the other picture's pixels at most one pixel away, widened by 40; this sees a label moved by
+about 2 px or more) and at its positions (every actor and every label's anchor within 0.05 px), that
+a quarter, a half and three quarters of each turn lie on the turn's circle (0.05 px) at the eased
+angle (0.5°), that labels and markers are not turned (0.01°) and are all there, that reduced motion
+shows the still and switching it off again shows the running clock, and that the picture plays.
+
+A morph is interpolated in the page's coordinates, so it must come before any turn or slide of its
+layer (a later one starts a new layer, crossfaded). With figures between its keys (`Motion.between`)
+a morph is sampled at `morphSamples` intervals: interval `i` ends at the time where the step's
+easing has done `(i + 1) / n` of the step (`easedTime`), and every animation's value there is the
+exact fraction `(i + 1) / n` of its change, so every animation of the step, turns included, follows
+the eased motion piecewise linearly, within `1 / n` of its change, on one clock. For a turn the
+deviation is a gap in timing along the arc, not off it: the item stays on its circle and is ahead or
+behind the eased angle by at most `1 / n` of the turn; measured, a quarter turn is within 5.79° of
+the eased angle with 4 samples, 2.92° with 8 and 1.45° with 16, and a fifth of a turn within 1.16°
+with the default 16. The plan (`MotionPlan`) holds every animated value as a function of a phase (a
+key, or a fraction of a step) and is computed in a drawing environment (`Motion.planIn`), so that a
+picture of several panels can lay out each motion in a frame of its own on one shared timeline.
 
 ## Open design questions
 

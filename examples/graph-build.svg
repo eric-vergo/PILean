@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="445" height="672" viewBox="0 0 445 672">
-  <style>.poster{display:none}@media (prefers-reduced-motion: reduce){.poster{display:inline}.motion{display:none}}</style>
+  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{visibility:hidden;opacity:0}}</style>
   <rect x="0" y="0" width="445" height="672" fill="#ffffff"/>
-  <g class="motion">
+  <g class="pilean-motion-live">
     <g>
       <path d="M0 0 L445 0 L445 672 L0 672 Z" fill="#ffffff"/>
       <g opacity="0.4">
@@ -219,7 +219,7 @@
       </g>
     </g>
   </g>
-  <g class="poster">
+  <g class="pilean-motion-poster">
     <path d="M0 0 L445 0 L445 672 L0 672 Z" fill="#ffffff"/>
     <g opacity="0.999">
       <g opacity="0.09">

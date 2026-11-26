@@ -265,6 +265,63 @@ zero, every key time is `0`, and the statements that need a cycle longer than ze
 These are equalities and inequalities of rational numbers; the eased progress (`Easing.eval`,
 `Timeline.locate`'s second part) is floating point and tested.
 
+**Motions of plane figures** (`PILean/Plane/Motion.lean`, `MotionPlan.lean`, `MotionOutput.lean`)
+
+* `MotionPlan.anim_eq`: every animation element `MotionPlan.anim` builds is its name, its own
+  attributes, its values, then `Smil.smilTiming` of the plan's timeline: its timing depends on
+  nothing else. The writer builds every animation element through `anim` (the chains, the
+  counter-rotations, the opacities, the morphs' path data, the seam); that is how it is written,
+  not a theorem, and `lake test` checks the one clock of every output (`Smil.clockProblem?`).
+* `MotionPlan.chainNodes_push`, `chainNodes_empty`: the link added last to a chain is its
+  outermost group (the earliest link is innermost, which turns about page points require).
+* `MotionVersion.steps_links`, `MotionVersion.mem_links`, `linkOf_step`: a layer's links are the
+  links (`linkOf`) of its declared turns and slides, in strictly increasing order of their steps.
+* `linkOf_turn`: the angle the writer turns a link by, for a turn by `q` of a full turn, is
+  `Exact.toFloat (-(360 * q))` (counterclockwise in the figure is clockwise in SVG's measure).
+* `Motion.keyAngle_eq`: `Motion.keyAngle`, a function of the model that the writer does not call,
+  is minus 360 times the exact sum of an actor's turns before key `k`. The writer's angles at the
+  keys are sums of the per-link angles in floating point, rounded as written; they are tested.
+* `Motion.timeline_keys`: the timeline of a well-formed motion (`Motion.WellFormed`: one key more
+  than steps, a caption per key, the poster among the keys; decidable, and decided by
+  `Motion.problems`) has as many key frames as the motion.
+
+What pins what, for motions (everything below the exact keys is floating point and checked, not
+proved):
+
+1. *Exact keys → stills.* A still (`Motion.keyFigure k`) is key `k` drawn by the plane figures'
+   pipeline in the motion's one view; the goldens' stills are byte for byte the keys drawn in that
+   view (tested).
+2. *Baker ↔ stills, at every rest, every element.* `Motion.restProblems`, part of
+   `Motion.problems` for every motion an author writes: the whole baked drawing at the middle of
+   each key's rest is the still: the same paints in the same order, every path within 0.05 px
+   (Hausdorff's distance between the outlines flattened to 0.01 px) plus `5.5e-4 r` for a path of
+   half-width `r` (two cubic approximations of one circle of radius `r` differ by at most that),
+   every text within 0.05 px and turned by at most `1e-4` radians. It bounds what the per-step
+   arrival tolerance (0.01 px) adds up to along a chain. It compares outlines, not the phase of a
+   dash pattern: a dashed circle turned about its own centre passes while its dashes move.
+3. *Writer ↔ baker, by the evaluator.* `Motion.writerProblems`, part of `Motion.problems` for
+   every motion: at the middle of every rest and every move, `Smil.valueAt` over the written
+   moving picture finds as many actors and upright groups as the plan declares, each anchor,
+   opacity and whole transform where the baker has it, within `1e-6`; this checks the
+   counter-rotations, which the baker does not read. The tests do the same at 50 times for the
+   goldens and fixtures. The baker uses the numbers as the SVG writes them, so this comparison
+   alone would not catch a wrong value shared by both; that is what 2 and 4 are for.
+4. *Baker ↔ the model computed apart from the plan* (tests): each actor's anchor from its key and
+   the declared moves at the exact timeline's eased fraction, within `1e-3` px, at 50 times
+   (outside sampled morph steps, whose turns follow the eased motion within `1 / n` of their
+   angle, also tested).
+5. *Browser ↔ stills, by positions and pixels* (`tools/motion-browser-check.py`, outside `lake
+   test`): at every rest every actor is at the still's position and every label's or marker's
+   anchor where the plan draws it (0.05 px), and the picture is the still up to antialiasing
+   (every channel of every pixel within the range of the other picture's pixels at most one pixel
+   away, widened by 40: a moved label shows from about 2 px); turns follow true arcs at the eased
+   angle; labels stay upright and are all there.
+
+The arrival check (`Motion.problems`, within 0.01 px) compares the actor in key `k`, carried by
+the declared move, with the actor in key `k + 1`; it does not determine a turn's direction or
+number of revolutions, nor see moves that leave the drawing alike (see
+[`DESIGN.md`](DESIGN.md)).
+
 **Plane figures** (`PILean/Exact/Plane.lean`, `PILean/Exact/Spec.lean`, `PILean/Plane/Draw.lean`)
 
 * `Exact.PlanePoint.re_ratPair`, `im_ratPair`, `toPoint_ratPair`, `toPoint_intPair`,
@@ -692,6 +749,11 @@ a root of the denominator, and there are no other complex roots.
   of the timeline at 50 times within `1e-9`, refuses what SMIL makes an error, and reproduces
   nested turns (`Smil.nest`) as the composed exact rotations. That a browser follows SMIL as
   `valueAt` does is not checked by the tests of the core.
+* Motions of plane figures: that a declared move lands on the next key (`Motion.problems`, within
+  0.01 px), tested with wrong angles and centres, turns of items that did not move, a slide that
+  misses by 0.02 px, a polygon with only a later vertex out of place, a radius that changes under
+  a slide, whole turns and moves of missing actors; the rest check, the evaluator, the model
+  computed apart and the browser's pixels, as listed above under "Motions of plane figures".
 * The hypotheses of the drawing theorems on the gallery pictures (every converted point has a
   page position) are checked at run time by `lake test`.
 
