@@ -474,9 +474,12 @@ def still_checks(c, browser, base, url, sids, label, helpers, shots=None):
                     page.wait_for_timeout(250)
                     during = page.evaluate(STATE, shown)
                     why = still_problem(page, shown, during, scheme == "dark")
-                    ok = why is None and during["liveOpacity"] == "0"
+                    if why is None and during["liveOpacity"] != "0":
+                        why = (f"the moving picture's opacity is {during['liveOpacity']}, "
+                               "not 0")
                     c.check(f"{label} {scheme} {width} px: {state} on {shown} shows exactly the "
-                            "poster key's still, in its box", ok, f"{why} {during['stills']}")
+                            "poster key's still, in its box", why is None,
+                            f"{why}; the pictures with a box: {during['stills']}")
                     if shots and state == "hover" and scheme == "light" and sid == sids[-1]:
                         page.screenshot(path=f"{shots}/hover-light-{width}-{shown}.png")
                     if state == "keyboard focus":

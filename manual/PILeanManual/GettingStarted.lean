@@ -200,7 +200,8 @@ tag := "next"
 %%%
 
 * The {ref "guide"}[guide] takes the library part by part: colours and styles, the canvas and
-  paths, every kind of plot, graphs, animations, raster images and the readers, text.
+  paths, every kind of plot, graphs, animations and {ref "motions"}[motions of plane figures],
+  raster images and the readers, text.
 * {ref "trust"}[Trust and Proofs] says what a picture's source record, fingerprint and manifest
   establish, what
   the theorems about pictures say, and where floating point begins.

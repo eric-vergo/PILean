@@ -1013,8 +1013,12 @@ library's prefix (`pilean-motion-poster`, `pilean-motion-live`), so that it reac
 when such a picture is put inline in a page; generic names (`.poster`, `.motion`) were the
 alternative rejected, since a page's own elements of those classes would be hidden by them. The
 moving picture is hidden and made transparent (`visibility:hidden; opacity:0`), not taken out of
-the rendering (`display:none`): a browser that stops rendering a group and renders it again can
-show it frozen until each animation next repeats. The transparency hides the frames of a
+the rendering (`display:none`): in Chromium, a picture whose `transform` is animated and that is
+hidden with `display:none` and shown again stays frozen until its animation repeats, although its
+clock runs (seen on the motions of plane figures, below; an animation of `opacity` mostly was not
+frozen). The rule is kept here as a precaution for the same reason. Hiding by `visibility` showed
+no freeze in Chromium or WebKit; `display:none` was tested in Chromium only. The transparency
+hides the frames of a
 frame-switching animation, which animate their own `visibility`. `tools/anim-browser-check.py` loads
 the wave and the graph-build animations in headless Chromium (through Playwright): the pictures at
 0 s and 1.3 s differ, and with `prefers-reduced-motion: reduce` the motion is hidden, the picture
@@ -1304,7 +1308,8 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   the ordered list of stills `ol.pilean-motion-keys`, named "The key frames of Figure N": each
   key's still as a picture of its files (`-key-k`, `-narrow-key-k`, the `-dark` twins that follow
   the page's theme), loaded lazily, with its caption "Step k of N: …". Assistive technology reads
-  the picture's text alternative, then the list once. The moving picture gets no declaration
+  the picture's text alternative, then the list once while motion is on; with motion off the
+  stage is hidden from it and only the list is read. The moving picture gets no declaration
   links: hovering or focusing it shows the still instead, so they could not be reached.
 * **Caption.** A motion's caption ends with a quiet note: "Animation; it pauses on a still while
   you point at it or focus it." (`PILeanVerso.motionHintText`, both adapters; hidden while motion
@@ -1332,12 +1337,13 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   is hidden and the stills are a grid with their captions. Without JavaScript the same, by the
   stylesheet alone. Small screens (560 pixels or less, the plane figures' breakpoint): the narrow
   rendition, and the narrow stills.
-* **Hiding.** A moving picture is never hidden with `display: none`, also not in print: in
-  Chromium an inline SMIL picture shown again after `display: none` (printing included) stays
-  frozen until its animations next repeat, although its clock runs. The stage while motion is off
-  and the hidden rendition are hidden with `visibility: hidden; position: absolute`; under hover
-  and focus the picture has `opacity: 0`. The browser checks show the picture following its clock
-  after each of these, and that the check notices `display: none`.
+* **Hiding.** A moving picture is never hidden with `display: none`, in print too: Chromium
+  freezes a picture whose `transform` is animated when it is hidden with `display: none` and
+  shown again, until the animation repeats, although its clock runs. Emulating print media
+  showed it; a real PDF print did not, in testing, and the rule holds for both. The stage while
+  motion is off and the hidden rendition are hidden with `visibility: hidden; position:
+  absolute`; under hover and focus the picture has `opacity: 0`. The browser checks show the
+  picture following its clock after each of these, and that the check notices `display: none`.
 * **Layout.** The stage is as wide as the picture and reserves its box: hover and focus change
   nothing around it, and the hidden rendition takes no space. Turning motion off replaces the
   picture by the taller grid of stills, a change the reader asked for.
@@ -1346,9 +1352,9 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   the standing (for a linked motion, what a theorem about a motion can state, `motionLinkedWords`),
   `MotionData.words` (with `MotionData.checkWords` for a motion not checked strictly), the table of
   the steps (each step's keys, its duration exactly, and each move with its panel, actor and
-  `MotionMoveRow.words`, a crossfade marked), the key stills with their captions, and the contact
-  sheet; the files (the animated SVGs, the stills, the contact sheet with its PDF) are listed with
-  the others.
+  `MotionMoveRow.words`, a crossfade marked) and the key stills with their captions; the files
+  (the animated SVGs, the stills, the contact sheet with its PDF) are listed with the others, and
+  the contact sheet is among them only.
 * **Files.** A site writes a motion's outputs (`motionOutputs`) and, of the dark motion, only
   what its pages show: the SVG of each key's still at each width (`-key-k-dark`,
   `-narrow-key-k-dark`). So `7 + 6 n` files for `n` keys with a narrow rendition, `6 + 3 n`

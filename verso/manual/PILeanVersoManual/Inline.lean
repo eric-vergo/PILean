@@ -51,8 +51,9 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   is an inline picture of its own, shown on its clock from the page's load; hovering or focusing
   it shows its poster's still in its box, and the page's `data-motion="reduce"`, the reader's
   `prefers-reduced-motion: reduce` and print show its stills with their captions instead. The
-  moving picture is hidden by `visibility` (out of the flow where it must take no space), never by
-  `display: none` but in print, so that it follows its clock when it is shown again.
+  moving picture is hidden by `visibility` or `opacity` (out of the flow where it must take no
+  space), never by `display: none`, in print too, so that it follows its clock when it is shown
+  again.
 * **Announcements.** One polite status region per explorer says the step after previous or next
   (`Step 2 of 4: …`, or `a = 3` for a parameter); a slider says its value itself
   (`aria-valuetext`); nothing is announced when the page loads or while the steps play. A reader who
@@ -546,8 +547,8 @@ hidden and taken out of the flow and the stills are shown as a grid with their c
 shown without its stills (`pilean-motion-bare`, on the figure's page, whose stills are shown
 below it) keeps its stage and shows the poster's still over the moving picture; the caption's
 hint about pausing is hidden. The moving picture is hidden by `visibility` or `opacity`, never by
-`display: none`, also in print: an inline SVG animation that is not rendered can stay frozen when
-it is shown again, although its clock runs. -/
+`display: none`, also in print: in Chromium, an inline SVG picture whose `transform` is animated
+can stay frozen when it is shown again after `display: none`, although its clock runs. -/
 def motionOffRules (pre : String) : String :=
   s!"{pre}.pilean-motion:not(.pilean-motion-bare) .pilean-motion-stage \{visibility:hidden;\
     position:absolute;top:0;left:0;pointer-events:none}\
