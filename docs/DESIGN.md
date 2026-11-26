@@ -1013,8 +1013,12 @@ library's prefix (`pilean-motion-poster`, `pilean-motion-live`), so that it reac
 when such a picture is put inline in a page; generic names (`.poster`, `.motion`) were the
 alternative rejected, since a page's own elements of those classes would be hidden by them. The
 moving picture is hidden and made transparent (`visibility:hidden; opacity:0`), not taken out of
-the rendering (`display:none`): a browser that stops rendering a group and renders it again can
-show it frozen until each animation next repeats. The transparency hides the frames of a
+the rendering (`display:none`): in Chromium, a picture whose `transform` is animated and that is
+hidden with `display:none` and shown again stays frozen until its animation repeats, although its
+clock runs (seen on the motions of plane figures, below; an animation of `opacity` mostly was not
+frozen). The rule is kept here as a precaution for the same reason. Hiding by `visibility` showed
+no freeze in Chromium or WebKit; `display:none` was tested in Chromium only. The transparency
+hides the frames of a
 frame-switching animation, which animate their own `visibility`. `tools/anim-browser-check.py` loads
 the wave and the graph-build animations in headless Chromium (through Playwright): the pictures at
 0 s and 1.3 s differ, and with `prefers-reduced-motion: reduce` the motion is hidden, the picture
@@ -1304,7 +1308,8 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   the ordered list of stills `ol.pilean-motion-keys`, named "The key frames of Figure N": each
   key's still as a picture of its files (`-key-k`, `-narrow-key-k`, the `-dark` twins that follow
   the page's theme), loaded lazily, with its caption "Step k of N: …". Assistive technology reads
-  the picture's text alternative, then the list once. The moving picture gets no declaration
+  the picture's text alternative, then the list once while motion is on; with motion off the
+  stage is hidden from it and only the list is read. The moving picture gets no declaration
   links: hovering or focusing it shows the still instead, so they could not be reached.
 * **Caption.** A motion's caption ends with a quiet note: "Animation; it pauses on a still while
   you point at it or focus it." (`PILeanVerso.motionHintText`, both adapters; hidden while motion

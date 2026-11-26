@@ -32,9 +32,9 @@ who cannot or does not want motion sees the key frames in order, each with a cap
 one of them is an exact figure of the library with its checks and its metadata. This chapter
 follows the writing of one motion from the figures to the page; the model's own documentation is
 {api}`PILean.Plane.Motion`, the timing's {api}`PILean.Anim.Timeline`, and the outputs' and
-checks' {api}`PILean.Trust.Motion`. An {name}`PILean.Animation` (a drawing as a function of time,
-the previous chapter) is the tool for a plot that changes continuously; a motion is the tool for a
-construction that goes from one picture to the next.
+checks' {api}`PILean.Trust.Motion`. An {name}`PILean.Animation` (a drawing as a function of
+time, see {ref "animations"}[Animations]) is the tool for a plot that changes continuously; a
+motion is the tool for a construction that goes from one picture to the next.
 
 # Key Frames and Actors
 %%%
@@ -158,9 +158,9 @@ tag := "motions-pacing"
 
 The timing is exact: durations are rational numbers of seconds
 ({name}`PILean.Anim.Pacing`, {name}`PILean.Anim.Timeline`), so the cycle, the start of every
-segment and the boundaries as fractions of the cycle are exact, and statements about them are
-theorems about rationals. A cycle rests on key `0` for `firstHold`; then, for each step, moves for
-the step's duration and rests on the next key for `hold` (`lastHold` after the last step). By
+segment and the boundaries as fractions of the cycle are exact, and facts about them can be
+stated as theorems about rationals. A cycle rests on key `0` for `firstHold`; then, for each
+step, moves for the step's duration and rests on the next key for `hold` (`lastHold` after the last step). By
 default a step takes the pacing's time for the longest kind of move it has (`turn` 1 s; `slide`
 0.8 s, which a morph takes too; `fade` 0.35 s for an appearance or a disappearance, and for a step
 with no moves); an idle step (`MotionStep.idle`) takes `idle` (0.9 s) and is not eased. A step can
@@ -182,6 +182,9 @@ happens while nothing is visible; under `Seam.cut` the picture jumps.
 ```leanResult cycleEx
 ```
 
+The cycle is the holds plus the steps plus the seam: 1.2 + 3.3 + 4 × 0.6 + 1.8 + 0.4 = 9.1 s; the
+key times are the 14 boundaries of the segments, as fractions of the cycle.
+
 # Checks
 %%%
 tag := "motions-checks"
@@ -191,7 +194,7 @@ A motion that contradicts its keys is not drawn. {name}`PILean.Plane.Motion.repo
 keys as drawn, the plan and the problems once; {name}`PILean.Plane.Motion.svg?` and
 {name}`PILean.Plane.Motion.animation?` return the animated SVG and the baked frames, or the
 messages of the errors that stop them. The problems are of two severities, an error and a note,
-and come from five checks:
+and include five groups of checks:
 
 * the *arrival* of every declared move at its key (above), and the other rules of a step (an actor
   that differs without a declared move, comes without `appear`, leaves without `vanish`, or has a
@@ -289,7 +292,7 @@ def beside : MotionPanels where
   narrowWidth := some 300
 ```
 
-:::figure PILeanManual.Motions.beside (alt := "Two panels side by side. In the left panel, titled Turn, a point goes a quarter of the way round the origin twice. In the right panel, titled Slide, a point slides one step to the right while the left one starts to turn, then waits.")
+:::figure PILeanManual.Motions.beside (alt := "Two panels side by side. In the left panel, titled Turn, a point goes a quarter of the way round the origin, then another quarter. In the right panel, titled Slide, a point slides one step to the right during the first turn, then waits.")
 Two motions on one clock.
 :::
 
@@ -334,8 +337,10 @@ part of any statement. A figure's page says this in words.
 tag := "motions-outputs"
 %%%
 
-For a motion `d` with `n` keys, `pilean-build` (and the site builds, which render the same
-outputs) writes:
+For a motion `d` with `n` keys, `pilean-build` writes the files below. A site build writes the same
+files and, for a motion with a dark twin, also the SVG of each key's still in the dark theme
+(`d-key-k-dark.svg`, and `d-narrow-key-k-dark.svg` for the narrow rendition), which is all a page
+shows of the dark motion:
 
 | File | What it is |
 |---|---|
@@ -368,8 +373,9 @@ of it needs a script. The reader sees:
   The moving picture is only made transparent, so its text alternative stays.
 * *Motion off*: under the Blueprint's switch (`data-motion="reduce"`), under the reader's
   `prefers-reduced-motion: reduce`, and in print, the picture is hidden and the key stills are
-  shown in a grid, each with its caption. Assistive technology reads the picture's text
-  alternative, then the list of stills, once.
+  shown in a grid, each with its caption. Assistive technology reads the list of key frames with
+  their captions; with motion on it
+  reads the picture's text alternative and then that list, once.
 * *Small screens* (560 px or less): the narrow rendition and its stills, when the motion has one.
 
 A figure's page lists what the animation is in words, the table of its steps (each step's keys,
@@ -401,8 +407,11 @@ Python 3 and, for the browser checks, the `playwright` package with a Chromium i
 * `markup_check.py` finds nothing active in a motion: no script, event attribute, link, form
   control, embedded content, animation started by anything but the clock, or tab stop other than
   the picture's own;
-* `page_check.py` holds each figure's page to the manifest: a motion's files are exactly the set
-  above, its sentence and its table of steps are there, and its stills are listed with their
+* `page_check.py` holds each figure's page to the manifest: a motion's files are exactly those
+  the adapters write for it (the table above, with the dark twins of the key stills when the site
+  has a dark theme), `7 + 6n` files with a narrow rendition and a dark twin, `6 + 3n` with a dark
+  twin only, `7 + 4n` and `6 + 2n` without one; its sentence and its table of steps are there,
+  and its stills are listed with their
   captions;
 * `motion_browser.py SITE --expect DIR` loads every page with a motion in Chromium: the picture
   at the middle of every rest is where the key's still has it, labels and markers stay upright,

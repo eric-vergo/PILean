@@ -80,7 +80,8 @@ builder satisfies it. The package `pilean-mathlib` binds each to Mathlib's objec
 | PDF | `toPdf` of every picture, `Image.toPdf` | one vector page, `0.75` points per pixel, text as outlines (no fonts), gradients as shadings | the document information dictionary |
 
 `pilean-build` writes a figure's SVG, PNG and PDF (and an animation's APNG, GIF and still frames; a
-motion's animated SVG, key stills and contact sheet), each with its source record; `pilean-info` and `pilean-verify` read every format.
+motion's animated SVG, key stills and contact sheet), each with its source record; `pilean-info`
+and `pilean-verify` read every format.
 
 ## Use
 
@@ -144,7 +145,8 @@ and for each step between two of them what each *actor* does, here a turn about 
 exact fraction of a full turn (the other moves are a slide, an appearance, a disappearance and a
 morph). The animated SVG plays by itself (SMIL, no script); the stills of the key frames are the
 key figures drawn by the plane figures' pipeline. A move that does not land on the next key is an
-error, and `Motion.svg?` then gives the messages instead of a picture (a file of its own; `@[figure]` needs the second import):
+error, and `Motion.svg?` then gives the messages instead of a picture. The example below is a file of its own, because `@[figure]` needs the
+second import:
 
 ```lean
 import PILean

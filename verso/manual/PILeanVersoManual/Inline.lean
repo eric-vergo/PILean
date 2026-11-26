@@ -547,8 +547,8 @@ hidden and taken out of the flow and the stills are shown as a grid with their c
 shown without its stills (`pilean-motion-bare`, on the figure's page, whose stills are shown
 below it) keeps its stage and shows the poster's still over the moving picture; the caption's
 hint about pausing is hidden. The moving picture is hidden by `visibility` or `opacity`, never by
-`display: none`, also in print: an inline SVG animation that is not rendered can stay frozen when
-it is shown again, although its clock runs. -/
+`display: none`, also in print: in Chromium, an inline SVG picture whose `transform` is animated
+can stay frozen when it is shown again after `display: none`, although its clock runs. -/
 def motionOffRules (pre : String) : String :=
   s!"{pre}.pilean-motion:not(.pilean-motion-bare) .pilean-motion-stage \{visibility:hidden;\
     position:absolute;top:0;left:0;pointer-events:none}\
