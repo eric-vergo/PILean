@@ -23,7 +23,7 @@ the Lean object it shows, and what stays tested or trusted, is on
 | `version` | the version of PILean (`PILean.version`) | yes |
 | `fingerprint` | 64 lowercase hexadecimal digits (a SHA-256) | no |
 | `standing` | `linked` or `illustration`: the figure's standing as the build recorded it ("Standing" below; `proved` reads as `linked`) | no |
-| `motion` | for a file of a motion, its record as one value: `keys=N;cycle=C;captions=N;checks=L;unchecked=yes|no`, with the cycle in seconds as `n` or `n/d` in lowest terms (at most 18 digits each) and the level `fail`, `warn` or `ignore` (`MotionSummary.text`; "Motions") | no |
+| `motion` | for a file of a motion, its record as one value: `keys=N;cycle=C;captions=N;checks=L;errorsLeft=E;narrow=yes|no`, with the cycle in seconds as `n` or `n/d` in lowest terms (at most 18 digits each), the level `fail`, `warn` or `ignore`, the number of problems the strict level treats as errors that did not stop the motion (`0` at `fail`), and whether it has a narrow rendition (`MotionSummary.text`; "Motions") | no |
 | `theorems` | for a linked figure, the theorems linked to it, by full name, as a list: `[`, the names separated by `,`, `]`, each name with `%`, `,`, `[`, `]`, the backslash and the control characters written `%XX` (two uppercase hexadecimal digits), such as `[A.b,C.«d e»]` (`theoremsText`); a value that does not begin with `[` is read in the earlier form, names separated by single spaces, and so is the earlier key `proves` | with `standing` `linked` only |
 
 A record can be written only if every value is at most 4096 bytes of UTF-8 and has only
@@ -276,9 +276,11 @@ by the source hash.
 A motion of plane figures (`PILean.Plane.Motion`), or a picture of several motions as panels on
 one clock (`PILean.Plane.MotionPanels`), is a figure of the build like any other
 (`PILean/Trust/Motion.lean`). Its outputs read the motion checked once (`CheckedMotion`): a
-checked motion is made only from the report of the motion's checks (`MotionReport.checked`,
-`MotionPanelsReport.checked`; its constructor is private), so nothing can say it was checked
-apart from the report. The animated SVG is the checked route's (`svg?`), never one of the routes
+checked motion is made only from a motion or a picture of panels (`Motion.checked`,
+`MotionPanels.checked`), which compute the report of its checks themselves; its constructor is
+private and no function takes a report, so a report with its problems removed cannot be turned
+into one, and an instance of `ToCheckedMotion` for another type goes through one of the two (the
+tests check that the forgeries do not compile). The animated SVG is the checked route's (`svg?`), never one of the routes
 that end in `Unchecked`.
 
 * **Check levels.** A motion's checks apply at its `checks` level. Under `fail` (the default) an
@@ -293,14 +295,22 @@ that end in `Unchecked`.
   also stopped by its own errors under `fail`.
 * **What is recorded.** Every file of a motion has its own manifest entry with SHA-256 and
   fingerprint, and records the motion, in its source record (the key `motion`) and in its
-  manifest entry (the keys `kind` … `unchecked`), which `pilean-verify` compares: the number of
-  key frames, the length of the cycle in seconds, exactly, the number of captions, the check
-  level (`fail`, `warn`, `ignore`), and whether errors were left (`unchecked`). Reading the
-  manifest also requires that the files of a motion list exactly the key stills it counts
-  (`motionKeyProblem?`). Its standing is recorded as for any figure.
-* **Strict builds.** `pilean-build --require-checked` refuses, before rendering anything, every
-  motion not built at `fail` without errors left. A site that publishes motions should build with
-  `--require-standing --require-checked`.
+  manifest entry (the keys `kind` … `narrow`), which `pilean-verify` compares: the number of key
+  frames, the length of the cycle in seconds, exactly, the number of captions, the check level
+  (`fail`, `warn`, `ignore`), the number of problems that the strict level (`fail`) treats as
+  errors and that did not stop it (`errorsLeft`; the motion is checked as at `fail` to count them,
+  whatever level it was built at, so a problem `warn` turns into a note still counts; the errors
+  of a rendition that is stopped are not left), and whether it has a narrow rendition (`narrow`).
+  Reading the manifest also requires that the files of a motion list exactly the animated SVG and
+  the key stills it counts, at each width the record says it has (`motionKeyProblem?`), so a
+  folder without the narrow rendition its motion records is refused. Its standing is recorded as
+  for any figure.
+* **Strict by default.** `renderOutput`, which `pilean-build` and the Verso adapters' site builds
+  both use, refuses every output of a motion that was not checked strictly (built at a level
+  other than `fail`, or with errors left), unless the build is given `--allow-unchecked`
+  (`BuildOptions.allowUnchecked`); `pilean-build` also refuses such a motion before rendering
+  anything. `--require-checked` is accepted and is the default. A figure's standing is not
+  enforced by default: `--require-standing` stays an option, as the existing sites use it.
 * **Inline in a page.** The animated SVG's output carries `MotionData` (`Output.motionPage`): the
   record; the moving picture without the file's `title`, `desc`, reduced-motion `style` element
   and poster group (`live`, with the theme's colour pairs, which the manifest records as for any
@@ -320,7 +330,8 @@ that end in `Unchecked`.
   crossfades items whose declared move does not land, crossfades items that change without a
   declared move, or nothing moves), and, for a motion not
   checked strictly (`MotionData.unchecked`, which a page must show), what that means
-  (`MotionData.checkWords`). Whether the key figures' data is exact is the author's to say, in the
+  (`MotionData.checkWords`: the level it was built at, and how many problems the strict level
+  treats as errors did not stop it, or that the strict level finds none). Whether the key figures' data is exact is the author's to say, in the
   figure's description: a key may be drawn from floating-point data. The step table goes with it.
   A motion is marked `@[figure illustration]` unless a theorem is linked to it; `figure_links`
   works for a motion as for any figure, and its rule is the same: the theorem's statement names
@@ -334,11 +345,24 @@ that end in `Unchecked`.
   carries its actor onto the next key (within 0.01 px), the whole baked drawing is within 0.05 px
   of the still at every rest, and the written SVG read back agrees with the baked drawing
   (`Motion.problems`; for panels, the same for every panel and for the composed picture). At
-  `warn` or `ignore` with errors left, none of that holds for the steps the errors name: the
-  record says `unchecked`, the step table marks each move drawn as a crossfade, and the page must
-  say so. The browser's drawing between the keys is not part of the build at any level:
+  `warn` or `ignore`, none of that holds for the steps the strict level's errors name: the record
+  says the level and the number of such errors (`errorsLeft`), the step table marks each move
+  drawn as a crossfade, and the page must say so; by default no build writes such a motion. The browser's drawing between the keys is not part of the build at any level:
   `tools/motion-browser-check.py` measures it in Chromium, outside `lake test`. An illustration
   carries no theorem, and a linked theorem says what its statement says.
+* **What a page that shows a motion must do.** A page adapter:
+  1. reads `Output.motionPage` only from an output whose `renderOutput` succeeded (a stopped or
+     refused motion gives no file and must give no page);
+  2. shows `MotionData.words`, which includes `MotionData.checkWords` whenever
+     `MotionData.unchecked` holds;
+  3. renders the step table with `MotionMoveRow.words`;
+  4. escapes every string from the rows, the panel names and the captions (`MotionMoveRow.actor`
+     is the author's string as written);
+  5. extends its site check of inline pictures to motions: skip the motion's own `title` and
+     `desc`, then the source record; require the `style` element to be the fixed
+     `Animation.reducedMotionStyle`; check the poster group against key `poster`'s still with the
+     `poster-` id prefix; compare `live` with the file element for element;
+  6. asserts the manifest's `checks` and `errorsLeft` (`fail`, `0`) for every motion it shows.
 * **Accessible names.** The animated SVG's own `title` (the motion's title) is the first `title`
   child of the root; the build writes the source record after it and the `desc`, so the record's
   title (the declaration's name) does not become the picture's accessible name. The contact
@@ -518,7 +542,7 @@ renders the gallery figures that carry `@[figure]`.
 
 ```
 pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]
-             [--require-checked]
+             [--require-checked] [--allow-unchecked]
 ```
 
 * Without `--check`, every output of every entry is rendered, the source record (with the
@@ -528,8 +552,10 @@ pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standi
   same entries, options and library give the same bytes. Nothing is written if any figure fails
   to render. File names have only `[A-Za-z0-9._-]` (every other character becomes `_`); an empty
   component, `.` or `..` in a path is refused, so nothing is written outside `DIR`.
-* `--require-checked` (with or without `--check`) fails, before rendering anything, if a motion
-  was not built at the check level `fail` without errors left, naming each ("Motions").
+* By default (with or without `--check`), a build fails, before rendering anything, if a motion
+  was not built at the check level `fail` without errors left, naming each ("Motions");
+  `--allow-unchecked` builds such motions, recording what their checks found. `--require-checked`
+  is accepted and is the default.
 * `--repo` must be an `http` or `https` link (`safeLink?`), `--commit` 4 to 64 lowercase
   hexadecimal digits.
 * With `--check`, the output is rendered in memory and compared byte for byte with `DIR` (give the
@@ -564,7 +590,7 @@ line for each output, sorted by `path`, every object with the keys in this order
 | `repo`, `commit` | only if the build was given them |
 | `darkColours`, `darkOpacities` | for a file a page can put inline: the theme's colour pairs |
 | `standing`, `theorems` | the standing recorded in the file, and its theorems as a JSON array of strings ("Standing"; a manifest of the format `pilean-manifest-2` has one string of names separated by single spaces, and one of the format `pilean-manifest-1` has it under `proves`, read as `theorems`; `Manifest.parse` reads all of them and refuses an array in those two formats and a string in the later ones) |
-| `kind`, `keys`, `cycle`, `captions`, `checks`, `unchecked` | only for a file of a motion, the record its source record holds: `kind` is `motion`, `keys` the number of key frames (at least one), `cycle` the length of one cycle in seconds, exactly, as a string `n` or `n/d` in lowest terms, `captions` the number of captions, `checks` the level (`fail`, `warn`, `ignore`), `unchecked` a boolean, whether errors were left ("Motions") |
+| `kind`, `keys`, `cycle`, `captions`, `checks`, `errorsLeft`, `narrow` | only for a file of a motion, the record its source record holds: `kind` is `motion`, `keys` the number of key frames (at least one), `cycle` the length of one cycle in seconds, exactly, as a string `n` or `n/d` in lowest terms, `captions` the number of captions, `checks` the level (`fail`, `warn`, `ignore`), `errorsLeft` the number of problems the strict level treats as errors that did not stop it (`0` at `fail`), `narrow` a boolean, whether it has a narrow rendition ("Motions") |
 
 `Manifest.parse` refuses an entry of this format with a key the table does not have, a `kind`
 other than `motion`, the keys of a motion without `kind` or `kind` without them, a cycle or a level

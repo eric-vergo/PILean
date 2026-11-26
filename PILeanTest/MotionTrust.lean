@@ -169,7 +169,7 @@ def outputChecks (name : String) (m : Motion) : Array (String × Bool) :=
       (os.filter fun o => o.name != "" || o.format != .svg).all fun o => (o.problems ()).isEmpty),
     (s!"motion outputs {name}: the checked motion is the report's",
       let c := ToCheckedMotion.checked m
-      c.stopped == r.problemsFail && !c.unchecked && c.summary == summary)]
+      c.stopped == r.problemsFail && c.errorsLeft == 0 && c.summary == summary)]
 
 /-- The outputs of the golden picture of panels, at both widths. -/
 def panelChecks : Array (String × Bool) :=
@@ -190,7 +190,8 @@ def panelChecks : Array (String × Bool) :=
         ["svg", "png-poster", "pdf-poster", "svg-keys", "png-keys", "pdf-keys"] ++ keyNames "" ++
           ["svg-narrow"] ++ keyNames "-narrow"),
     ("panels outputs: every output renders and records the picture",
-      os.all fun o => (o.bytes ()).toOption.isSome && o.motion () == some (strict n r.timeline.cycle)),
+      os.all fun o => (o.bytes ()).toOption.isSome &&
+        o.motion () == some { strict n r.timeline.cycle with narrow := true }),
     ("panels outputs: the animated SVGs are the checked routes' at both widths",
       (find os "" .svg).any (bytesOf · == svg.toUTF8) && !svg.isEmpty &&
         (find os "-narrow" .svg).any (bytesOf · == nsvg.toUTF8) && !nsvg.isEmpty),
@@ -221,7 +222,8 @@ def panelChecks : Array (String × Bool) :=
           mv.panel == "The centres turn") && rows.all (·.moves.all (·.asDeclared))),
     ("panels outputs: the checked picture is the report's",
       let c := ToCheckedMotion.checked P
-      c.stopped == r.problemsFail && !c.unchecked && c.narrow.isSome),
+      c.stopped == r.problemsFail && c.errorsLeft == 0 && c.narrow.isSome &&
+        c.summary.narrow),
     ("panels outputs: the dark style draws every file",
       (P.style.darkTwin?.map fun d => (ToOutputs.outputs (P.withStyle d)).all
         fun o => (o.bytes ()).toOption.isSome) == some true)]
@@ -229,7 +231,7 @@ def panelChecks : Array (String × Bool) :=
 /-- The contact sheet: its grid, the stills in it and the captions below them. -/
 def sheetChecks : Array (String × Bool) :=
   let m := twoCentresMotion
-  let c := m.report.checked
+  let c := m.checked
   let sh := c.sheet
   let w := (m.keyFigure 0).autoPlaced.frame.width.round
   let plain := sheetOf c.title c.captions c.main.stills c.style (textAsShapes := false)
@@ -323,7 +325,7 @@ def routeChecks : Array (String × Bool) :=
         (o.motionPage ()).isNone && (o.inline ()).isNone && (o.theme ()).1.isEmpty),
     ("motion warn: it renders, records the level and the errors left, and its page says so",
       warned.all (fun o => (o.bytes ()).toOption.isSome &&
-          (o.motion ()).any fun mo => mo.checks == "warn" && mo.unchecked) &&
+          (o.motion ()).any fun mo => mo.checks == "warn" && mo.errorsLeft == 1) &&
         (find warned "" .svg).any (fun o => !(o.problems ()).isEmpty) &&
         (pageOf warned).any fun d => d.unchecked && (d.checkWords.any (has · "errors")) &&
           has d.words "not what the steps declare"),
@@ -333,11 +335,28 @@ def routeChecks : Array (String × Bool) :=
         has d.betweenWords "crossfades items whose declared move does not land"),
     ("motion ignore: it renders and records the level and the errors left, reporting nothing",
       ignored.all (fun o => (o.bytes ()).toOption.isSome && (o.problems ()).isEmpty &&
-        (o.motion ()).any fun mo => mo.checks == "ignore" && mo.unchecked)),
+        (o.motion ()).any fun mo => mo.checks == "ignore" && mo.errorsLeft == 1)),
     ("motion warn without errors: recorded as warn, and the page says what that level means",
-      cleanWarn.all (fun o => (o.motion ()).any fun mo => mo.checks == "warn" && !mo.unchecked) &&
+      cleanWarn.all (fun o => (o.motion ()).any fun mo => mo.checks == "warn" && mo.errorsLeft == 0) &&
         (pageOf cleanWarn).any fun d => d.unchecked &&
-          d.checkWords.any (has · "check level warn")),
+          d.checkWords.any (has · "the strict level finds no error")),
+    ("motion warn: a problem the strict level treats as an error is counted as left, though warn \
+        makes it a note",
+      let os := ToOutputs.outputs (atLevel { turnMotion with info := {} } .warn)
+      os.all (fun o => (o.motion ()).any (·.errorsLeft == 1)) &&
+        (pageOf os).any fun d => d.checkWords.any (has · "1 problem that the strict level")),
+    ("panels fail: errors of the narrow rendition alone stop it, are not counted as left, and \
+        fail its files",
+      let P : MotionPanels := { PILeanTest.MotionPanelsChecks.framesPanels with
+        narrowWidth := some 80 }
+      let os := ToOutputs.outputs P
+      (P.narrow.any fun n => n.report.problemsFail) && !P.report.problemsFail &&
+        (find os "" .svg).any (fun o => (o.bytes ()).toOption.isSome) &&
+        (find os "-narrow" .svg).any (fun o => has (errorOf o) "narrow rendition: ") &&
+        os.all fun o => (o.motion ()).any fun mo => mo.strict && mo.narrow),
+    ("motion page: a move that does not land is one crossfade, not also an undeclared change",
+      (pageOf warned).any fun d => !d.crossfades &&
+        !has d.betweenWords "change without a declared move"),
     ("motion ignore: a poster out of range stops every output, dropping none silently",
       farPoster.size == (ToOutputs.outputs turnMotion).size &&
         farPoster.all fun o => has (errorOf o) "the poster is key 7" &&
@@ -361,7 +380,7 @@ def routeChecks : Array (String × Bool) :=
     ("motion checked: the checked motion of a stopped motion is stopped, of a warned one not",
       (ToCheckedMotion.checked broken).stopped &&
         !(ToCheckedMotion.checked (atLevel broken .warn)).stopped &&
-        (ToCheckedMotion.checked (atLevel broken .warn)).unchecked)]
+        (ToCheckedMotion.checked (atLevel broken .warn)).errorsLeft == 1)]
 
 /-- A manifest entry of a motion's file. -/
 def motionEntry (path : String) (motion : Option MotionSummary) : ManifestEntry :=
@@ -380,23 +399,30 @@ def recordChecks : Array (String × Bool) :=
   let parsed := (Manifest.parse text.toUTF8).toOption
   let edit := fun (a b : String) => Manifest.parse (text.replace a b).toUTF8
   let refused := fun (a b : String) => (edit a b) matches .error _
-  let warnRecord : MotionSummary := { mo with checks := "warn", unchecked := true }
+  let warnRecord : MotionSummary := { mo with checks := "warn", errorsLeft := 2 }
+  let narrowRecord : MotionSummary := { mo with narrow := true }
+  let narrowEs := #[motionEntry "M/d-narrow.svg" (some mo), motionEntry "M/d-narrow-key-0.png"
+    (some mo), motionEntry "M/d-narrow-key-0.svg" (some mo)]
   let src : Source :=
     { module := "M", decl := "M.d", file := "M.lean", line := 1, column := 0, version := "0.1.0",
       motion := some warnRecord }
   #[("motion record: the format is pilean-manifest-4", manifestFormat == "pilean-manifest-4"),
     ("motion record: the text of a record, read back",
-      mo.text == "keys=1;cycle=59/10;captions=1;checks=fail;unchecked=no" &&
-        MotionSummary.ofText? mo.text == some mo &&
-        MotionSummary.ofText? "keys=3;cycle=6;captions=3;checks=ignore;unchecked=yes" ==
-          some { keys := 3, cycle := 6, captions := 3, checks := "ignore", unchecked := true }),
+      mo.text == "keys=1;cycle=59/10;captions=1;checks=fail;errorsLeft=0;narrow=no" &&
+        MotionSummary.ofText? mo.text == some mo && mo.strict && !warnRecord.strict &&
+        MotionSummary.ofText? "keys=3;cycle=6;captions=3;checks=ignore;errorsLeft=2;narrow=yes" ==
+          some { keys := 3, cycle := 6, captions := 3, checks := "ignore", errorsLeft := 2,
+                 narrow := true }),
     ("motion record: a malformed record is refused",
-      ["keys=1;cycle=59/10;captions=1;checks=fail", "keys=0;cycle=1;captions=1;checks=fail;\
-          unchecked=no", "keys=1;cycle=2/4;captions=1;checks=fail;unchecked=no",
-        "keys=1;cycle=1;captions=1;checks=never;unchecked=no",
-        "keys=1;cycle=1;captions=1;checks=fail;unchecked=maybe",
-        "cycle=1;keys=1;captions=1;checks=fail;unchecked=no",
-        "keys=01;cycle=1;captions=1;checks=fail;unchecked=no", ""].all
+      ["keys=1;cycle=59/10;captions=1;checks=fail;errorsLeft=0",
+        "keys=0;cycle=1;captions=1;checks=fail;errorsLeft=0;narrow=no",
+        "keys=1;cycle=2/4;captions=1;checks=fail;errorsLeft=0;narrow=no",
+        "keys=1;cycle=1;captions=1;checks=never;errorsLeft=0;narrow=no",
+        "keys=1;cycle=1;captions=1;checks=fail;errorsLeft=0;narrow=maybe",
+        "keys=1;cycle=1;captions=1;checks=fail;errorsLeft=1;narrow=no",
+        "keys=1;cycle=1;captions=1;checks=warn;errorsLeft=01;narrow=no",
+        "cycle=1;keys=1;captions=1;checks=fail;errorsLeft=0;narrow=no",
+        "keys=1;cycle=1;captions=1;checks=fail;unchecked=no;narrow=no", ""].all
         (MotionSummary.ofText? · |>.isNone)),
     ("motion record: a cycle the reader cannot read back cannot be recorded",
       !({ mo with cycle := 1 / (10 ^ 19 : Nat) } : MotionSummary).recordable &&
@@ -407,7 +433,7 @@ def recordChecks : Array (String × Bool) :=
       (svg.toOption.bind fun t => (Source.read? t.toUTF8).toOption) == some src),
     ("motion record: the manifest writes it after the standing",
       has text "\"standing\":\"illustration\",\"kind\":\"motion\",\"keys\":1,\"cycle\":\"59/10\",\
-        \"captions\":1,\"checks\":\"fail\",\"unchecked\":false}"),
+        \"captions\":1,\"checks\":\"fail\",\"errorsLeft\":0,\"narrow\":false}"),
     ("motion record: written to the manifest and read back", parsed == some es),
     ("motion record: a whole cycle is written without a denominator",
       cycleText 6 == "6" && cycleText (59 / 10) == "59/10" && cycleOfText? "6" == some 6),
@@ -424,7 +450,9 @@ def recordChecks : Array (String × Bool) :=
         refused "\"captions\":1" "\"captions\":\"1\"" &&
         refused "\"cycle\":\"59/10\"" "\"cycle\":59" &&
         refused "\"checks\":\"fail\"" "\"checks\":\"never\"" &&
-        refused "\"unchecked\":false" "\"unchecked\":\"no\""),
+        refused "\"narrow\":false" "\"narrow\":\"no\"" &&
+        refused "\"errorsLeft\":0" "\"errorsLeft\":1" &&
+        refused "\"errorsLeft\":0," ""),
     ("motion record: a key the format does not have is refused",
       refused "\"kind\":\"motion\"" "\"kind\":\"motion\",\"speed\":2" &&
         refused "\"path\"" "\"extra\":1,\"path\""),
@@ -440,6 +468,11 @@ def recordChecks : Array (String × Bool) :=
       (Manifest.parse (Manifest.render (es.pop)).toUTF8) matches .error _ &&
       (Manifest.parse (Manifest.render (es.push (motionEntry "M/d-key-1.svg" (some mo)))).toUTF8)
         matches .error _ &&
+      (Manifest.parse (Manifest.render (es.map ({ · with motion := some narrowRecord }))).toUTF8)
+        matches .error _ &&
+      (Manifest.parse (Manifest.render ((es ++ narrowEs).map
+        ({ · with motion := some narrowRecord }))).toUTF8).toOption.isSome &&
+      (Manifest.parse (Manifest.render (es ++ narrowEs)).toUTF8) matches .error _ &&
       keyStillOf? "A/b-narrow-key-12.png" == some ("A/b-narrow", 12) &&
         keyStillOf? "A/b-keys.svg" == none),
     ("motion record: a manifest of the previous format is read, without motions",
@@ -482,6 +515,49 @@ def inertChecks : Array (String × Bool) :=
     ("motion ids: the scan finds the ids written twice, each once",
       duplicateIds "<g id=\"a\"/><g id=\"b\"/><g id=\"a\"/><g id=\"a\"/>" == #["a"] &&
         (duplicateIds "<g id=\"a\"/><g data-id=\"a\"/>").isEmpty)]
+
+/-! ### Forgeries that do not compile
+
+A checked motion is made only from a motion or a picture of panels (`Motion.checked`,
+`MotionPanels.checked`): its constructor is private, and no function takes a report, so a report
+with its problems removed cannot be turned into one. -/
+
+/-- error: invalid {...} notation, constructor for `CheckedMotion` is marked as private -/
+#guard_msgs in
+example (c : CheckedMotion) : CheckedMotion := { c with stops := #[], errorsLeft := 0 }
+
+/-- error: Invalid `⟨...⟩` notation: Constructor for `PILean.Trust.CheckedMotion` is marked as
+private -/
+#guard_msgs in
+example (c : CheckedMotion) : CheckedMotion :=
+  ⟨c.title, c.captions, c.poster, c.cycle, c.style, c.textAsShapes, c.checks, c.main, c.narrow,
+    c.steps, c.crossfades, c.warnings, #[], 0, c.animation⟩
+
+/-- error: Unknown constant `PILean.Trust.CheckedMotion.mk` -/
+#guard_msgs in
+example (c : CheckedMotion) : CheckedMotion :=
+  CheckedMotion.mk c.title c.captions c.poster c.cycle c.style c.textAsShapes c.checks c.main
+    c.narrow c.steps c.crossfades c.warnings #[] 0 c.animation
+
+/--
+error: Invalid field `checked`: The environment does not contain `PILean.Plane.MotionReport.checked`, so it is not possible to project the field `checked` from an expression
+  r
+of type `MotionReport`
+-/
+#guard_msgs in
+example (m : Motion) : CheckedMotion :=
+  let r : MotionReport := { m.report with problems := #[] }
+  r.checked
+
+/--
+error: Invalid field `checked`: The environment does not contain `PILean.Plane.MotionPanelsReport.checked`, so it is not possible to project the field `checked` from an expression
+  r
+of type `MotionPanelsReport`
+-/
+#guard_msgs in
+example (P : MotionPanels) : CheckedMotion :=
+  let r : MotionPanelsReport := { P.report with problems := #[] }
+  r.checked
 
 /-- The checks that need no files. -/
 def checks : Array (String × Bool) :=
@@ -543,7 +619,7 @@ def ioChecks : IO (Array (String × Bool)) := do
   let root : System.FilePath := ".lake" / "pilean-test-motion"
   if ← root.pathExists then IO.FS.removeDirAll root
   let a := root / "a"
-  let code ← build entries a { requireStanding := true, requireChecked := true }
+  let code ← build entries a { requireStanding := true }
   let manifest := (Manifest.parse (← IO.FS.readBinFile (a / manifestName))).toOption.getD #[]
   let dir := "PILeanTest/MotionFigures/"
   let turnPaths := (manifest.filter (·.decl == "PILeanTest.MotionFigures.turn")).map (·.path)
@@ -580,6 +656,13 @@ def ioChecks : IO (Array (String × Bool)) := do
       { m with motion := m.motion.map fun mo => { mo with checks := "warn" } }
     else m
   let verdictRelevel ← withManifest a relevel manifest (verdicts a)
+  let narrowGone := manifest.filter fun m => !has m.path "panels-narrow"
+  let verdictNarrowGone ← withManifest a narrowGone manifest do
+    let moved := (manifest.filter fun m => has m.path "panels-narrow").map (·.path)
+    for p in moved do IO.FS.rename (a / p) (root / (p.replace "/" "_"))
+    let v ← verdicts a
+    for p in moved do IO.FS.rename (root / (p.replace "/" "_")) (a / p)
+    return v
   -- a forged animated SVG that is not inert, listed with its size and hash
   let forged := root / "f"
   for m in manifest do
@@ -601,9 +684,13 @@ def ioChecks : IO (Array (String × Bool)) := do
   let marked := entryOf "marked" turnMotion (.illustration true)
   let warned := entryOf "warned" (atLevel broken .warn) (.illustration true)
   let requireBad ← renderError #[unmarked] { requireStanding := true }
-  let requireOk ← renderError #[marked] { requireStanding := true, requireChecked := true }
-  let requireWarned ← renderError #[warned] { requireChecked := true }
-  let standingOnly ← renderError #[warned] { requireStanding := true }
+  let requireOk ← renderError #[marked] { requireStanding := true }
+  let requireWarned ← renderError #[warned]
+  let allowed ← renderError #[warned] { allowUnchecked := true }
+  let oneOutput := renderOutput warned (((warned.outputs ())[3]?).getD default) {}
+  let argsDefault := parseArgs []
+  let argsAllow := parseArgs ["--allow-unchecked"]
+  let argsRequire := parseArgs ["--require-checked"]
   let failing ← renderError #[entryOf "broken" broken (.illustration true)]
   let failCode ← build #[entryOf "broken" broken (.illustration true)] (root / "g") {}
   let nothingWritten := !(← (root / "g" / manifestName).pathExists)
@@ -655,16 +742,28 @@ def ioChecks : IO (Array (String × Bool)) := do
         every file's source record",
       [verdictRecycle, verdictRelevel].all fun v =>
         (v.filter (·.startsWith "source differs PILeanTest/MotionFigures/turn")).length == 12),
+    ("motion verify: a folder without the narrow rendition a motion records is refused",
+      verdictNarrowGone == ["error"]),
     ("motion verify: an SVG that waits for an event, listed with its size and hash, is not inert",
       verdictForged.contains s!"not inert {dir}twoCentres.svg" &&
         (verdictForged.filter (·.startsWith "ok ")).length == manifest.size - 1),
     ("motion standing: --require-standing refuses an unmarked motion, accepts a marked one",
       has requireBad "PILeanTest.MotionTrust.unmarked is an illustration without the marking" &&
         requireOk == ""),
-    ("motion checked: --require-checked refuses a motion built at warn with errors left; \
-        --require-standing alone does not",
+    ("motion checked: a build refuses a motion built at warn with errors left, unless \
+        --allow-unchecked",
       has requireWarned "PILeanTest.MotionTrust.warned is a motion built at the check level warn \
-        with errors left" && standingOnly == ""),
+        with 1 error left at the strict level" && allowed == ""),
+    ("motion checked: renderOutput itself refuses each output of such a motion (the route site \
+        builds use)",
+      match oneOutput with
+      | .error e => has e "is a motion built at the check level warn"
+      | .ok _ => false),
+    ("motion checked: refusing is the default; --allow-unchecked opts out; --require-checked is \
+        accepted",
+      (argsDefault.toOption.any fun (_, o) => !o.allowUnchecked) &&
+        (argsAllow.toOption.any fun (_, o) => o.allowUnchecked) &&
+        (argsRequire.toOption.any fun (_, o) => !o.allowUnchecked)),
     ("motion build: a motion with errors fails the build with a readable message, writing nothing",
       has failing "PILeanTest/MotionTrust/broken.svg: problems: " &&
         has failing "PILeanTest/MotionTrust/broken-key-0.png: problems: " && failCode == 1 &&

@@ -10,10 +10,10 @@ import PILean.Plane.MotionPanels
 
 A motion of plane figures (`PILean.Plane.Motion`) or a picture of several motions as panels on one
 clock (`PILean.Plane.MotionPanels`) becomes files through a *checked motion* (`CheckedMotion`).
-Its constructor is private to this module: a checked motion is made only from the checked report
-of a motion (`Plane.MotionReport.checked`) or of a picture of panels
-(`Plane.MotionPanelsReport.checked`), so whether it is stopped, which errors stop it and which
-were left cannot be claimed apart from the report. It holds what every output reads: the checked
+Its constructor is private to this module: a checked motion is made only from a motion
+(`Plane.Motion.checked`) or a picture of panels (`Plane.MotionPanels.checked`), whose reports are
+computed there, so whether it is stopped, which errors stop it and which were left cannot be
+claimed apart from the checks; no function takes a report. It holds what every output reads: the checked
 animated SVG (never one of the routes that end in `Unchecked`), the key stills ready-made
 (`MotionStill`), the captions, the cycle, the table of the steps and the problems.
 `ToCheckedMotion α` says which report a value of `α` is checked by; `motionOutputs` turns a
@@ -50,8 +50,8 @@ inline (`Output.motionPage`).
   `CheckedMotion.sheetSvg`: the contact sheet.
 * `stillOutputs`, `MotionFigure`, `motionOutputs`, and the instances for `Plane.Motion`,
   `Plane.MotionPanels` and `MotionFigure`.
-* `Plane.moveRows`, `Plane.Motion.stepRows`, `Plane.MotionReport.checked`,
-  `Plane.MotionPanelsReport.checked`, `Plane.Motion.withStyle`, `Plane.MotionPanels.withStyle`.
+* `Plane.moveRows`, `Plane.Motion.stepRows`, `Plane.Motion.checked`,
+  `Plane.MotionPanels.checked`, `Plane.Motion.withStyle`, `Plane.MotionPanels.withStyle`.
 -/
 
 namespace PILean.Trust
@@ -116,9 +116,9 @@ structure MotionRendition where
   /-- What stops this rendition beyond what stops the motion. -/
   stops : Array String := #[]
 
-/-- A motion checked once, as its outputs read it. Made only by `Plane.MotionReport.checked` and
-`Plane.MotionPanelsReport.checked` (the constructor is private), so every field that says how the
-motion was checked comes from its report. -/
+/-- A motion checked once, as its outputs read it. Made only by `Plane.Motion.checked` and
+`Plane.MotionPanels.checked` (the constructor is private), which compute the report themselves, so
+every field that says how the motion was checked comes from its checks. -/
 structure CheckedMotion where private mk ::
   /-- The title of the picture (the sheet's heading and title). -/
   title : String
@@ -147,15 +147,15 @@ structure CheckedMotion where private mk ::
   /-- What stops the motion: its errors under `fail`, and at every level what makes it
   impossible to write as recorded (not well formed, an id twice, several text engines). -/
   stops : Array String
-  /-- Whether its checks found errors that did not stop it (under `warn` or `ignore`). -/
-  unchecked : Bool
+  /-- The number of problems the strict level (`fail`) treats as errors that did not stop it (in a
+  rendition that is written). -/
+  errorsLeft : Nat
   /-- The motion as baked frames at a number of frames a second, or what stops it. -/
   animation : Nat → Except (Array String) Animation
 
 /-- Values that are rendered as motions: the checked motion of their report. -/
 class ToCheckedMotion (α : Type) where
-  /-- The motion checked once (`Plane.MotionReport.checked`, `Plane.MotionPanelsReport.checked`).
-  -/
+  /-- The motion checked once (`Plane.Motion.checked`, `Plane.MotionPanels.checked`). -/
   checked : α → CheckedMotion
 
 /-- Whether the checked motion is stopped. -/
@@ -168,7 +168,7 @@ def levelWord : CheckLevel → String
 /-- The record every output of the checked motion carries. -/
 def CheckedMotion.summary (c : CheckedMotion) : MotionSummary :=
   { keys := c.main.stills.size, cycle := c.cycle, captions := c.captions.size,
-    checks := levelWord c.checks, unchecked := c.unchecked }
+    checks := levelWord c.checks, errorsLeft := c.errorsLeft, narrow := c.narrow.isSome }
 
 /-- The body of the root `root` of an animated SVG as a page puts it inline: its children without
 `title`, `desc`, `style` and the poster group (class `Animation.posterClass`). -/
@@ -433,16 +433,18 @@ def moveRows (vs : Array MotionVersion) (panel : String) (j : Nat)
     | _ => { panel, actor := id, kind := mv.name, drawn }
 
 /-- Whether some item of the motion with layers `vs` and `n` keys changes between two keys
-without a declared move: a layer that begins after the first key without a declared appearance,
-or ends before the last without a declared disappearance (a crossfade). -/
+without a declared move: a layer that begins after the first key, or ends before the last, in a
+step that declares no move for its actor (an item without an id has none). A layer that begins or
+ends where its actor has a declared move is that move's appearance or disappearance, or the
+crossfade of a move that does not land, which the step table marks (`moveDrawn`). -/
 def crossfadesIn (m : Motion) (vs : Array MotionVersion) (n : Nat) : Bool :=
-  let declared := fun (j : Nat) (actor : Option String) (want : Move → Bool) =>
+  let declared := fun (j : Nat) (actor : Option String) =>
     match actor with
-    | some id => (m.moveOf j id).any want
+    | some id => (m.moveOf j id).isSome
     | none => false
   vs.any fun v =>
-    (v.first > 0 && !declared (v.first - 1) v.actor (· matches .appear)) ||
-      (v.last + 1 < n && !declared v.last v.actor (· matches .vanish))
+    (v.first > 0 && !declared (v.first - 1) v.actor) ||
+      (v.last + 1 < n && !declared v.last v.actor)
 
 /-- The table of the motion's steps (its keys as drawn `K`): for each step its duration
 (`Motion.animStep` of the pacing, a negative one as zero), whether it is idle, and each declared
@@ -478,15 +480,22 @@ def MotionPanels.style (P : MotionPanels) : Style :=
 def Motion.actorIds (m : Motion) : Array String :=
   (m.keys.flatMap (·.items.filterMap Item.actorId?)).toList.eraseDups.toArray
 
-/-- The checked motion of the report of one motion (`Motion.report`): the animated SVG of the
-checked route (`MotionReport.svg?`), the body of its root for a page (`liveNodes`), the stills
-(the keys as drawn, `Motion.keyFigure`, through `ExplorerFrame.ofPlane`), the step table, the
-warnings, and what stops it: its errors under `fail`, and at every level the errors of a motion
-that is not well formed (`Motion.WellFormed`) and an id written twice (`idStops`). A single
-motion has no narrow rendition. -/
-def MotionReport.checked (r : MotionReport) : CheckedMotion :=
+/-- The number of problems the strict level treats as errors: those of the motion's report at its
+level when that is `fail`, else those of the motion checked at `fail`. -/
+def Motion.strictErrors (m : Motion) (r : MotionReport) : Nat :=
+  if m.checks == .fail then r.errors.size else ({ m with checks := .fail } : Motion).report.errors.size
+
+/-- The checked motion of one motion, its report (`Motion.report`) computed here: the animated
+SVG of the checked route (`MotionReport.svg?`), the body of its root for a page (`liveNodes`), the
+stills (the keys as drawn, `Motion.keyFigure`, through `ExplorerFrame.ofPlane`), the step table,
+the warnings, what stops it (its errors under `fail`, and at every level the errors of a motion
+that is not well formed, `Motion.WellFormed`, and an id written twice, `idStops`), and the errors
+the strict level finds that did not stop it (`Motion.strictErrors`). It takes the motion, not a
+report, so that what it says of the checks is the checks' own. A single motion has no narrow
+rendition. -/
+def Motion.checked (m : Motion) : CheckedMotion :=
+  let r := m.report
   let f := r.plan.env.frame
-  let m := r.motion
   let errors := r.errors
   let wellFormed := decide m.WellFormed
   let idProblems := match r.svg? with
@@ -504,17 +513,17 @@ def MotionReport.checked (r : MotionReport) : CheckedMotion :=
     steps := m.stepRows r.keys,
     crossfades := crossfadesIn m (m.versions r.keys r.keys.env).1 m.keys.size,
     warnings := if !stops.isEmpty then #[] else r.checkMessages,
-    stops, unchecked := stops.isEmpty && !errors.isEmpty,
+    stops, errorsLeft := if stops.isEmpty then m.strictErrors r else 0,
     animation := fun fps => if stops.isEmpty then r.animation? fps else .error stops }
 
-/-- A motion is checked by its report. -/
+/-- A motion is checked by its report (`Motion.checked`). -/
 instance : ToCheckedMotion Motion where
-  checked m := m.report.checked
+  checked m := m.checked
 
 /-- Motions: the outputs of `motionOutputs`, without the APNG and the GIF (`MotionFigure` asks for
 them). -/
 instance : ToOutputs Motion where
-  outputs m := motionOutputs m.report.checked
+  outputs m := motionOutputs m.checked
 
 /-- What stops a picture of panels from being written as recorded, at every level: the errors of
 a picture that is not well formed, panels drawn with different text engines (its stills and its
@@ -564,18 +573,28 @@ def MotionPanelsReport.tableRows (r : MotionPanelsReport) : Array MotionStepRow 
       moves := row.moves.flatMap fun (i, id, mv) =>
         moveRows (vss.getD i #[]) (r.figure.name i) row.step #[(id, mv)] }
 
-/-- The checked motion of the report of a picture of panels (`MotionPanels.report`), with the
-report of its narrow rendition (`MotionPanels.narrow`), if it has one: the main rendition stopped
-by the picture's errors under `fail` and by `writeStops`; the narrow one also by its own errors
-under `fail` and its own `writeStops`; the errors left by either, under `warn` or `ignore`, make
-the motion `unchecked`. -/
-def MotionPanelsReport.checked (r : MotionPanelsReport) (narrow : Option MotionPanelsReport) :
-    CheckedMotion :=
-  let P := r.figure
+/-- The number of problems the strict level treats as errors in the picture `P` whose report is
+`r`: `r`'s errors when its level is `fail`, else those of the picture checked at `fail`. -/
+def MotionPanels.strictErrors (P : MotionPanels) (r : MotionPanelsReport) : Nat :=
+  if P.checks == .fail then r.errors.size
+  else ({ P with checks := .fail } : MotionPanels).report.errors.size
+
+/-- The checked motion of a picture of panels, its report (`MotionPanels.report`) and that of its
+narrow rendition (`MotionPanels.narrow`) computed here: the main rendition stopped by the
+picture's errors under `fail` and by `writeStops`; the narrow one also by its own errors under
+`fail` and its own `writeStops`; the errors the strict level finds in each rendition that is not
+stopped are the errors left (`MotionPanels.strictErrors`). It takes the picture, not a report, so
+that what it says of the checks is the checks' own. -/
+def MotionPanels.checked (P : MotionPanels) : CheckedMotion :=
+  let r := P.report
+  let narrowP := P.narrow
+  let narrow := narrowP.map (·.report)
   let stops := (if r.problemsFail then r.errors else #[]) ++ r.writeStops
   let narrowStops := fun (n : MotionPanelsReport) =>
     ((if n.problemsFail then n.errors else #[]) ++ n.writeStops).map ("narrow rendition: " ++ ·)
-  let left := !r.errors.isEmpty || narrow.any (!·.errors.isEmpty)
+  let narrowLeft := match narrowP, narrow with
+    | some nP, some n => if (stops ++ narrowStops n).isEmpty then nP.strictErrors n else 0
+    | _, _ => 0
   { title := P.info.title, captions := P.captions, poster := P.poster,
     cycle := r.timeline.cycle, style := r.style,
     textAsShapes := ((r.panels[0]?).bind fun pr => (pr.keys.figs[0]?).map (·.textAsShapes)).getD
@@ -588,16 +607,17 @@ def MotionPanelsReport.checked (r : MotionPanelsReport) (narrow : Option MotionP
       crossfadesIn pr.motion (pr.motion.versions pr.keys pr.keys.env).1 pr.motion.keys.size,
     warnings := if !stops.isEmpty then #[] else
       r.checkMessages ++ ((narrow.map (·.checkMessages.map ("narrow rendition: " ++ ·))).getD #[]),
-    stops, unchecked := stops.isEmpty && left,
+    stops, errorsLeft := if stops.isEmpty then P.strictErrors r + narrowLeft else 0,
     animation := fun fps => if stops.isEmpty then r.animation? fps else .error stops }
 
-/-- A picture of panels is checked by its report and that of its narrow rendition. -/
+/-- A picture of panels is checked by its report and that of its narrow rendition
+(`MotionPanels.checked`). -/
 instance : ToCheckedMotion MotionPanels where
-  checked P := P.report.checked (P.narrow.map (·.report))
+  checked P := P.checked
 
 /-- Pictures of panels: the outputs of `motionOutputs`, without the APNG and the GIF
 (`MotionFigure` asks for them). -/
 instance : ToOutputs MotionPanels where
-  outputs P := motionOutputs (ToCheckedMotion.checked P)
+  outputs P := motionOutputs P.checked
 
 end PILean.Plane

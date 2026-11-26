@@ -100,11 +100,13 @@ def cycleOfText? (t : String) : Option Rat := do
   if cycleText q == t then some q else none
 
 /-- What every file of a motion records about it, in its source record (the key `motion`,
-`MotionSummary.text`) and in the manifest (the keys `kind`, `keys`, `cycle`, `captions`, `checks`
-and `unchecked`): the number of its key frames, the length of its cycle in seconds, exactly, the
-number of its captions, the level its checks were applied at (`fail`, `warn` or `ignore`), and
-whether its checks found errors that did not stop it (`unchecked`). Only a motion recorded with
-`checks` `fail` and not `unchecked` was stopped by every error its checks find. -/
+`MotionSummary.text`) and in the manifest (the keys `kind`, `keys`, `cycle`, `captions`, `checks`,
+`errorsLeft` and `narrow`): the number of its key frames, the length of its cycle in seconds,
+exactly, the number of its captions, the level its checks were applied at (`fail`, `warn` or
+`ignore`), the number of problems that the strict level (`fail`) treats as errors and that did not
+stop it (`errorsLeft`: always `0` at `fail`, where an error stops it), and whether it has a narrow
+rendition. Only a motion recorded with `checks` `fail` was stopped by every error its checks
+find. -/
 structure MotionSummary where
   /-- The number of key frames. -/
   keys : Nat
@@ -114,20 +116,26 @@ structure MotionSummary where
   captions : Nat
   /-- The level the motion's checks were applied at: `fail`, `warn` or `ignore`. -/
   checks : String := "fail"
-  /-- Whether the checks found errors that did not stop the motion (under `warn` or `ignore`). -/
-  unchecked : Bool := false
+  /-- The number of problems the strict level treats as errors that did not stop the motion (in a
+  rendition that was written). -/
+  errorsLeft : Nat := 0
+  /-- Whether the motion has a narrow rendition (files with the suffix `-narrow`). -/
+  narrow : Bool := false
   deriving BEq, Repr, Inhabited
+
+/-- Whether the record says the motion was checked strictly: at the level `fail`, no error left. -/
+def MotionSummary.strict (m : MotionSummary) : Bool := m.checks == "fail" && m.errorsLeft == 0
 
 /-- The levels a motion's checks can be applied at, as a record writes them. -/
 def motionCheckWords : Array String := #["fail", "warn", "ignore"]
 
-/-- The record of a motion as one value: `keys=3;cycle=59/10;captions=3;checks=fail;unchecked=no`
-(`unchecked=yes` when errors remained). -/
+/-- The record of a motion as one value:
+`keys=3;cycle=59/10;captions=3;checks=fail;errorsLeft=0;narrow=no`. -/
 def MotionSummary.text (m : MotionSummary) : String :=
   s!"keys={m.keys};cycle={cycleText m.cycle};captions={m.captions};checks={m.checks};\
-    unchecked={if m.unchecked then "yes" else "no"}"
+    errorsLeft={m.errorsLeft};narrow={if m.narrow then "yes" else "no"}"
 
-/-- The record of a motion `MotionSummary.text` writes, read back: exactly its five fields in its
+/-- The record of a motion `MotionSummary.text` writes, read back: exactly its six fields in its
 order, the numbers in decimal (at most nine digits, no leading zero), the cycle as
 `cycleOfText?` reads it, a known level; none for anything else. -/
 def MotionSummary.ofText? (t : String) : Option MotionSummary := do
@@ -135,18 +143,20 @@ def MotionSummary.ofText? (t : String) : Option MotionSummary := do
     if d.isEmpty || d.length > 9 || !d.all Char.isDigit || (d.length > 1 && d.startsWith "0")
     then none else d.toNat?
   match t.splitOn ";" with
-  | [k, c, n, l, u] =>
+  | [k, c, n, l, e, w] =>
     let keys ← num (← (k.dropPrefix? "keys=").map (·.toString))
     let cycle ← cycleOfText? (← (c.dropPrefix? "cycle=").map (·.toString))
     let captions ← num (← (n.dropPrefix? "captions=").map (·.toString))
     let checks := (← (l.dropPrefix? "checks=").map (·.toString))
     if !motionCheckWords.contains checks then none
-    let unchecked ← match (← (u.dropPrefix? "unchecked=").map (·.toString)) with
+    let errorsLeft ← num (← (e.dropPrefix? "errorsLeft=").map (·.toString))
+    let narrow ← match (← (w.dropPrefix? "narrow=").map (·.toString)) with
       | "yes" => some true
       | "no" => some false
       | _ => none
     if keys == 0 then none
-    let m : MotionSummary := { keys, cycle, captions, checks, unchecked }
+    if checks == "fail" && errorsLeft != 0 then none
+    let m : MotionSummary := { keys, cycle, captions, checks, errorsLeft, narrow }
     if m.text == t then some m else none
   | _ => none
 

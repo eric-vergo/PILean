@@ -93,7 +93,7 @@ def galleryPdfs : Array (String × ByteArray × Float × Float) :=
   let frames := x.frames.zipIdx.map fun (f, k) =>
     (s!"window-radius-frame-{k}", f.toPdf, f.width, f.height)
   let sheets := MotionChecks.golden.map fun (n, m) =>
-    let sh := m.report.checked.sheet
+    let sh := m.checked.sheet
     (n ++ "-keys", sh.toPdf, sh.width, sh.height)
   plots ++ planes ++ graphs ++ anims ++ frames ++ sheets ++
     #[("pdf-sampler", samplerPdf, 320, 200), ("pdf-image", imagePdf, 40, 30)]
@@ -349,7 +349,7 @@ def writeCompare (dir : System.FilePath) : IO Unit := do
   for (f, k) in Examples.PlaneFigures.windowRadius.frames.zipIdx do
     pngs := pngs.push (s!"window-radius-frame-{k}", f.toPng.getD .empty)
   for (n, m) in MotionChecks.golden do
-    pngs := pngs.push (n ++ "-keys", m.report.checked.sheet.toPng.getD .empty)
+    pngs := pngs.push (n ++ "-keys", m.checked.sheet.toPng.getD .empty)
   pngs := pngs.push ("pdf-sampler", png 320 200 samplerNodes ⟨255, 255, 255, 255⟩)
   for (n, pdf, _, _) in galleryPdfs do
     IO.FS.writeBinFile (dir / s!"{n}.pdf") pdf

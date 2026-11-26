@@ -140,12 +140,13 @@ tag := "trust-pilean-build"
 
 ```
 pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]
-             [--require-checked]
+             [--require-checked] [--allow-unchecked]
 ```
 
-`--require-standing` refuses an illustration that is not marked as one; `--require-checked`
-refuses a motion that was not built at the check level `fail` without errors left. A site that
-publishes motions builds with both.
+`--require-standing` refuses an illustration that is not marked as one. A motion that was not
+checked strictly (built at a check level other than `fail`, or with errors left) is refused by
+default, in `pilean-build` and in every site build; `--allow-unchecked` builds it, recording what
+its checks found, and `--require-checked` is accepted and is the default.
 
 Without `--check`, every output of every entry is rendered, its source record (with the
 fingerprint, and the repository and commit if given) is written into it, and the file goes to
@@ -181,7 +182,8 @@ written with `«` and `»` that holds a space or a quote is read back as it is. 
 motion records it, in its source record and here: the key `kind` is `motion`, `keys` the number
 of key frames, `cycle` the length of one cycle in seconds, exactly (`n` or `n/d` in lowest
 terms), `captions` the number of captions, `checks` the level its checks were applied at (`fail`,
-`warn`, `ignore`) and `unchecked` whether errors were left; the files of one declaration must all
+`warn`, `ignore`), `errorsLeft` the number of problems the strict level treats as errors that did
+not stop it, and `narrow` whether it has a narrow rendition; the files of one declaration must all
 record the same motion, they must list exactly the key stills it counts, and an entry with a key
 this format does not have is refused. The readers also take the earlier formats,
 `pilean-manifest-3` (before motions), `pilean-manifest-2` (one string of names separated by single

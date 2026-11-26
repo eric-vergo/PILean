@@ -1259,8 +1259,8 @@ the picture.
 
 `PILean/Trust/Motion.lean` makes a motion, or a picture of panels, a figure of the build
 (`@[figure illustration]` on a `Plane.Motion` or a `Plane.MotionPanels`). The outputs read a
-*checked motion* (`CheckedMotion`), made only from the checked report (`MotionReport.checked`,
-`MotionPanelsReport.checked`; the constructor is private): the animated SVG of the checked route
+*checked motion* (`CheckedMotion`), made only from a motion or a picture of panels
+(`Motion.checked`, `MotionPanels.checked`, which compute its report; the constructor is private): the animated SVG of the checked route
 (`svg?`, never a route that ends in `Unchecked`), the key stills ready-made (`MotionStill`), the
 captions, the poster, the cycle, the table of the steps, the check level and the problems.
 `ToCheckedMotion` says which report a type is checked by; `motionOutputs` writes the files. For a

@@ -27,7 +27,7 @@ def manifestName : String := "manifest.json"
 
 /-- The value of the manifest's `format` key. In this format the theorems of a linked figure are
 a JSON array of strings, the files of a motion record it (the keys `kind`, `keys`, `cycle`,
-`captions`, `checks` and `unchecked`), and an entry with a key the format does not have is refused. -/
+`captions`, `checks`, `errorsLeft` and `narrow`), and an entry with a key the format does not have is refused. -/
 def manifestFormat : String := "pilean-manifest-4"
 
 /-- The format before motions, which `Manifest.parse` reads too: the same entries without the keys
@@ -114,7 +114,7 @@ structure ManifestEntry where
   theorems : Option (Array String) := none
   /-- For a file of a motion: its record (`Output.motion`, the same as the file's source record
   holds), written as the keys `kind` (`motion`), `keys`, `cycle`, `captions`, `checks` and
-  `unchecked`. -/
+  `errorsLeft` and `narrow`. -/
   motion : Option MotionSummary := none
 deriving BEq, Repr, Inhabited
 
@@ -122,7 +122,7 @@ deriving BEq, Repr, Inhabited
 def manifestKeys : Array String :=
   #["path", "format", "bytes", "sha256", "fingerprint", "module", "decl", "file", "line", "column",
     "version", "repo", "commit", "darkColours", "darkOpacities", "standing", "theorems", "kind",
-    "keys", "cycle", "captions", "checks", "unchecked"]
+    "keys", "cycle", "captions", "checks", "errorsLeft", "narrow"]
 
 /-- A character a file name may have: a letter, a digit, `.`, `_`, `-`; all ASCII. -/
 def nameChar (c : Char) : Bool :=
@@ -174,7 +174,7 @@ def ManifestEntry.render (m : ManifestEntry) : String :=
     (match m.motion with
       | some mo => [s "kind" "motion", n "keys" mo.keys, s "cycle" (cycleText mo.cycle),
           n "captions" mo.captions, s "checks" mo.checks,
-          s!"\"unchecked\":{if mo.unchecked then "true" else "false"}"]
+          n "errorsLeft" mo.errorsLeft, s!"\"narrow\":{if mo.narrow then "true" else "false"}"]
       | none => [])) ++ "}"
 
 /-- The manifest text of a list of entries (in the given order). -/
@@ -193,7 +193,7 @@ and one string of names separated by single spaces when it is true (the earlier 
 `theoremsOfSpaced`). With `current` (`manifestFormat`), a key outside `manifestKeys` is refused,
 and the keys of a motion are read: `kind` is absent or `motion`, and with `motion` the number of
 keys (at least one) and of captions, the cycle (`cycleOfText?`), the check level (`fail`, `warn`
-or `ignore`) and `unchecked` (a boolean) must be there, and without it none of them; the earlier
+or `ignore`), `errorsLeft` (a number, `0` at the level `fail`) and `narrow` (a boolean) must be there, and without it none of them; the earlier
 formats have no motion, and their other keys are ignored. -/
 def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) (current : Bool := false) :
     Except String ManifestEntry := do
@@ -234,24 +234,27 @@ def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) (current : Bool := 
     | _, _, false => throw "the key theorems must be a list of strings"
   let motion ← if !current then pure none else
     match j.get? "kind", (j.get? "keys", j.get? "cycle", j.get? "captions"),
-        (j.get? "checks", j.get? "unchecked") with
-    | none, (none, none, none), (none, none) => pure none
+        (j.get? "checks", j.get? "errorsLeft", j.get? "narrow") with
+    | none, (none, none, none), (none, none, none) => pure none
     | some (.str "motion"), (some (.num keys), some (.str c), some (.num captions)),
-        (some (.str checks), some (.bool unchecked)) =>
+        (some (.str checks), some (.num errorsLeft), some (.bool narrow)) =>
       match cycleOfText? c with
       | some cycle =>
         if keys == 0 then throw "a motion has at least one key"
         if !motionCheckWords.contains checks then
           throw s!"the check level {checks} is not fail, warn or ignore"
-        pure (some { keys, cycle, captions, checks, unchecked })
+        if checks == "fail" && errorsLeft != 0 then
+          throw "a motion checked at the level fail has no error left"
+        pure (some { keys, cycle, captions, checks, errorsLeft, narrow })
       | none => throw s!"the cycle {c} is not a non-negative number n or n/d in lowest terms"
     | some (.str "motion"), _, _ =>
-      throw "a motion needs the numbers keys and captions, the strings cycle and checks and the \
-        boolean unchecked"
+      throw "a motion needs the numbers keys, captions and errorsLeft, the strings cycle and checks \
+        and the boolean narrow"
     | some (.str k), _, _ => throw s!"the kind {k} is unknown"
     | some _, _, _ => throw "the key kind must be a string"
     | none, _, _ =>
-      throw "the keys keys, cycle, captions, checks and unchecked belong to a motion (kind motion)"
+      throw "the keys keys, cycle, captions, checks, errorsLeft and narrow belong to a motion \
+        (kind motion)"
   let m : ManifestEntry := {
     path := ← str "path", format := ← str "format", bytes := ← num "bytes",
     sha256 := ← str "sha256", fingerprint := ← str "fingerprint", module := ← str "module",
@@ -281,14 +284,23 @@ def keyStillOf? (path : String) : Option (String × Nat) := do
   return (stem, ← k.toNat?)
 
 /-- Why the entries `es` of one declaration, whose files record the motion `mo`, do not list its
-key stills, if they do not: for every stem with key stills (the motion's, and its narrow
-rendition's), the SVG and the PNG of each key `0` to `keys - 1` and of no other. -/
+files as the record says, if they do not: the key stills of one stem `X` (the SVG and the PNG of
+each key `0` to `keys - 1`, and of no other) with the animated SVG `X.svg`, and, exactly when the
+record says the motion has a narrow rendition, the same for the stem `X-narrow`. -/
 def motionKeyProblem? (decl : String) (mo : MotionSummary) (es : Array ManifestEntry) :
     Option String :=
   let stills := es.filterMap fun m => (keyStillOf? m.path).map fun (s, k) => (s, k, m.format)
   let stems := (stills.map (·.1)).toList.eraseDups
-  if stems.isEmpty then some s!"the files of {decl} record a motion of {mo.keys} keys but list \
-    no key still"
+  let mains := stems.filter (!·.endsWith "-narrow")
+  let narrows := stems.filter (·.endsWith "-narrow")
+  let paths := es.map (·.path)
+  if mains.length != 1 then some s!"the files of {decl} record a motion of {mo.keys} keys but list \
+    key stills of {mains.length} pictures"
+  else if narrows != (if mo.narrow then mains.map (· ++ "-narrow") else []) then
+    some s!"the files of {decl} record a motion {if mo.narrow then "with" else "without"} a narrow \
+      rendition but list the narrow key stills {narrows}"
+  else if !(stems.all fun stem => paths.contains (stem ++ ".svg")) then
+    some s!"the files of {decl} record a motion but do not list its animated SVG at each width"
   else stems.findSome? fun stem =>
     let want := (List.range mo.keys).flatMap fun k => [(k, "svg"), (k, "png")]
     let have_ := (stills.filter (·.1 == stem)).toList.map fun (_, k, f) => (k, f)

@@ -24,9 +24,10 @@ def main (args : List String) : IO UInt32 := PILean.Trust.buildMain figures% arg
 * `BuildOptions`, `renderAll`: the files and the manifest of a build, in memory
 * `build`: writes them, or with `check := true` compares them with the directory
 * `buildMain`: the command line
-  `[--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing] [--require-checked]`
+  `[--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing] [--require-checked]
+  [--allow-unchecked]`
 * `unmarkedIllustrations`: the figures `--require-standing` refuses
-* `uncheckedMotions`: the motions `--require-checked` refuses
+* `uncheckedMotions`, `uncheckedWords`: the motions refused unless `--allow-unchecked`
 
 ## Implementation notes
 
@@ -50,10 +51,18 @@ structure BuildOptions where
   mark as one (`Standing.unmarked`): every figure must have a linked theorem
   (`figure_links`) or carry `@[figure illustration]`. -/
   requireStanding : Bool := false
-  /-- Refuse to build or check when a motion was not stopped by every error its checks find
-  (`MotionSummary`: its check level is not `fail`, or errors were left): only motions checked
-  strictly are built. -/
-  requireChecked : Bool := false
+  /-- Build motions that were not checked strictly (`MotionSummary.strict`: built at a check level
+  other than `fail`, or with errors left). Off by default: without it, `renderOutput` refuses
+  every output of such a motion, so a build (and a site build that renders through
+  `renderOutput`) writes only motions stopped by every error their checks find. -/
+  allowUnchecked : Bool := false
+
+/-- Why the motion `decl`, recorded as `mo`, is not built by default: the level it was checked at
+and the errors left. -/
+def uncheckedWords (decl : String) (mo : MotionSummary) : String :=
+  s!"{decl} is a motion built at the check level {mo.checks} with {mo.errorsLeft} error\
+    {if mo.errorsLeft == 1 then "" else "s"} left at the strict level: build it at the level fail \
+    without errors, or pass --allow-unchecked (BuildOptions.allowUnchecked)"
 
 /-- A file of a build: its manifest entry and its bytes. -/
 structure BuiltFile where
@@ -70,11 +79,16 @@ PNG, APNG or GIF would show a box for each such character; if the finished file 
 `maxOutputBytes`; if its bytes are not of the output's format (`detectedFormat?`), so that
 every file of a build is one `pilean-verify` accepts; for an SVG, if the finished file is not
 inert (`Svg.inertProblem?`: it could run script, load something or wait for an event); and, for a
-PDF, if the finished file fails the structural check (`Pdf.check`). The entry records the motion
-of an output of a motion (`Output.motion`). -/
+PDF, if the finished file fails the structural check (`Pdf.check`); and, unless
+`opts.allowUnchecked`, for an output of a motion whose record says it was not checked strictly
+(`MotionSummary.strict`). The entry records the motion of an output of a motion
+(`Output.motion`). -/
 def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
     Except String BuiltFile := do
   let path ← outputPath e.toSourceData o
+  if !opts.allowUnchecked then
+    if let some mo := o.motion () then
+      if !mo.strict then throw s!"{path}: {uncheckedWords e.decl mo}"
   if o.format == .svg then
     let lacking := Lettering.missing (Lettering.svgText (String.fromUTF8? o.spec |>.getD ""))
     if !lacking.isEmpty then
@@ -111,17 +125,14 @@ def renderOutput (e : FigureEntry) (o : Output) (opts : BuildOptions) :
 def unmarkedIllustrations (entries : Array FigureEntry) : Array String :=
   entries.filterMap fun e => if e.standing.unmarked then some e.decl else none
 
-/-- The declarations of the entries that are motions not checked strictly (`requireChecked`), each
-with the check level and whether errors were left, in the entries' order. -/
+/-- The messages for the entries that are motions not checked strictly (`MotionSummary.strict`),
+one for each entry with such an output (every output is looked at), in the entries' order. -/
 def uncheckedMotions (entries : Array FigureEntry) : Array String :=
-  entries.filterMap fun e => ((e.outputs ())[0]?.bind (·.motion ())).bind fun mo =>
-    if mo.checks == "fail" && !mo.unchecked then none
-    else some s!"{e.decl} is a motion built at the check level {mo.checks}\
-      {if mo.unchecked then " with errors left" else ""}: build it at the level fail without \
-      errors"
+  entries.filterMap fun e => ((e.outputs ()).findSome? fun o =>
+    (o.motion ()).bind fun mo => if mo.strict then none else some mo).map (uncheckedWords e.decl)
 
-/-- Every file of a build, sorted by path. With `opts.requireChecked`, fails first, before anything
-is rendered, with one message for each motion of `uncheckedMotions`. With `opts.requireStanding`,
+/-- Every file of a build, sorted by path. Unless `opts.allowUnchecked`, fails first, before
+anything is rendered, with one message for each motion of `uncheckedMotions`. With `opts.requireStanding`,
 fails first, before
 anything is rendered, with one message for each figure of `unmarkedIllustrations`. Fails with all
 the messages (one per line) if there
@@ -132,7 +143,7 @@ def renderAll (entries : Array FigureEntry) (opts : BuildOptions := {}) :
     IO (Except String (Array BuiltFile)) := do
   if entries.size > maxEntries then
     return .error s!"more than {maxEntries} figures"
-  if opts.requireChecked then
+  if !opts.allowUnchecked then
     let bad := uncheckedMotions entries
     if !bad.isEmpty then return .error ("\n".intercalate bad.toList)
   if opts.requireStanding then
@@ -231,7 +242,7 @@ def build (entries : Array FigureEntry) (outDir : System.FilePath) (opts : Build
 /-- The usage text of `pilean-build`. -/
 def buildUsage : String :=
   "usage: pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing] \
-    [--require-checked]"
+    [--require-checked] [--allow-unchecked]"
 
 /-- Whether the string is 4 to 64 lowercase hexadecimal digits, as a commit is. -/
 def isCommit (s : String) : Bool :=
@@ -239,7 +250,8 @@ def isCommit (s : String) : Bool :=
 
 /-- The options of a command line, or a message: `--out DIR` (default `figures`), `--repo URL`
 (`http` or `https`, see `safeLink?`), `--commit SHA` (`isCommit`), `--check`,
-`--require-standing`, `--require-checked`. -/
+`--require-standing`, `--require-checked` (the default, accepted for compatibility),
+`--allow-unchecked`. -/
 def parseArgs (args : List String) :
     Except String (System.FilePath × BuildOptions) := do
   let mut out : System.FilePath := "figures"
@@ -250,7 +262,8 @@ def parseArgs (args : List String) :
     | [] => break
     | "--check" :: r => opts := { opts with check := true }; rest := r
     | "--require-standing" :: r => opts := { opts with requireStanding := true }; rest := r
-    | "--require-checked" :: r => opts := { opts with requireChecked := true }; rest := r
+    | "--require-checked" :: r => opts := { opts with allowUnchecked := false }; rest := r
+    | "--allow-unchecked" :: r => opts := { opts with allowUnchecked := true }; rest := r
     | "--out" :: d :: r => out := d; rest := r
     | "--repo" :: u :: r =>
       if (safeLink? u).isNone then throw s!"the repository {u} is not an http or https link"

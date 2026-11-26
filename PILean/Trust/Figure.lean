@@ -251,11 +251,9 @@ structure MotionData where
   crossfades : Bool := false
   deriving Inhabited
 
-/-- Whether the motion was not stopped by every error its checks find: built at the check level
-`warn` or `ignore`, or with errors left (`MotionSummary.unchecked`). A page must say so
-(`MotionData.checkWords`). -/
-def MotionData.unchecked (d : MotionData) : Bool :=
-  d.summary.checks != "fail" || d.summary.unchecked
+/-- Whether the motion was not checked strictly: built at the check level `warn` or `ignore`
+(`MotionSummary.strict`). A page must say so (`MotionData.checkWords`). -/
+def MotionData.unchecked (d : MotionData) : Bool := !d.summary.strict
 
 /-- `a`, `a and b`, `a, b and c`. -/
 def listWords : List String → String
@@ -281,15 +279,19 @@ def MotionData.betweenWords (d : MotionData) : String :=
   if parts.isEmpty then "Nothing moves between the key frames."
   else s!"Between key frames the browser {listWords parts}."
 
-/-- What a page says when the motion is `unchecked`; none otherwise. -/
+/-- What a page says when the motion is `unchecked`; none otherwise: the level it was built at,
+and how many problems the strict level (`fail`) treats as errors were left, or that the strict
+level finds none. -/
 def MotionData.checkWords (d : MotionData) : Option String :=
-  if d.summary.unchecked then
-    some s!"Its checks found errors that were not allowed to stop it (check level \
-      {d.summary.checks}): between some key frames the animation is not what the steps declare."
-  else if d.summary.checks != "fail" then
+  let n := d.summary.errorsLeft
+  if d.summary.strict then none
+  else if n == 0 then
     some s!"It was built at the check level {d.summary.checks}, which does not stop a motion \
-      whose moves miss its key frames; no error was found."
-  else none
+      whose moves miss its key frames; the strict level finds no error in it."
+  else
+    some s!"It was built at the check level {d.summary.checks}: {n} problem\
+      {if n == 1 then "" else "s"} that the strict level treats as errors did not stop it, and \
+      between some key frames the animation is not what the steps declare."
 
 /-- What a figure page says of a motion besides its standing: the number of key frames and what
 the stills are (`the key figures as drawn`; a claim that their data is exact belongs to the
