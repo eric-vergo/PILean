@@ -12,8 +12,22 @@ picture's id (none when the manifest records none); and the page's picture, once
 adds is taken away (that `style` element, the prefix of its ids, the links around elements that
 name a declaration, the root's page attributes), must be the file's picture without its source
 record (the `title`, `desc` and `metadata` the build puts first), element for element and
-attribute for attribute. Other CSS of the page is not checked. Exit status 0 when every picture
-holds, 1 otherwise (each failure is printed).
+attribute for attribute. Other CSS of the page is not checked.
+
+A motion's moving picture (the manifest's entry has `kind` `motion`) is checked against its
+animated SVG file as `docs/TRUST.md` asks ("What a page that shows a motion must do"): the file's
+own `title` and `desc` (when it has them) are skipped, then its source record; its `style` element
+must be, character for character, the fixed reduced-motion rule (`Animation.reducedMotionStyle`);
+its last element must be the poster group, which must be, element for element, the still of the
+poster key the page names (`data-pilean-poster`; the file `-key-k.svg` beside the animated SVG, of
+the same rendition, listed in the manifest with its SHA-256) with every id prefixed `poster-`
+(after the background and the titles the file draws before its moving picture, which a picture of
+panels does not repeat in it); and the page's picture must be the file's nodes between that
+`style` element and the poster group, element for element, once what the page adds is taken away
+(its prefix is also on every `data-pilean-actor`). The manifest must record the motion as checked
+strictly: `checks` `fail` and `errorsLeft` 0.
+
+Exit status 0 when every picture holds, 1 otherwise (each failure is printed).
 """
 
 import glob
@@ -27,6 +41,11 @@ import xml.etree.ElementTree as ET
 SVG_NS = "{http://www.w3.org/2000/svg}"
 SOURCE_NS = "{https://github.com/eric-vergo/PILean/ns/source/1}"
 ROOT_KEEP = ("width", "height", "viewBox")
+# `Animation.reducedMotionStyle` (PILean/Anim/Animation.lean), the text of every motion file's
+# `style` element.
+REDUCED_MOTION = (".pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce)"
+                  "{.pilean-motion-poster{display:inline}.pilean-motion-live"
+                  "{visibility:hidden;opacity:0}}")
 START = re.compile(r"<svg\b[^>]*\bclass=\"pilean-inline-svg[^\"]*\"[^>]*>")
 TAG = re.compile(r"<(/?)svg\b[^>]*?(/?)>")
 
@@ -51,7 +70,7 @@ def inline_svgs(text):
 
 
 def unprefix(value, key, pfx):
-    if key == "id":
+    if key in ("id", "data-pilean-actor"):
         return value[len(pfx):] if value.startswith(pfx) else value
     if key == "href" or key.endswith("}href") or key.endswith(":href"):
         return "#" + value[len(pfx) + 1:] if value.startswith("#" + pfx) else value
@@ -97,16 +116,77 @@ def same(a, b, path="svg"):
     return None
 
 
+def after_record(kids, own_head=False):
+    """The children after the source record (`title`, `desc`, `metadata` with the record), which
+    comes first, or, with `own_head`, after the file's own `title` and `desc` when it has them."""
+    for start in ([0, 1, 2] if own_head else [0]):
+        record = [k.tag for k in kids[start:start + 3]]
+        own = [k.tag for k in kids[:start]]
+        if own not in ([], [SVG_NS + "title"], [SVG_NS + "desc"],
+                       [SVG_NS + "title", SVG_NS + "desc"]):
+            continue
+        if record == [SVG_NS + "title", SVG_NS + "desc", SVG_NS + "metadata"] and \
+                kids[start + 2].find(SOURCE_NS + "source") is not None:
+            return kids[start + 3:]
+    raise ValueError("no source record at the start of the file")
+
+
+def body_of(root, kids):
+    body = ET.Element(root.tag, {k: v for k, v in root.attrib.items() if k in ROOT_KEEP})
+    body.extend(kids)
+    return body
+
+
 def file_body(data):
     root = ET.fromstring(data)
-    kids = list(root)
-    record = [k.tag for k in kids[:3]]
-    if record != [SVG_NS + "title", SVG_NS + "desc", SVG_NS + "metadata"] or \
-            kids[2].find(SOURCE_NS + "source") is None:
-        raise ValueError("no source record at the start of the file")
-    body = ET.Element(root.tag, {k: v for k, v in root.attrib.items() if k in ROOT_KEEP})
-    body.extend(kids[3:])
-    return body
+    return body_of(root, after_record(list(root)))
+
+
+def motion_parts(data):
+    """The parts of a motion's animated SVG: the nodes the page shows (between the
+    reduced-motion `style` element and the poster group), those of them before the moving
+    picture's group, and the poster group; an error if the file is not made so."""
+    root = ET.fromstring(data)
+    kids = after_record(list(root), own_head=True)
+    if not kids or kids[0].tag != SVG_NS + "style":
+        raise ValueError("no reduced-motion style element after the source record")
+    if (kids[0].text or "") != REDUCED_MOTION or len(kids[0]):
+        raise ValueError("its style element is not the fixed reduced-motion rule")
+    last = kids[-1]
+    if last.tag != SVG_NS + "g" or last.get("class") != "pilean-motion-poster":
+        raise ValueError("its last element is not the poster group")
+    live = kids[1:-1]
+    lead = []
+    for k in live:
+        if k.tag == SVG_NS + "g" and k.get("class") == "pilean-motion-live":
+            break
+        lead.append(k)
+    else:
+        raise ValueError("no moving picture (a group of class pilean-motion-live)")
+    if sum(1 for _ in root.iter(SVG_NS + "style")) != 1:
+        raise ValueError("a style element besides the reduced-motion rule")
+    return body_of(root, live), lead, last
+
+
+def poster_problem(poster, lead, still):
+    """None if the poster group is the poster key's still with the prefix `poster-` on every id
+    (after the nodes `lead` the file draws before its moving picture, when the still has them),
+    else why not."""
+    ids = [e.get("id") for e in poster.iter() if e.get("id") is not None]
+    if any(not i.startswith("poster-") for i in ids):
+        return "an id of the poster group lacks the prefix poster-"
+    holder = ET.Element("x")
+    holder.extend(normal(c, "poster-") for c in poster)
+    shown = list(holder)
+    kids = list(still)
+    if len(kids) < len(shown):
+        return f"the poster group has {len(shown)} elements, the still {len(kids)}"
+    head, tail = kids[:len(kids) - len(shown)], kids[len(kids) - len(shown):]
+    if head:
+        why = same(body_of(still, lead), body_of(still, head), "still")
+        if why:
+            return f"the still does not start with what the file draws first: {why}"
+    return same(body_of(still, shown), body_of(still, tail), "poster")
 
 
 def dom_safe(s):
@@ -156,11 +236,40 @@ def page_body(text):
     return body
 
 
+def still_path(path, poster):
+    """The file of key `poster`'s still beside the animated SVG `path` of a rendition."""
+    return f"{path[:-len('.svg')]}-key-{poster}.svg"
+
+
+def motion_problem(svg, data, figs, path, entry, manifest):
+    """None if the page's moving picture `svg` is the motion file's, as the module says."""
+    if entry.get("checks") != "fail" or entry.get("errorsLeft") != 0:
+        return (f"the manifest records the motion at the check level {entry.get('checks')} "
+                f"with {entry.get('errorsLeft')} errors left, not checked strictly")
+    root = ET.fromstring(svg)
+    poster = root.get("data-pilean-poster")
+    if poster is None or not poster.isdigit():
+        return "the page names no poster key (data-pilean-poster)"
+    live, lead, group = motion_parts(data)
+    spath = still_path(path, poster)
+    sentry = manifest.get(spath)
+    if sentry is None:
+        return f"the poster key's still {spath} is not in the manifest"
+    with open(os.path.join(figs, spath), "rb") as f:
+        sdata = f.read()
+    if hashlib.sha256(sdata).hexdigest() != sentry["sha256"]:
+        return f"{spath} does not have the manifest's SHA-256"
+    why = poster_problem(group, lead, file_body(sdata))
+    if why:
+        return f"its poster group is not {spath}: {why}"
+    return same(page_body(svg), live)
+
+
 def main(site):
     figs = os.path.join(site, "-verso-data", "pilean-figures")
     with open(os.path.join(figs, "manifest.json"), encoding="utf-8") as f:
         manifest = {e["path"]: e for e in json.load(f)["files"]}
-    checked, failures = 0, []
+    checked, failures, motions = 0, [], 0
     for page in sorted(glob.glob(os.path.join(site, "**", "index.html"), recursive=True)):
         with open(page, encoding="utf-8") as f:
             text = f.read()
@@ -192,6 +301,9 @@ def main(site):
                                  entry.get("darkOpacities", []))
                 if css != want:
                     why = "its theme rules are not those the manifest records"
+                elif entry.get("kind") == "motion":
+                    motions += 1
+                    why = motion_problem(svg, data, figs, path, entry, manifest)
                 else:
                     why = same(page_body(svg), file_body(data))
             except (ET.ParseError, ValueError) as e:
@@ -200,7 +312,8 @@ def main(site):
                 failures.append(f"{name}: differs from {path}: {why}")
     for line in failures:
         print(f"inline: {line}")
-    print(f"inline: {checked - len(failures)} of {checked} inline pictures match their files")
+    print(f"inline: {checked - len(failures)} of {checked} inline pictures match their files "
+          f"({motions} of them moving pictures of motions)")
     return 1 if failures or checked == 0 else 0
 
 

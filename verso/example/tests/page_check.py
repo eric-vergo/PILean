@@ -14,7 +14,13 @@ Every figure the manifest lists (by its declaration) must have exactly one page 
   and that its statement names this figure; it did not check what T says.";
   "Illustration: no theorem is linked to it" and no "Linked theorem" for an illustration; and no
   page says "Tied to its object" or "proved by";
-* every verdict of `pilean-verify` it shows is `ok`.
+* every verdict of `pilean-verify` it shows is `ok`;
+* for a motion (its files record `kind` `motion`): the motion's sentence, "An animation drawn
+  from N key frames; the stills are the key figures as drawn.", with N the manifest's `keys`,
+  followed by what the browser does between key frames; for a motion not checked strictly, what
+  that means ("It was built at the check level …"); for a linked motion, what a theorem about a
+  motion can state; the table of the steps (`table.pilean-motion-steps`) with one row for each of
+  the N - 1 steps; and the N key stills with their captions ("Step k of N: …").
 
 It prints one line per problem and exits 1 if there is any, 0 otherwise.
 """
@@ -36,6 +42,9 @@ class Page(html.parser.HTMLParser):
         self.verdicts = []
         self.decls = []
         self.text = []
+        self.steps = None
+        self.in_body = False
+        self.keys = 0
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -51,6 +60,18 @@ class Page(html.parser.HTMLParser):
             self.verdicts.append(a.get("data-verdict"))
         if tag == "section" and "pilean-page-theorem" in cls:
             self.decls.append(a.get("data-lean-decl"))
+        if tag == "table" and "pilean-motion-steps" in cls:
+            self.steps = 0
+        if tag == "tbody" and self.steps is not None:
+            self.in_body = True
+        if tag == "tr" and self.in_body:
+            self.steps += 1
+        if tag == "li" and "pilean-page-motion-key" in cls:
+            self.keys += 1
+
+    def handle_endtag(self, tag):
+        if tag == "tbody":
+            self.in_body = False
 
     def handle_data(self, data):
         self.text.append(data)
@@ -122,6 +143,29 @@ def main(site):
                 problems.append(f"{where}: an illustration that names a linked theorem")
             if "Illustration: no theorem is linked to it" not in text:
                 problems.append(f"{where}: an illustration that does not say so")
+        motion = entries[0].get("kind") == "motion"
+        if motion:
+            n = entries[0].get("keys")
+            frames = "key frame" if n == 1 else "key frames"
+            said = (f"An animation drawn from {n} {frames}; the stills are the key figures as "
+                    "drawn.")
+            if said not in text:
+                problems.append(f"{where}: a motion without its sentence ({said!r})")
+            elif not ("Between key frames the browser" in text or
+                      "Nothing moves between the key frames." in text):
+                problems.append(f"{where}: a motion that does not say what the browser draws")
+            strict = entries[0].get("checks") == "fail" and entries[0].get("errorsLeft") == 0
+            if not strict and "It was built at the check level" not in text:
+                problems.append(f"{where}: a motion not checked strictly that does not say so")
+            if standing == "linked" and "A theorem about a motion can state its key figures" \
+                    not in text:
+                problems.append(f"{where}: a linked motion without what its theorem can state")
+            if p.steps != n - 1:
+                problems.append(f"{where}: a motion of {n} keys with {p.steps} rows of steps")
+            if p.keys != n or any(f"Step {k} of {n}:" not in text for k in range(1, n + 1)):
+                problems.append(f"{where}: a motion of {n} keys with {p.keys} captioned stills")
+        elif p.steps is not None or "An animation drawn from" in text:
+            problems.append(f"{where}: motion words on the page of a figure that is no motion")
         for v in p.verdicts:
             if v != "ok":
                 problems.append(f"{where}: shows the verdict {v}")

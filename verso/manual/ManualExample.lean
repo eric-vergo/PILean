@@ -5,6 +5,7 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 import VersoManual
 import PILeanVersoManual
 import ManualExample.Figures
+import ManualExample.Motions
 
 /-!
 # The example manual
@@ -47,6 +48,19 @@ The word $`aba` acting on a point.
 
 :::figure ManualExample.windowInline (inline := true) (alt := "A window disk of radius 0.8 about 1/2 over the five unit steps.")
 The window of radius 0.8, inline.
+:::
+
+# Motion
+
+Two motions of plane figures, inline: each moves in the page and shows its key frames as stills
+while it is hovered or focused, when the reader's system asks for reduced motion, and in print.
+
+:::figure ManualExample.quarterTurn (label := "quarter") (alt := "A point P on the unit circle turns a quarter about the origin O, then holds.")
+A point turned a quarter about the origin.
+:::
+
+:::figure ManualExample.slidePanels (alt := "Two panels on one clock: on the left a point turns by quarters about the origin; on the right a point slides one step to the right.")
+A turn beside a slide, on one clock.
 :::
 
 # Marks over a picture

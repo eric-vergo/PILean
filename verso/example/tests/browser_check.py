@@ -3,13 +3,15 @@
 """Checks the example site's figures in a headless Chromium (Playwright).
 
     python3 browser_check.py SITE [SHOTS] [--site-links DIR] [--no-links DIR] [--side-by-side DIR]
-        [--manual DIR]
+        [--manual DIR] [--motions DIR]
 
 SITE is the generator's `html-multi` folder, built with `--figure-repo` and the default link mode
 (`ideil`); SHOTS, if given, is a folder for screenshots. The other folders are the same site
 built with `--figure-lean-links site`, with `--figure-lean-links none`, and with
 `--side-by-side --figure-lean-links site`; `--manual` names the Manual adapter's example
-(`pilean-verso-manual-example`). The checks of a folder not given are skipped.
+(`pilean-verso-manual-example`), and `--motions` the files `example-test --motion-out DIR` writes
+for the example's motions. The checks of a folder not given are skipped; the motions of both
+examples are checked by `motion_browser.py`.
 
 Each site is served on 127.0.0.1 with a strict content policy: scripts only from the site's files
 and the inline scripts of the head (by hash), no inline event handlers, no plug-ins, nothing from
@@ -43,6 +45,8 @@ import sys
 import threading
 
 from playwright.sync_api import sync_playwright
+
+import motion_browser
 
 HEAD_SCRIPT = re.compile(rb"<script>(.*?)</script>", re.S)
 STYLE_ELEMENT = re.compile(rb"<style\b[^>]*>(.*?)</style>", re.S)
@@ -768,7 +772,7 @@ CENTRED = """(sel) => {
     const fr = f.getBoundingClientRect();
     const box = f.parentElement.getBoundingClientRect();
     const parts = [...f.querySelectorAll(sel)].filter(e => e.getClientRects().length &&
-      e.getBoundingClientRect().width > 0);
+      e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden');
     if (fr.left < box.left - 0.5 || fr.right > box.right + 0.5)
       out.push([f.id, 'figure', fr.left, fr.right, box.left, box.right]);
     // Every line of the caption's text is centred too.
@@ -931,7 +935,8 @@ class Checks:
 def shown_pictures(page):
     return page.evaluate("""() => [...document.querySelectorAll('figure.pilean-figure')].map(f => {
       const imgs = [...f.querySelectorAll('img')].filter(i => i.offsetParent !== null);
-      return {id: f.id, shown: imgs.map(i => i.currentSrc || i.src),
+      return {id: f.id, motion: f.classList.contains('pilean-figure-has-motion'),
+              shown: imgs.map(i => i.currentSrc || i.src),
               loaded: imgs.every(i => i.complete && i.naturalWidth > 0)};
     })""")
 
@@ -976,6 +981,8 @@ def main(argv):
     sites = {"ideil": site, "site": option(rest, "--site-links"),
              "none": option(rest, "--no-links"), "side-by-side": option(rest, "--side-by-side")}
     manual = option(rest, "--manual")
+    motions = option(rest, "--motions")
+    helpers = {"new_page": new_page, "goto": goto, "figure_reports": figure_reports}
     server, base = serve(site)
     c = Checks()
     with sync_playwright() as p:
@@ -986,6 +993,8 @@ def main(argv):
             for url in PAGES[:4]:
                 goto(page, base + url)
                 for fig in shown_pictures(page):
+                    if fig["motion"]:
+                        continue
                     c.check(f"{scheme}: {fig['id']} shows one picture, loaded",
                             len(fig["shown"]) == 1 and fig["loaded"], str(fig))
                     if fig["id"] != "circle" and fig["shown"]:
@@ -1042,7 +1051,7 @@ def main(argv):
 
         page.goto(base + "Figures/")
         items = page.locator(".pilean-figure-index > li")
-        c.check("the figures page lists fifteen figures", items.count() == 15, str(items.count()))
+        c.check("the figures page lists eighteen figures", items.count() == 18, str(items.count()))
         thumbs = page.evaluate("""() => [...document.querySelectorAll('.pilean-index-thumb img')]
             .every(i => i.complete && i.naturalWidth > 0)""")
         c.check("the figures page's pictures load", thumbs)
@@ -1081,6 +1090,9 @@ def main(argv):
                       "side by side", [1400, 360], FIGURE_PAGES)
             sbs_server.shutdown()
         c.section("links", link_checks, c, browser, sites)
+        c.section("motions", motion_browser.motion_checks, c, browser, base,
+                  "Pictures-with-proofs/Motion/", "blueprint motions", helpers, motions, True,
+                  shots)
         c.section("anchor space", anchor_space_checks, c, browser, base, "blueprint",
                   ["Figures/Example.cubicPlot/", "Figures/Example.sketch/",
                    "Figures/Example.radiusExplorer/"])
@@ -1089,6 +1101,8 @@ def main(argv):
             c.section("manual anchor space", anchor_space_checks, c, browser, manual_base,
                       "manual", ["Figures/ManualExample.trianglePlot/",
                                  "Figures/ManualExample.radiusSlider/"])
+            c.section("manual motions", motion_browser.motion_checks, c, browser, manual_base,
+                      "Motion/", "manual motions", helpers, None, False)
             manual_server.shutdown()
 
         for width in [320, 360, 375, 600]:

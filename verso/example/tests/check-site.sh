@@ -5,9 +5,12 @@
 # Checks the example site end to end: it builds, its figures folder matches a fresh render and its
 # manifest, every inline picture is the body of a file the manifest lists, every link reaches its
 # file and element, two builds write the same bytes, the checks fail on damaged folders and pages,
-# and the three link modes write the links they promise. It leaves the sites the browser check
-# reads in SCRATCH: a (the default mode), site, none and sbs (side by side, links into the site),
-# and the Manual adapter's example in manual.
+# and the three link modes write the links they promise; the motions shown inline are their files'
+# moving pictures, their pages say what they are, and each of these checks fails on a page or a
+# folder damaged where it looks. It leaves the sites the browser check reads in SCRATCH: a (the
+# default mode), site, none and sbs (side by side, links into the site), the Manual adapter's
+# example in manual, and the example's motions with their expectations in motions
+# (`example-test --motion-out`).
 #
 #   tests/check-site.sh [SCRATCH]     (run from verso/example; LAKE names the lake to use)
 set -euo pipefail
@@ -26,13 +29,16 @@ gen=./.lake/build/bin/example-blueprint
 fails=0
 check() { if "$@"; then echo "ok: ${desc}"; else echo "FAIL: ${desc}"; fails=$((fails + 1)); fi; }
 
-"$lake" build example-blueprint >/dev/null
+"$lake" build example-blueprint example-test >/dev/null
 (cd .. && cd .. && "$lake" build pilean-verify >/dev/null)
 verify=../../.lake/build/bin/pilean-verify
 (cd ../manual && "$lake" build pilean-site-links pilean-verso-manual-example >/dev/null)
 links=../manual/.lake/build/bin/pilean-site-links
 
 desc="the adapter's checks hold (lake test)"; check "$lake" test
+rm -rf "$scratch/motions"
+desc="the example's motions are written for the browser checks"
+check bash -c "./.lake/build/bin/example-test --motion-out '$scratch/motions' >/dev/null"
 rm -rf "$scratch/a" "$scratch/b"
 desc="the site builds"; check "$gen" --output "$scratch/a" "${flags[@]}"
 figs="$scratch/a/html-multi/-verso-data/pilean-figures"
@@ -54,8 +60,8 @@ desc="the page names the theorem"; check grep -q 'lean:decl/Example.cubicPlot_sp
 desc="the page has a dark picture"; check grep -q 'Example.cubicPlot-dark.svg' "$page"
 desc="the animation has its still frame for reduced motion"
 check grep -q 'prefers-reduced-motion: reduce' "$scratch/a/html-multi/Pictures-with-proofs/Motion/index.html"
-desc="the figures page lists fifteen figures"
-check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 15
+desc="the figures page lists eighteen figures"
+check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 18
 desc="no inline event handler and no script in the figures' markup"
 check python3 -I tests/markup_check.py "$scratch/a/html-multi"
 desc="every inline picture is the body of a file the manifest lists"
@@ -64,14 +70,14 @@ check python3 -I tests/inline_check.py "$scratch/a/html-multi"
 # The figures' pages.
 pages="$scratch/a/html-multi/Figures"
 desc="every figure has a page"
-check test "$(grep -l 'data-pilean-page=' "$pages"/*/index.html | wc -l | tr -d ' ')" = 15
+check test "$(grep -l 'data-pilean-page=' "$pages"/*/index.html | wc -l | tr -d ' ')" = 18
 desc="every figure's page agrees with the manifest (page_check.py)"
 check python3 -I tests/page_check.py "$scratch/a/html-multi"
 cubic="$pages/Example.cubicPlot/index.html"
 desc="a figure's source line links its page"
 check grep -q 'class="pilean-page-link" href="Figures/Example.cubicPlot/' "$page"
 desc="the figures page links each figure's page"
-check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 15
+check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 18
 desc="every link PILean writes reaches its file and element (pilean-site-links)"
 check "$links" "$scratch/a/html-multi"
 desc="every link of the site reaches its file and element (pilean-site-links --all)"
@@ -169,13 +175,104 @@ desc="the inline check refuses a page whose theme rules have a rule added"
 check bash -c "python3 -I tests/inline_check.py '$scratch/page' | grep -q '#inline-svg: .*theme rules'"
 rm -rf "$scratch/page"
 
+# Motions: each check fails on a page or a folder damaged where it looks. tamper_motion WHAT
+# copies the site and changes one thing of a motion (a file is changed with its manifest's SHA-256
+# and size, so that only the check of that thing can see it).
+tamper_motion() {
+  rm -rf "$scratch/page"; cp -R "$scratch/a/html-multi" "$scratch/page"
+  python3 -I - "$scratch/page" "$1" <<'PY'
+import hashlib, json, os, re, sys
+site, how = sys.argv[1], sys.argv[2]
+figs = os.path.join(site, "-verso-data", "pilean-figures")
+page = os.path.join(site, "Pictures-with-proofs", "Motion", "index.html")
+s = open(page, encoding="utf-8").read()
+mpath = os.path.join(figs, "manifest.json")
+man = json.load(open(mpath, encoding="utf-8"))
+anim = "PictureExample/Motions/Example.quarterTurn.svg"
+fpage = os.path.join(site, "Figures", "Example.quarterTurn", "index.html")
+
+
+def refile(path, f):
+    full = os.path.join(figs, path)
+    data = f(open(full, encoding="utf-8").read()).encode()
+    open(full, "wb").write(data)
+    for e in man["files"]:
+        if e["path"] == path:
+            e["sha256"] = hashlib.sha256(data).hexdigest()
+            e["bytes"] = len(data)
+    json.dump(man, open(mpath, "w", encoding="utf-8"))
+
+
+def once(text, old, new):
+    assert old in text, old
+    return text.replace(old, new, 1)
+
+
+if how == "live":
+    i = s.index('id="quarter-motion-mw"')
+    j = s.index(' d="M', i)
+    s = s[:j] + ' d="M1 1 L2 2' + s[j + 5:]
+elif how == "poster":
+    s, n = re.subn(r'(id="quarter-motion-mw"[^>]*data-pilean-poster=")0"', r'\g<1>1"', s, count=1)
+    assert n == 1
+elif how == "style":
+    refile(anim, lambda t: once(t, "{display:none}", "{display: none}"))
+elif how == "poster-group":
+    def shift(t):
+        i = t.index('class="pilean-motion-poster"')
+        j = t.index(' d="M', i)
+        return t[:j] + ' d="M1 1 L2 2' + t[j + 5:]
+    refile(anim, shift)
+elif how == "errors-left":
+    for e in man["files"]:
+        if e["decl"] == "Example.quarterTurn":
+            e["errorsLeft"] = 1
+    json.dump(man, open(mpath, "w", encoding="utf-8"))
+elif how == "event":
+    s = once(s, '<g class="pilean-motion-live">', '<g class="pilean-motion-live"><set '
+             'attributeName="opacity" to="0" begin="click"/>')
+elif how == "link":
+    s = once(s, '<span class="pilean-motion-still"',
+             '<a href="x">x</a><span class="pilean-motion-still"')
+elif how == "steps":
+    t = open(fpage, encoding="utf-8").read()
+    i = t.index("<tbody>")
+    j = t.index("</tr>", i)
+    open(fpage, "w", encoding="utf-8").write(t[:i + 7] + t[j + 5:])
+elif how == "words":
+    t = open(fpage, encoding="utf-8").read()
+    open(fpage, "w", encoding="utf-8").write(
+        once(t, "An animation drawn from 3 key frames", "An animation"))
+open(page, "w", encoding="utf-8").write(s)
+PY
+}
+for how in live poster style poster-group errors-left; do
+  tamper_motion "$how"
+  desc="the inline check refuses a motion whose $how was changed"
+  check bash -c "! python3 -I tests/inline_check.py '$scratch/page' >/dev/null"
+done
+for how in event link; do
+  tamper_motion "$how"
+  desc="the markup check refuses a motion with an added $how"
+  check bash -c "! python3 -I tests/markup_check.py '$scratch/page' >/dev/null"
+done
+for how in steps words; do
+  tamper_motion "$how"
+  desc="the page check refuses a motion's page whose $how were changed"
+  check bash -c "! python3 -I tests/page_check.py '$scratch/page' >/dev/null"
+done
+rm -rf "$scratch/page"
+desc="a motion's caption links the motion switch"
+check grep -q 'class="bp_motion_link" href="#bp-motion"' \
+  "$scratch/a/html-multi/Pictures-with-proofs/Motion/index.html"
+
 # The link modes.
 warns="$scratch/site-warnings.txt"
 desc="the site builds with links into the site"
 check bash -c "'$gen' --output '$scratch/site' --figure-lean-links site ${flags[*]} 2>'$warns' >/dev/null"
 got=$(sed -n 's/^figures: warning: \(.*\) has no place in the site.*/\1/p' "$warns" | LC_ALL=C sort | tr '\n' '|')
 want='Example.circleAnimation_spec|Example.collatzPlot_spec|Example.divisorGraph_spec|'
-want+='Example.divisorHasse_spec|Example.reductionSquare_spec|'
+want+='Example.divisorHasse_spec|Example.quarterTurn_spec|Example.reductionSquare_spec|'
 want+='Example.«hasse <b>"&'"'"'_spec»|'
 want+='Example.«odd "name" <a href=x> & '"'"'more'"'"'»|'
 desc="it warns about exactly the declarations the site has no place for"; check test "$got" = "$want"
