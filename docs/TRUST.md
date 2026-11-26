@@ -363,6 +363,24 @@ that end in `Unchecked`.
      `Animation.reducedMotionStyle`; check the poster group against key `poster`'s still with the
      `poster-` id prefix; compare `live` with the file element for element;
   6. asserts the manifest's `checks` and `errorsLeft` (`fail`, `0`) for every motion it shows.
+
+  The Verso adapters do so (`docs/DESIGN.md`, "A motion shown in a page"). (1) The site's build
+  renders every output through `renderOutput` and keeps a motion's page data
+  (`SiteFile.motion`) only from an output that rendered; by default `renderOutput` refuses a motion
+  not checked strictly, and the build fails (`--figure-allow-unchecked`,
+  `SiteOptions.allowUnchecked`, builds one for a draft). (2), (3) The figure's page shows
+  `MotionData.words` and the table of the steps with `MotionMoveRow.words`, with the panel's name
+  for a picture of panels and a crossfade marked. (4) Every string is text of the HTML writer,
+  which escapes it; the moving picture is written by the SVG writer, which escapes its attributes
+  and text. (5), (6) The example's site check (`verso/example/tests/inline_check.py`) holds every
+  moving picture of a page to its file so, with the page's prefix also taken off every
+  `data-pilean-actor`, takes the poster key from the page (`data-pilean-poster`) and that still's
+  file from the manifest with its SHA-256, and refuses a motion the manifest does not record at
+  `fail` with no error left; `markup_check.py` finds nothing active in a motion (no script, event
+  attribute, link, form control, embedded content, animation started by anything but the clock,
+  or tab stop but the picture's own), `page_check.py` the motion's words, its steps and its
+  captioned stills on its page, and `browser_check.py` what the reader sees in Chromium. A site
+  that shows motions with its own checks has to do the same.
 * **Accessible names.** The animated SVG's own `title` (the motion's title) is the first `title`
   child of the root; the build writes the source record after it and the `desc`, so the record's
   title (the declaration's name) does not become the picture's accessible name. The contact
@@ -678,7 +696,9 @@ character for character, the rules the adapter derives from those recorded pairs
 picture's id, and the picture to have no other `style` element; it takes the page's additions
 away and compares the page's picture with the file element for element and attribute for
 attribute, and the file's SHA-256 with the manifest; a page whose picture or theme rules differ,
-that names no file, or names one the manifest does not list fails it. The site check
+that names no file, or names one the manifest does not list fails it. A motion's moving picture
+is checked against its animated SVG as "Motions" says, its prefix also taken off every
+`data-pilean-actor`. The site check
 ties a page's picture to its file and the page's theme rules to the pairs recorded in the
 manifest. The manifest's pairs are tied to the source only by `--check-figures`, which rebuilds
 the figures and reports a stale manifest; `pilean-verify` alone does not catch a page and a

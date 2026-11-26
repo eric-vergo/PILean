@@ -198,6 +198,65 @@ def docsHref? (e : ExternalName) : Option String :=
         if c.isAlphanum || c == '.' || c == '_' then c.toString else "_")}"
   else none
 
+/-! ### A motion -/
+
+/-- A duration in seconds, exactly: `1 s`, `3/2 s`. -/
+def secondsText (q : Rat) : String :=
+  if q.den == 1 then s!"{q.num} s" else s!"{q.num}/{q.den} s"
+
+/-- The table of a motion's steps: for each step, the keys it goes between, its duration, and
+each move with its panel (in a picture of panels), its actor and what it is
+(`MotionMoveRow.words`, which says when a move is drawn as a crossfade); an idle step says that
+nothing moves. Every string is text, which the HTML writer escapes. -/
+def motionStepTable (rows : Array MotionStepRow) : Html :=
+  let head := Html.element "thead" #[] (.element "tr" #[] (.seq #[
+    .element "th" #[("scope", "col")] (txt "Step"),
+    .element "th" #[("scope", "col")] (txt "Duration"),
+    .element "th" #[("scope", "col")] (txt "What moves")]))
+  let move (r : MotionMoveRow) : Html :=
+    let cls := if r.asDeclared then "pilean-motion-move"
+      else "pilean-motion-move pilean-motion-crossfade"
+    .element "li" #[("class", cls)] (.seq #[
+      if r.panel.isEmpty then .empty
+      else .seq #[el "span" "pilean-motion-panel" (txt r.panel), txt ": "],
+      .element "code" #[] (txt r.actor), txt s!": {r.words}"])
+  let body := rows.map fun row =>
+    let what : Html :=
+      if row.moves.isEmpty then
+        txt (if row.idle then "Nothing moves (it holds its key frame)." else "Nothing moves.")
+      else .element "ul" #[("class", "pilean-motion-moves")] (.seq (row.moves.map move))
+    Html.element "tr" #[] (.seq #[
+      .element "th" #[("scope", "row")]
+        (txt s!"{row.step + 1}: key frame {row.step + 1} to {row.step + 2}"),
+      .element "td" #[] (txt (secondsText row.duration)),
+      .element "td" #[] what])
+  el "div" "pilean-motion-steps-wrap" (.element "table" #[("class", "pilean-motion-steps")]
+    (.seq #[.element "caption" #[] (txt "The steps of the animation, from key frame to key frame"),
+      head, .element "tbody" #[] (.seq body)]))
+
+/-- The section of a figure's page about a motion (`m`, with its narrow rendition `n`): what the
+animation is (`MotionData.words`, with `MotionData.checkWords` when it was not checked strictly),
+the table of its steps (`motionStepTable`), its key stills with their captions, always shown here,
+and its contact sheet. -/
+def motionSection (idBase : String) (m : MotionData) (n : Option MotionData)
+    (files : Array FileInfo) : Html :=
+  let captions := m.stills.stepCaptions
+  let narrowOf := fun (k : Nat) => n.map fun _ => s!"-narrow-key-{k}"
+  let stills := (Array.range m.stills.frames.size).map fun k =>
+    Html.element "li" #[("class", "pilean-page-motion-key")] (.seq #[
+      themedPictures files s!"-key-{k}" (narrowOf k) (lazy := true),
+      el "p" "pilean-motion-key-caption" (txt (motionStepText captions k))])
+  let sheet := themedPictures files "-keys" none (lazy := true)
+  el "section" "pilean-page-motion" (.seq #[
+    el "h2" "pilean-page-h" (txt "Animation"),
+    el "p" (if m.unchecked then "pilean-motion-words pilean-motion-unchecked"
+      else "pilean-motion-words") (txt m.words),
+    motionStepTable m.steps,
+    el "h3" "pilean-page-decl-title" (txt "Key frames"),
+    el "ol" "pilean-page-motion-keys" (.seq stills),
+    el "h3" "pilean-page-decl-title" (txt "Contact sheet"),
+    el "div" "pilean-page-motion-sheet" sheet]) #[("id", s!"{idBase}-animation")]
+
 /-! ### The page -/
 
 /-- The page of the figure `decl`; `math` is the class of TeX in captions, and `idAttr` the
@@ -222,8 +281,9 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
   let idBase := s!"pilean-page-{pageSlug decl}"
   -- the picture, full size
   let full : Placed := { p with data := { p.data with width := none } }
+  let motion := motionOf? fig.files
   let picture ← match ← (inlinePicture? l site full #[("id", idBase)] : IO _) with
-    | some h => pure (if p.data.explorer then h else (pictureHtml full).getD h)
+    | some h => pure (if p.data.explorer || motion.isSome then h else (pictureHtml full).getD h)
     | Option.none => pure ((pictureHtml full).getD (el "p" "pilean-figure-missing" (txt "No file.")))
   let hasDark := (pick? p.files p.data.format "-dark").isSome
   let verdicts := fig.files.map fun f => (f, builtVerdict f.built)
@@ -266,6 +326,8 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
         el "h2" "pilean-page-h" (txt "Standing"),
         el "p" "pilean-standing-words" (.seq #[txt (standingWords fig.standing), txt " ", names]),
         .seq thms,
+        if motion.isSome then el "p" "pilean-standing-scope pilean-motion-linked"
+          (txt motionLinkedWords) else .empty,
         el "p" "pilean-standing-scope" (txt theoremScopeText),
         el "p" "pilean-standing-scope" (txt theoremLinkText)])
         #[("id", s!"{idBase}-standing")]
@@ -275,6 +337,10 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
         el "p" "pilean-standing-words" (txt (standingWords fig.standing ++ ".")),
         el "p" "pilean-standing-scope" (txt (illustrationText marked))])
         #[("id", s!"{idBase}-standing")]
+  -- the motion: what it is, its steps, its key frames and its contact sheet
+  let animation := match motion with
+    | some (m, n) => motionSection idBase m n p.files
+    | Option.none => Html.empty
   -- code
   let code ← match data with
     | Option.none => pure (el "section" "pilean-page-codes" (.seq #[
@@ -384,7 +450,7 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
   pure <| el "div" cls (.seq #[anchor,
       el "div" "pilean-page-picture" (el "div" "pilean-figure-frame" picture),
       el "h2" "pilean-page-h" (txt "Files"), downloads,
-      heading, standing, code, provenance, reproduce])
+      heading, standing, animation, code, provenance, reproduce])
     #[("data-pilean-page", decl), ("data-pilean-standing", fig.standing.word),
       ("data-pilean-theorems", " ".intercalate fig.standing.theorems.toList), ("id", idBase)]
 

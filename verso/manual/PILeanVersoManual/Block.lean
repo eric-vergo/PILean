@@ -37,6 +37,10 @@ empty, is the caption; an empty body takes the declaration's doc string. The nam
   function defined elsewhere is linked through a theorem that says what the figure holds and
   applies it to those values (the example's `trianglePoints_spec`).
 
+A motion of plane figures (`PILean.Plane.Motion`, `PILean.Plane.MotionPanels`) is shown inline
+by `:::figure` with its key stills and their captions (`PILeanVerso.motionHtml`); it moves only
+while motion is on (`PILeanVerso.motionCss`).
+
 `:::figure_explorer Decl …` shows an explorer (`PILean.Explorer`: a parameter axis with a slider, a
 step sequence with previous, play and next, or both) with every frame inline, pan and zoom, and a
 script of the site (`pilean-explorer.js`); without script the frames are listed, the poster first
@@ -108,7 +112,7 @@ block_extension Block.figure (serialized : String) where
     let caption ← contents.mapM goB
     pure (.seq #[.raw "\\begin{quote}\\emph{", .text s!"Figure {name}", .raw "} (in the HTML \
       version). ", .seq caption, .raw "\\end{quote}\n"])
-  extraCss := [figureCss, explorerCss]
+  extraCss := [figureCss, explorerCss, motionCss]
   extraJsFiles := {explorerJsFile}
 
 /-- How this genre's figure directives differ from the Blueprint's: their block, a required

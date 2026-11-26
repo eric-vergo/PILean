@@ -20,7 +20,12 @@ What a document asks of a figure (`FigureUse`: inline, or as an explorer) is che
 the figure has, a theorem a caption names (`links :=`) must be one of the figure's standing
 (`FigureEntry.standing`: linked by `figure_links` and checked again where `site_figures%` was
 elaborated), and the inline SVG of one figure, counted once over everything the pages put
-inline for it, may not pass `SiteOptions.inlineLimit` bytes.
+inline for it, may not pass `SiteOptions.inlineLimit` bytes. A motion (`PILean.Plane.Motion`,
+`PILean.Plane.MotionPanels`) is always shown inline: its moving picture, and that of its narrow
+rendition, are read from the animated SVG's output (`Output.motionPage`) only once that output has
+rendered, and count as its inline pictures. As `pilean-build` does, the site's build refuses a
+motion that was not checked strictly (`renderOutput`) unless it is given
+`--figure-allow-unchecked` (`SiteOptions.allowUnchecked`), which is meant for drafts.
 
 The rendered site is kept in `siteRef` while the document is rendered: the generator wrapper
 (`PILeanVerso.withFigures`) sets it, and the figure blocks read it during traversal.
@@ -29,6 +34,7 @@ The rendered site is kept in `siteRef` while the document is rendered: the gener
 
 * `LeanLinks`, `SiteOptions`, `FigureUse`, `SiteFile`, `SiteFigure`, `SiteRender`
 * `renderSite`: the files and the manifest of the figures a site uses
+* `motionOf?`: the motion a figure's files show, if it is one
 * `SiteRender.checkFolder`: the differences between a folder and the render
 * `imageSize?`: the size in pixels a picture asks for
 -/
@@ -81,6 +87,10 @@ structure SiteOptions where
   inlineLimit : Nat := 2000000
   /-- Where the links to Lean declarations lead (`--figure-lean-links`). -/
   leanLinks : LeanLinks := .ideil
+  /-- Whether motions that were not checked strictly are rendered (`--figure-allow-unchecked`,
+  for drafts; `PILean.Trust.BuildOptions.allowUnchecked`). Off by default: a motion built at a check
+  level other than `fail`, or with errors left, fails the site's build. -/
+  allowUnchecked : Bool := false
 deriving Inhabited, Repr
 
 /-- How a document uses one figure: by its declaration's name, put inline (`inline := true`), or
@@ -148,6 +158,9 @@ structure SiteFile where
   /-- Every frame of an explorer, for a page that shows them inline (of a figure the document
   uses as an explorer). -/
   frames : Option FrameSet := none
+  /-- For the animated SVG of a motion (and of its narrow rendition): what a page needs to show
+  it inline (`Output.motionPage`), kept only from an output that rendered. -/
+  motion : Option MotionData := none
   /-- The layout warnings of the figure. -/
   problems : Array String := #[]
   /-- The identity of the text engine the output was drawn with (`Output.textEngine`; empty for
@@ -188,7 +201,8 @@ instance : Inhabited SiteRender := ⟨{}⟩
 inline picture and the frames are kept only when the document puts them in a page (`u`). -/
 def renderSiteFile (e : FigureEntry) (o : Output) (opts : SiteOptions) (u : FigureUse) :
     Except String SiteFile := do
-  let built ← renderOutput e o { repo := opts.repo, commit := opts.commit }
+  let built ← renderOutput e o
+    { repo := opts.repo, commit := opts.commit, allowUnchecked := opts.allowUnchecked }
   if o.format == .svg then
     match String.fromUTF8? built.bytes with
     | none => throw s!"{built.entry.path}: the SVG is not UTF-8"
@@ -198,14 +212,26 @@ def renderSiteFile (e : FigureEntry) (o : Output) (opts : SiteOptions) (u : Figu
   let wanted := o.format == .svg && (u.inline || u.explorer)
   let inline := if wanted then o.inline () else none
   let frames := if wanted && u.explorer then o.frames () else none
-  return { name := o.name, format := o.format, built, inline, frames, problems := o.problems (),
-           textEngine := o.textEngine, renderer := rendererWith o.textEngine }
+  -- a motion is always shown inline: its moving picture is part of the page
+  let motion := if o.format == .svg then o.motionPage () else none
+  return { name := o.name, format := o.format, built, inline, frames, motion,
+           problems := o.problems (), textEngine := o.textEngine,
+           renderer := rendererWith o.textEngine }
 
-/-- The pictures a page puts inline for a figure used as `u`, from its files: the picture and
-its narrow rendition (`inline := true`), or every frame (an explorer). -/
+/-- The motion of a figure's files, if it is one: what a page needs to show it at its width and
+in its narrow rendition (`SiteFile.motion` of the SVG outputs `""` and `"-narrow"`). -/
+def motionOf? (fs : Array SiteFile) : Option (MotionData × Option MotionData) := do
+  let svg := fun (name : String) => fs.find? fun f => f.format == .svg && f.name == name
+  let main ← (svg "").bind (·.motion)
+  return (main, (svg "-narrow").bind (·.motion))
+
+/-- The pictures a page puts inline for a figure used as `u`, from its files: a motion's moving
+picture and its narrow rendition (whatever the use: a motion is always shown inline), the picture
+and its narrow rendition (`inline := true`), or every frame (an explorer). -/
 def inlinePictures (u : FigureUse) (fs : Array SiteFile) : Array InlineSvg :=
   let svg := fun (name : String) => fs.find? fun f => f.format == .svg && f.name == name
-  if u.explorer then ((svg "").bind (·.frames)).map (·.frames) |>.getD #[]
+  if let some (m, n) := motionOf? fs then #[m.live] ++ (n.map (·.live)).toArray
+  else if u.explorer then ((svg "").bind (·.frames)).map (·.frames) |>.getD #[]
   else if u.inline then
     ((svg "").bind (·.inline)).toArray ++ ((svg "-narrow").bind (·.inline)).toArray
   else #[]
@@ -217,9 +243,10 @@ def useProblem? (n : String) (u : FigureUse) (fs : Array SiteFile) : Option Stri
   if u.explorer && (svg.bind (·.frames)).isNone then
     some s!"{n} is shown with figure_explorer but is not an explorer (a declaration of type \
       PILean.Explorer, made with Plane.slider, Plane.stepper or Explorer.grid)"
-  else if u.inline && !u.explorer && (svg.bind (·.inline)).isNone then
-    some s!"{n} is shown with (inline := true) but has no inline picture (plane figures, plots \
-      and explorers have one); remove the option to show its file"
+  else if u.inline && !u.explorer && (svg.bind (·.inline)).isNone &&
+      (motionOf? fs).isNone then
+    some s!"{n} is shown with (inline := true) but has no inline picture (plane figures, plots, \
+      explorers and motions have one); remove the option to show its file"
   else none
 
 /-- The checks of the pictures a page puts inline for the figure `n` used as `u`: each is inert,

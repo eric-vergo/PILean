@@ -78,6 +78,24 @@ The disk as its radius grows.
 :::
 ```
 
+A motion of plane figures (a declaration of type `PILean.Plane.Motion` or
+`PILean.Plane.MotionPanels`, marked `@[figure illustration]` or linked to a theorem by
+`figure_links`) is shown with `:::figure` as any figure, and always inline:
+
+```
+:::figure MyProject.quarterTurn (label := "quarter") (alt := "A point P turns a quarter about the origin O.")
+A point turned a quarter about the origin.
+:::
+```
+
+The motion's own captions (`Motion.captions`, one per key) are the captions of its stills
+("Step 2 of 3: …"); write them without a counter. `width` sets the picture's width; `inline` is
+implied; `format` does not apply. The caption ends with the Blueprint's link to its motion switch,
+"Animations can be turned off in the page menu.", shown only when scripts run. A motion that was
+not checked strictly (built at the check level `warn` or `ignore`, or with errors left) fails the
+build; `--figure-allow-unchecked` builds it, for drafts only, and its page then says what its
+checks found.
+
 ## Links to Lean
 
 One option of the site decides where a declaration's name leads, in the source line, on the
@@ -108,6 +126,13 @@ A link is never put inside another.
   its animated SVG, and a reader who asks for reduced motion sees its still frame instead. A
   figure shown as a file is an `<img>` of the site and needs no script; the stylesheet switches
   the light and dark files.
+* A motion moves inline, in the theme of the page, on its own clock. Hovering it (with a mouse)
+  or focusing it (with the keyboard, or a tap) shows its poster key's still in the same place;
+  with animations turned off (the Blueprint's switch beside the theme control), with the
+  system's reduced motion, and in print, it shows its key frames as stills in a grid with their
+  captions, which are also its text description for assistive technology. On small screens it
+  shows its narrow rendition, when it has one. None of this needs a script
+  ([`docs/DESIGN.md`](../docs/DESIGN.md), "A motion shown in a page").
 * With `inline := true`, the picture is an `svg` element of the page (its narrow rendition on
   screens up to 560 px wide, when it has one): the titles of its elements show on hover, the
   elements that name a declaration link to it (see "Links to Lean"), and one picture serves both
@@ -223,8 +248,9 @@ the script it uses where it is shown, and the code the hovers of the genre's Lea
   (`PILean.Svg.inertProblem?`: no script, no event handler, nothing loaded from elsewhere), so
   must every picture a page puts inline; a figure shown with `inline := true` must have an inline
   picture; one figure's inline SVG, counted once over all it puts in the pages, may not pass
-  `--figure-inline-limit BYTES` (2,000,000 by default; figures shown as files are not counted);
-  and
+  `--figure-inline-limit BYTES` (2,000,000 by default; figures shown as files are not counted;
+  a motion's moving picture and its narrow rendition are counted); a motion must have been
+  checked strictly, unless `--figure-allow-unchecked` is given (for drafts); and
   after the generator has written the site, the figures folder
   (`<output>/html-multi/-verso-data/pilean-figures`) must hold exactly the files of this render: a
   missing or different file fails the build, a file left from an earlier build is reported

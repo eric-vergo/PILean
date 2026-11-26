@@ -712,18 +712,108 @@ def pictureLinks (l : Links) (is : Array InlineSvg) : IO (String → Option Stri
     if let some h ← l.href n then m := m.insert n h
   return fun n => m[n]?
 
-/-- The inline markup of a figure (`inline := true`, and explorers), from the site's render: the
-picture (and its narrow rendition, shown on small screens) as `svg` elements, or an explorer's
-frames and controls; `none` when the figure is shown as files. Each picture names its file. -/
+/-- A picture of a figure's file in the light theme and, when it has one, the dark theme, each a
+`picture` element with the file of the narrow rendition as its source on small screens when there
+is one: the files with the suffix `name` and `name ++ "-dark"`, and `narrow` and `narrow ++ "-dark"`
+when `narrow` is given.
+The pictures have no text alternative (`alt=""`): what they show is said by the text beside them.
+`lazy` loads them only when they are about to be seen. -/
+def themedPictures (files : Array FileInfo) (name : String) (narrow : Option String)
+    (lazy : Bool) : Html :=
+  let one (light : FileInfo) (narrowFile : Option FileInfo) (cls : String) : Html :=
+    let size := match light.size with
+      | some (w, h) => #[("width", toString w), ("height", toString h)]
+      | none => #[]
+    let source := match narrowFile with
+      | some nf => Html.element "source" #[("media", "(max-width: 560px)"),
+          ("srcset", fileUrlRelative nf.path)] .empty
+      | none => .empty
+    .element "picture" #[("class", cls)] (.seq #[source,
+      .element "img" (#[("src", fileUrl light.path), ("alt", "")] ++ size ++
+        (if lazy then #[("loading", "lazy")] else #[]) ++ #[("decoding", "async")]) .empty])
+  match pick? files "svg" name with
+  | none => .empty
+  | some light =>
+    match pick? files "svg" (name ++ "-dark") with
+    | some dark => .seq #[one light (narrow.bind (pick? files "svg" ·)) "pilean-figure-light",
+        one dark (narrow.bind fun n => pick? files "svg" (n ++ "-dark")) "pilean-figure-dark"]
+    | none => one light (narrow.bind (pick? files "svg" ·)) "pilean-figure-only"
+
+/-- What the stills of a motion say of key `k` (from 0) of `n`: `Step 3 of 5: caption`. -/
+def motionStepText (captions : Array String) (k : Nat) : String :=
+  s!"Step {k + 1} of {captions.size}: {(captions[k]?).getD ""}"
+
+/-- The markup of a motion shown in a page (see `motionCss`): a wrapper `div.pilean-motion` that
+carries `data-bp-motion` (what the Verso Blueprint motion switch looks for), holding
+
+* the stage: the moving picture inline (`main.live`, the class `pilean-motion-live`), and, when
+  the motion has one, its narrow rendition's (`narrow`), both present from the page's load (an
+  `svg` inserted later would start a clock of its own), each with the accessible name `alt` and
+  described by the stills' captions; and over them the poster key's still, shown while the stage
+  is hovered or focused. The stage is focusable, so that a reader at the keyboard can stop the
+  motion. The moving picture has no declaration links: they could not be reached, since hovering
+  and focusing it show the still instead;
+* the key stills, in order, as pictures of their files (`-key-k`, the narrow rendition's
+  `-narrow-key-k`, and their dark twins), each with its caption (`motionStepText`).
+
+`base` is unique in the page: every id and `data-pilean-actor` of a moving picture gets the
+prefix `base-mw-` (its narrow rendition `base-mn-`), and the list of stills has the id
+`base-keys`. `name` is how the page names the figure (`Figure 2.1`), `files` its files, `paths k`
+the file a rendition is the body of (`""` or `"-narrow"`), `width` its CSS width if given. -/
+def motionHtml (base : String) (name alt : String) (main : MotionData)
+    (narrow : Option MotionData) (files : Array FileInfo) (path : String → Option String)
+    (width : Option String := none) : Html :=
+  let base := domSafe base
+  let keysId := s!"{base}-keys"
+  let poster := main.stills.poster
+  let live := fun (suffix rendition : String) (d : MotionData) =>
+    Html.raw (inlineSvgText s!"{base}-{suffix}" d.live (fun _ => none) alt
+      (cls := s!"pilean-motion-live pilean-motion-{rendition}") (file := path
+        (if rendition == "narrow" then "-narrow" else ""))
+      (attrs := #[("aria-describedby", keysId), ("data-pilean-poster", toString poster)]))
+  let posterPics := themedPictures files s!"-key-{poster}"
+    (narrow.map fun _ => s!"-narrow-key-{poster}") (lazy := false)
+  let captions := main.stills.stepCaptions
+  let keys := (Array.range main.stills.frames.size).map fun k =>
+    Html.element "li" (#[("class", "pilean-motion-key")] ++
+        (if k == poster then #[("data-poster", "")] else #[])) (.seq #[
+      .element "span" #[("class", "pilean-motion-key-pic")]
+        (themedPictures files s!"-key-{k}" (narrow.map fun _ => s!"-narrow-key-{k}")
+          (lazy := true)),
+      .element "p" #[("class", "pilean-motion-key-caption")] (.text (motionStepText captions k))])
+  let stageStyle := match width with
+    | some w => #[("style", s!"width: {w}")]
+    | none => #[]
+  let cls := "pilean-motion" ++ (if narrow.isSome then " pilean-motion-has-narrow" else "") ++
+    (if width.isSome then " pilean-motion-sized" else "")
+  .element "div" #[("class", cls), ("data-bp-motion", ""), ("id", base)] (.seq #[
+    .element "div" (#[("class", "pilean-motion-stage"), ("tabindex", "0"), ("role", "group"),
+        ("aria-label", s!"{name}: an animation; while it has the focus, a still of it is shown")] ++
+        stageStyle) (.seq #[
+      live "mw" "wide" main,
+      match narrow with
+      | some n => live "mn" "narrow" n
+      | none => .empty,
+      .element "span" #[("class", "pilean-motion-still"), ("aria-hidden", "true")] posterPics]),
+    .element "ol" #[("class", "pilean-motion-keys"), ("id", keysId),
+      ("aria-label", s!"The key frames of {name}")] (.seq keys)])
+
+/-- The inline markup of a figure (`inline := true`, explorers and motions), from the site's
+render: the picture (and its narrow rendition, shown on small screens) as `svg` elements, an
+explorer's frames and controls, or a motion's moving picture and stills (`motionHtml`); `none`
+when the figure is shown as files. Each picture names its file. -/
 def inlinePicture? (l : Links) (site : Option SiteRender) (p : Placed)
     (idAttr : Array (String × String)) : IO (Option Html) := do
   let d := p.data
-  if !d.inline && !d.explorer then return none
   let base := figureDomId p idAttr
   let some site := site | return none
   let some fig := site.figures[d.decl]? | return none
   let file := fun (name : String) => fig.files.find? fun f => f.format == .svg && f.name == name
   let path := fun (name : String) => (file name).map (·.built.entry.path)
+  if let some (main, narrow) := motionOf? fig.files then
+    return some (motionHtml s!"{base}-motion" s!"Figure {p.number}" d.alt main narrow p.files path
+      d.width)
+  if !d.inline && !d.explorer then return none
   if d.explorer then
     let some f := file "" | return none
     let some fs := f.frames | return none
@@ -744,11 +834,12 @@ def inlinePicture? (l : Links) (site : Option SiteRender) (p : Placed)
   | none => return some (.element "div" #[("class", "pilean-inline-frame")] (.raw wide))
 
 open Verso.Output.Html in
-/-- The HTML of a figure block; `site` is the site's render, which inline pictures and explorers
-are read from and which sets the link mode. -/
+/-- The HTML of a figure block; `site` is the site's render, which inline pictures, explorers and
+motions are read from and which sets the link mode. `motionNote` is added to the caption of a
+motion (the Blueprint adapter's link to its motion switch). -/
 def figureHtmlWith (s : DeclStyle) (st : TraverseState) (p : Placed)
-    (idAttr : Array (String × String)) (caption : Html) (site : Option SiteRender := none) :
-    IO Html := do
+    (idAttr : Array (String × String)) (caption : Html) (site : Option SiteRender := none)
+    (motionNote : Html := .empty) : IO Html := do
   let d := p.data
   let l := Links.of s st site
   let hasDark := (pick? p.files d.format "-dark").isSome ||
@@ -765,12 +856,15 @@ def figureHtmlWith (s : DeclStyle) (st : TraverseState) (p : Placed)
   let cls := if d.explorer then cls ++ " pilean-figure-explorer" else cls
   let role := if d.explorer then #[("role", "group"), ("aria-labelledby", capId)] else #[]
   let source ← sourceLineWith s l st p (shownFingerprint p) (here := placedLink? st p)
+  let isMotion := (site.bind fun x => x.figures[d.decl]?).any fun f => (motionOf? f.files).isSome
+  let cls := if isMotion then cls ++ " pilean-figure-has-motion" else cls
+  let note : Html := if isMotion then motionNote else .empty
   pure <| .element "figure" (idAttr ++ #[("class", cls), ("data-lean-decl", d.decl)] ++ role)
     (.seq #[
       html%{<div class="pilean-figure-frame">{picture}</div>},
       .element "figcaption" #[("class", "pilean-figure-caption"), ("id", capId)] (.seq #[
         html%{<span class="pilean-figure-number">{.text s!"Figure {p.number}"}</span>},
-        captionBody, source])])
+        captionBody, source, note])])
 
 /-! ### The figures page and references -/
 
@@ -801,7 +895,24 @@ def standingSummaryHtml (s : DeclStyle) (l : Links) (site : Option SiteRender) (
   pure html%{<dt>{"Standing"}</dt><dd class={cls}>{.text (standingWords fig.standing)}
     {if thms.isEmpty then Html.empty else .seq (#[Html.text " "] ++ thms)}</dd>}
 
-/-- The label of a file in the list of files: its format and theme. -/
+/-- The words of a file's name suffix, from its parts (`narrow`, `key`, `2`, `dark`): a key
+still `key k` as `key frame k+1`, the contact sheet `keys` as `key frames`, the poster as `still`,
+an explorer's `frame k` as `frame k`, and the other parts as they are. -/
+def suffixWords : List String → List String
+  | "key" :: k :: rest =>
+    match k.toNat? with
+    | some n => s!"key frame {n + 1}" :: suffixWords rest
+    | none => "key" :: suffixWords (k :: rest)
+  | "frame" :: k :: rest =>
+    if k.toNat?.isSome then s!"frame {k}" :: suffixWords rest
+    else "frame" :: suffixWords (k :: rest)
+  | "keys" :: rest => "key frames" :: suffixWords rest
+  | "poster" :: rest => "still" :: suffixWords rest
+  | w :: rest => w :: suffixWords rest
+  | [] => []
+
+/-- The label of a file in the list of files: its format, then what its name suffix says
+(`suffixWords`): `SVG`, `PNG (dark)`, `PDF (still)`, `SVG (narrow, key frame 2, dark)`. -/
 def fileLabel (f : FileInfo) : String :=
   let fmt := match f.format with
     | "svg" => "SVG"
@@ -810,11 +921,8 @@ def fileLabel (f : FileInfo) : String :=
     | "gif" => "GIF"
     | "pdf" => "PDF"
     | other => other
-  match f.name with
-  | "" => fmt
-  | "-dark" => s!"{fmt} (dark)"
-  | "-poster" => s!"{fmt} (still)"
-  | n => s!"{fmt} ({(n.drop 1).toString})"
+  let parts := ((f.name.drop 1).toString.splitOn "-").filter (!·.isEmpty)
+  if parts.isEmpty then fmt else s!"{fmt} ({", ".intercalate (suffixWords parts)})"
 
 open Verso.Output.Html in
 /-- One entry of the figures page; `math` is the class of a run of TeX in the caption. -/

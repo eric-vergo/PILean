@@ -101,11 +101,22 @@ def blueprintPrefix? (ctxt : TraverseContext) (d : FigureData) : Option String :
   let mode : Informal.SubNumberingPrefix := if d.subPrefix == "first" then .first else .full
   if d.numbering == "global" then none else Informal.numberedPartPrefix? mode ctxt
 
-/-- The HTML of a figure block; `site` is the site's render (inline pictures and explorers, the
-link mode). -/
+/-- The words of the link a motion's caption carries to the Blueprint's motion switch. -/
+def motionLinkText : String := "Animations can be turned off in the page menu."
+
+/-- The link a motion's caption carries to the Blueprint's motion switch (`#bp-motion`): its
+script opens the page menu where it is collapsed and moves the focus to the switch, and its
+stylesheet shows the link only when scripts run (class `bp_motion_link`). -/
+def motionLinkHtml : Html :=
+  .element "span" #[("class", "pilean-motion-note")]
+    (.element "a" #[("class", "bp_motion_link"), ("href", "#bp-motion")] (.text motionLinkText))
+
+/-- The HTML of a figure block; `site` is the site's render (inline pictures, explorers and
+motions, the link mode). A motion's caption ends with the link to the motion switch
+(`motionLinkHtml`). -/
 def figureHtml (st : TraverseState) (p : Placed) (idAttr : Array (String × String))
     (caption : Html) (site : Option SiteRender := none) : IO Html :=
-  figureHtmlWith blueprintDeclStyle st p idAttr caption site
+  figureHtmlWith blueprintDeclStyle st p idAttr caption site (motionNote := motionLinkHtml)
 
 -- The block of a figure; `serialized` is its `FigureData` as JSON text.
 block_extension Block.figure (serialized : String) where
@@ -129,7 +140,7 @@ block_extension Block.figure (serialized : String) where
     let caption ← contents.mapM goB
     pure (.seq #[.raw "\\begin{quote}\\emph{", .text s!"Figure {name}", .raw "} (in the HTML \
       version). ", .seq caption, .raw "\\end{quote}\n"])
-  extraCss := [figureCss, explorerCss]
+  extraCss := [figureCss, explorerCss, motionCss]
   extraJsFiles := {explorerJsFile}
 
 /-! ### The directives -/

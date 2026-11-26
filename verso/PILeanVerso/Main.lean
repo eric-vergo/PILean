@@ -35,6 +35,8 @@ Its own command-line options are taken out before the generator sees the rest:
   `-verso-data/pilean-figures`, a published copy) as `pilean-build --check` does, without
   building the site: exit status 0 if it holds exactly the render, 1 otherwise;
 * `--strict-figures`: also fail when the written folder has a file the render does not make;
+* `--figure-allow-unchecked`: build motions that were not checked strictly, for drafts
+  (`SiteOptions.allowUnchecked`; by default such a motion fails the build);
 * `--figure-inline-limit BYTES`: the most bytes of inline SVG one figure may put in the pages;
 * `--figure-code highlight|signatures`: whether the figures' pages show highlighted source (the
   default; one `lake build +M:highlighted …` with the `lake` of `LAKE`) or signatures only;

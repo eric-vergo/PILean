@@ -1288,6 +1288,59 @@ of a motion, for a site with a dark theme, is the same outputs of `Motion.withSt
 stills and the sheet are drawn by the same routes in that style, with no drawing code of their
 own.
 
+### A motion shown in a page
+
+The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `:::figure` names one
+(`PILeanVerso.motionHtml`, `PILeanVerso.motionCss`); nothing of it needs a script.
+
+* **Markup.** A wrapper `div.pilean-motion` with the attribute `data-bp-motion` (what the Verso
+  Blueprint motion switch looks for) holds the *stage* and the *stills*. The stage holds the
+  moving picture (`MotionData.live`) as an inline `svg.pilean-motion-live` with the figure's text
+  alternative as its name and the stills' captions as its description, and, for a picture of
+  panels with a narrow rendition, the narrow one's beside it; both are in the page from its load,
+  since an `svg` inserted by a script would start a clock of its own. Over them lies the poster
+  key's still (`span.pilean-motion-still`, hidden from assistive technology). The stills are an
+  ordered list `ol.pilean-motion-keys`: each key's still as a picture of its file (`-key-k`, the
+  narrow rendition's `-narrow-key-k` as its source on small screens, and the `-dark` twins that
+  follow the page's theme), loaded lazily, with its caption "Step k of N: …". The moving picture
+  gets no declaration links: hovering or focusing it shows the still instead, so they could not be
+  reached.
+* **Ids.** Every id, reference to an id and `data-pilean-actor` of a moving picture gets a prefix
+  made from the figure's anchor (`<anchor>-motion-mw-`, and `-mn-` for the narrow rendition), so
+  several motions, their renditions and other inline pictures share a page; the stills are
+  pictures of files and add no id.
+* **Theme.** The moving picture's own `style` element restyles its light colours under the page's
+  dark theme (`themeCss`), as for any inline picture; only `transform` and `opacity` are animated,
+  so the restyling holds while it moves.
+* **What is shown.** Motion on (the default): the moving picture; the stills' captions stay in the
+  accessibility tree, visually hidden, their pictures not drawn. Hover (on a device that hovers,
+  `@media (hover: hover)`, so a tap on a phone does not leave it stuck) and keyboard focus (the
+  stage is a tab stop with a visible focus ring; a tap focuses it too): the poster key's still in
+  the picture's own box, so nothing around it moves. Motion off (the root's
+  `data-motion="reduce"`, which the Blueprint's switch sets, or the reader's
+  `prefers-reduced-motion: reduce`): the stage is hidden and the stills are a grid with their
+  captions. Print: the stage is left out and the stills are printed. Without JavaScript the same,
+  by the stylesheet alone. Small screens (560 pixels or less, the plane figures' breakpoint): the
+  narrow rendition, and the narrow stills.
+* **Hiding.** A moving picture that may be shown again is hidden with `visibility: hidden` (and,
+  where it must take no space, `position: absolute`), never `display: none`: in Chromium an inline
+  SMIL picture shown again after `display: none` stays frozen until its animations next repeat,
+  although its clock runs. The hidden rendition and the stage while motion is off are hidden so;
+  only print uses `display: none`. The example sites' browser check shows the picture following
+  its clock after each of these, and that the check notices `display: none`.
+* **Layout.** The stage is as wide as the picture and reserves its box: hover and focus change
+  nothing around it, and the hidden rendition takes no space. Turning motion off replaces the
+  picture by the taller grid of stills, a change the reader asked for.
+* **The figure's page.** Besides the picture and the files (the animated SVGs, the stills, the
+  contact sheet with its PDF): the standing (for a linked motion, what a theorem about a motion can
+  state, `motionLinkedWords`), `MotionData.words` (with `MotionData.checkWords` for a motion not
+  checked strictly), the table of the steps (each step's keys, its duration exactly, and each
+  move with its panel, actor and `MotionMoveRow.words`, a crossfade marked), the key stills with
+  their captions, always shown, and the contact sheet.
+* **The Blueprint.** A motion's caption ends with the Blueprint's link to its switch,
+  "Animations can be turned off in the page menu." (`PILeanVerso.motionLinkText`), which the
+  Blueprint shows only when its script runs.
+
 ## Open design questions
 
 Each question has a current default, which the code follows until the question is settled.

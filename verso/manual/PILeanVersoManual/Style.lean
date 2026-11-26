@@ -229,6 +229,30 @@ def pageCss : String := r##"
   .pilean-page-facts { grid-template-columns: minmax(0, 1fr); }
   .pilean-page-facts dd { margin-bottom: 0.3rem; }
 }
+.pilean-motion-words { max-width: 44rem; }
+.pilean-motion-unchecked { border-left: 3px solid var(--pilean-rule); padding-left: 0.6rem; }
+.pilean-motion-steps-wrap { max-width: 100%; overflow-x: auto; margin: 0.5rem 0 1rem; }
+.pilean-motion-steps { border-collapse: collapse; font-size: 0.92em; }
+.pilean-motion-steps caption {
+  caption-side: top; text-align: left; color: var(--pilean-muted); padding-bottom: 0.3rem;
+}
+.pilean-motion-steps th, .pilean-motion-steps td {
+  border-bottom: 1px solid var(--pilean-rule); padding: 0.3rem 0.7rem 0.3rem 0;
+  text-align: left; vertical-align: top;
+}
+.pilean-motion-steps tbody th { font-weight: normal; white-space: nowrap; }
+.pilean-motion-moves { margin: 0; padding-left: 1rem; }
+.pilean-motion-crossfade { font-style: italic; }
+.pilean-motion-panel { font-weight: 600; }
+.pilean-page-motion-keys {
+  list-style: none; margin: 0.5rem 0 1rem; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); gap: 0.75rem;
+  align-items: start;
+}
+.pilean-page-motion-key { margin: 0; min-width: 0; text-align: center; }
+.pilean-page-motion-key img, .pilean-page-motion-sheet img {
+  display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 4px;
+}
 "##
 
 end PILeanVerso
