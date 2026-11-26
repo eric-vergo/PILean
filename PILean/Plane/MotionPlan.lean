@@ -51,7 +51,9 @@ each motion out in a frame of its own (its origin shifted) on a timeline they sh
 * `MotionPhase`, `MotionClock`, `MotionLink`, `MotionLayer`, `MotionUpright`,
   `MotionPlan`, `Motion.planIn`, `Motion.plan`.
 * `Motion.segments`, `Motion.timelineOf`, `Motion.phasesOf`, `Motion.timeline`.
-* `MotionPlan.toNodes`, `Motion.svgRoot`, `Motion.toSvg`, `MotionPlan.figureAt`, `Motion.figureAt`,
+* `MotionPlan.toNodes`, `Motion.svgRoot`, `Motion.toSvg`, `Motion.svg?`, `MotionPlan.figureAt`,
+  `Motion.figureAt`, `Drawn`, `drawingDiff`, `Motion.restProblems`, `Motion.problems`,
+  `Motion.checkMessages`, `Motion.problemsFail`,
   `MotionPlan.markersAt`, `Motion.toAnimation`.
 -/
 

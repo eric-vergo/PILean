@@ -59,8 +59,10 @@ This module holds the model and its checks.
   `Motion.resolved`, `Motion.keyFigure`.
 * `MotionVersion`, `Motion.continuation`, `Motion.versions`: the layers of a motion (an actor for
   as long as its steps carry it, an item without an id for as long as the keys draw it alike).
-* `anchors`, `leafKey`, `Move.pageAffine`, `arrival`, `Motion.problems`,
-  `Motion.checkMessages`, `Motion.problemsFail`.
+* `mergeOrder`, `inOrder`: one drawing order for the layers of all keys.
+* `anchors`, `leafKey`, `Move.pageAffine`, `arrival`, `Motion.stepProblems`, `Motion.keyProblems`
+  (`Motion.problems`, with the rest check, `Motion.checkMessages` and `Motion.problemsFail` are
+  in `PILean.Plane.MotionPlan`).
 * `Motion.turnsOf`, `Motion.turnSum`, `Motion.keyAngle`.
 
 ## Main results
