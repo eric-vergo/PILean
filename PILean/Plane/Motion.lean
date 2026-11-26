@@ -799,19 +799,15 @@ def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (j : Nat) :
             out := out.push (err s!"{name}: the {mv.name} of {id} does not carry key {j} onto \
               key {j + 1}: {why}")
           | none =>
-            -- a move the check cannot see; not reported for the centre of a turn, nor for an
-            -- actor that moves with others that the check sees move (a rigid body)
+            -- a move the check cannot see; not reported for what sits on the centre of a turn
+            -- (the centre of a rigid body and a disk about it): under a turn that is not a
+            -- whole one, only what has every anchor on the centre is drawn alike
             let atCentre := match mv with
               | .turn c _ =>
                 (x.leaves.flatMap fun lf => anchors e.frame st lf.geom).all
                   (·.dist (e.frame.toScreen c) ≤ arrivalTolerance)
               | _ => false
-            let withOthers := s.moves.any fun (id', mv') =>
-              id' != id && reprStr mv' == reprStr mv &&
-                match a.actor? id', b.actor? id' with
-                | some x', some y' => (arrival e.frame st Affine.id x' y').isSome
-                | _, _ => false
-            if (arrival e.frame st Affine.id x y).isNone && !atCentre && !withOthers then
+            if (arrival e.frame st Affine.id x y).isNone && !atCentre then
               out := out.push (note s!"{name}: {id} is drawn alike before and after its \
                 {mv.name}, so the arrival check cannot see the {mv.name}")
         if let .turn _ q := mv then
