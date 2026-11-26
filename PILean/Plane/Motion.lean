@@ -210,9 +210,10 @@ def turnsOf (id : String) : Array Rat :=
 /-- The exact sum of the turns of the actor `id` before key `k`. -/
 def turnSum (id : String) (k : Nat) : Rat := ((m.turnsOf id).toList.take k).foldr (· + ·) 0
 
-/-- The angle in degrees of the chain of groups of the actor `id` at key `k`, as SVG's `rotate`
-measures it (clockwise on the page, whose `y` points down): `Anim.Smil.turnAngles` of its turns
-negated. -/
+/-- The angle in degrees by which the actor `id` has turned at key `k`, in SVG's measure
+(clockwise on the page, whose `y` points down): `Anim.Smil.turnAngles` of its turns negated. A
+function of the model, which the writer does not call (it turns each link by `pageDegrees`, see
+`PILean.Plane.linkOf_turn`). -/
 def keyAngle (id : String) (k : Nat) : Float := Anim.Smil.turnAngles ((m.turnsOf id).map (-·)) k
 
 private theorem foldr_neg (l : List Rat) :
@@ -256,6 +257,38 @@ def Figure.svgMode (fig : Figure) : TextMode :=
 /-- An item drawn in an environment, as SVG text (to compare two drawings). -/
 def itemText (e : Env) (mode : TextMode) (it : Item) : String :=
   String.join ((Shape.group (drawItem e it)).render mode |>.toList.map (Svg.render 0))
+
+/-- The words `Item.incident` adds to a title for the record `r`: `on the window`. -/
+def incidenceWords (r : Incidence × String) : String := s!"{r.1.text} {r.2}"
+
+/-- The title without the words that the records `recs` added to it (`Item.incident` appends
+`, words` to a title, or makes them the title of an item that had none), removed in the reverse
+order of their recording. -/
+def baseTitle (recs : Array (Incidence × String)) (title : String) : String :=
+  recs.toList.reverse.foldl (init := title) fun t r =>
+    let w := incidenceWords r
+    if t == w then ""
+    else if t.endsWith (", " ++ w) then (t.dropEnd (w.length + 2)).toString
+    else t
+
+/-- The item without its recorded incidences (`Item.incident`): no records in the looks, and no
+words of them in the titles (a group's title loses those of its first leaf's records, which
+`Item.incident` on the group recorded in every leaf). The records describe a key, not the
+drawing: an actor whose records change from key to key is the same actor. -/
+def Item.baseForm : Item → Item
+  | .shape g l i =>
+    .shape g { l with incidences := #[] } { i with title := baseTitle l.incidences i.title }
+  | .group xs i =>
+    let recs := ((Item.group xs i).leaves[0]?).map (·.look.incidences) |>.getD #[]
+    .group (xs.attach.map fun ⟨x, _⟩ => Item.baseForm x)
+      { i with title := baseTitle recs i.title }
+
+/-- The incidence records of an item's leaves, as text (to tell whether they change). -/
+def Item.recordsText (it : Item) : String := reprStr (it.leaves.map (·.look.incidences))
+
+/-- An item drawn in an environment without its recorded incidences (`Item.baseForm`), as SVG text:
+two keys draw an item alike when these agree. -/
+def baseText (e : Env) (mode : TextMode) (it : Item) : String := itemText e mode it.baseForm
 
 /-- The placements (side and offset) for the automatic labels of `orig`, in order: for each,
 that of the label at the same position among the leaves of `first` (the item as placed on the
@@ -414,8 +447,12 @@ def geomKey : Geom → String
   | .tick _ _ len => s!"tick {reprStr len}"
   | .disks op .. => s!"disks {reprStr op}"
 
-/-- Everything about a leaf that a turn or a slide keeps (`geomKey`, its look and metadata). -/
-def leafKey (lf : Leaf) : String := s!"{geomKey lf.geom} {reprStr lf.look} {reprStr lf.info}"
+/-- Everything about a leaf that a turn or a slide keeps (`geomKey`, its look and metadata), but
+its recorded incidences and their words in its title, which describe a key (`baseTitle`). -/
+def leafKey (lf : Leaf) : String :=
+  let look := { lf.look with incidences := #[] }
+  let info := { lf.info with title := baseTitle lf.look.incidences lf.info.title }
+  s!"{geomKey lf.geom} {reprStr look} {reprStr info}"
 
 /-- Whether an element is drawn upright whatever its actor's turns: a label or a point's marker
 (its point rides the turns). -/
@@ -602,7 +639,7 @@ def continuation (K : MotionKeys) (e : Env) (j : Nat) (v : MotionVersion) (it : 
           some (some .morph, if its.size > 2 then some its else none)
         else none
       | none => none
-  | _ => if itemText e K.mode prev == itemText e K.mode it then some (none, none) else none
+  | _ => if baseText e K.mode prev == baseText e K.mode it then some (none, none) else none
 
 /-- The layers of the motion in the environment `e`, and for each key the layers it shows, in its
 drawing order (see the module docstring). -/
@@ -687,14 +724,14 @@ private def changed (K : MotionKeys) (j : Nat) : Array String :=
   (a.items.filterMap Item.actorId?).filter fun id =>
     match a.actor? id, b.actor? id with
     | some x, some y =>
-      (m.moveOf j id).isNone && itemText K.env K.mode x != itemText K.env K.mode y
+      (m.moveOf j id).isNone && baseText K.env K.mode x != baseText K.env K.mode y
     | _, _ => false
 
 /-- The drawings of the items without an id of key `j` that key `j + 1` does not have, and the
 other way round (counted with their repetitions). -/
 def staticChanges (K : MotionKeys) (j : Nat) : Nat × Nat :=
   let texts := fun (fig : Figure) =>
-    (fig.items.filter (·.actorId?.isNone)).map (itemText K.env K.mode)
+    (fig.items.filter (·.actorId?.isNone)).map (baseText K.env K.mode)
   let a := texts (K.figure j)
   let b := texts (K.figure (j + 1))
   let missing := fun (xs ys : Array String) => Id.run do
@@ -762,7 +799,19 @@ def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (j : Nat) :
             out := out.push (err s!"{name}: the {mv.name} of {id} does not carry key {j} onto \
               key {j + 1}: {why}")
           | none =>
-            if (arrival e.frame st Affine.id x y).isNone then
+            -- a move the check cannot see; not reported for the centre of a turn, nor for an
+            -- actor that moves with others that the check sees move (a rigid body)
+            let atCentre := match mv with
+              | .turn c _ =>
+                (x.leaves.flatMap fun lf => anchors e.frame st lf.geom).all
+                  (·.dist (e.frame.toScreen c) ≤ arrivalTolerance)
+              | _ => false
+            let withOthers := s.moves.any fun (id', mv') =>
+              id' != id && reprStr mv' == reprStr mv &&
+                match a.actor? id', b.actor? id' with
+                | some x', some y' => (arrival e.frame st Affine.id x' y').isSome
+                | _, _ => false
+            if (arrival e.frame st Affine.id x y).isNone && !atCentre && !withOthers then
               out := out.push (note s!"{name}: {id} is drawn alike before and after its \
                 {mv.name}, so the arrival check cannot see the {mv.name}")
         if let .turn _ q := mv then
@@ -823,8 +872,9 @@ def keyProblems : Array MotionProblem := Id.run do
     ({ severity := if m.checks == .fail then .error else .note, message := s } : MotionProblem)
   if m.info.title.isEmpty then
     out := out.push (strict "the motion has no title (its picture has role=\"img\")")
-  if m.info.description.isEmpty then
-    out := out.push (strict "the motion has no description (its picture has role=\"img\")")
+  if m.info.description.isEmpty && m.captions.all (·.isEmpty) then
+    out := out.push (strict "the motion has neither a description nor captions (its picture has \
+      role=\"img\")")
   let (vs, perKey) := m.versions K K.env
   let order := mergeOrder perKey
   for (k, seq) in perKey.mapIdx fun k seq => (k, seq) do

@@ -11,14 +11,16 @@ A `Motion` (`PILean.Plane.Motion`) is laid out once as a `MotionPlan`: the drawa
 the motion in drawing order, each with its chain of turns and slides and its opacity, every
 animated number given at each boundary of one timeline. Two consumers read the plan, and agree:
 
-* `MotionPlan.toNodes`, `Motion.toSvg`: the animated SVG. The base geometry of every layer is
+* `MotionPlan.toNodesUnchecked`: the moving picture of the animated SVG (`Motion.svg?`). The
+  base geometry of every layer is
   drawn once by the plane figures' drawing path (`drawGeom`) and moved by SMIL animations
   (`PILean.Anim.Smil`): each turn is the `animateTransform` of type `rotate` of a group of its own,
   the earliest turn innermost (so that every centre is a point of the page), each slide one of type
   `translate`; a label or a point's marker sits inside a counter-rotation about its anchor by
   minus the whole angle so far, so that its net motion is a translation; fades animate `opacity`
-  and morphs `d`. Nothing else is animated, and no static `transform` is written.
-* `MotionPlan.figureAt`, `Motion.figureAt`, `Motion.toAnimation`: the same motion as baked
+  and morphs `d`. Nothing else is animated, and no static `transform` is written. Every
+  animation element is built by `MotionPlan.anim`, so it has the plan's timing (`anim_eq`).
+* `MotionPlan.figureAtUnchecked`: the same motion as baked
   drawings on the vector canvas, for raster outputs and tests: at a time, every layer's shapes
   turned and slid by the transform its chain has then (labels and markers translated only),
   at its opacity. The values are the plan's: the numbers the SVG writes (rounded as it writes
@@ -51,11 +53,11 @@ each motion out in a frame of its own (its origin shifted) on a timeline they sh
 * `MotionPhase`, `MotionClock`, `MotionLink`, `MotionLayer`, `MotionUpright`,
   `MotionPlan`, `Motion.planIn`, `Motion.plan`.
 * `Motion.segments`, `Motion.timelineOf`, `Motion.phasesOf`, `Motion.timeline`.
-* `MotionPlan.toNodes`, `MotionPlan.figureAt`, `MotionPlan.markersAt`.
+* `MotionPlan.toNodesUnchecked`, `MotionPlan.figureAtUnchecked`, `MotionPlan.markersAt`.
 
-The motion's outputs (`Motion.toSvg`, `Motion.svg?`, `Motion.figureAt`, `Motion.toAnimation`) and
-the check of the baker against the stills (`Motion.restProblems`, `Motion.problems`) are in
-`PILean.Plane.MotionOutput`.
+The motion's checked outputs (`Motion.report`, `Motion.svg?`, `Motion.animation?`) and its checks
+against the stills and between writer and baker (`Motion.problems`) are in
+`PILean.Plane.MotionOutput`; the names that end in `Unchecked` write whatever the problems say.
 -/
 
 namespace PILean.Plane
@@ -419,6 +421,11 @@ def planIn (K : MotionKeys) (e : Env) : MotionPlan := Id.run do
   let mut layers : Array MotionLayer := #[]
   let mut seen : Array String := #[]
   for (vi, v) in vs.mapIdx fun vi v => (vi, v) do
+    -- a layer whose recorded incidences change between its keys is drawn without them
+    let changes := v.items.any (·.recordsText != (v.items.getD 0 default).recordsText)
+    let v := if !changes then v else
+      { v with items := v.items.map Item.baseForm,
+               samples := v.samples.map fun (j, its) => (j, its.map Item.baseForm) }
     let links := v.links e.frame
     let linkValues := links.map fun l => phases.map (l.values ·)
     let turning := links.any MotionLink.isTurn
@@ -491,22 +498,6 @@ def addAttrs (extra : Array (String × String)) : Node → Node
   | .element n as cs => .element n (as ++ extra) cs
   | t => t
 
-/-- The tree `base` with an `animate` of `d` in every `path` whose data differs among `alts` (the
-same tree at each boundary), at most `fuel` deep. -/
-def addMorphs (tl : Timeline) : Nat → Node → Array Node → Node
-  | 0, n, _ => n
-  | _, .text s, _ => .text s
-  | fuel + 1, .element name attrs cs, alts =>
-    let anim : Option Node :=
-      if name != "path" then none
-      else
-        let ds := alts.map fun | .element _ as _ => (Smil.attr? as "d").getD "" | _ => ""
-        if ds.all (· == ds.getD 0 "") then none
-        else Smil.emit (Smil.track "animate" #[("attributeName", "d")] tl ds {})
-    let kids := cs.mapIdx fun j c =>
-      addMorphs tl fuel c (alts.map fun | .element _ _ ds => ds.getD j (.text "") | t => t)
-    .element name attrs (anim.toArray ++ kids)
-
 /-- The metadata of an item around its nodes, as `Shape.tagged` writes it. -/
 def wrapInfo (i : ShapeInfo) (nodes : Array Node) : Array Node :=
   if i.isEmpty then nodes
@@ -525,6 +516,22 @@ variable (p : MotionPlan)
 def anim (tag : String) (head : Array (String × String)) (vals : Array String) : Option Node :=
   Smil.emit (Smil.track tag head p.timeline vals {})
 
+/-- The tree `base` with an `animate` of `d` (built by `anim`) in every `path` whose data differs
+among `alts` (the same tree at each boundary), at most `fuel` deep. -/
+def addMorphs : Nat → Node → Array Node → Node
+  | 0, n, _ => n
+  | _, .text s, _ => .text s
+  | fuel + 1, .element name attrs cs, alts =>
+    let anim : Option Node :=
+      if name != "path" then none
+      else
+        let ds := alts.map fun | .element _ as _ => (Smil.attr? as "d").getD "" | _ => ""
+        if ds.all (· == ds.getD 0 "") then none
+        else p.anim "animate" #[("attributeName", "d")] ds
+    let kids := cs.mapIdx fun j c =>
+      addMorphs fuel c (alts.map fun | .element _ _ ds => ds.getD j (.text "") | t => t)
+    .element name attrs (anim.toArray ++ kids)
+
 /-- The rotation `animateTransform` of the values at the boundaries. -/
 def rotateAnim (vals : Array (Array Float)) : Option Node :=
   p.anim "animateTransform" #[("attributeName", "transform"), ("type", "rotate")]
@@ -539,7 +546,7 @@ def leafNodes (L : MotionLayer) (i : Nat) (lf : Leaf) : Array Node :=
     | none => base
     | some gs =>
       let alts := gs.map fun g => draw ((leafOf g i).getD lf)
-      base.mapIdx fun j n => addMorphs p.timeline 256 n (alts.map (·.getD j (.text "")))
+      base.mapIdx fun j n => p.addMorphs 256 n (alts.map (·.getD j (.text "")))
   nodes
 
 /-- The counter-rotation of upright leaves around their nodes. -/
@@ -600,9 +607,11 @@ def chainNodes (links : Array MotionLink) (values : Array (Array (Array Float)))
     | some a => #[Smil.group a inner]
     | none => inner
 
-/-- Every animation element of the plan carries the timing of the plan's timeline and nothing
-else that depends on the element: its name, its own attributes, its values, then
-`Smil.smilTiming` of the timeline. So all of a plan's animations run on one clock. -/
+/-- Every animation element `anim` builds is its name, its own attributes, its values, then
+`Smil.smilTiming` of the plan's timeline: its timing depends on nothing else. `toNodesUnchecked`
+builds every animation element it writes through `anim` (the turns and slides of the chains, the
+counter-rotations, the opacities, the morphs' path data and the seam), so all of them run on one
+clock; that every element comes from `anim` is how the writer is written, not a theorem. -/
 theorem anim_eq {tag : String} {head : Array (String × String)} {vals : Array String} {n : Node}
     (h : p.anim tag head vals = some n) :
     n = el tag (head ++ #[("values", ";".intercalate vals.toList)] ++
@@ -647,7 +656,7 @@ def contentNodes : Array Node :=
     | none => inner
 
 /-- The moving picture: the content, inside the seam's fades when there are some. -/
-def toNodes : Array Node :=
+def toNodesUnchecked : Array Node :=
   let content := p.contentNodes
   match p.seam.bind fun s => p.anim "animate" #[("attributeName", "opacity")]
       (s.map (fmtNum · 4)) with
@@ -730,7 +739,7 @@ def layerShape (L : MotionLayer) (t : Float) : Array Shape :=
 /-- The motion at the time `t` (seconds from its start, repeated every cycle) as a drawing: the
 background, then the runs of layers at their opacities, each layer turned and slid as its chain
 has it then (see the module docstring). -/
-def figureAt (t : Float) : Shape :=
+def figureAtUnchecked (t : Float) : Shape :=
   let content := p.runs.flatMap fun run =>
     let first := p.layers.getD ((run.getD 0 #[]).getD 0 0) default
     let inner := run.flatMap fun sub => sub.flatMap fun i =>

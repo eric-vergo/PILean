@@ -1090,36 +1090,46 @@ labels placed as on the first key where it appears: the stills (`Motion.keyFigur
 drawings, byte for byte, and no still or raster is derived from the animation. The timing is the
 exact rational `Anim.Timeline` of the steps.
 
-*What the checks promise.* The arrival check compares the actor in key `k`, carried by the
-declared turn or slide (applied in floating point to the page points that fix its drawing,
-`anchors`: a point, the ends of a segment, a circle's centre, a polygon's vertices, the ends of
-an arc, a label's point), with the actor in key `k + 1`: the same leaves in order, of the same
-kinds, looks, texts, placements and metadata, radii and every anchor within 0.01 px. It does not
-determine the direction or the number of revolutions of a turn (for a turn by `1/5`, `6/5` and
-`-4/5` land too; a turn by a whole turn or more is an error unless the step sets
-`allowFullTurns`), says nothing about what the turn leaves alike (a disk centred on the turn's
-centre, a whole turn: a note says so), and does not tell a slide from a turn with the same end
-points; for a single point and an angle that is not a whole turn, the centre is determined. A
-polygon whose vertex list is the same after a symmetry turn is refused (the next key lists the
-turned vertices in the turned order). A move that misses its key is an error and is not animated
-as that move. The stronger guarantee is the rest check (`Motion.restProblems`, part of
-`Motion.problems` for every motion): at the middle of every key's rest the whole baked drawing,
-every path and every text in order, must be the key's still within 0.05 px (plus `5.5e-4` of a
-path's half-diagonal, the most two cubic approximations of one circle differ, since a turned
-circle is not drawn by the same cubics as the next key draws it); this bounds what the per-step
-tolerance adds up to along a chain, and catches a wrong counter-rotation or stacking order. A
-key that draws its layers in another order than the earlier keys is an error. An item without an
-id that changes between two keys is crossfaded with a note; an actor that changes without a
-declared move, leaves without `vanish`, comes without `appear` or has a morph that cannot be
-interpolated, and an empty title or description, are errors under `checks := .fail`, the default,
-under which `Motion.svg?` writes nothing. Every key passes the layout checks as drawn; an
-automatic label of an actor keeps its first key's placement on the later keys, where it must pass
-the checks too. Lines and rays (drawn to the edge of the page) cannot turn or slide; a segment
-can. Labels and point markers keep their look and ride the turns upright; ticks, angle marks and
-every other element turn with their actor (a tick marks a direction, and the next key draws it
-turned).
+*What the checks promise.* The arrival check compares the actor in key `k`, carried by the declared
+turn or slide (applied in floating point to the page points that fix its drawing, `anchors`: a
+point, the ends of a segment, a circle's centre, a polygon's vertices, the ends of an arc, a label's
+point), with the actor in key `k + 1`: the same leaves in order, of the same kinds, looks, texts,
+placements and metadata, radii and every anchor within 0.01 px. It does not determine the direction
+or the number of revolutions of a turn (for a turn by `1/5`, `6/5` and `-4/5` land too; a turn by a
+whole turn or more is an error unless the step sets `allowFullTurns`), says nothing about what the
+turn leaves alike (a disk centred on the turn's centre, a whole turn: a note says so), and does not
+tell a slide from a turn with the same end points; for a single point and an angle that is not a
+whole turn, the centre is determined. A polygon whose vertex list is the same after a symmetry turn
+is refused (the next key lists the turned vertices in the turned order). A move that misses its key
+is an error and is not animated as that move. The stronger guarantee is the rest check
+(`Motion.restProblems`, part of `Motion.problems` for every motion): at the middle of every key's
+rest the whole baked drawing, every path and every text in order, must be the key's still within
+0.05 px (plus `5.5e-4 r` for a path of half-width `r`, the most two cubic approximations of one
+circle of radius `r` differ, since a turned circle is not drawn by the same cubics as the next key
+draws it; a text also unturned within `1e-4` radians); this bounds what the per-step tolerance adds
+up to along a chain, and catches a wrong upright position or stacking order. The comparison is
+between outlines: it does not see the phase of a dash pattern, so a dashed circle turned about its
+own centre passes while its dashes move. The writer is checked against the baker for every motion
+too (`Motion.writerProblems`): at the middle of every rest and every move, the written picture, read
+with `Smil.valueAt`, must show what the baker draws, which checks what the baker never reads, such
+as the angles of the counter-rotations. A key that draws its layers in another order than the
+earlier keys is an error. An item without an id that changes between two keys is crossfaded with a
+note; an actor that changes without a declared move, leaves without `vanish`, comes without `appear`
+or has a morph that cannot be interpolated, an empty title, and neither a description nor a caption,
+are errors under `checks := .fail`, the default, under which `Motion.svg?` and `Motion.animation?`
+give the errors instead of the picture. `Motion.report` computes the keys, the plan and the problems
+once, for all the checked outputs. The names that end in `Unchecked` (`Motion.toSvgUnchecked`,
+`figureAtUnchecked`, `toAnimationUnchecked`) write whatever the problems say, for tests and tools.
+An actor's recorded incidences (`Item.incident`) describe a key, not the drawing: two keys draw an
+item alike, and a move carries it, whatever its records and their words in its title
+(`Item.baseForm`); a layer whose records change between its keys is written without them, and the
+stills keep each key's. Every key passes the layout checks as drawn; an automatic label of an actor
+keeps its first key's placement on the later keys, where it must pass the checks too. Lines and rays
+(drawn to the edge of the page) cannot turn or slide; a segment can. Labels and point markers keep
+their look and ride the turns upright; ticks, angle marks and every other element turn with their
+actor (a tick marks a direction, and the next key draws it turned).
 
-*What the browser interpolates.* The animated SVG (`Motion.toSvg`) writes every drawable part of
+*What the browser interpolates.* The animated SVG (`Motion.svg?`) writes every drawable part of
 the motion once (a *layer*: an actor for as long as its steps carry it, an item without an id for
 as long as the keys draw it alike) and moves it with SMIL on one clock: each turn is the
 `animateTransform` of type `rotate` of a group of its own, the earliest turn innermost, so that
@@ -1138,31 +1148,34 @@ title, and a description with the captions; the poster key's still is inside, sh
 reduced motion. Only `transform`, `opacity` and `d` are animated and no static transform is
 written, so the inline dark-theme rules keep working.
 
-*The baked frames.* `Motion.figureAt` draws the same plan on the vector canvas at a time: every
-layer's shapes turned and slid by its chain's transform then (labels and markers translated only),
-at its opacity, with the values the SVG writes (rounded as written) at the key times it writes;
-`Motion.toAnimation` makes it an `Animation` for APNG and GIF. What pins what is listed in
-[`PROOFS.md`](PROOFS.md): the stills are the keys; the baker is the stills at every rest
+*The baked frames.* `MotionPlan.figureAtUnchecked` draws the same plan on the vector canvas at a
+time: every layer's shapes turned and slid by its chain's transform then (labels and markers
+translated only), at its opacity, with the values the SVG writes (rounded as written) at the key
+times it writes; `Motion.animation?` makes it an `Animation` for APNG and GIF. What pins what is
+listed in [`PROOFS.md`](PROOFS.md): the stills are the keys; the baker is the stills at every rest
 (`Motion.restProblems`, every element); the tests read the written tree with `Smil.valueAt` and
 require as many actors and upright groups as the plan declares, each anchor, opacity and whole
 transform where the baker has it (`1e-6`), at 50 times, and compare the baker with the model
 computed apart from the plan (`1e-3` px); `tools/motion-browser-check.py` checks in Chromium that
-each key's rest is the key's still pixel for pixel and at its positions (0.05 px), that a
-quarter, a half and three quarters of each turn lie on the turn's circle (0.05 px) at the eased
-angle (0.5°), that labels and markers are not turned (0.01°) and are all there, that reduced
-motion shows the still and switching it off again shows the running clock, and that the picture
-plays.
+each key's rest is the key's still up to antialiasing (every channel of every pixel within the range
+of the other picture's pixels at most one pixel away, widened by 40; this sees a label moved by
+about 2 px or more) and at its positions (every actor and every label's anchor within 0.05 px), that
+a quarter, a half and three quarters of each turn lie on the turn's circle (0.05 px) at the eased
+angle (0.5°), that labels and markers are not turned (0.01°) and are all there, that reduced motion
+shows the still and switching it off again shows the running clock, and that the picture plays.
 
-A morph is interpolated in the page's coordinates, so it must come before any turn or slide of
-its layer (a later one starts a new layer, crossfaded). With figures between its keys
-(`Motion.between`) a morph is sampled at `morphSamples` intervals: interval `i` ends at the time
-where the step's easing has done `(i + 1) / n` of the step (`easedTime`), and every animation's
-value there is the exact fraction `(i + 1) / n` of its change, so every animation of the step,
-turns included, follows the eased motion piecewise linearly, within `1 / n` of its change (a
-quarter turn sampled four times: within 22.5°, 5.8° measured), on one clock. The plan
-(`MotionPlan`) holds every animated value as a function of a phase (a key, or a fraction of a
-step) and is computed in a drawing environment (`Motion.planIn`), so that a picture of several
-panels can lay out each motion in a frame of its own on one shared timeline.
+A morph is interpolated in the page's coordinates, so it must come before any turn or slide of its
+layer (a later one starts a new layer, crossfaded). With figures between its keys (`Motion.between`)
+a morph is sampled at `morphSamples` intervals: interval `i` ends at the time where the step's
+easing has done `(i + 1) / n` of the step (`easedTime`), and every animation's value there is the
+exact fraction `(i + 1) / n` of its change, so every animation of the step, turns included, follows
+the eased motion piecewise linearly, within `1 / n` of its change, on one clock. For a turn the
+deviation is a gap in timing along the arc, not off it: the item stays on its circle and is ahead or
+behind the eased angle by at most `1 / n` of the turn; measured, a quarter turn is within 5.79° of
+the eased angle with 4 samples, 2.92° with 8 and 1.45° with 16, and a fifth of a turn within 1.16°
+with the default 16. The plan (`MotionPlan`) holds every animated value as a function of a phase (a
+key, or a fraction of a step) and is computed in a drawing environment (`Motion.planIn`), so that a
+picture of several panels can lay out each motion in a frame of its own on one shared timeline.
 
 ## Open design questions
 

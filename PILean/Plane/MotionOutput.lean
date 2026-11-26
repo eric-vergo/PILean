@@ -7,29 +7,36 @@ import PILean.Plane.MotionPlan
 /-!
 # Motions of plane figures: outputs and the check against the stills
 
-The outputs of a `Motion` laid out as a `MotionPlan` (`PILean.Plane.MotionPlan`): the animated SVG
-(`Motion.svgRoot`, `Motion.toSvg`, and `Motion.svg?`, which writes nothing for a motion whose
-problems stop it), the baked drawing at a time (`Motion.figureAt`) and the `Animation` of the baked
-drawings (`Motion.toAnimation`).
+The outputs of a `Motion` laid out as a `MotionPlan` (`PILean.Plane.MotionPlan`), and its checks.
+The checked route is `Motion.report` (the keys, the plan and the problems, computed once) and its
+`svg?` and `animation?`, which give the messages of the errors instead of a motion whose problems
+stop it (`CheckLevel.fail`, the default). The routes that write whatever the problems say end in
+`Unchecked` (`Motion.svgRootUnchecked`, `toSvgUnchecked`, `figureAtUnchecked`,
+`toAnimationUnchecked`), for tests and tools.
 
 **The stills pin the animation.** `Motion.restProblems` compares, at the middle of every key's
 rest, the whole baked drawing (every path and every text, in order: `Drawn`, `drawnOf`) with the
-key's still, within `restTolerance` (0.05 px, plus `5.5e-4` of a path's half-diagonal for the
-cubic approximations of turned circles, `drawingDiff`). `Motion.problems` is the problems of the
-keys and steps (`Motion.keyProblems`) with these.
+key's still, within `restTolerance` (0.05 px, plus `5.5e-4 r` for a path of half-width `r`, for
+the cubic approximations of turned circles, `drawingDiff`). **The writer against the baker.**
+`Motion.writerProblems` reads the written moving picture with `Smil.valueAt` at the middle of every
+segment of the timeline and requires what the baker draws (`writerDiff`). `Motion.problems` is the
+problems of the keys and steps (`Motion.keyProblems`) with these.
 
 ## Main definitions
 
-* `Motion.svgRoot`, `Motion.toSvg`, `Motion.svg?`, `Motion.figureAt`, `Motion.toAnimation`.
+* `MotionReport`, `Motion.report`, `Motion.svg?`, `Motion.animation?`, `Motion.problems`,
+  `Motion.checkMessages`, `Motion.problemsFail`.
+* `Motion.svgRootUnchecked`, `Motion.toSvgUnchecked`, `Motion.figureAtUnchecked`,
+  `Motion.toAnimationUnchecked`.
 * `Drawn`, `drawnOf`, `drawingDiff`, `restTolerance`, `Motion.restProblems`.
-* `Motion.problems`, `Motion.checkMessages`, `Motion.problemsFail`.
+* `writtenMarkers`, `writerDiff`, `Motion.writerProblems`.
 -/
 
 namespace PILean.Plane
 
 open Canvas Anim Svg
 
-/-! ### The motion's outputs -/
+/-! ### The motion's outputs, unchecked -/
 
 namespace Motion
 
@@ -40,14 +47,13 @@ def description : String :=
   " ".intercalate ((if m.info.description.isEmpty then [] else [m.info.description]) ++
     m.captions.toList)
 
-/-- The root element of the motion's animated SVG: the background; the moving picture
-(`MotionPlan.toNodes`) in a group of class `pilean-motion-live`; and the poster key's still in a
-group of class `pilean-motion-poster`, which a style rule shows instead under reduced motion
+/-- The root element of the motion's animated SVG from its keys as drawn `K` and its plan `p`,
+whatever its problems: the background; the moving picture (`MotionPlan.toNodesUnchecked`) in a
+group of class `pilean-motion-live`; and the poster key's still in a group of class
+`pilean-motion-poster`, which a style rule shows instead under reduced motion
 (`Animation.reducedMotionStyle`). The root has `role="img"`, the motion's title and a
 description with the captions. -/
-def svgRoot : Node :=
-  let K := m.keysOf
-  let p := m.planIn K K.env
+def svgRootIn (K : MotionKeys) (p : MotionPlan) : Node :=
   let f := p.env.frame
   let w := f.width.round
   let h := f.height.round
@@ -57,16 +63,21 @@ def svgRoot : Node :=
   el "svg" #[("xmlns", "http://www.w3.org/2000/svg"), ("width", fmtNum w),
     ("height", fmtNum h), ("viewBox", s!"0 0 {fmtNum w} {fmtNum h}"), ("role", "img")]
     (head ++ #[Animation.reducedMotionStyle] ++ p.background.render p.mode ++
-      #[el "g" #[("class", Animation.liveClass)] p.toNodes,
+      #[el "g" #[("class", Animation.liveClass)] p.toNodesUnchecked,
         el "g" #[("class", Animation.posterClass)] poster])
 
-/-- The motion as an animated SVG document (`svgRoot`), whatever its problems; `svg?` refuses a
-motion whose problems stop it. -/
-def toSvg : String :=
-  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++ Svg.render 0 m.svgRoot ++ "\n"
+/-- The root element of the motion's animated SVG (`svgRootIn`), whatever its problems: for tests
+and tools. `Motion.svg?` is the checked route. -/
+def svgRootUnchecked : Node := let K := m.keysOf; m.svgRootIn K (m.planIn K K.env)
 
-/-- The motion at the time `t` (seconds) as a drawing (`MotionPlan.figureAt`). -/
-def figureAt (t : Float) : Shape := m.plan.figureAt t
+/-- The motion as an animated SVG document, whatever its problems: for tests and tools.
+`Motion.svg?` is the checked route. -/
+def toSvgUnchecked : String :=
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++ Svg.render 0 m.svgRootUnchecked ++ "\n"
+
+/-- The motion at the time `t` (seconds) as a drawing (`MotionPlan.figureAtUnchecked`), whatever
+its problems. `Motion.animation?` is the checked route to the baked drawings. -/
+def figureAtUnchecked (t : Float) : Shape := m.plan.figureAtUnchecked t
 
 end Motion
 
@@ -129,10 +140,12 @@ def linesApart (a b : Array Polyline) (tol : Float) : Float :=
       (x.points.zip y.points).all fun (u, v) => u.dist v ≤ tol then 0
   else max (farthest a b) (farthest b a)
 
-/-- How far the baked drawing at a rest may be from the still: `restTolerance` (0.05 px), plus
-for each path `5.5e-4` times half the diagonal of its box, the most two cubic approximations of
-one circle can differ (each is within `2.73e-4 r` of the circle, `Path.arc`), since a circle or
-arc turned by a move is not drawn by the same cubics as the next key draws it. -/
+/-- How far the baked drawing at a rest may be from the still: `restTolerance` (0.05 px) for every
+path and text, plus for each path `5.5e-4 r`, `r` half the larger side of its box (a circle's
+radius): the most two cubic approximations of one circle can differ (each is within `2.73e-4 r`
+of the circle, `Path.arc`), since a circle or arc turned by a move is not drawn by the same cubics
+as the next key draws it. The comparison is between outlines: it does not see the phase of a
+dash pattern (a dashed circle turned about its own centre passes while its dashes move). -/
 def restTolerance : Float := 0.05
 
 /-- The first way the drawing `baked` differs from the drawing `still` beyond the rest tolerance
@@ -151,7 +164,7 @@ def drawingDiff (baked still : Array Drawn) : Option String := Id.run do
         | some q0 =>
           let (lo, hi) := pts.foldl (init := (q0, q0)) fun (lo, hi) q =>
             ((⟨min lo.x q.x, min lo.y q.y⟩ : Point), (⟨max hi.x q.x, max hi.y q.y⟩ : Point))
-          lo.dist hi / 2
+          max (hi.x - lo.x) (hi.y - lo.y) / 2
       let tol := restTolerance + 5.5e-4 * half
       let d := linesApart lb lk tol
       if !(d ≤ tol) then
@@ -165,71 +178,208 @@ def drawingDiff (baked still : Array Drawn) : Option String := Id.run do
     | _, _ => return some s!"draws element {i} as another kind of element than the still"
   return none
 
+/-! ### The writer against the baker -/
+
+/-- The transform of a value of an `animateTransform` of type `type` (`rotate` or `translate`). -/
+def transformOfValue (type : String) (v : Array Float) : Affine :=
+  if type == "rotate" then rotAbout ⟨v.getD 1 0, v.getD 2 0⟩ (v.getD 0 0)
+  else Affine.translate (v.getD 0 0) (v.getD 1 0)
+
+/-- A point written as `x y`. -/
+def pointOfText (s : String) : Point :=
+  match (s.splitOn " ").map Raster.parseNumber? with
+  | [some x, some y] => ⟨x, y⟩
+  | _ => ⟨0, 0⟩
+
+/-- What a written tree shows at the time `t`, read with `Smil.valueAt` alone: every element with
+`data-pilean-actor` or `data-pilean-upright`, in document order, with what it stands for, the
+page point its anchor is drawn at, its opacity and the whole transform its content is under;
+`none` where an animation does not evaluate; at most `fuel` deep. -/
+def writtenMarkers (t : Float) : Nat → Affine → Float → Node →
+    Option (Array (String × Point × Float × Affine))
+  | 0, _, _, _ => some #[]
+  | _, _, _, .text _ => some #[]
+  | fuel + 1, M, o, .element _ attrs cs => do
+    let mut M := M
+    let mut o := o
+    for c in cs do
+      if let .element n as _ := c then
+        if n == "animateTransform" then
+          M := M.comp (transformOfValue ((Smil.attr? as "type").getD "") (← Smil.valueAt c t))
+        else if n == "animate" && Smil.attr? as "attributeName" == some "opacity" then
+          o := o * (← Smil.valueAt c t).getD 0 1
+    let upright := Smil.attr? attrs "data-pilean-upright"
+    let own := match Smil.attr? attrs "data-pilean-actor", upright with
+      | some id, _ =>
+        #[(s!"actor {id}", M.apply (pointOfText ((Smil.attr? attrs "data-pilean-anchor").getD "")),
+          o, M)]
+      | none, some a => #[("upright", M.apply (pointOfText a), o, M)]
+      | none, none => #[]
+    let rest ← cs.mapM (writtenMarkers t fuel M o)
+    return own ++ rest.flatten
+
+/-- Whether two transforms agree within `tol` in every coefficient. -/
+def affineNear (a b : Affine) (tol : Float) : Bool :=
+  [(a.a, b.a), (a.b, b.b), (a.c, b.c), (a.d, b.d), (a.e, b.e), (a.f, b.f)].all fun (x, y) =>
+    (x - y).abs < tol
+
+/-- The first way the written moving picture `nodes` disagrees, at the time `t`, with the baker
+of the plan `p`: another number of actors or of upright groups than the plan declares, an anchor
+farther than `1e-6` px, an opacity or a coefficient of a transform off by more than `1e-6`. -/
+def writerDiff (p : MotionPlan) (nodes : Array Node) (t : Float) : Option String :=
+  match nodes.mapM (writtenMarkers t 256 Affine.id 1) with
+  | none => some "has an animation that does not evaluate"
+  | some ws =>
+    let written := ws.flatten
+    let baked := p.markersAt t
+    let actors := (p.layers.filter fun L => L.version.actor.isSome).size
+    let ups := (p.layers.map (·.uprights.size)).foldl (· + ·) 0
+    if (written.filter (·.1 != "upright")).size != actors then
+      some s!"shows {(written.filter (·.1 != "upright")).size} actors where the plan has {actors}"
+    else if (written.filter (·.1 == "upright")).size != ups then
+      some s!"shows {(written.filter (·.1 == "upright")).size} upright groups where the plan has \
+        {ups}"
+    else if written.size != baked.size then some "shows another number of marked elements"
+    else
+      (written.zip baked).findSome? fun ((n, q, o, M), (n', q', o', M')) =>
+        if n != n' then some s!"shows {n} where the baked drawing has {n'}"
+        else if !(q.dist q' < 1e-6) then
+          some s!"draws the anchor of {n} {fmtNum (q.dist q') 7} px from the baked drawing"
+        else if !((o - o').abs < 1e-6) then some s!"shows {n} at another opacity"
+        else if !affineNear M M' 1e-6 then some s!"puts {n} under another transform"
+        else none
+
 namespace Motion
 
 variable (m : Motion)
 
 /-- The baker against the stills: at the middle of each key's rest, the whole baked drawing
-(`MotionPlan.figureAt`: every path and every text, in order) must be the still of that key (the
-drawing of `keyFigure k`) within the rest tolerance (`drawingDiff`). This pins the animation to
-the exact keys for every motion: a turn carried through many steps (each landing within
-`arrivalTolerance`), a wrong upright counter-rotation, or another stacking order shows here. -/
+(`MotionPlan.figureAtUnchecked`: every path and every text, in order) must be the still of that
+key (the drawing of `keyFigure k`) within the rest tolerance (`drawingDiff`). This pins the
+animation to the exact keys for every motion: a turn carried through many steps (each landing
+within `arrivalTolerance`), a wrong upright position, or another stacking order shows here. -/
 def restProblems (K : MotionKeys) (p : MotionPlan) : Array MotionProblem :=
   (Array.range m.keys.size).filterMap fun k =>
     let t := Exact.toFloat (p.timeline.restTime k)
-    let baked := drawnOf 256 Affine.id 1 (p.figureAt t)
+    let baked := drawnOf 256 Affine.id 1 (p.figureAtUnchecked t)
     let still := drawnOf 256 Affine.id 1 (K.figure k).draw
     (drawingDiff baked still).map fun why =>
       { severity := .error, message := s!"at the rest on key {k} the animation {why}" }
 
-/-- The problems of the motion: those of its keys and steps (`keyProblems`), and, for a
-well-formed motion, those of its layout against the stills (`restProblems`). -/
-def problems : Array MotionProblem :=
-  let base := m.keyProblems
-  if !decide m.WellFormed then base
-  else
-    let K := m.keysOf
-    base ++ m.restProblems K (m.planIn K K.env)
-
-/-- The messages of the problems a build reports (unless the level is `ignore`), each with its
-severity. -/
-def checkMessages : Array String :=
-  if m.checks == .ignore then #[]
-  else m.problems.map fun p => match p.severity with
-    | .error => p.message
-    | .note => s!"note: {p.message}"
-
-/-- Whether the problems stop the motion from being rendered: an error under `CheckLevel.fail`
-(the default). -/
-def problemsFail : Bool := m.checks == .fail && m.problems.any (·.severity == .error)
-
-/-- The motion's animated SVG (`toSvg`), or, when its problems stop it (`problemsFail`), the
-messages of its errors: a motion that contradicts its keys is not written. -/
-def svg? : Except (Array String) String :=
-  let ps := m.problems
-  if m.checks == .fail && ps.any (·.severity == .error) then
-    .error ((ps.filter (·.severity == .error)).map (·.message))
-  else .ok m.toSvg
+/-- The writer against the baker: at the middle of every segment of the timeline (every rest and
+every move), the written moving picture read with `Smil.valueAt` (`writtenMarkers`) must show what
+the baker draws (`writerDiff`): this checks what the baker never reads, such as the angles of the
+counter-rotations of upright leaves. -/
+def writerProblems (p : MotionPlan) : Array MotionProblem :=
+  let nodes := p.toNodesUnchecked
+  match p.timeline.segments.findSome? fun s =>
+      let t := Exact.toFloat (s.start + s.dur / 2)
+      (writerDiff p nodes t).map fun why => s!"at {fmtNum t 3} s the written animation {why}" with
+  | some msg => #[{ severity := .error, message := msg }]
+  | none => #[]
 
 end Motion
+
+/-- A motion with its keys as drawn, its plan and its problems, computed once: the checked
+outputs (`svg?`, `animation?`) and the build's messages read it, so a consumer computes the
+problems of a motion once (`Motion.report`). -/
+structure MotionReport where
+  /-- The motion. -/
+  motion : Motion
+  /-- Its keys as drawn. -/
+  keys : MotionKeys
+  /-- Its plan. -/
+  plan : MotionPlan
+  /-- Its problems (`Motion.problems`). -/
+  problems : Array MotionProblem
 
 namespace Motion
 
 variable (m : Motion)
 
-/-- The motion as an `Animation` of its baked drawings, for animated PNG and GIF: one cycle at
-`fps` frames a second, the poster at the middle of the poster key's rest. -/
-def toAnimation (fps : Nat := 30) : Animation :=
+/-- The motion checked: the problems of its keys and steps (`keyProblems`) and, for a well-formed
+motion, those of its plan against the stills (`restProblems`) and of its writer against its baker
+(`writerProblems`). -/
+def report : MotionReport :=
   let K := m.keysOf
   let p := m.planIn K K.env
-  let fig := K.figure 0
+  let base := m.keyProblems
+  let problems := if !decide m.WellFormed then base
+    else base ++ m.restProblems K p ++ writerProblems p
+  { motion := m, keys := K, plan := p, problems }
+
+/-- The problems of the motion (`report`). -/
+def problems : Array MotionProblem := m.report.problems
+
+end Motion
+
+namespace MotionReport
+
+variable (r : MotionReport)
+
+/-- The messages of the problems a build reports (unless the level is `ignore`), each with its
+severity. -/
+def checkMessages : Array String :=
+  if r.motion.checks == .ignore then #[]
+  else r.problems.map fun p => match p.severity with
+    | .error => p.message
+    | .note => s!"note: {p.message}"
+
+/-- Whether the problems stop the motion from being rendered: an error under `CheckLevel.fail`
+(the default). -/
+def problemsFail : Bool := r.motion.checks == .fail && r.problems.any (·.severity == .error)
+
+/-- The messages of the errors that stop the motion. -/
+def errors : Array String := (r.problems.filter (·.severity == .error)).map (·.message)
+
+/-- The motion's animated SVG, or, when its problems stop it (`problemsFail`), the messages of its
+errors: a motion that contradicts its keys is not written. -/
+def svg? : Except (Array String) String :=
+  if r.problemsFail then .error r.errors
+  else .ok ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++
+    Svg.render 0 (r.motion.svgRootIn r.keys r.plan) ++ "\n")
+
+/-- The motion as an `Animation` of its baked drawings, whatever its problems (they travel with
+it, `Animation.problems`): one cycle at `fps` frames a second, the poster at the middle of the
+poster key's rest. -/
+def toAnimationUnchecked (fps : Nat := 30) : Animation :=
+  let p := r.plan
+  let fig := r.keys.figure 0
   let f := p.env.frame
   { width := f.width.round.toUInt64.toNat, height := f.height.round.toUInt64.toNat, fps,
-    duration := Exact.toFloat p.timeline.cycle, frame := p.figureAt,
-    posterTime := some (Exact.toFloat (p.timeline.restTime m.poster)),
+    duration := Exact.toFloat p.timeline.cycle, frame := p.figureAtUnchecked,
+    posterTime := some (Exact.toFloat (p.timeline.restTime r.motion.poster)),
     background := fig.style.background, fontFamily := fig.style.fontFamily,
     text := fig.style.text, srgb := true, textAsShapes := fig.textAsShapes,
-    problems := fun _ => m.checkMessages, problemsFail := m.problemsFail }
+    problems := fun _ => r.checkMessages, problemsFail := r.problemsFail }
+
+/-- The motion as an `Animation` of its baked drawings (`toAnimationUnchecked`), or, when its
+problems stop it, the messages of its errors. -/
+def animation? (fps : Nat := 30) : Except (Array String) Animation :=
+  if r.problemsFail then .error r.errors else .ok (r.toAnimationUnchecked fps)
+
+end MotionReport
+
+namespace Motion
+
+variable (m : Motion)
+
+/-- The messages of the motion's problems (`MotionReport.checkMessages`). To use several of the
+checked outputs, compute `report` once and read them from it. -/
+def checkMessages : Array String := m.report.checkMessages
+
+/-- Whether the motion's problems stop it (`MotionReport.problemsFail`). -/
+def problemsFail : Bool := m.report.problemsFail
+
+/-- The motion's animated SVG, or the messages of the errors that stop it (`MotionReport.svg?`). -/
+def svg? : Except (Array String) String := m.report.svg?
+
+/-- The motion as an `Animation`, or the messages of the errors that stop it
+(`MotionReport.animation?`). -/
+def animation? (fps : Nat := 30) : Except (Array String) Animation := m.report.animation? fps
+
+/-- The motion as an `Animation`, whatever its problems (`MotionReport.toAnimationUnchecked`). -/
+def toAnimationUnchecked (fps : Nat := 30) : Animation := m.report.toAnimationUnchecked fps
 
 end Motion
 

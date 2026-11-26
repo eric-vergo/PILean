@@ -275,7 +275,9 @@ def main (args : List String) : IO UInt32 := do
           failed := failed + 1
         else IO.println s!"golden {path}: same"
   for (name, m) in MotionChecks.golden do
-    let svg := m.toSvg
+    let svg := match m.svg? with
+      | .ok svg => svg
+      | .error es => s!"refused: {es}"
     let path : System.FilePath := "examples" / s!"{name}.svg"
     if args == ["--update"] then
       IO.FS.writeFile path svg

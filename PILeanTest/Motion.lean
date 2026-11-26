@@ -92,9 +92,27 @@ def twoCentresMotion : Motion where
     let description := "A turns about O and then about C; the triangle turns with it about O."
     { title := "Turns about two centres", description }
 
+/-- A large disk with its centre and an upright label, turned a fifth about an outside centre `O`,
+then an idle step: a circle turned by 72°, which the next key draws with its own cubics. -/
+def fifthMotion : Motion where
+  keys :=
+    let diskAt := fun (a : Float) =>
+      let c := Plane.polar 2.5 a
+      (group #[Plane.disk c 1.2 |>.accent 1, Plane.point c |>.accent 1,
+        Plane.label "D" c .above |>.accent 1]).actor "D"
+    let o := #[Plane.point ⟨0, 0⟩ |>.faint, Plane.label "O" ⟨0, 0⟩ .belowLeft |>.faint]
+    let at72 := diskAt (2 * Plane.pi / 5)
+    #[{ items := o.push (diskAt 0), width := 360 }, { items := o.push at72, width := 360 },
+      { items := o.push at72, width := 360 }]
+  captions := #["Key 1 of 3: the disk D.", "Key 2 of 3: D turned a fifth about O.",
+    "Key 3 of 3: nothing moves."]
+  steps := #[{ moves := #[("D", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 5))] }, MotionStep.idle]
+  info := { title := "A fifth of a turn", description := "The disk D turns about O by 72°." }
+
 /-- The golden motions, by file name. -/
 def golden : Array (String × Motion) :=
-  #[("motion-turn", turnMotion), ("motion-two-centres", twoCentresMotion)]
+  #[("motion-turn", turnMotion), ("motion-two-centres", twoCentresMotion),
+    ("motion-fifth", fifthMotion)]
 
 /-! ### Small motions for the rules -/
 
@@ -200,6 +218,26 @@ def zswap : Motion where
   steps := #[MotionStep.idle]
   info := testInfo
 
+/-- The backdrop of `incidenceMotion`: `turnBackdrop` and a small disk. -/
+def incidenceBackdrop : Array Item :=
+  turnBackdrop.push (Plane.Exact.disk ((-1 / 2, -1 / 2) : Q) (1 / 5 : Rat) |>.faint
+    |>.named "the small disk")
+
+/-- The point `P` on the unit circle, recorded outside the small disk too when `outside`, in the
+accent `tone`. -/
+def pointRec (p : Q) (outside : Bool) (tone : Nat := 0) : Item :=
+  let pt := Plane.Exact.point p |>.accent tone |>.incident .on "the unit circle"
+  let pt := if outside then pt.incident .outside "the small disk" else pt
+  (group #[pt, Plane.Exact.label "P" p .aboveRight |>.accent tone]).actor "P"
+
+/-- `turnMotion` with a point whose recorded incidences change from key 0 to key 1 (and, with
+`tone := 1`, whose colour changes too). -/
+def incidenceMotion (tone : Nat := 0) : Motion :=
+  { turnMotion with keys :=
+    #[{ items := incidenceBackdrop.push (pointRec (1, 0) false), width := 320 },
+      { items := incidenceBackdrop.push (pointRec (0, 1) true tone), width := 320 },
+      { items := incidenceBackdrop.push (pointRec (0, 1) true tone), width := 320 }] }
+
 /-- The placement of the first label among the leaves of the actor `id` of a figure. -/
 def labelPlacement (fig : Figure) (id : String) : Option Placement :=
   (fig.actor? id).bind fun it => it.leaves.findSome? fun lf => match lf.geom with
@@ -237,10 +275,18 @@ def ruleChecks : Array (String × Bool) := Id.run do
       -- the same vertex list after a symmetry turn is refused: the vertices must be turned
       hasError (twoKeys (pent 0) (pent 0) (Plane.Exact.turnAbout ((0, 0) : Q) (1 / 5)))
         "does not carry")
-  r := r.push ("motion: a disk turned about its own centre is a note (the check cannot see it)",
-    let d := Plane.Exact.disk ((0, 0) : Q) (1 : Rat)
+  r := r.push ("motion: an unseen turn of the turn's centre, or of a rigid body's part, is no note",
+    let d := Plane.Exact.disk ((0, 0) : Q) (1 / 2 : Rat)
+    let quarter := Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4)
+    let body : Motion :=
+      { keys := #[{ items := corners ++
+            #[d.actor "C", Plane.Exact.point ((2, 0) : Q) |>.actor "R"] },
+          { items := corners ++ #[d.actor "C", Plane.Exact.point ((0, 2) : Q) |>.actor "R"] }],
+        captions := #["Before.", "After."], info := testInfo,
+        steps := #[{ moves := #[("C", quarter), ("R", quarter)] }] }
     noErrors (twoKeys d d (Plane.Exact.turnAbout ((0, 0) : Q) (1 / 3))) &&
-      hasNote (twoKeys d d (Plane.Exact.turnAbout ((0, 0) : Q) (1 / 3))) "cannot see")
+      !hasNote (twoKeys d d (Plane.Exact.turnAbout ((0, 0) : Q) (1 / 3))) "cannot see" &&
+      noErrors body && !hasNote body "cannot see")
   r := r.push ("motion: a slide that misses by 0.02 px is an error; by 0.005 px it lands",
     hasError (missBy 0.02) "does not carry key 0 onto key 1" && noErrors (missBy 0.005))
   r := r.push ("motion: a polygon with only a later vertex out of place is an error",
@@ -256,7 +302,9 @@ def ruleChecks : Array (String × Bool) := Id.run do
     hasError zswap "draws its items in another order" && hasError zswap "at the rest on key 1")
   r := r.push ("motion: a motion without a title or description is an error under fail",
     hasError { turnMotion with info := {} } "no title" &&
-      hasError { turnMotion with info := { title := "t" } } "no description" &&
+      hasError { turnMotion with info := { title := "t" }, captions := #["", "", ""] }
+        "neither a description nor captions" &&
+      noErrors { turnMotion with info := { title := "t" } } &&
       noErrors (warned { turnMotion with info := {} }))
   let missing : Motion := { turnMotion with keys := turnMotion.keys.pop }
   r := r.push ("motion: a missing key is an error, and the motion is not well formed",
@@ -306,7 +354,9 @@ def ruleChecks : Array (String × Bool) := Id.run do
   r := r.push ("motion: fail is the default; notes alone never stop a build, an error does",
     turnMotion.checks == .fail && !moved.problemsFail && wrong.problemsFail &&
       (match wrong.svg? with | .error _ => true | .ok _ => false) &&
-      (match turnMotion.svg? with | .ok svg => svg == turnMotion.toSvg | .error _ => false) &&
+      (match turnMotion.svg? with
+        | .ok svg => svg == turnMotion.toSvgUnchecked
+        | .error _ => false) &&
       !(warned wrong).problemsFail &&
       ({ turnMotion with checks := .ignore, poster := 9 } : Motion).checkMessages.isEmpty)
   r := r.push ("motion: a declared turn that misses its key is not animated as a turn",
@@ -368,7 +418,7 @@ def allPaths : Nat → Canvas.Shape → Array Path
 /-- The layout checks. -/
 def layoutChecks : Array (String × Bool) := Id.run do
   let mut r : Array (String × Bool) := #[]
-  let root := twoCentresMotion.svgRoot
+  let root := twoCentresMotion.svgRootUnchecked
   -- the triangle's three actors in one chain: one group holds them all, with one turn
   r := r.push ("motion: actors that move alike share one chain",
     chainHolding root ["T1", "T2", "T3"] == 1 &&
@@ -385,15 +435,16 @@ def layoutChecks : Array (String × Bool) := Id.run do
     -- turn about O (the inner group)
     (rotates.toList.map centreOf).filter (fun x => x == o || x == c) == [o, c, o])
   r := r.push ("motion: a point's marker and its label share one counter-rotation",
-    ((elements "g" 256 turnMotion.svgRoot).filter (attrOf · "data-pilean-upright" != "")).size
+    ((elements "g" 256 turnMotion.svgRootUnchecked).filter
+      (attrOf · "data-pilean-upright" != "")).size
       == 1)
-  let broot := batchMotion.svgRoot
+  let broot := batchMotion.svgRootUnchecked
   r := r.push ("motion: points that appear in the same step share one opacity animation",
     animCount broot "opacity" == 2 && batchMotion.problems.isEmpty)
   -- morphs
   let grow := morphMotion true
   r := r.push ("motion: a disk whose radius changes is a morph of its path data",
-    grow.problems.isEmpty && animCount grow.svgRoot "d" ≥ 1 &&
+    grow.problems.isEmpty && animCount grow.svgRootUnchecked "d" ≥ 1 &&
       (grow.plan.layers.filter (·.version.actor == some "D")).size == 1)
   -- the baked disk half way through the morph is the disk of the radius half way
   let p := grow.plan
@@ -406,7 +457,7 @@ def layoutChecks : Array (String × Bool) := Id.run do
       let f := (p.clock.locate t).2
       let fr := p.env.frame
       let expected := Canvas.circle (fr.toScreen ⟨0, 0⟩) (fr.scale * (1 + f))
-      (f - 0.5).abs < 1e-7 && (allPaths 64 (p.figureAt t)).any fun q =>
+      (f - 0.5).abs < 1e-7 && (allPaths 64 (p.figureAtUnchecked t)).any fun q =>
         q.cmds.size == expected.cmds.size &&
         (q.cmds.zip expected.cmds).all fun (a, b) =>
           (a.points.zip b.points).all fun (x, y) => x.dist y < 1e-9
@@ -431,7 +482,7 @@ def layoutChecks : Array (String × Bool) := Id.run do
     sampledMotion.problems.isEmpty && sampledMotion.samplesOf sampledMotion.keysOf 0 == 4 &&
       sampledMotion.timeline.segments.size ==
         (Timeline.build sampledMotion.animSteps sampledMotion.pacing).segments.size + 3 &&
-      animCount sampledMotion.svgRoot "d" == 1)
+      animCount sampledMotion.svgRootUnchecked "d" == 1)
   return r
 
 /-! ### The writer against the baker -/
@@ -475,9 +526,13 @@ def shown (t : Float) : Nat → Affine → Float → Node →
     let rest ← cs.mapM (shown t fuel M o)
     return own ++ rest.flatten
 
+/-- Whether `s` contains `t`. -/
+def has (s t : String) : Bool := (s.splitOn t).length > 1
+
 /-- The live group of a motion's SVG. -/
 def liveGroup (m : Motion) : Node :=
-  ((elements "g" 256 m.svgRoot).find? (attrOf · "class" == Animation.liveClass)).getD (.text "")
+  ((elements "g" 256 m.svgRootUnchecked).find? (attrOf · "class" == Animation.liveClass)).getD
+    (.text "")
 
 /-- Whether two transforms agree within `tol` in every coefficient. -/
 def affineNear (a b : Affine) (tol : Float) : Bool :=
@@ -582,7 +637,7 @@ def sampledError : Float :=
   | some s =>
     -- the turn about the origin (not the point's counter-rotation, about its own anchor)
     let o := pointText (quantPoint (p.env.frame.toScreen ⟨0, 0⟩))
-    let rot := (elements "animateTransform" 256 sampledTurn.svgRoot).find? fun a =>
+    let rot := (elements "animateTransform" 256 sampledTurn.svgRootUnchecked).find? fun a =>
       attrOf a "type" == "rotate" && (attrOf a "values").startsWith s!"0 {o};"
     match rot with
     | none => 1e9
@@ -601,7 +656,7 @@ def sampledKnotError : Float :=
   let base := Timeline.build sampledTurn.animSteps sampledTurn.pacing
   let p := sampledTurn.plan
   let o := pointText (quantPoint (p.env.frame.toScreen ⟨0, 0⟩))
-  let rot := (elements "animateTransform" 256 sampledTurn.svgRoot).find? fun a =>
+  let rot := (elements "animateTransform" 256 sampledTurn.svgRootUnchecked).find? fun a =>
     attrOf a "type" == "rotate" && (attrOf a "values").startsWith s!"0 {o};"
   match base.segments.find? (·.kind == .move 0), rot with
   | some s, some a =>
@@ -628,22 +683,56 @@ def outputChecks : Array (String × Bool) := Id.run do
       agrees m)
     r := r.push (s!"motion {name}: the baker follows the model, computed apart, at 50 times",
       modelAgrees m)
-    let svg := m.toSvg
+    let svg := m.toSvgUnchecked
     r := r.push (s!"motion {name}: the SVG is inert, keeps the invariant and runs on one clock",
-      Svg.isInert svg && Smil.invariantProblem? 256 m.svgRoot == none &&
-        Smil.clockProblem? m.svgRoot == none && svg == m.toSvg)
+      Svg.isInert svg && Smil.invariantProblem? 256 m.svgRootUnchecked == none &&
+        Smil.clockProblem? m.svgRootUnchecked == none && svg == m.toSvgUnchecked)
   r := r.push ("motion: a turn in a sampled step meets the eased angle at the samples' times and \
       follows it within 90/4 degrees between them",
     sampledTurn.problems.isEmpty && sampledTurn.samplesOf sampledTurn.keysOf 0 == 4 &&
       sampledError < 90 / 4 && sampledKnotError < 1e-3)
+  -- the rest tolerance: paths alone, then texts
+  let paths : Figure :=
+    { items := #[Plane.circle ⟨0, 0⟩ 1, Plane.point ⟨1.5, 1.5⟩,
+      Plane.point ⟨-1.5, -1.5⟩] }
+  let still := drawnOf 256 Affine.id 1 paths.draw
+  let shifted := fun (dx : Float) => drawnOf 256 (Affine.translate dx 0) 1 paths.draw
+  r := r.push ("rest check: a drawing 0.25 px off is refused, 0.03 px off passes",
+    (drawingDiff (shifted 0.25) still).isSome && (drawingDiff (shifted 0.03) still).isNone)
+  let labelled : Figure := { paths with items := paths.items.push (Plane.label "T" ⟨0, 0⟩) }
+  let lstill := drawnOf 256 Affine.id 1 labelled.draw
+  let textMoved := fun (dx turn : Float) => lstill.map fun
+    | .text k a t => Drawn.text k (a + (⟨dx, 0⟩ : Point)) (t + turn)
+    | d => d
+  r := r.push ("rest check: a text 0.2 px off or turned by 0.01 radians is refused",
+    (lstill.any fun | .text .. => true | _ => false) &&
+      (drawingDiff (textMoved 0.2 0) lstill).isSome &&
+      (drawingDiff (textMoved 0 0.01) lstill).isSome &&
+      (drawingDiff (textMoved 0.02 0) lstill).isNone)
+  let native : Motion :=
+    { turnMotion with keys := turnMotion.keys.map ({ · with textAsShapes := false }) }
+  r := r.push ("motion: a motion written with SVG text elements passes its checks",
+    native.problems.isEmpty && has native.toSvgUnchecked "<text")
+  -- recorded incidences describe a key, not the drawing
+  let inc := incidenceMotion
+  let live := Svg.render 0 (liveGroup inc)
+  r := r.push ("motion: an actor whose recorded incidences change is one actor, written plain",
+    inc.problems.isEmpty && (inc.plan.layers.filter (·.version.actor == some "P")).size == 1 &&
+      !has live "outside the small disk" && !has live "on the unit circle" &&
+      has (inc.keyFigure 1).toSvg "on the unit circle, outside the small disk")
+  r := r.push ("motion: an actor whose look changes in anything else is still refused",
+    hasError (incidenceMotion 1) "does not carry key 0 onto key 1")
+  r := r.push ("motion: the base title drops exactly the recorded words",
+    baseTitle #[(.on, "c"), (.outside, "d")] "A, on c, outside d" == "A" &&
+      baseTitle #[(.on, "c")] "on c" == "" && baseTitle #[(.on, "c")] "A, on b" == "A, on b")
   for (name, m) in golden do
     r := r.push (s!"motion {name}: at every rest the baker draws the key still, every element",
       (m.restProblems m.keysOf m.plan).isEmpty &&
-        (match m.svg? with | .ok svg => svg == m.toSvg | .error _ => false))
+        (match m.svg? with | .ok svg => svg == m.toSvgUnchecked | .error _ => false))
     r := r.push (s!"motion {name}: the stills are the key figures, byte for byte",
       (List.range m.keys.size).all fun k =>
         (m.keyFigure k).toSvg == ((commonView m.keys)[k]!).toSvg)
-    let a := m.toAnimation
+    let a := m.toAnimationUnchecked
     r := r.push (s!"motion {name}: the animation is one cycle, its poster the poster key's rest",
       (a.duration - Exact.toFloat m.timeline.cycle).abs < 1e-12 &&
         a.posterTime == some (Exact.toFloat (m.timeline.restTime m.poster)) &&
@@ -662,7 +751,8 @@ def num (x : Float) : String := if x.isFinite then toString x else "0"
 def pt (p : Point) : String := s!"[{num p.x}, {num p.y}]"
 
 /-- What `tools/motion-browser-check.py` expects of the motion's SVG, as JSON: the cycle; at the
-middle of each key's rest, every actor's anchor in the key's still; and for every turn, its
+middle of each key's rest, every actor's anchor in the key's still and every upright group's
+anchor where the plan draws it (which the rest check holds to the still); and for every turn, its
 centre, the actor's anchor where the turn starts, its angle in SVG's degrees, and the times at a
 quarter, a half and three quarters of the turn with the eased fraction of the turn done then. -/
 def expectations (name : String) (m : Motion) : String :=
@@ -678,8 +768,10 @@ def expectations (name : String) (m : Motion) : String :=
     let ids := (still.filterMap (·.version.actor)).toList.eraseDups.filter fig.hasActor
     let actors := ids.filterMap fun id => (anchorOf fig id).map fun a =>
       s!"\{\"id\": \"{Canvas.safeToken id}\", \"at\": {pt a}}"
-    s!"\{\"key\": {k}, \"t\": {num (Exact.toFloat (p.timeline.restTime k))}, \
-      \"actors\": [{", ".intercalate actors}]}"
+    let t := Exact.toFloat (p.timeline.restTime k)
+    let ups := ((p.markersAt t).filter (·.1 == "upright")).toList.map fun (_, q, _) => pt q
+    s!"\{\"key\": {k}, \"t\": {num t}, \"actors\": [{", ".intercalate actors}], \
+      \"uprights\": [{", ".intercalate ups}]}"
   let segs := p.timeline.segments
   let turns := still.toList.flatMap fun L => match L.version.actor with
     | none => []
@@ -704,7 +796,7 @@ the SVG of each key's still, the poster still's PNG and the expectations (`expec
 def writeBrowserFiles (dir : System.FilePath) : IO Unit := do
   IO.FS.createDirAll dir
   for (name, m) in golden do
-    IO.FS.writeFile (dir / s!"{name}.svg") m.toSvg
+    IO.FS.writeFile (dir / s!"{name}.svg") m.toSvgUnchecked
     for k in [0:m.keys.size] do
       IO.FS.writeFile (dir / s!"{name}-key{k}.svg") (m.keyFigure k).toSvg
     IO.FS.writeBinFile (dir / s!"{name}-poster.png") ((m.keyFigure m.poster).toPng.getD .empty)

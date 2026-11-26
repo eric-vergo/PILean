@@ -267,9 +267,11 @@ These are equalities and inequalities of rational numbers; the eased progress (`
 
 **Motions of plane figures** (`PILean/Plane/Motion.lean`, `MotionPlan.lean`, `MotionOutput.lean`)
 
-* `MotionPlan.anim_eq`: every animation element the writer builds is its name, its own
-  attributes, its values, then `Smil.smilTiming` of the plan's timeline: the timing depends on
-  nothing else, so all of a plan's animations run on one clock by construction.
+* `MotionPlan.anim_eq`: every animation element `MotionPlan.anim` builds is its name, its own
+  attributes, its values, then `Smil.smilTiming` of the plan's timeline: its timing depends on
+  nothing else. The writer builds every animation element through `anim` (the chains, the
+  counter-rotations, the opacities, the morphs' path data, the seam); that is how it is written,
+  not a theorem, and `lake test` checks the one clock of every output (`Smil.clockProblem?`).
 * `MotionPlan.chainNodes_push`, `chainNodes_empty`: the link added last to a chain is its
   outermost group (the earliest link is innermost, which turns about page points require).
 * `MotionVersion.steps_links`, `MotionVersion.mem_links`, `linkOf_step`: a layer's links are the
@@ -291,21 +293,29 @@ proved):
    view (tested).
 2. *Baker ↔ stills, at every rest, every element.* `Motion.restProblems`, part of
    `Motion.problems` for every motion an author writes: the whole baked drawing at the middle of
-   each key's rest is the still (every path within 0.05 px plus `5.5e-4` of its half-diagonal,
-   every text within 0.05 px and unturned, the same paints, the same order). It bounds what the
-   per-step arrival tolerance (0.01 px) adds up to along a chain.
-3. *Writer ↔ baker, by the evaluator* (tests): `Smil.valueAt` over the written tree finds as many
-   actors and upright groups as the plan declares, each anchor, opacity and whole transform where
-   the baker has it, within `1e-6`, at 50 times. The baker uses the numbers as the SVG writes
-   them, so this comparison alone would not catch a wrong value shared by both; that is what 2
-   and 4 are for.
+   each key's rest is the still: the same paints in the same order, every path within 0.05 px
+   (Hausdorff's distance between the outlines flattened to 0.01 px) plus `5.5e-4 r` for a path of
+   half-width `r` (two cubic approximations of one circle of radius `r` differ by at most that),
+   every text within 0.05 px and turned by at most `1e-4` radians. It bounds what the per-step
+   arrival tolerance (0.01 px) adds up to along a chain. It compares outlines, not the phase of a
+   dash pattern: a dashed circle turned about its own centre passes while its dashes move.
+3. *Writer ↔ baker, by the evaluator.* `Motion.writerProblems`, part of `Motion.problems` for
+   every motion: at the middle of every rest and every move, `Smil.valueAt` over the written
+   moving picture finds as many actors and upright groups as the plan declares, each anchor,
+   opacity and whole transform where the baker has it, within `1e-6`; this checks the
+   counter-rotations, which the baker does not read. The tests do the same at 50 times for the
+   goldens and fixtures. The baker uses the numbers as the SVG writes them, so this comparison
+   alone would not catch a wrong value shared by both; that is what 2 and 4 are for.
 4. *Baker ↔ the model computed apart from the plan* (tests): each actor's anchor from its key and
    the declared moves at the exact timeline's eased fraction, within `1e-3` px, at 50 times
    (outside sampled morph steps, whose turns follow the eased motion within `1 / n` of their
    angle, also tested).
-5. *Browser ↔ stills, by pixels* (`tools/motion-browser-check.py`, outside `lake test`): at every
-   rest the animated SVG is the key's still pixel for pixel, actors at the stills' positions
-   (0.05 px); turns follow true arcs at the eased angle; labels stay upright and are all there.
+5. *Browser ↔ stills, by positions and pixels* (`tools/motion-browser-check.py`, outside `lake
+   test`): at every rest every actor is at the still's position and every label's or marker's
+   anchor where the plan draws it (0.05 px), and the picture is the still up to antialiasing
+   (every channel of every pixel within the range of the other picture's pixels at most one pixel
+   away, widened by 40: a moved label shows from about 2 px); turns follow true arcs at the eased
+   angle; labels stay upright and are all there.
 
 The arrival check (`Motion.problems`, within 0.01 px) compares the actor in key `k`, carried by
 the declared move, with the actor in key `k + 1`; it does not determine a turn's direction or

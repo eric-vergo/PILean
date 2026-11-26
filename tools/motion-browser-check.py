@@ -3,13 +3,17 @@
 #
 # Loads the golden motions of plane figures in a headless Chromium (through Playwright), each
 # standalone SVG file opened directly, and checks what a reader sees against what the motion
-# means. The files and the expectations come from `lake exe pilean-test --motion-out DIR`.
+# means. The files and the expectations come from `lake exe pilean-test --motion-out DIR`; every
+# motion with a `.json` of expectations in DIR is checked.
 #
 # With the clock paused and set (`setCurrentTime`), every `[data-pilean-actor]` anchor is read
 # through `getCTM()`:
-#   (a) at the middle of each key's rest every actor is where the key's still has it (0.05 px),
-#       and the picture is the key's still SVG pixel for pixel (no pixel whose colour differs by
-#       more than 60 in the sum of its channels);
+#   (a) at the middle of each key's rest every actor is where the key's still has it, and every
+#       label's or marker's anchor where the motion's plan draws it (0.05 px),
+#       and the picture is the key's still SVG up to antialiasing: every channel of every pixel
+#       of each lies within the range of the other's pixels at most one pixel away, widened by
+#       40 (a circle turned by 72 degrees is rasterised a little otherwise than the still's own
+#       circle, along its outline);
 #   (b) at a quarter, a half and three quarters of every turn the actor is on the turn's circle
 #       (0.05 px) at the eased fraction of the turn's angle (0.5 degrees): a true arc;
 #   (c) labels and markers (`[data-pilean-upright]`) are not turned (less than 0.01 degrees),
@@ -38,7 +42,6 @@ except ImportError:
     print("motion-browser-check: the Playwright package is not available; nothing checked")
     sys.exit(0)
 
-NAMES = ["motion-turn", "motion-two-centres"]
 
 REST_TOL = 0.05
 RADIUS_TOL = 0.05
@@ -56,8 +59,9 @@ READ = """async (t) => {
     actors.push([g.getAttribute('data-pilean-actor'), at(g.getCTM(), x, y)]);
   }
   for (const g of svg.querySelectorAll('[data-pilean-upright]')) {
+    const [x, y] = g.getAttribute('data-pilean-upright').split(' ').map(Number);
     const m = g.getCTM();
-    uprights.push(Math.atan2(m.b, m.a) * 180 / Math.PI);
+    uprights.push([Math.atan2(m.b, m.a) * 180 / Math.PI, at(m, x, y)]);
   }
   return {time: svg.getCurrentTime(), actors, uprights};
 }"""
@@ -79,6 +83,43 @@ PIXELS = """async ([a, b]) => {
     if (d > 60) n++;
   }
   return n;
+}"""
+
+UNEXPLAINED = """async ([a, b]) => {
+  const load = src => new Promise((ok, bad) => {
+    const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+  const [x, y] = await Promise.all([load(a), load(b)]);
+  const w = Math.min(x.width, y.width), h = Math.min(x.height, y.height);
+  const grab = i => {
+    const c = document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
+    c.width = w; c.height = h;
+    const g = c.getContext('2d'); g.drawImage(i, 0, 0, w, h);
+    return g.getImageData(0, 0, w, h).data; };
+  const p = grab(x), q = grab(y);
+  // a pixel of s is explained by t when each of its channels lies within the range of t's
+  // pixels at most one pixel away, widened by 40: an edge moved by less than a pixel stays
+  // between its neighbours' colours
+  const count = (s, t) => {
+    let n = 0;
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+      const k = 4 * (yy * w + xx);
+      let ok = true;
+      for (let c = 0; c < 3 && ok; c++) {
+        let lo = 255, hi = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const u = xx + dx, v = yy + dy;
+          if (u < 0 || v < 0 || u >= w || v >= h) continue;
+          const z = t[4 * (v * w + u) + c];
+          if (z < lo) lo = z;
+          if (z > hi) hi = z;
+        }
+        if (s[k + c] < lo - 40 || s[k + c] > hi + 40) ok = false;
+      }
+      if (!ok) n++;
+    }
+    return n;
+  };
+  return [count(p, q), count(q, p)];
 }"""
 
 DIFF = """async ([a, b]) => {
@@ -135,14 +176,17 @@ def check(browser, root, name):
     for rest in spec["rests"]:
         seen = page.evaluate(READ, rest["t"])
         uprights_found.add(len(seen["uprights"]))
-        upright = max([upright] + [abs(a) for a in seen["uprights"]])
+        upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
+        if len(seen["uprights"]) == len(rest["uprights"]):
+            for (_, xy), want in zip(seen["uprights"], rest["uprights"]):
+                rest_err = max(rest_err, math.dist(xy, want))
         shot = page.screenshot(clip=clip)
         still_page = ctx.new_page()
         still_page.goto("file://" + os.path.abspath(
             os.path.join(root, f"{name}-key{rest['key']}.svg")))
         still = still_page.screenshot(clip=clip)
         still_page.close()
-        rest_pixels.append(page.evaluate(PIXELS, [uri(shot), uri(still)]))
+        rest_pixels.append(sum(page.evaluate(UNEXPLAINED, [uri(shot), uri(still)])))
         for a in rest["actors"]:
             xy = first(seen["actors"], a["id"])
             if xy is None:
@@ -157,14 +201,15 @@ def check(browser, root, name):
         for sample in turn["samples"]:
             seen = page.evaluate(READ, sample["t"])
             uprights_found.add(len(seen["uprights"]))
-            upright = max([upright] + [abs(a) for a in seen["uprights"]])
+            upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
             xy = first(seen["actors"], turn["id"])
             if xy is None:
                 ok = False
                 continue
             radius_err = max(radius_err, abs(math.dist(xy, c) - r))
-            a = math.degrees(math.atan2(xy[1] - c[1], xy[0] - c[0]))
-            angle_err = max(angle_err, abs(wrap((a - a0) - turn["sweep"] * sample["f"])))
+            if r >= 1:  # an anchor on the centre itself has no angle
+                a = math.degrees(math.atan2(xy[1] - c[1], xy[0] - c[0]))
+                angle_err = max(angle_err, abs(wrap((a - a0) - turn["sweep"] * sample["f"])))
     ctx.close()
     # reduced motion: the still, not the moving picture
     rctx = browser.new_context(viewport={"width": 800, "height": 700}, reduced_motion="reduce")
@@ -245,7 +290,11 @@ def main():
         print(f"motion-browser-check: no Chromium available ({type(e).__name__}); nothing checked")
         return 0
     try:
-        failures = sum(0 if check(browser, root, name) else 1 for name in NAMES)
+        names = sorted(f[:-5] for f in os.listdir(root) if f.endswith(".json"))
+        failures = sum(0 if check(browser, root, name) else 1 for name in names)
+        if not names:
+            print(f"motion-browser-check: no motions in {root}")
+            failures = 1
     finally:
         browser.close()
         pw.stop()
