@@ -58,6 +58,10 @@ def orbit : Animation :=
 ```leanResult animEx
 ```
 
+A figure of plane geometry that goes from one exact picture to the next, a construction step by
+step, is better made as a {ref "motions"}[motion]: its rests are exact figures, and a reader who
+does not want motion sees them as stills.
+
 # Outputs
 %%%
 tag := "anim-outputs"

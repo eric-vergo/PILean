@@ -131,7 +131,8 @@ def MotionStep.idle : MotionStep := { kind := .idle }
 structure Motion where
   /-- The key frames: key `k` is the picture at rest `k`. -/
   keys : Array Figure
-  /-- One caption per key (`"Step 3 of 5: …"`), the text alternative of the stills. -/
+  /-- One caption per key, the text alternative of the stills; written without a counter, since a
+  page shows each as `Step 3 of 5: …`. -/
   captions : Array String := #[]
   /-- The steps, one fewer than the keys. -/
   steps : Array MotionStep := #[]

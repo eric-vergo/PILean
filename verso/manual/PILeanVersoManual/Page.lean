@@ -353,7 +353,7 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
         el "p" "pilean-standing-words" (txt (standingWords fig.standing ++ ".")),
         el "p" "pilean-standing-scope" (txt (illustrationText marked))])
         #[("id", s!"{idBase}-standing")]
-  -- the motion: what it is, its steps, its key frames and its contact sheet
+  -- the motion: what it is, its steps and its key frames
   let animation := match motion with
     | some (m, n) => motionSection idBase m n p.files
     | Option.none => Html.empty

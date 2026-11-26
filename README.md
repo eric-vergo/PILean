@@ -1,8 +1,8 @@
 # PILean
 
 A pure-Lean image library, in the role Pillow has in Python: colours, geometry, vector paths,
-a drawing canvas, SVG, PNG and PDF output, plots, graphs of nodes and edges, and animations
-(animated SVG, APNG, GIF).
+a drawing canvas, SVG, PNG and PDF output, plots, graphs of nodes and edges, animations
+(animated SVG, APNG, GIF) and motions of plane figures drawn from exact key frames.
 Every image is meant to be traceable to the Lean that made it.
 
 The drawing library (`import PILean`) depends on Lean's `Init` and `Std` only (no Mathlib), so any
@@ -30,8 +30,9 @@ only code that uses the attribute or the checks does.
 | LaTeX labels: the package `pilean-leantex` (folder [`leantex/`](leantex/README.md)) typesets titles, axis and tick labels, legends and node labels with [LeAnTeX](https://github.com/eric-vergo/LeAnTeX), drawn as glyph outlines in SVG and PNG | done; goldens, inert SVG, hostile labels under CPU and memory bounds ([gallery](leantex/examples/)) |
 | PDF for papers: every picture as a one-page vector PDF 1.7 written in pure Lean (paths, fills by both rules, strokes with caps, joins, miter limit and dashes, opacities, transparency groups, clips, gradients as shadings, raster images with soft masks; text as outlines, so no fonts; deterministic bytes); the source record in the information dictionary; `Pdf.check`, a structural check of PDF files (bounded: each page-tree node read once, each stream decoded once, at most 32 MiB of decoded content per document, every use counted) | done; every gallery PDF passes the check in `lake test` (planted faults refused, mutated files read without a crash; hostile files, among them page trees that list a node twice and streams that inflate to 200 MiB used by many pages, refused within bounds of 1 s of CPU and 80 MiB that the probe measures; about 0.2 s and 10 MiB on the development machine) and `qpdf --check`; rendered by Ghostscript and Quick Look and compared with the PNGs (`tools/pdf-compare.py`); see [Formats](#formats) |
 | Animations: one `Animation` (a drawing as a function of time, frame rate, duration, loops) written as animated SVG (SMIL only, interpolated attributes or frame switching), APNG and GIF, with a poster frame for reduced motion | done; outputs read back by PILean's readers and opened by macOS's ImageIO; the animated SVGs of the gallery checked in headless Chromium (frames differ with time, poster shown under reduced motion, `tools/anim-browser-check.py`) |
-| Motions of plane figures: exact key frames and, per step, what each actor does (turn about a centre by an exact fraction of a turn, slide, appear, vanish, morph); declared moves checked to land on the next key; an animated SVG of nested SMIL turns (true arcs, upright labels, one clock) and the same motion baked as frames; the stills are the key figures | done; not yet among `pilean-build`'s outputs; the written SVG and the baked frames agree within `1e-6` px; checked in headless Chromium (`tools/motion-browser-check.py`) |
-| Several motions as panels of one picture on one clock (side by side or stacked, at one common scale or each its own, a stacked narrow rendition); the stills are the panels' key figures composed | done; not yet among `pilean-build`'s outputs; the panels' plans share one timeline (proved), the panels checked in phase in headless Chromium |
+| Motions of plane figures: exact key frames and, per step, what each actor does (turn about a centre by an exact fraction of a turn, slide, appear, vanish, morph); declared moves checked to land on the next key; an animated SVG of nested SMIL turns (true arcs, upright labels, one clock) and the same motion baked as frames; the stills are the key figures | done; a motion is a figure of the build (`@[figure illustration]`, or linked to a theorem) and writes its animated SVG, the stills of its key frames and a contact sheet for print (`pilean-build`, the Verso adapters); the written SVG and the baked frames agree within `1e-6` px; checked in headless Chromium (`tools/motion-browser-check.py`); see [Animations of plane figures](#animations-of-plane-figures) |
+| Several motions as panels of one picture on one clock (side by side or stacked, at one common scale or each its own, a stacked narrow rendition); the stills are the panels' key figures composed | done; built like a motion, with a narrow rendition of stacked panels for small screens; the panels' plans share one timeline (proved), the panels checked in phase in headless Chromium |
+| Motions in Verso pages (`pilean-verso`, `pilean-verso-manual`) and site checks: a motion is shown inline wherever `:::figure` names it (no script): playing on its own clock, its poster key's still on hover and focus, and its key stills with their captions under reduced motion, with the Blueprint's motion switch and in print; a figure's page lists its steps in words; `tools/site/` checks a published site's pictures, markup and figure pages, and the motions in Chromium | done; see [`verso/README.md`](verso/README.md) and the manual's chapter "Motions" |
 | Graphs: nodes, edges and nested clusters; layered (Sugiyama) layout with cycle removal, network simplex layering, weighted-median crossing reduction with sifting and seeded starts, and under cluster constraints, Brandes–Köpf and network simplex coordinates, spline or orthogonal edges that keep clear of nodes, or bundled orthogonal edges (one entry and one exit port per node with shared stems, tracks in channels, parallel lanes with concentric corners), arrowheads, edge labels; circular and tree layouts, layouts at given positions (edges straight or bent around nodes); components laid out apart and packed, mirrored layouts; a bounded DOT reader and laid-out DOT writer; SVG and PNG, and SVG for a web page (classes, ids and titles on nodes, edges and clusters) | done; proved: after cycle removal every edge between two different nodes points to a deeper layer (by a final repair pass; self-loops are drawn apart) and the layout has one route per valid edge (both ends among the nodes); where nodes and routes lie is tested (cluster boxes, edge clearance); compared with Graphviz's `dot` in [`docs/DESIGN.md`](docs/DESIGN.md) |
 | Diagrams of algebra (`PILean.Diagram`): commutative diagrams (objects at exact positions; arrows straight, bent, parallel or loops, with the tips of monomorphisms, epimorphisms, isomorphisms, inclusions, equalities, `↦` and dashed arrows; labels beside them; 2-cells), Cayley tables (a colour per element) and Cayley graphs (a colour per generator) of finite groups given by their tables, quivers with dimension vectors, Hasse diagrams with marked elements (the normal subgroups among the subgroups) | done; see the table of kinds below; proved for each kind: every mark, class by class, is the builder's at its exact position (arrow bodies = the data's arrows with their ends, texts = their labels; cell `(a, b)` holds `a * b` in the colour of `a * b`); decidable on finite data: that maps between finite sets make a diagram commute and fit the marks of their arrows, that a table is a group; `pilean-mathlib` states commutation, `Mono`/`Epi`/`IsIso` and exactness for morphisms of a category, and binds tables, Cayley graphs and lattices of subgroups to Mathlib's groups |
 | Combinatorial diagrams (`PILean.Diagram`): finite graphs and digraphs on circles, grids or given exact positions (or the layered layout), Hasse diagrams of finite orders, Young diagrams and tableaux (English and French), permutations (one-line and two-line notation, matrix, cycles, wiring diagram), rooted trees and forests and binary trees (tidy layout of Reingold and Tilford), set systems (Venn diagrams of up to three sets, incidence drawings), lattice and Dyck paths, polyominoes and Ferrers boards; drawn from plain data in exact rational coordinates as plane figures, light and dark; caps on every kind | done; see the table of kinds below and [`examples/`](examples/README.md); proved for each kind: the drawn parts, read back from the diagram, are exactly the parts of the data, in order, at the layout's exact positions (edges = relation, Hasse edges = covers with the strict order their transitive closure, cells `(i, j)` with `j < λᵢ`, entries = filling, wiring crossings = inversions, Venn regions = membership); the layouts' qualities and everything after the exact marks are tested |
@@ -78,8 +79,8 @@ builder satisfies it. The package `pilean-mathlib` binds each to Mathlib's objec
 | APNG, GIF | `Animation.toApng`, `toGif` | every frame of an animation | `iTXt` chunks; a comment |
 | PDF | `toPdf` of every picture, `Image.toPdf` | one vector page, `0.75` points per pixel, text as outlines (no fonts), gradients as shadings | the document information dictionary |
 
-`pilean-build` writes a figure's SVG, PNG and PDF (and an animation's APNG, GIF and still frames),
-each with its source record; `pilean-info` and `pilean-verify` read every format.
+`pilean-build` writes a figure's SVG, PNG and PDF (and an animation's APNG, GIF and still frames; a
+motion's animated SVG, key stills and contact sheet), each with its source record; `pilean-info` and `pilean-verify` read every format.
 
 ## Use
 
@@ -135,6 +136,52 @@ def picture : Image :=
   | .ok bytes => IO.FS.writeBinFile "picture.png" bytes
   | .error e => IO.println e.toString
 ```
+
+## Animations of plane figures
+
+A *motion* (`PILean.Plane.Motion`) is a looping animation given by its rests: exact key frames,
+and for each step between two of them what each *actor* does, here a turn about the origin by an
+exact fraction of a full turn (the other moves are a slide, an appearance, a disappearance and a
+morph). The animated SVG plays by itself (SMIL, no script); the stills of the key frames are the
+key figures drawn by the plane figures' pipeline. A move that does not land on the next key is an
+error, and `Motion.svg?` then gives the messages instead of a picture (a file of its own; `@[figure]` needs the second import):
+
+```lean
+import PILean
+import PILean.Trust.Attr
+open PILean PILean.Plane
+
+abbrev Q := Rat × Rat
+
+def keyAt (p : Q) : Figure :=
+  { width := 320
+    items := #[Plane.Exact.circle ((0, 0) : Q) (1 : Rat) |>.faint |>.named "the unit circle",
+      Plane.Exact.point ((0, 0) : Q) |>.faint,
+      Plane.Exact.label "O" ((0, 0) : Q) .belowLeft |>.faint,
+      (group #[Plane.Exact.point p |>.accent 0 |>.incident .on "the unit circle",
+        Plane.Exact.label "P" p .aboveRight |>.accent 0]).actor "P"] }
+
+/-- A point turned a quarter about the origin. -/
+@[figure illustration]
+def quarter : Motion where
+  keys := #[keyAt (1, 0), keyAt (0, 1)]
+  captions := #["P at (1, 0).", "P turned a quarter about O."]
+  steps := #[{ moves := #[("P", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4))] }]
+  info := { title := "A quarter turn", description := "The point P turns about O." }
+
+#eval match quarter.svg? with
+  | .ok svg => IO.FS.writeFile "quarter.svg" svg
+  | .error es => IO.println es
+```
+
+`lake exe pilean-build` writes `quarter.svg`, the poster's and every key's still, and a contact
+sheet, each with its source record; a motion built at a check level other than the default
+(`fail`) is refused unless `--allow-unchecked` is given. Several motions can be panels of one
+picture on one clock (`MotionPanels`). In a Verso page, `:::figure` shows a motion inline, with
+its key stills for readers who turn motion off and in print
+([`verso/README.md`](verso/README.md)). The manual's chapter "Motions" goes through the whole
+way (key frames, moves, pacing, checks, panels, standing, files, pages, site checks), and
+[`docs/DESIGN.md`](docs/DESIGN.md) ("Motions of plane figures") has the design.
 
 ## Manual
 
@@ -194,6 +241,9 @@ checks that the picture changes with time and that reduced motion shows the post
 checks the golden motions of plane figures and pictures of panels in Chromium: the rests show
 the key stills, turns follow true arcs at the eased angle, labels and markers stay upright,
 reduced motion shows the still, the picture plays, and the panels of a picture are in phase.
+`tools/site/` holds the checks for a published site built with the Verso adapters (its pictures
+against its files, its markup, its figure pages, and its motions in Chromium), described in
+[`verso/README.md`](verso/README.md) ("Site checks").
 
 ## Trust model (outline)
 

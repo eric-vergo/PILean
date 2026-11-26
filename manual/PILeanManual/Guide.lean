@@ -12,6 +12,7 @@ import PILeanManual.Guide.Combinatorics
 import PILeanManual.Guide.Algebra
 import PILeanManual.Guide.NumberTheory
 import PILeanManual.Guide.Animations
+import PILeanManual.Guide.Motions
 import PILeanManual.Guide.Raster
 import PILeanManual.Guide.Pdf
 import PILeanManual.Guide.Explorers
@@ -27,9 +28,10 @@ tag := "guide"
 
 The library part by part: colours and the style record; geometry, paths and the vector canvas;
 every kind of plot; plane figures; graphs and their layouts; diagrams of combinatorial objects
-and orders; diagrams of algebra and categories; animations; raster images, the image
-writers and the readers with their bounds; vector PDF for papers; explorers, figures as functions
-of one or two parameters on a page; text engines; and the optional packages beside the core.
+and orders; diagrams of algebra and categories; animations, and motions of plane figures between
+exact key frames; raster images, the image writers and the readers with their bounds; vector PDF
+for papers; explorers, figures as functions of one or two parameters on a page; text engines; and
+the optional packages beside the core.
 
 {include 1 PILeanManual.Guide.Colour}
 
@@ -48,6 +50,8 @@ of one or two parameters on a page; text engines; and the optional packages besi
 {include 1 PILeanManual.Guide.NumberTheory}
 
 {include 1 PILeanManual.Guide.Animations}
+
+{include 1 PILeanManual.Guide.Motions}
 
 {include 1 PILeanManual.Guide.Raster}
 

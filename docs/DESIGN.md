@@ -1332,12 +1332,13 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   is hidden and the stills are a grid with their captions. Without JavaScript the same, by the
   stylesheet alone. Small screens (560 pixels or less, the plane figures' breakpoint): the narrow
   rendition, and the narrow stills.
-* **Hiding.** A moving picture is never hidden with `display: none`, also not in print: in
-  Chromium an inline SMIL picture shown again after `display: none` (printing included) stays
-  frozen until its animations next repeat, although its clock runs. The stage while motion is off
-  and the hidden rendition are hidden with `visibility: hidden; position: absolute`; under hover
-  and focus the picture has `opacity: 0`. The browser checks show the picture following its clock
-  after each of these, and that the check notices `display: none`.
+* **Hiding.** A moving picture is never hidden with `display: none`, in print too: Chromium
+  freezes a picture whose `transform` is animated when it is hidden with `display: none` and
+  shown again, until the animation repeats, although its clock runs. Emulating print media
+  showed it; a real PDF print did not, in testing, and the rule holds for both. The stage while
+  motion is off and the hidden rendition are hidden with `visibility: hidden; position:
+  absolute`; under hover and focus the picture has `opacity: 0`. The browser checks show the
+  picture following its clock after each of these, and that the check notices `display: none`.
 * **Layout.** The stage is as wide as the picture and reserves its box: hover and focus change
   nothing around it, and the hidden rendition takes no space. Turning motion off replaces the
   picture by the taller grid of stills, a change the reader asked for.
@@ -1346,9 +1347,9 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   the standing (for a linked motion, what a theorem about a motion can state, `motionLinkedWords`),
   `MotionData.words` (with `MotionData.checkWords` for a motion not checked strictly), the table of
   the steps (each step's keys, its duration exactly, and each move with its panel, actor and
-  `MotionMoveRow.words`, a crossfade marked), the key stills with their captions, and the contact
-  sheet; the files (the animated SVGs, the stills, the contact sheet with its PDF) are listed with
-  the others.
+  `MotionMoveRow.words`, a crossfade marked) and the key stills with their captions; the files
+  (the animated SVGs, the stills, the contact sheet with its PDF) are listed with the others, and
+  the contact sheet is among them only.
 * **Files.** A site writes a motion's outputs (`motionOutputs`) and, of the dark motion, only
   what its pages show: the SVG of each key's still at each width (`-key-k-dark`,
   `-narrow-key-k-dark`). So `7 + 6 n` files for `n` keys with a narrow rendition, `6 + 3 n`

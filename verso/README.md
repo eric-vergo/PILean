@@ -375,4 +375,6 @@ inline picture, a motion's moving picture included (`style-src 'unsafe-inline'`,
 each), and, on a Blueprint site, the motion switch's inline head script by its hash. A site's own
 stylesheet must not reach into the pictures: a rule on `.pilean-inline-svg` or its descendants
 (`.pilean-inline-svg path`, `svg *`) also matches a motion's moving picture, and must not set
-`display`, `visibility`, `opacity`, `transform` or `animation` there.
+`display`, `visibility`, `opacity`, `transform` or `animation` there. Nor should it repaint `fill`
+or `stroke` inside a picture: the live motion would then differ from its stills, which are image
+files that no page rule reaches.

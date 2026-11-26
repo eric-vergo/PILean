@@ -125,7 +125,8 @@ structure PanelTiming where
 structure MotionPanels where
   /-- The panels, in order (from left to right, or from top to bottom). -/
   panels : Array MotionPanel
-  /-- One caption per key (`"Step 3 of 5: …"`), for the whole picture. -/
+  /-- One caption per key, for the whole picture; written without a counter, since a page shows
+  each as `Step 3 of 5: …`. -/
   captions : Array String := #[]
   /-- The durations, easing and seam. -/
   pacing : Pacing := {}

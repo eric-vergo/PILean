@@ -181,8 +181,12 @@ def main(site, figs=None):
                                 any(p.endswith("-dark.svg") for p in paths),
                                 f"{stem}.gif" in paths)
             if paths != want:
+                missing = sorted(set(want) - set(paths))[:6]
+                extra = sorted(set(paths) - set(want))[:6]
+                what = f"missing {missing}, extra {extra}" if missing or extra else \
+                    "a file listed twice"
                 problems.append(f"{where}: the motion's files are not those the adapters write: "
-                                f"{sorted(set(paths) ^ set(want))[:6]}")
+                                f"{what}")
             frames = "key frame" if n == 1 else "key frames"
             said = (f"An animation drawn from {n} {frames}; the stills are the key figures as "
                     "drawn.")
