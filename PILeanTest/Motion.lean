@@ -231,11 +231,12 @@ def pointRec (p : Q) (outside : Bool) (tone : Nat := 0) : Item :=
   (group #[pt, Plane.Exact.label "P" p .aboveRight |>.accent tone]).actor "P"
 
 /-- `turnMotion` with a point whose recorded incidences change in the idle step, from key 1 to
-key 2 (and, with `tone := 1`, whose colour changes in the turn too). -/
-def incidenceMotion (tone : Nat := 0) : Motion :=
+key 2, or with `atTurn` in the turn, from key 0 to key 1 (and, with `tone := 1`, whose colour
+changes in the turn too). -/
+def incidenceMotion (tone : Nat := 0) (atTurn : Bool := false) : Motion :=
   { turnMotion with keys :=
     #[{ items := incidenceBackdrop.push (pointRec (1, 0) false), width := 320 },
-      { items := incidenceBackdrop.push (pointRec (0, 1) false tone), width := 320 },
+      { items := incidenceBackdrop.push (pointRec (0, 1) atTurn tone), width := 320 },
       { items := incidenceBackdrop.push (pointRec (0, 1) true tone), width := 320 }] }
 
 /-- The placement of the first label among the leaves of the actor `id` of a figure. -/
@@ -725,6 +726,10 @@ def outputChecks : Array (String × Bool) := Id.run do
     inc.problems.isEmpty && (inc.plan.layers.filter (·.version.actor == some "P")).size == 1 &&
       !has live "outside the small disk" && !has live "on the unit circle" &&
       has (inc.keyFigure 2).toSvg "on the unit circle, outside the small disk")
+  let incTurn := incidenceMotion (atTurn := true)
+  r := r.push ("motion: records that change across a turn do not stop the turn from landing",
+    incTurn.problems.isEmpty &&
+      (incTurn.plan.layers.filter (·.version.actor == some "P")).size == 1)
   r := r.push ("motion: an item without an id whose records change is not crossfaded",
     let o := fun (outside : Bool) =>
       let pt := Plane.Exact.point ((0, -1) : Q) |>.faint |>.incident .on "the unit circle"
