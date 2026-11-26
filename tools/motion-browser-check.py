@@ -11,10 +11,19 @@
 # through `getCTM()`:
 #   (a) at the middle of each key's rest every actor is where the key's still has it, and every
 #       label's or marker's anchor where the motion's plan draws it (0.05 px),
-#       and the picture is the key's still SVG up to antialiasing: every channel of every pixel
-#       of each lies within the range of the other's pixels at most one pixel away, widened by
-#       40 (a circle turned by 72 degrees is rasterised a little otherwise than the still's own
-#       circle, along its outline);
+#       and the picture is the key's still SVG up to antialiasing (`UNEXPLAINED`): no pixel is
+#       unexplained, a pixel of one picture being unexplained by the other when both of two
+#       tests fail: (1) one of its channels lies outside the range of the other's pixels at most
+#       one pixel away, widened by 40 levels; and (2) after a 3 by 3 box blur of both pictures,
+#       one of its channels differs from the other's by more than 40 levels. Chromium draws a
+#       shape turned into place by `rotate()` a little otherwise than the same shape drawn in
+#       place: at the tangents of a circle and along a segment, single pixels up to 57 levels
+#       apart (the fixtures in `tools/fixtures/motion-pixels/`), which fail (1) alone; the blur
+#       spreads such a pixel over its neighbours, and at the pixels where (1) fails, correct
+#       pictures differ by at most about 20 levels after it (measured on 58 renditions of a
+#       two-panel motion). A label or shape moved by 2 pixels or more fails both everywhere along
+#       its outline (more than 120 levels after the blur); one moved by 1 pixel mostly passes (1)
+#       and is left to the anchor check below, which is precise to 0.05 px;
 #   (b) at a quarter, a half and three quarters of every turn the actor is on the turn's circle
 #       (0.05 px) at the eased fraction of the turn's angle (0.5 degrees): a true arc;
 #   (c) labels and markers (`[data-pilean-upright]`) are not turned (less than 0.01 degrees),
@@ -34,6 +43,8 @@
 # Labels and markers that turn (`turning_marks` in the expectations, from the motion's model)
 # must have upright groups; a picture without any (only fades, say) has none to find.
 # Without seeking, the motion plays: two screenshots at different `getCurrentTime()` differ.
+# Before the motions, the pixel rule is checked on its fixtures (`pixel_rule_checks`): a circle and
+# a segment drawn in place and turned into place pass it, and either moved by 2 or 3 pixels fails.
 #
 # Needs the `playwright` Python package and a Chromium it can find (nothing is installed or
 # downloaded); without them it says so and exits cleanly.
@@ -98,20 +109,48 @@ PIXELS = """async ([a, b]) => {
   return n;
 }"""
 
-UNEXPLAINED = """async ([a, b]) => {
+# The two tests of the pixel rule (see the header): the range widened by RANGE_WIDEN levels, the
+# blurred difference above BLUR_TOL levels.
+RANGE_WIDEN = 40
+BLUR_TOL = 40
+
+UNEXPLAINED = """async ([a, b, widen, tol, shift]) => {
   const load = src => new Promise((ok, bad) => {
     const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
   const [x, y] = await Promise.all([load(a), load(b)]);
   const w = Math.min(x.width, y.width), h = Math.min(x.height, y.height);
-  const grab = i => {
+  // the second picture is drawn `shift` pixels to the right over white (0 but in the tests of
+  // the rule itself)
+  const grab = (i, dx) => {
     const c = document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
     c.width = w; c.height = h;
-    const g = c.getContext('2d'); g.drawImage(i, 0, 0, w, h);
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+    g.drawImage(i, dx, 0, w, h);
     return g.getImageData(0, 0, w, h).data; };
-  const p = grab(x), q = grab(y);
+  const p = grab(x, 0), q = grab(y, shift || 0);
+  // each channel of each picture after a 3 by 3 box blur (edges repeated)
+  const blur = s => {
+    const o = new Float32Array(w * h * 3);
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) for (let c = 0; c < 3; c++) {
+      let sum = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const u = Math.min(w - 1, Math.max(0, xx + dx)), v = Math.min(h - 1, Math.max(0, yy + dy));
+        sum += s[4 * (v * w + u) + c];
+      }
+      o[3 * (yy * w + xx) + c] = sum / 9;
+    }
+    return o;
+  };
+  const bp = blur(p), bq = blur(q);
+  const blurred = k => {
+    let d = 0;
+    for (let c = 0; c < 3; c++) d = Math.max(d, Math.abs(bp[3 * k + c] - bq[3 * k + c]));
+    return d;
+  };
   // a pixel of s is explained by t when each of its channels lies within the range of t's
-  // pixels at most one pixel away, widened by 40: an edge moved by less than a pixel stays
-  // between its neighbours' colours
+  // pixels at most one pixel away, widened by `widen` (an edge moved by less than a pixel stays
+  // between its neighbours' colours), or when the blurred pictures differ there by at most `tol`
+  // (a pixel drawn otherwise by the rasteriser, in an outline at the same place)
   const count = (s, t) => {
     let n = 0;
     for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
@@ -126,9 +165,9 @@ UNEXPLAINED = """async ([a, b]) => {
           if (z < lo) lo = z;
           if (z > hi) hi = z;
         }
-        if (s[k + c] < lo - 40 || s[k + c] > hi + 40) ok = false;
+        if (s[k + c] < lo - widen || s[k + c] > hi + widen) ok = false;
       }
-      if (!ok) n++;
+      if (!ok && blurred(yy * w + xx) > tol) n++;
     }
     return n;
   };
@@ -219,7 +258,8 @@ def check(browser, root, name):
             os.path.join(root, f"{name}-key{rest['key']}.svg")))
         still = still_page.screenshot(clip=clip)
         still_page.close()
-        rest_pixels.append(sum(page.evaluate(UNEXPLAINED, [uri(shot), uri(still)])))
+        rest_pixels.append(sum(page.evaluate(
+            UNEXPLAINED, [uri(shot), uri(still), RANGE_WIDEN, BLUR_TOL, 0])))
         for panel in spec.get("panels", []):
             x, y, w, h = panel["box"]
             box_clip = {"x": x, "y": y, "width": w, "height": h}
@@ -229,7 +269,8 @@ def check(browser, root, name):
                 os.path.join(root, f"{name}-key{rest['key']}.svg")))
             part_still = still_page.screenshot(clip=box_clip)
             still_page.close()
-            n = sum(page.evaluate(UNEXPLAINED, [uri(part), uri(part_still)]))
+            n = sum(page.evaluate(
+                UNEXPLAINED, [uri(part), uri(part_still), RANGE_WIDEN, BLUR_TOL, 0]))
             panel_pixels[panel["id"]] = max(panel_pixels.get(panel["id"], 0), n)
         for a in rest["actors"]:
             xy = first(seen["actors"], a["id"])
@@ -378,6 +419,38 @@ def check(browser, root, name):
     return ok
 
 
+FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "motion-pixels")
+
+
+def pixel_rule_checks(browser):
+    """The pixel rule on its fixtures: each pair of a shape drawn in place and the same shape
+    turned into place by `rotate()` (a circle, a horizontal segment), which Chromium draws up to
+    57 levels apart at single pixels (which the range test alone does not explain, as it must
+    find for the fixture to test anything), must have no unexplained pixel; the picture in place
+    against itself moved by 2 and by 3 pixels must have some (the rule catches a shape moved so
+    far); moved by 1 pixel is reported, not required. Returns whether all hold."""
+    page = browser.new_page(viewport={"width": 340, "height": 700})
+    ok = True
+    for stem in ["circle", "segment"]:
+        shots = []
+        for f in [f"{stem}-still.svg", f"{stem}-turned.svg"]:
+            page.goto("file://" + os.path.join(FIXTURES, f))
+            shots.append(uri(page.screenshot()))
+        page.goto("about:blank")
+        turned = sum(page.evaluate(UNEXPLAINED, [shots[0], shots[1], RANGE_WIDEN, BLUR_TOL, 0]))
+        alone = sum(page.evaluate(UNEXPLAINED, [shots[0], shots[1], RANGE_WIDEN, -1, 0]))
+        moved = {d: sum(page.evaluate(UNEXPLAINED, [shots[0], shots[0], RANGE_WIDEN, BLUR_TOL, d]))
+                 for d in (1, 2, 3)}
+        # the fixture must show the effect the rule allows for, or it tests nothing
+        good = turned == 0 and alone > 0 and moved[2] > 0 and moved[3] > 0
+        ok = ok and good
+        print(f"pixel rule, {stem}: turned into place {turned} unexplained pixels (the range test "
+              f"alone: {alone}); moved by 1, 2, 3 px: {moved[1]}, {moved[2]}, {moved[3]} -> "
+              f"{'ok' if good else 'FAILED'}")
+    page.close()
+    return ok
+
+
 def main():
     if len(sys.argv) != 2:
         print("usage: python3 tools/motion-browser-check.py DIR (from `lake exe pilean-test "
@@ -392,7 +465,8 @@ def main():
         return 0
     try:
         names = sorted(f[:-5] for f in os.listdir(root) if f.endswith(".json"))
-        failures = sum(0 if check(browser, root, name) else 1 for name in names)
+        failures = 0 if pixel_rule_checks(browser) else 1
+        failures += sum(0 if check(browser, root, name) else 1 for name in names)
         if not names:
             print(f"motion-browser-check: no motions in {root}")
             failures = 1
