@@ -327,8 +327,10 @@ def routeChecks : Array (String × Bool) :=
         (find warned "" .svg).any (fun o => !(o.problems ()).isEmpty) &&
         (pageOf warned).any fun d => d.unchecked && (d.checkWords.any (has · "errors")) &&
           has d.words "not what the steps declare"),
-    ("motion warn and ignore: the step table says the missed move is drawn as a crossfade",
-      crossRow warned && crossRow ignored),
+    ("motion warn and ignore: the step table says the missed move is drawn as a crossfade, and \
+        so does the page",
+      crossRow warned && crossRow ignored && (pageOf warned).any fun d =>
+        has d.betweenWords "crossfades items whose declared move does not land"),
     ("motion ignore: it renders and records the level and the errors left, reporting nothing",
       ignored.all (fun o => (o.bytes ()).toOption.isSome && (o.problems ()).isEmpty &&
         (o.motion ()).any fun mo => mo.checks == "ignore" && mo.unchecked)),

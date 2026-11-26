@@ -265,7 +265,8 @@ def listWords : List String → String
   | a :: rest => a ++ ", " ++ listWords rest
 
 /-- What the browser does between key frames, from the moves the animation draws: turns, slides,
-fades, changes of outline, and crossfades of items that change without a declared move. -/
+fades, changes of outline, crossfades of items whose declared move does not land, and crossfades
+of items that change without a declared move. -/
 def MotionData.betweenWords (d : MotionData) : String :=
   let drawn := d.steps.flatMap (·.moves.map fun r => if r.asDeclared then r.kind else r.drawn)
   let parts :=
@@ -274,8 +275,9 @@ def MotionData.betweenWords (d : MotionData) : String :=
     (if drawn.contains "appearance" || drawn.contains "disappearance" then
       ["fades items in or out"] else []) ++
     (if drawn.contains "morph" then ["changes the outlines of drawn items"] else []) ++
-    (if d.crossfades || drawn.contains "crossfade" then
-      ["crossfades items that change without a declared move"] else [])
+    (if drawn.contains "crossfade" then
+      ["crossfades items whose declared move does not land on the next key frame"] else []) ++
+    (if d.crossfades then ["crossfades items that change without a declared move"] else [])
   if parts.isEmpty then "Nothing moves between the key frames."
   else s!"Between key frames the browser {listWords parts}."
 

@@ -317,7 +317,8 @@ that end in `Unchecked`.
   drawn.", then what the browser does between key frames, built from the moves the animation
   draws (`MotionData.betweenWords`: it turns drawn items about the stated centres, slides them
   along the stated vectors, fades items in or out, changes the outlines of drawn items,
-  crossfades items that change without a declared move, or nothing moves), and, for a motion not
+  crossfades items whose declared move does not land, crossfades items that change without a
+  declared move, or nothing moves), and, for a motion not
   checked strictly (`MotionData.unchecked`, which a page must show), what that means
   (`MotionData.checkWords`). Whether the key figures' data is exact is the author's to say, in the
   figure's description: a key may be drawn from floating-point data. The step table goes with it.
