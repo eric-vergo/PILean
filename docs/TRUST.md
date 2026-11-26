@@ -23,6 +23,7 @@ the Lean object it shows, and what stays tested or trusted, is on
 | `version` | the version of PILean (`PILean.version`) | yes |
 | `fingerprint` | 64 lowercase hexadecimal digits (a SHA-256) | no |
 | `standing` | `linked` or `illustration`: the figure's standing as the build recorded it ("Standing" below; `proved` reads as `linked`) | no |
+| `motion` | for a file of a motion, its record as one value: `keys=N;cycle=C;captions=N;checks=L;errorsLeft=E;narrow=yes|no`, with the cycle in seconds as `n` or `n/d` in lowest terms (at most 18 digits each), the level `fail`, `warn` or `ignore`, the number of problems the strict level treats as errors that did not stop the motion (`0` at `fail`), and whether it has a narrow rendition (`MotionSummary.text`; "Motions") | no |
 | `theorems` | for a linked figure, the theorems linked to it, by full name, as a list: `[`, the names separated by `,`, `]`, each name with `%`, `,`, `[`, `]`, the backslash and the control characters written `%XX` (two uppercase hexadecimal digits), such as `[A.b,C.«d e»]` (`theoremsText`); a value that does not begin with `[` is read in the earlier form, names separated by single spaces, and so is the earlier key `proves` | with `standing` `linked` only |
 
 A record can be written only if every value is at most 4096 bytes of UTF-8 and has only
@@ -53,7 +54,8 @@ a finished file:
 
 ### SVG
 
-Three elements, the first children of the root `<svg>`:
+Three elements, the first children of the root `<svg>` (after the root's own leading `title` and
+`desc`, when it has them, so that its own title stays the picture's accessible name):
 
 ```xml
 <title>Module.decl</title>
@@ -205,7 +207,8 @@ line. The function behind it is `PILean.Trust.infoLines`.
 `Unit`, so nothing is computed before it is called; it can fail with a message) and `spec`, the
 canonical encoding of what is drawn. An SVG output can also give the same picture as nodes for a
 page that puts it inline (`inline`), and the problems the figure's checks report (`problems`;
-see "Checks" below).
+see "Checks" below). The outputs of a motion also record the motion (`motion`) and its animated
+SVG what a page needs to show it (`motionPage`; see "Motions" below).
 
 | Type | Outputs |
 |---|---|
@@ -214,6 +217,7 @@ see "Checks" below).
 | `Explorer` | the poster's SVG (with every frame for a page that shows them inline), PNG and PDF; then each frame `k` (from 0, in the order of `Explorer.frames`) as an SVG with the suffix `-frame-k`; at most `Explorer.maxFrames` frames and `Explorer.maxBytes` bytes of frames' SVG, or no output renders |
 | `Graph` (default layered layout, light style, scale 1), or `GraphFigure` (graph, layout options, style, PNG scale) | SVG; PNG; PDF |
 | `Animation` | animated SVG; APNG (file extension `png`); GIF; poster frame (PNG and PDF, suffix `-poster`) |
+| `Plane.Motion`, `Plane.MotionPanels`, or `MotionFigure` (a motion, whether to write the APNG and GIF, frames a second) | animated SVG; the poster key's still (PNG and PDF, suffix `-poster`); the contact sheet (SVG, PNG and PDF, suffix `-keys`); each key `k`'s still (SVG and PNG, suffix `-key-k`); with a narrow rendition, the animated SVG and the stills with the suffix `-narrow`; the APNG and the GIF only with `MotionFigure.rasters` (see "Motions") |
 | `Diagram.Diagram` | those of its plane figure (`Diagram.toPlane`) |
 
 ### Checks
@@ -258,11 +262,115 @@ The specification of an output is the SVG document that PILean's deterministic w
   (PNG and PDF): the SVG document of the poster frame.
 * An explorer: the poster's SVG, PNG and PDF as for a figure; each frame's SVG, the SVG document
   of that frame.
+* A motion: the animated SVG and, when written, the APNG and the GIF: the animated SVG document of
+  the checked route; each key still and the poster: those of the key figure, as for a plane
+  figure; the contact sheet as for a frame of an explorer.
 
 The specification covers what is drawn: the sampled values of a function (the points the figure
 takes), data, colours, sizes, text and layout. It does not cover the function's code, nor
 anything that does not change the drawing. The declaration's source text is covered separately,
 by the source hash.
+
+### Motions
+
+A motion of plane figures (`PILean.Plane.Motion`), or a picture of several motions as panels on
+one clock (`PILean.Plane.MotionPanels`), is a figure of the build like any other
+(`PILean/Trust/Motion.lean`). Its outputs read the motion checked once (`CheckedMotion`): a
+checked motion is made only from a motion or a picture of panels (`Motion.checked`,
+`MotionPanels.checked`), which compute the report of its checks themselves; its constructor is
+private and no function takes a report, so a report with its problems removed cannot be turned
+into one, and an instance of `ToCheckedMotion` for another type goes through one of the two (the
+tests check that the forgeries do not compile). The animated SVG is the checked route's (`svg?`), never one of the routes
+that end in `Unchecked`.
+
+* **Check levels.** A motion's checks apply at its `checks` level. Under `fail` (the default) an
+  error stops it. Under `warn` its errors are warnings on the animated SVG; under `ignore` they
+  are not reported. In both, a move that misses its key is drawn as a crossfade, and the files
+  are written. Whatever the level, a motion is stopped when it is not well formed (a caption per
+  key, one step fewer than keys, the poster among the keys), when its written picture has an id
+  twice (actor ids that differ but are written alike, such as `a b` and `a_b`), and, for a
+  picture of panels, when its panels use different text engines. A stopped motion renders no
+  file: every output fails with the messages of what stops it and has no inline picture, theme or
+  page data, and `pilean-build` exits with status 1 having written nothing. A narrow rendition is
+  also stopped by its own errors under `fail`.
+* **What is recorded.** Every file of a motion has its own manifest entry with SHA-256 and
+  fingerprint, and records the motion, in its source record (the key `motion`) and in its
+  manifest entry (the keys `kind` … `narrow`), which `pilean-verify` compares: the number of key
+  frames, the length of the cycle in seconds, exactly, the number of captions, the check level
+  (`fail`, `warn`, `ignore`), the number of problems that the strict level (`fail`) treats as
+  errors and that did not stop it (`errorsLeft`; the motion is checked as at `fail` to count them,
+  whatever level it was built at, so a problem `warn` turns into a note still counts; the errors
+  of a rendition that is stopped are not left), and whether it has a narrow rendition (`narrow`).
+  Reading the manifest also requires that the files of a motion list exactly the animated SVG and
+  the key stills it counts, at each width the record says it has (`motionKeyProblem?`), so a
+  folder without the narrow rendition its motion records is refused. Its standing is recorded as
+  for any figure.
+* **Strict by default.** `renderOutput`, which `pilean-build` and the Verso adapters' site builds
+  both use, refuses every output of a motion that was not checked strictly (built at a level
+  other than `fail`, or with errors left), unless the build is given `--allow-unchecked`
+  (`BuildOptions.allowUnchecked`); `pilean-build` also refuses such a motion before rendering
+  anything. `--require-checked` is accepted and is the default. A figure's standing is not
+  enforced by default: `--require-standing` stays an option, as the existing sites use it.
+* **Inline in a page.** The animated SVG's output carries `MotionData` (`Output.motionPage`): the
+  record; the moving picture without the file's `title`, `desc`, reduced-motion `style` element
+  and poster group (`live`, with the theme's colour pairs, which the manifest records as for any
+  inline picture), so that a page's own rules decide what is shown under reduced motion; the
+  stills with their captions and the poster (`stills`, a `FrameSet` whose picture `k` is the file
+  `-key-k`'s picture); and the table of the steps (`MotionStepRow`: per step its duration, whether
+  it is idle, and each move with its panel, actor, kind, centre and exact fraction of a turn or
+  vector, and what the animation draws for it: the move, or `crossfade` when it does not land).
+  The file's root holds, in order, the title and description, that `style` element, the nodes of
+  `live`, and the poster group, so a site check can rebuild the file from what the page shows; the
+  tests check this for every golden motion.
+* **What a page may say.** The standing ("Illustration." or the linked theorem), then
+  `MotionData.words`: "An animation drawn from N key frames; the stills are the key figures as
+  drawn.", then what the browser does between key frames, built from the moves the animation
+  draws (`MotionData.betweenWords`: it turns drawn items about the stated centres, slides them
+  along the stated vectors, fades items in or out, changes the outlines of drawn items,
+  crossfades items whose declared move does not land, crossfades items that change without a
+  declared move, or nothing moves), and, for a motion not
+  checked strictly (`MotionData.unchecked`, which a page must show), what that means
+  (`MotionData.checkWords`: the level it was built at, and how many problems the strict level
+  treats as errors did not stop it, or that the strict level finds none). Whether the key figures' data is exact is the author's to say, in the
+  figure's description: a key may be drawn from floating-point data. The step table goes with it.
+  A motion is marked `@[figure illustration]` unless a theorem is linked to it; `figure_links`
+  works for a motion as for any figure, and its rule is the same: the theorem's statement names
+  the motion's constant. What a theorem about a motion can state is its key figures and its
+  declared moves (`motionLinkedWords`); the frames the browser draws between the keys are not
+  part of any statement.
+* **What is verified, at each level.** At every level: each still is, byte for byte, the key as
+  drawn (the plane figure `Motion.keyFigure k` as the plane figures' pipeline draws it; the
+  picture's key `MotionPanelsReport.keyStillSvg k` and `keyStillPng k`), and the record says the
+  level and whether errors were left. At `fail` with no error left: each declared turn or slide
+  carries its actor onto the next key (within 0.01 px), the whole baked drawing is within 0.05 px
+  of the still at every rest, and the written SVG read back agrees with the baked drawing
+  (`Motion.problems`; for panels, the same for every panel and for the composed picture). At
+  `warn` or `ignore`, none of that holds for the steps the strict level's errors name: the record
+  says the level and the number of such errors (`errorsLeft`), the step table marks each move
+  drawn as a crossfade, and the page must say so; by default no build writes such a motion. The browser's drawing between the keys is not part of the build at any level:
+  `tools/motion-browser-check.py` measures it in Chromium, outside `lake test`. An illustration
+  carries no theorem, and a linked theorem says what its statement says.
+* **What a page that shows a motion must do.** A page adapter:
+  1. reads `Output.motionPage` only from an output whose `renderOutput` succeeded (a stopped or
+     refused motion gives no file and must give no page);
+  2. shows `MotionData.words`, which includes `MotionData.checkWords` whenever
+     `MotionData.unchecked` holds;
+  3. renders the step table with `MotionMoveRow.words`;
+  4. escapes every string from the rows, the panel names and the captions (`MotionMoveRow.actor`
+     is the author's string as written);
+  5. extends its site check of inline pictures to motions: skip the motion's own `title` and
+     `desc`, then the source record; require the `style` element to be the fixed
+     `Animation.reducedMotionStyle`; check the poster group against key `poster`'s still with the
+     `poster-` id prefix; compare `live` with the file element for element;
+  6. asserts the manifest's `checks` and `errorsLeft` (`fail`, `0`) for every motion it shows.
+* **Accessible names.** The animated SVG's own `title` (the motion's title) is the first `title`
+  child of the root; the build writes the source record after it and the `desc`, so the record's
+  title (the declaration's name) does not become the picture's accessible name. The contact
+  sheet's SVG, whose text is drawn as shapes, has a `title` and a `desc` listing the captions.
+* **Inertness.** Every SVG a build writes passes `Svg.isInert` (the build refuses one that does
+  not, and `pilean-verify` reports one as `not inert`); a motion's animations start on the clock
+  (`begin="0s"`), and an animation started or ended by an event or by another element's timing is
+  refused.
 
 ## The attribute `figure` and `figures%`
 
@@ -348,12 +456,12 @@ refuses a figure so marked. `figure_proves` is another name for the command `fig
 
 * `figures%` sets the standing on every output of a figure (`Output.standing`;
   `FigureEntry.standing` reads it), so a build writes it into every file's source record
-  (`standing`, `theorems`) and into the manifest (the keys `standing` and `theorems`, format
-  `pilean-manifest-3`), and `pilean-info` prints it. It is not part of the fingerprint, which
+  (`standing`, `theorems`) and into the manifest (the keys `standing` and `theorems`), and
+  `pilean-info` prints it. It is not part of the fingerprint, which
   identifies the drawing and the declaration; it is part of the file, so the file's SHA-256 in the
   manifest covers it. The readers also take the records and manifests of the earlier writers:
-  manifests of the format `pilean-manifest-2`, whose `theorems` is one string of names separated
-  by single spaces, and of the format `pilean-manifest-1` and records that wrote the standing
+  manifests of the format `pilean-manifest-3`, before motions, those of the format
+  `pilean-manifest-2`, whose `theorems` is one string of names separated by single spaces, and of the format `pilean-manifest-1` and records that wrote the standing
   `proved` and the key `proves`: `proved` reads as `linked` and `proves` as `theorems`
   (`readStanding`).
 * `pilean-build --require-standing` (with or without `--check`) fails, before rendering anything,
@@ -398,9 +506,9 @@ this byte string:
 
 The renderer, `PILean.Trust.rendererId` (`PILean/Trust/Renderer.lean`), is the SHA-256 of the
 Lean toolchain's version and of the source files of every library module that turns a figure into
-bytes (the plots, plane figures, graphs and animations, the SVG writer, the rasteriser, the lettering, the PNG,
-APNG, GIF and PDF writers, the source records: the modules `Renderer.lean` imports, listed in
-`rendererSources`). It is computed from the files' text as it was when the library was compiled
+bytes (the plots, plane figures, graphs and animations, the motions of plane figures and their
+outputs, the SVG writer, the rasteriser, the lettering, the PNG, APNG, GIF and PDF writers, the
+source records: the modules `Renderer.lean` imports, listed in `rendererSources`). It is computed from the files' text as it was when the library was compiled
 (`include_str`), so nobody has to remember to change it: any change to that code changes every fingerprint, even a
 change to a comment, and a change to the rasteriser that leaves the SVG specification alone
 still changes the fingerprints of the PNG files. The tests check that the list is exactly the
@@ -434,6 +542,7 @@ renders the gallery figures that carry `@[figure]`.
 
 ```
 pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]
+             [--require-checked] [--allow-unchecked]
 ```
 
 * Without `--check`, every output of every entry is rendered, the source record (with the
@@ -443,6 +552,10 @@ pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standi
   same entries, options and library give the same bytes. Nothing is written if any figure fails
   to render. File names have only `[A-Za-z0-9._-]` (every other character becomes `_`); an empty
   component, `.` or `..` in a path is refused, so nothing is written outside `DIR`.
+* By default (with or without `--check`), a build fails, before rendering anything, if a motion
+  was not built at the check level `fail` without errors left, naming each ("Motions");
+  `--allow-unchecked` builds such motions, recording what their checks found. `--require-checked`
+  is accepted and is the default.
 * `--repo` must be an `http` or `https` link (`safeLink?`), `--commit` 4 to 64 lowercase
   hexadecimal digits.
 * With `--check`, the output is rendered in memory and compared byte for byte with `DIR` (give the
@@ -457,12 +570,13 @@ pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standi
   most 64 MiB with its source record in (the most the source reader of `pilean-verify` reads),
   checked on the finished file; a file whose bytes are not of its output's format (an `apng`
   output must have an `acTL` chunk before its image data, a `png` output none, a `pdf` output
-  starts with `%PDF-`) is refused, and so is a PDF that fails the structural check (`Pdf.check`,
-  `PILean/Pdf/Check.lean`). So every file a build writes is one `pilean-verify` can check.
+  starts with `%PDF-`) is refused, and so is an SVG that is not inert (`Svg.inertProblem?`, "Inert
+  SVG") and a PDF that fails the structural check (`Pdf.check`, `PILean/Pdf/Check.lean`). So every
+  file a build writes is one `pilean-verify` can check.
 
 ### The manifest
 
-`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-3","files":[ ... ]}`, with one
+`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-4","files":[ ... ]}`, with one
 line for each output, sorted by `path`, every object with the keys in this order:
 
 | Key | Meaning |
@@ -475,7 +589,16 @@ line for each output, sorted by `path`, every object with the keys in this order
 | `module`, `decl`, `file`, `line`, `column`, `version` | the source record |
 | `repo`, `commit` | only if the build was given them |
 | `darkColours`, `darkOpacities` | for a file a page can put inline: the theme's colour pairs |
-| `standing`, `theorems` | the standing recorded in the file, and its theorems as a JSON array of strings ("Standing"; a manifest of the format `pilean-manifest-2` has one string of names separated by single spaces, and one of the format `pilean-manifest-1` has it under `proves`, read as `theorems`; `Manifest.parse` reads all three and refuses an array in the earlier formats and a string in this one) |
+| `standing`, `theorems` | the standing recorded in the file, and its theorems as a JSON array of strings ("Standing"; a manifest of the format `pilean-manifest-2` has one string of names separated by single spaces, and one of the format `pilean-manifest-1` has it under `proves`, read as `theorems`; `Manifest.parse` reads all of them and refuses an array in those two formats and a string in the later ones) |
+| `kind`, `keys`, `cycle`, `captions`, `checks`, `errorsLeft`, `narrow` | only for a file of a motion, the record its source record holds: `kind` is `motion`, `keys` the number of key frames (at least one), `cycle` the length of one cycle in seconds, exactly, as a string `n` or `n/d` in lowest terms, `captions` the number of captions, `checks` the level (`fail`, `warn`, `ignore`), `errorsLeft` the number of problems the strict level treats as errors that did not stop it (`0` at `fail`), `narrow` a boolean, whether it has a narrow rendition ("Motions") |
+
+`Manifest.parse` refuses an entry of this format with a key the table does not have, a `kind`
+other than `motion`, the keys of a motion without `kind` or `kind` without them, a cycle or a level
+written otherwise, a manifest in which the files of one declaration do not all record the same
+motion (or all none), and one in which the files of a motion do not list exactly the key stills
+it counts (the SVG and the PNG `-key-k` for each key, at each width). It reads the format before motions, `pilean-manifest-3`, as before (its other keys
+ignored, no motion), and the earlier ones; a reader of an earlier format refuses this one by its
+`format`, so no older reader takes a motion's files for those of another figure.
 
 Strings are escaped as in JSON (`\"`, `\\`, `\n`, `\r`, `\t`, `\u00XX` for other control
 characters).
@@ -500,10 +623,11 @@ is not listed:
 
 | Line | Meaning |
 |---|---|
-| `ok: PATH` | a regular file of the listed size and SHA-256 and of the listed format, whose source record agrees with the manifest (module, declaration, file, line, column, version, repository, commit, fingerprint, standing and theorems); the line ends with the recorded standing, if any |
+| `ok: PATH` | a regular file of the listed size and SHA-256 and of the listed format, inert if it is an SVG, whose source record agrees with the manifest (module, declaration, file, line, column, version, repository, commit, fingerprint, standing, theorems and the record of a motion); the line ends with the recorded standing, if any |
 | `missing: PATH` | no file has that path, spelled exactly so (on a file system that ignores case, a file found only under another spelling is `missing`, and listed as `extra` under its own) |
 | `changed: PATH` | another size or hash |
 | `format differs: PATH` | the bytes are not of the listed format (`svg`, `png`, `apng` with an `acTL` chunk before the image data, `gif`, `pdf`) |
+| `not inert: PATH` | an SVG file that is not inert (`Svg.inertProblem?`), which no build writes |
 | `not a regular file: PATH` | the file, or a directory on its way below `DIR`, is a symbolic link, a directory, a FIFO or a device (nothing is followed or opened) |
 | `source differs: PATH` | the source record in the file differs from the manifest |
 | `no source: PATH` | the file has no readable source record |
@@ -520,8 +644,8 @@ is what its manifest says. `pilean-build --check` checks that it is what the bui
 * `pilean-info` prints what a file says about itself. A source record is written by whoever
   wrote the file; nothing is signed, so the record alone establishes nothing.
 * `pilean-verify` exiting 0 establishes that the directory and its manifest agree: every listed file
-  is there under exactly its listed name, with the listed size, SHA-256 and format, and carries the
-  listed source record, and there is no other file (a folder too deep or too large to list
+  is there under exactly its listed name, with the listed size, SHA-256 and format, is inert if it
+  is an SVG, and carries the listed source record, and there is no other file (a folder too deep or too large to list
   completely is an error, not a pass; directories that hold no file are not compared). It does not
   establish where either came from. Someone who can write both the files and the manifest can make a
   directory that passes, with any source record; the fingerprint is compared with the manifest's,

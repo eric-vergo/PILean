@@ -133,6 +133,7 @@ import PILeanManual.Api.PILean.Trust.Files
 import PILeanManual.Api.PILean.Trust.Fingerprint
 import PILeanManual.Api.PILean.Trust.Json
 import PILeanManual.Api.PILean.Trust.Manifest
+import PILeanManual.Api.PILean.Trust.Motion
 import PILeanManual.Api.PILean.Trust.Provenance
 import PILeanManual.Api.PILean.Trust.Renderer
 import PILeanManual.Api.PILean.Trust.Sha256
@@ -299,6 +300,7 @@ The modules, by the folder they are in:
   {ref "api-PILean.Trust.Fingerprint"}[`PILean.Trust.Fingerprint`],
   {ref "api-PILean.Trust.Json"}[`PILean.Trust.Json`],
   {ref "api-PILean.Trust.Manifest"}[`PILean.Trust.Manifest`],
+  {ref "api-PILean.Trust.Motion"}[`PILean.Trust.Motion`],
   {ref "api-PILean.Trust.Provenance"}[`PILean.Trust.Provenance`],
   {ref "api-PILean.Trust.Renderer"}[`PILean.Trust.Renderer`],
   {ref "api-PILean.Trust.Sha256"}[`PILean.Trust.Sha256`],
@@ -562,6 +564,8 @@ The modules, by the folder they are in:
 {include 1 PILeanManual.Api.PILean.Trust.Json}
 
 {include 1 PILeanManual.Api.PILean.Trust.Manifest}
+
+{include 1 PILeanManual.Api.PILean.Trust.Motion}
 
 {include 1 PILeanManual.Api.PILean.Trust.Provenance}
 

@@ -41,6 +41,8 @@ import PILeanTest.Explorers
 import PILeanTest.ComplexDiagrams
 import PILeanTest.Timeline
 import PILeanTest.Motion
+import PILeanTest.MotionFigures
+import PILeanTest.MotionTrust
 import PILeanTest.MotionPanels
 
 /-!
@@ -223,7 +225,7 @@ def Axioms.ioChecks : IO (Array (String × Bool)) := do
 
 #assert_standard_axioms PILean PILeanTest
 
-#assert_figure_links 19
+#assert_figure_links 20
 
 -- Every theorem linked to a figure of the test modules determines the whole figure, except the
 -- fixtures of `PILeanTest.Standing`, whose theorems are weak on purpose.

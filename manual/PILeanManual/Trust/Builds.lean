@@ -139,8 +139,14 @@ tag := "trust-pilean-build"
 %%%
 
 ```
-pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check]
+pilean-build [--out DIR] [--repo URL] [--commit SHA] [--check] [--require-standing]
+             [--require-checked] [--allow-unchecked]
 ```
+
+`--require-standing` refuses an illustration that is not marked as one. A motion that was not
+checked strictly (built at a check level other than `fail`, or with errors left) is refused by
+default, in `pilean-build` and in every site build; `--allow-unchecked` builds it, recording what
+its checks found, and `--require-checked` is accepted and is the default.
 
 Without `--check`, every output of every entry is rendered, its source record (with the
 fingerprint, and the repository and commit if given) is written into it, and the file goes to
@@ -152,7 +158,8 @@ written outside `DIR`. `--repo` must be an `http` or `https` link, `--commit` 4 
 hexadecimal digits. At most 4096 figures and 65,536 files (the most a manifest may list), each
 file at most 64 MiB with its source record in (the most `pilean-verify` reads a source record
 from), checked on the finished file; a file whose bytes are not of its output's format is
-refused, so every file a build writes is one `pilean-verify` can check.
+refused, and so is an SVG that is not inert, so every file a build writes is one `pilean-verify`
+can check.
 
 With `--check`, the output is rendered in memory and compared byte for byte with `DIR`: it prints
 `stale: PATH`, `missing: PATH` and `extra: PATH` for each difference, and `ok: N files match` if
@@ -167,13 +174,20 @@ line.
 tag := "trust-manifest"
 %%%
 
-`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-3","files":[…]}`, with one
+`DIR/manifest.json` is one JSON object, `{"format":"pilean-manifest-4","files":[…]}`, with one
 line per output, sorted by path: the path, the format, the size, the SHA-256 of the file's bytes,
 the fingerprint recorded in it, the source record's fields, and the repository and commit when
 the build was given them. The theorems of a linked figure are a JSON array of strings, so a name
-written with `«` and `»` that holds a space or a quote is read back as it is; the readers also
-take the earlier formats, `pilean-manifest-2` (one string of names separated by single spaces)
-and `pilean-manifest-1` (the same under the key `proves`).
+written with `«` and `»` that holds a space or a quote is read back as it is. Every file of a
+motion records it, in its source record and here: the key `kind` is `motion`, `keys` the number
+of key frames, `cycle` the length of one cycle in seconds, exactly (`n` or `n/d` in lowest
+terms), `captions` the number of captions, `checks` the level its checks were applied at (`fail`,
+`warn`, `ignore`), `errorsLeft` the number of problems the strict level treats as errors that did
+not stop it, and `narrow` whether it has a narrow rendition; the files of one declaration must all
+record the same motion, they must list exactly the key stills it counts, and an entry with a key
+this format does not have is refused. The readers also take the earlier formats,
+`pilean-manifest-3` (before motions), `pilean-manifest-2` (one string of names separated by single
+spaces) and `pilean-manifest-1` (the same under the key `proves`).
 
 # `pilean-verify`
 %%%
@@ -212,6 +226,9 @@ each file that is not listed:
   * `format differs: PATH`
   * the bytes are not of the listed format (`svg`, `png`, `apng` with an `acTL` chunk before the
     image data, `gif`)
+*
+  * `not inert: PATH`
+  * an SVG file that is not inert (`PILean.Svg.isInert`), which no build writes
 *
   * `not a regular file: PATH`
   * the file, or a directory on its way below `DIR`, is a symbolic link, a directory, a FIFO or a

@@ -1052,7 +1052,7 @@ def main(argv):
                 str(statuses))
         manifest = page.locator(".pilean-figure-index-intro a").get_attribute("href")
         c.check("the manifest is linked and served",
-                ctx.request.get(base + manifest).json()["format"] == "pilean-manifest-3")
+                ctx.request.get(base + manifest).json()["format"] == "pilean-manifest-4")
         first = items.first.locator(".pilean-index-title a").get_attribute("href")
         page.goto(base + first)
         c.check("the figures page links the figure itself",

@@ -16,6 +16,7 @@ must be safe (`safePath`), and the numbers of entries and of bytes are bounded.
 ## Main definitions
 
 * `ManifestEntry`, `Manifest.render`, `Manifest.parse`
+* `motionKeyProblem?`: the key stills a motion's manifest entries must list
 * `sanitize`, `safePath`, `outputPath`: the file names
 -/
 
@@ -25,8 +26,13 @@ namespace PILean.Trust
 def manifestName : String := "manifest.json"
 
 /-- The value of the manifest's `format` key. In this format the theorems of a linked figure are
-a JSON array of strings. -/
-def manifestFormat : String := "pilean-manifest-3"
+a JSON array of strings, the files of a motion record it (the keys `kind`, `keys`, `cycle`,
+`captions`, `checks`, `errorsLeft` and `narrow`), and an entry with a key the format does not have is refused. -/
+def manifestFormat : String := "pilean-manifest-4"
+
+/-- The format before motions, which `Manifest.parse` reads too: the same entries without the keys
+of a motion; other keys are ignored, as its reader ignored them. -/
+def previousManifestFormat : String := "pilean-manifest-3"
 
 /-- The earlier format of the manifests, which `Manifest.parse` reads too: the same entries, with
 the theorems of a linked figure as one string of names separated by single spaces. -/
@@ -106,7 +112,17 @@ structure ManifestEntry where
   standing : Option String := none
   /-- The theorems of a linked figure recorded in the file, by full name, in order. -/
   theorems : Option (Array String) := none
+  /-- For a file of a motion: its record (`Output.motion`, the same as the file's source record
+  holds), written as the keys `kind` (`motion`), `keys`, `cycle`, `captions`, `checks` and
+  `errorsLeft` and `narrow`. -/
+  motion : Option MotionSummary := none
 deriving BEq, Repr, Inhabited
+
+/-- The keys an entry of a manifest of the format `manifestFormat` may have. -/
+def manifestKeys : Array String :=
+  #["path", "format", "bytes", "sha256", "fingerprint", "module", "decl", "file", "line", "column",
+    "version", "repo", "commit", "darkColours", "darkOpacities", "standing", "theorems", "kind",
+    "keys", "cycle", "captions", "checks", "errorsLeft", "narrow"]
 
 /-- A character a file name may have: a letter, a digit, `.`, `_`, `-`; all ASCII. -/
 def nameChar (c : Char) : Bool :=
@@ -154,6 +170,11 @@ def ManifestEntry.render (m : ManifestEntry) : String :=
     (match m.theorems with
       | some ts => [s!"\"theorems\":[" ++
           ",".intercalate (ts.toList.map fun t => s!"\"{Json.escape t}\"") ++ "]"]
+      | none => []) ++
+    (match m.motion with
+      | some mo => [s "kind" "motion", n "keys" mo.keys, s "cycle" (cycleText mo.cycle),
+          n "captions" mo.captions, s "checks" mo.checks,
+          n "errorsLeft" mo.errorsLeft, s!"\"narrow\":{if mo.narrow then "true" else "false"}"]
       | none => [])) ++ "}"
 
 /-- The manifest text of a list of entries (in the given order). -/
@@ -163,13 +184,23 @@ def Manifest.render (es : Array ManifestEntry) : String :=
     "]}\n"
 
 /-- The entry a JSON object of a manifest describes; every key but `repo`, `commit`, the colour
-pairs, `standing` and `theorems` (or `proves`, read as `theorems`) must be there with a string or
-a number as its kind, the hashes in the form of `isFingerprint`, the format one of `svg`, `png`,
-`apng`, `gif`, `pdf`, the path `safePath`, and the standing with its theorems well formed
-(`standingOk`; a standing `proved` reads as `linked`, `readStanding`). The theorems are an array
-of strings when `spaced` is false (`manifestFormat`), and one string of names separated by single
-spaces when it is true (the earlier formats, `theoremsOfSpaced`). -/
-def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) : Except String ManifestEntry := do
+pairs, `standing` and `theorems` (or `proves`, read as `theorems`) and the keys of a motion must be
+there with a string or a number as its kind, the hashes in the form of `isFingerprint`, the format
+one of `svg`, `png`, `apng`, `gif`, `pdf`, the path `safePath`, and the standing with its theorems
+well formed (`standingOk`; a standing `proved` reads as `linked`, `readStanding`). The theorems
+are an array of strings when `spaced` is false (`manifestFormat` and `previousManifestFormat`),
+and one string of names separated by single spaces when it is true (the earlier formats,
+`theoremsOfSpaced`). With `current` (`manifestFormat`), a key outside `manifestKeys` is refused,
+and the keys of a motion are read: `kind` is absent or `motion`, and with `motion` the number of
+keys (at least one) and of captions, the cycle (`cycleOfText?`), the check level (`fail`, `warn`
+or `ignore`), `errorsLeft` (a number, `0` at the level `fail`) and `narrow` (a boolean) must be there, and without it none of them; the earlier
+formats have no motion, and their other keys are ignored. -/
+def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) (current : Bool := false) :
+    Except String ManifestEntry := do
+  if current then
+    if let .obj kvs := j then
+      if let some (k, _) := kvs.find? (!manifestKeys.contains ·.1) then
+        throw s!"the key {k} is not one of this format"
   let str := fun (k : String) => do
     match j.get? k with
     | some (.str s) => return s
@@ -201,6 +232,29 @@ def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) : Except String Man
     | none, some _, false => throw s!"the key {oldTheoremsKey} belongs to an earlier format"
     | _, _, true => throw "the key theorems must be a string in this format"
     | _, _, false => throw "the key theorems must be a list of strings"
+  let motion ← if !current then pure none else
+    match j.get? "kind", (j.get? "keys", j.get? "cycle", j.get? "captions"),
+        (j.get? "checks", j.get? "errorsLeft", j.get? "narrow") with
+    | none, (none, none, none), (none, none, none) => pure none
+    | some (.str "motion"), (some (.num keys), some (.str c), some (.num captions)),
+        (some (.str checks), some (.num errorsLeft), some (.bool narrow)) =>
+      match cycleOfText? c with
+      | some cycle =>
+        if keys == 0 then throw "a motion has at least one key"
+        if !motionCheckWords.contains checks then
+          throw s!"the check level {checks} is not fail, warn or ignore"
+        if checks == "fail" && errorsLeft != 0 then
+          throw "a motion checked at the level fail has no error left"
+        pure (some { keys, cycle, captions, checks, errorsLeft, narrow })
+      | none => throw s!"the cycle {c} is not a non-negative number n or n/d in lowest terms"
+    | some (.str "motion"), _, _ =>
+      throw "a motion needs the numbers keys, captions and errorsLeft, the strings cycle and checks \
+        and the boolean narrow"
+    | some (.str k), _, _ => throw s!"the kind {k} is unknown"
+    | some _, _, _ => throw "the key kind must be a string"
+    | none, _, _ =>
+      throw "the keys keys, cycle, captions, checks, errorsLeft and narrow belong to a motion \
+        (kind motion)"
   let m : ManifestEntry := {
     path := ← str "path", format := ← str "format", bytes := ← num "bytes",
     sha256 := ← str "sha256", fingerprint := ← str "fingerprint", module := ← str "module",
@@ -208,7 +262,7 @@ def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) : Except String Man
     version := ← str "version", repo := ← opt "repo", commit := ← opt "commit",
     darkColours := ← pairs "darkColours", darkOpacities := ← pairs "darkOpacities",
     standing := (← opt "standing").map readStanding,
-    theorems }
+    theorems, motion }
   if !standingOk m.standing m.theorems then
     throw "the standing is not linked with its theorems or illustration without any"
   if !safePath m.path then throw s!"the path {m.path} is not a safe relative path"
@@ -217,27 +271,80 @@ def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) : Except String Man
     throw "a hash is not 64 lowercase hexadecimal digits"
   return m
 
+/-- The stem and the key of a key still's path, `X-key-k.svg` or `X-key-k.png` (`X` may end in
+`-narrow`); none for another path. -/
+def keyStillOf? (path : String) : Option (String × Nat) := do
+  let base ← if path.endsWith ".svg" || path.endsWith ".png" then
+      some (path.dropEnd 4).toString else none
+  let parts := base.splitOn "-key-"
+  let k ← parts.getLast?
+  if parts.length < 2 || k.isEmpty || !k.all Char.isDigit || (k.length > 1 && k.startsWith "0")
+    then none
+  let stem := "-key-".intercalate parts.dropLast
+  return (stem, ← k.toNat?)
+
+/-- Why the entries `es` of one declaration, whose files record the motion `mo`, do not list its
+files as the record says, if they do not: the key stills of one stem `X` (the SVG and the PNG of
+each key `0` to `keys - 1`, and of no other) with the animated SVG `X.svg`, and, exactly when the
+record says the motion has a narrow rendition, the same for the stem `X-narrow`. -/
+def motionKeyProblem? (decl : String) (mo : MotionSummary) (es : Array ManifestEntry) :
+    Option String :=
+  let stills := es.filterMap fun m => (keyStillOf? m.path).map fun (s, k) => (s, k, m.format)
+  let stems := (stills.map (·.1)).toList.eraseDups
+  let mains := stems.filter (!·.endsWith "-narrow")
+  let narrows := stems.filter (·.endsWith "-narrow")
+  let paths := es.map (·.path)
+  if mains.length != 1 then some s!"the files of {decl} record a motion of {mo.keys} keys but list \
+    key stills of {mains.length} pictures"
+  else if narrows != (if mo.narrow then mains.map (· ++ "-narrow") else []) then
+    some s!"the files of {decl} record a motion {if mo.narrow then "with" else "without"} a narrow \
+      rendition but list the narrow key stills {narrows}"
+  else if !(stems.all fun stem => paths.contains (stem ++ ".svg")) then
+    some s!"the files of {decl} record a motion but do not list its animated SVG at each width"
+  else stems.findSome? fun stem =>
+    let want := (List.range mo.keys).flatMap fun k => [(k, "svg"), (k, "png")]
+    let have_ := (stills.filter (·.1 == stem)).toList.map fun (_, k, f) => (k, f)
+    if want.all have_.contains && have_.all want.contains && have_.length == want.length then
+      none
+    else some s!"the files of {decl} record a motion of {mo.keys} keys but list the key stills \
+      {(have_.map (·.1)).eraseDups} of {stem}"
+
 /-- Reads a manifest: its text must be JSON as `Json.parse` reads it, an object with a known
-`format` (`manifestFormat`, or one of the earlier `spacedManifestFormat` and `oldManifestFormat`,
-whose theorems are one string of names separated by single spaces) and a `files` array of at
-most `maxManifestFiles` entries that `ManifestEntry.ofJson` accepts, with no path twice. -/
+`format` (`manifestFormat`; or `previousManifestFormat`, or one of the earlier
+`spacedManifestFormat` and `oldManifestFormat`, whose theorems are one string of names separated
+by single spaces) and a `files` array of at most `maxManifestFiles` entries that
+`ManifestEntry.ofJson` accepts, with no path twice, in which the files of one declaration all
+record the same motion or none, and in which the files of a motion list exactly its key stills
+(`motionKeyProblem?`). -/
 def Manifest.parse (d : ByteArray) : Except String (Array ManifestEntry) := do
   let j ← Json.parse d
-  let spaced ← match j.get? "format" with
+  let (spaced, current) ← match j.get? "format" with
   | some (.str f) =>
-    if f == manifestFormat then pure false
-    else if f == spacedManifestFormat || f == oldManifestFormat then pure true
+    if f == manifestFormat then pure (false, true)
+    else if f == previousManifestFormat then pure (false, false)
+    else if f == spacedManifestFormat || f == oldManifestFormat then pure (true, false)
     else throw s!"unknown manifest format {f}"
   | _ => throw "the manifest has no format"
   let some (.arr files) := j.get? "files" | throw "the manifest has no files list"
   if files.size > maxManifestFiles then throw "the manifest lists too many files"
   let mut out : Array ManifestEntry := #[]
   let mut seen : Std.HashSet String := {}
+  let mut motions : Std.HashMap String (Option MotionSummary) := {}
   for f in files do
-    let m ← ManifestEntry.ofJson f spaced
+    let m ← ManifestEntry.ofJson f spaced current
     if seen.contains m.path then throw s!"the path {m.path} is listed twice"
     seen := seen.insert m.path
+    let key := m.module ++ "\n" ++ m.decl
+    match motions[key]? with
+    | some mo =>
+      if mo != m.motion then
+        throw s!"the files of {m.decl} do not all record the same motion"
+    | none => motions := motions.insert key m.motion
     out := out.push m
+  for (key, mo) in motions.toArray do
+    if let some mo := mo then
+      let es := out.filter fun m => m.module ++ "\n" ++ m.decl == key
+      if let some why := motionKeyProblem? ((es[0]?.map (·.decl)).getD "") mo es then throw why
   return out
 
 end PILean.Trust

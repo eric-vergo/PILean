@@ -95,7 +95,8 @@ def Standing.fields (s : Standing) : Option String × Option (Array String) :=
 
 /-- The `Source` record written into the file of an output: the recorded source, the library
 version, the fingerprint of the output's specification, the output's standing with its theorems
-(`Standing.fields`), and the repository and commit if given. The standing is not part of the
+(`Standing.fields`), the record of a motion (`Output.motion`), and the repository and commit if
+given. The standing is not part of the
 fingerprint, which identifies the drawing and its declaration; it is part of the file, so its
 SHA-256 in the manifest covers it. -/
 def FigureEntry.source (e : FigureEntry) (o : Output) (repo commit : Option String := none) :
@@ -104,6 +105,6 @@ def FigureEntry.source (e : FigureEntry) (o : Output) (repo commit : Option Stri
     repo, commit, version := PILean.version,
     fingerprint := some (fingerprint o.spec e.toSourceData
       (renderer := rendererWith o.textEngine)),
-    standing := o.standing.fields.1, theorems := o.standing.fields.2 }
+    standing := o.standing.fields.1, theorems := o.standing.fields.2, motion := o.motion () }
 
 end PILean.Trust

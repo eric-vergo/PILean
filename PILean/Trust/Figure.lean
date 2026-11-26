@@ -10,6 +10,7 @@ import PILean.Anim.Animation
 import PILean.Diagram.Basic
 import PILean.Pdf.Figures
 import PILean.Raster.DomainColouring
+import PILean.Trust.Provenance
 
 /-!
 # Renderable figures
@@ -30,6 +31,9 @@ It covers the values a function takes where the figure samples it, not the funct
 * `Format`, `Output`, `ToOutputs`
 * `Standing`: whether a theorem is linked to a figure or the figure is an illustration
 * `InlineSvg`, `FrameSet`: pictures and families of frames a web page puts inline
+* `MotionStepRow`, `MotionMoveRow`, `MotionData`, `motionLinkedWords`: what a page needs to show
+  a motion (its record, `MotionSummary`, is in `PILean.Trust.Provenance`; its outputs in
+  `PILean.Trust.Motion`)
 * instances for `Plot.Figure`, `Plane.Figure`, `Explorer`, `Graph`, `GraphFigure`,
   `Animation`, `Diagram.Diagram` and `DomainColouring`
 -/
@@ -165,6 +169,145 @@ structure FrameSet where
   poster : Nat := 0
   deriving Inhabited
 
+/-- One move of a step of a motion, as a figure page lists it: what the motion declares, and what
+the animation draws for it (`drawn`). -/
+structure MotionMoveRow where
+  /-- The panel of a picture of several panels the actor belongs to; empty for one motion. -/
+  panel : String := ""
+  /-- The actor's id. -/
+  actor : String
+  /-- The kind of move declared: `turn`, `slide`, `appearance`, `disappearance` or `morph`. -/
+  kind : String
+  /-- For a turn: its centre, in the figure's (world) coordinates. -/
+  centre : Option Point := none
+  /-- For a turn: the exact fraction of a full turn, counterclockwise. -/
+  turns : Option Rat := none
+  /-- For a slide: its vector, in the figure's (world) coordinates. -/
+  vector : Option Point := none
+  /-- What the animation draws for the move: `kind` when it is drawn as declared, `crossfade` when
+  the declared move does not carry the actor onto the next key and the two drawings crossfade
+  instead (possible only under the check levels `warn` and `ignore`). -/
+  drawn : String := ""
+  deriving Inhabited
+
+/-- A point of the figure's coordinates as a page writes it: `(x, y)`, at most four decimals. -/
+def pointWords (p : Point) : String := s!"({fmtNum p.x 4}, {fmtNum p.y 4})"
+
+/-- A fraction of a full turn as degrees, exactly: `90°`, or `360/7°` when not whole. -/
+def turnDegreesWords (q : Rat) : String :=
+  let d := 360 * q
+  if d.den == 1 then s!"{d.num}°" else s!"{d.num}/{d.den}°"
+
+/-- Whether the move is drawn as it is declared. -/
+def MotionMoveRow.asDeclared (r : MotionMoveRow) : Bool := r.drawn.isEmpty || r.drawn == r.kind
+
+/-- The move in words, for a page: `turn about (0, 0) by 1/4 of a full turn (90°)`,
+`slide by (1, 0)`, or the kind alone; followed by `, drawn as a crossfade (the move does not land
+on the next key)` when the animation does not draw it as declared. -/
+def MotionMoveRow.words (r : MotionMoveRow) : String :=
+  let declared := match r.kind, r.centre, r.turns, r.vector with
+    | "turn", some c, some q, _ =>
+      s!"turn about {pointWords c} by {q} of a full turn ({turnDegreesWords q})"
+    | "slide", _, _, some v => s!"slide by {pointWords v}"
+    | k, _, _, _ => k
+  if r.asDeclared then declared
+  else s!"{declared}, drawn as a {r.drawn} (the move does not land on the next key)"
+
+/-- One step of a motion, from key `step` to key `step + 1`, as a figure page lists it. -/
+structure MotionStepRow where
+  /-- The step's number, from `0`: it goes from key `step` to key `step + 1`. -/
+  step : Nat
+  /-- How long the step takes, in seconds. -/
+  duration : Rat
+  /-- Whether nothing moves in the step (it takes its time). -/
+  idle : Bool := false
+  /-- The moves of its actors, in the order the motion declares them. -/
+  moves : Array MotionMoveRow := #[]
+  deriving Inhabited
+
+/-- What a page needs to show a motion inline: its record, the moving picture without what the
+standalone file adds for itself, the key stills with their captions, the table of its steps, and
+whether items change between keys without a declared move.
+
+`live` is the body of the animated SVG file without its `title`, `desc`, its `style` element (the
+reduced-motion rule) and its poster group: the background (and the panels' titles) and the group
+of class `pilean-motion-live` that holds every animation. The file's root holds, in order, the
+title and the description (when the motion has them), that `style` element, the nodes of `live`,
+and the poster group; so a site check can rebuild the file from `live` and compare. `stills`
+holds every key's still (the picture of the output `-key-k`, `k` from 0) with the captions
+(`stepCaptions`) and the poster key (`poster`, always among the frames).
+
+A page must say so when `MotionData.unchecked` holds (`MotionData.checkWords`). -/
+structure MotionData where
+  /-- The record of the motion: keys, cycle, captions, check level, errors left. -/
+  summary : MotionSummary
+  /-- The moving picture, for a page that puts it inline (with the theme's colour pairs). -/
+  live : InlineSvg
+  /-- The key stills with their captions. -/
+  stills : FrameSet
+  /-- The steps, in order. -/
+  steps : Array MotionStepRow
+  /-- Whether items change between two keys without a declared move, and crossfade. -/
+  crossfades : Bool := false
+  deriving Inhabited
+
+/-- Whether the motion was not checked strictly: built at the check level `warn` or `ignore`
+(`MotionSummary.strict`). A page must say so (`MotionData.checkWords`). -/
+def MotionData.unchecked (d : MotionData) : Bool := !d.summary.strict
+
+/-- `a`, `a and b`, `a, b and c`. -/
+def listWords : List String → String
+  | [] => ""
+  | [a] => a
+  | [a, b] => a ++ " and " ++ b
+  | a :: rest => a ++ ", " ++ listWords rest
+
+/-- What the browser does between key frames, from the moves the animation draws: turns, slides,
+fades, changes of outline, crossfades of items whose declared move does not land, and crossfades
+of items that change without a declared move. -/
+def MotionData.betweenWords (d : MotionData) : String :=
+  let drawn := d.steps.flatMap (·.moves.map fun r => if r.asDeclared then r.kind else r.drawn)
+  let parts :=
+    (if drawn.contains "turn" then ["turns drawn items about the stated centres"] else []) ++
+    (if drawn.contains "slide" then ["slides drawn items along the stated vectors"] else []) ++
+    (if drawn.contains "appearance" || drawn.contains "disappearance" then
+      ["fades items in or out"] else []) ++
+    (if drawn.contains "morph" then ["changes the outlines of drawn items"] else []) ++
+    (if drawn.contains "crossfade" then
+      ["crossfades items whose declared move does not land on the next key frame"] else []) ++
+    (if d.crossfades then ["crossfades items that change without a declared move"] else [])
+  if parts.isEmpty then "Nothing moves between the key frames."
+  else s!"Between key frames the browser {listWords parts}."
+
+/-- What a page says when the motion is `unchecked`; none otherwise: the level it was built at,
+and how many problems the strict level (`fail`) treats as errors were left, or that the strict
+level finds none. -/
+def MotionData.checkWords (d : MotionData) : Option String :=
+  let n := d.summary.errorsLeft
+  if d.summary.strict then none
+  else if n == 0 then
+    some s!"It was built at the check level {d.summary.checks}, which does not stop a motion \
+      whose moves miss its key frames; the strict level finds no error in it."
+  else
+    some s!"It was built at the check level {d.summary.checks}: {n} problem\
+      {if n == 1 then "" else "s"} that the strict level treats as errors did not stop it, and \
+      between some key frames the animation is not what the steps declare."
+
+/-- What a figure page says of a motion besides its standing: the number of key frames and what
+the stills are (`the key figures as drawn`; a claim that their data is exact belongs to the
+figure's own description), what the browser does between them (`betweenWords`), and
+`checkWords` when the motion is unchecked. -/
+def MotionData.words (d : MotionData) : String :=
+  let n := d.summary.keys
+  " ".intercalate ([s!"An animation drawn from {n} key frame{if n == 1 then "" else "s"}; the \
+    stills are the key figures as drawn.", d.betweenWords] ++ d.checkWords.toList)
+
+/-- What a figure page says of a theorem linked to a motion: what such a theorem can state. -/
+def motionLinkedWords : String :=
+  "A theorem about a motion can state its key figures and its declared moves (the actors, the \
+    centres and fractions of the turns, the vectors of the slides); the frames the browser draws \
+    between the key frames are not part of any statement."
+
 /-- One file a figure is rendered to. -/
 structure Output where
   /-- The suffix of the file's stem, for instance `""`, `"-dark"` or `"-poster"`. -/
@@ -189,6 +332,12 @@ structure Output where
   /-- Problems of the figure's layout a build should report as warnings (on one output of a
   figure, so that they are reported once). -/
   problems : Unit → Array String := fun _ => #[]
+  /-- For every output of a motion: what the manifest records about the motion
+  (`MotionSummary`); none for other figures. -/
+  motion : Unit → Option MotionSummary := fun _ => none
+  /-- For the animated SVG of a motion (and of its narrow rendition): what a page needs to show
+  the motion inline (`MotionData`). -/
+  motionPage : Unit → Option MotionData := fun _ => none
   /-- The standing of the figure the output belongs to. `ToOutputs` instances leave it at an
   unmarked illustration; `figures%` sets it on every output of a figure from the links
   `figure_links` recorded and the figure's `@[figure illustration]` marking. -/
@@ -239,16 +388,20 @@ def planeBytes (fig : Plane.Figure) (bytes : Unit → Except String ByteArray) :
     Except String ByteArray :=
   checkedBytes (fig.checks == .fail) (fun _ => fig.checkMessages) bytes
 
+/-- The plane figure as a picture a page puts inline: its SVG nodes (its `auto` labels placed) at
+its page size, with the theme of its style. -/
+def _root_.PILean.Plane.Figure.inline (fig : Plane.Figure) : InlineSvg :=
+  let g := fig.autoPlaced
+  InlineSvg.ofStyle g.frame.width.round g.frame.height.round fig.svgNodes fig.style
+
 /-- The SVG and PNG outputs of one plane figure, named with `suffix`, and its PDF when `pdf`;
 the SVG carries the figure's layout warnings when `warn`. -/
 def planeOutputs (fig : Plane.Figure) (suffix : String) (warn : Bool) (pdf : Bool := true) :
     Array Output :=
-  let g := fig.autoPlaced
   #[{ name := suffix, format := .svg,
       bytes := fun _ => planeBytes fig fun _ => .ok fig.toSvg.toUTF8,
       spec := fig.toSvg.toUTF8, textEngine := fig.style.text.id,
-      inline := fun _ => some
-        (InlineSvg.ofStyle g.frame.width.round g.frame.height.round fig.svgNodes fig.style),
+      inline := fun _ => some fig.inline,
       theme := fun _ => InlineSvg.themeOf fig.style,
       problems := fun _ => if warn && fig.checks == .warn then fig.checkMessages else #[] },
     { name := suffix, format := .png,

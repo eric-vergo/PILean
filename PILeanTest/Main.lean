@@ -38,6 +38,7 @@ import PILeanTest.Explorers
 import PILeanTest.ComplexDiagrams
 import PILeanTest.Timeline
 import PILeanTest.Motion
+import PILeanTest.MotionTrust
 import PILeanTest.MotionPanels
 
 /-!
@@ -45,7 +46,8 @@ import PILeanTest.MotionPanels
 
 `lake test` runs the named checks (`PILeanTest.Color`, `PILeanTest.Units`, `PILeanTest.Png`,
 `PILeanTest.Image`, `PILeanTest.Raster`, `PILeanTest.Blur`, `PILeanTest.Anim`,
-`PILeanTest.Timeline`, `PILeanTest.Motion`, `PILeanTest.MotionPanels`, `PILeanTest.Plots`,
+`PILeanTest.Timeline`, `PILeanTest.Motion`, `PILeanTest.MotionPanels`,
+`PILeanTest.MotionTrust`, `PILeanTest.Plots`,
 `PILeanTest.Graphs`, `PILeanTest.GraphOrder`, `PILeanTest.GraphRoutes`, `PILeanTest.Trust`,
 `PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`,
 `PILeanTest.Diagrams`, `PILeanTest.AlgebraDiagrams`, `PILeanTest.NumberDiagrams`,
@@ -54,8 +56,9 @@ changes to the figures that their specifications must catch (`PILeanTest.SpecMut
 compares every gallery figure's SVG and PNG, every gallery plane figure's (the diagrams' among
 them) and graph's SVG and
 PNG, every gallery animation's SVG, APNG, GIF and poster, and the SVG of every golden motion of
-plane figures and picture of panels (`PILeanTest.Motion`, `PILeanTest.MotionPanels`), with its
-files in `examples/` (the goldens), byte for byte;
+plane figures and picture of panels (`PILeanTest.Motion`, `PILeanTest.MotionPanels`) and the
+SVG and PNG of its contact sheet (`PILean.Trust.CheckedMotion.sheet`), with its files in
+`examples/` (the goldens), byte for byte;
 it also renders each figure twice to check that the output is
 deterministic. `lake exe pilean-test --update` rewrites
 the goldens (as `lake exe pilean-gallery` does); `--compare-out DIR` writes the files of
@@ -93,7 +96,7 @@ def driverModules : Array Lean.Name := test_modules%
 def galleryModules : Array String :=
   #["PILeanTest.Examples", "PILeanTest.ProvedExamples", "PILeanTest.PlaneExact",
     "PILeanTest.Diagrams", "PILeanTest.AlgebraDiagrams", "PILeanTest.NumberDiagrams",
-    "PILeanTest.Explorers", "PILeanTest.ComplexDiagrams"]
+    "PILeanTest.Explorers", "PILeanTest.ComplexDiagrams", "PILeanTest.MotionFigures"]
 
 /-- Every figure of the gallery has a standing: linked to a theorem, or marked an illustration, so
 `pilean-build --require-standing` builds it. -/
@@ -169,7 +172,8 @@ def main (args : List String) : IO UInt32 := do
   let checks := Color.checks ++ Units.checks ++ Png.checks ++ (← Png.ioChecks) ++
     Image.checks ++ (← Image.perfChecks) ++ Raster.checks ++ (← Raster.ioChecks) ++ Blur.checks ++
     Anim.checks ++ (← Anim.ioChecks) ++ TimelineChecks.checks ++ MotionChecks.checks ++
-    MotionPanelsChecks.checks ++ Plots.checks ++ Lettering.checks ++
+    MotionPanelsChecks.checks ++ MotionTrust.checks ++ (← MotionTrust.ioChecks) ++
+    Plots.checks ++ Lettering.checks ++
     Graphs.checks ++ GraphOrder.checks ++ GraphRoutes.checks ++ GraphBundles.checks ++ GraphQuality.checks ++
     (← GraphQuality.ioChecks) ++ (← GraphBundles.ioChecks) ++ GraphDot.checks ++
     Trust.checks ++ (← Trust.ioChecks) ++ TrustBuild.checks ++
@@ -297,6 +301,24 @@ def main (args : List String) : IO UInt32 := do
           change)"
         failed := failed + 1
       else IO.println s!"golden {path}: same"
+  -- the contact sheets of the golden motions
+  let sheets := MotionChecks.golden.map (fun (n, m) => (n, PILean.Trust.ToCheckedMotion.checked m))
+    ++ MotionPanelsChecks.golden.map fun (n, P) => (n, PILean.Trust.ToCheckedMotion.checked P)
+  for (name, c) in sheets do
+    let outs : Array (String × ByteArray) :=
+      #[(s!"{name}-keys.svg", c.sheetSvg.toUTF8), (s!"{name}-keys.png", c.sheet.toPng.getD .empty)]
+    for (file, bytes) in outs do
+      let path : System.FilePath := "examples" / file
+      if args == ["--update"] then
+        IO.FS.writeBinFile path bytes
+        IO.println s!"wrote {path}"
+      else
+        let golden ← if ← path.pathExists then IO.FS.readBinFile path else pure .empty
+        if golden.data != bytes.data then
+          IO.eprintln s!"FAIL {path}: differs (`lake exe pilean-test --update` after checking \
+            the change)"
+          failed := failed + 1
+        else IO.println s!"golden {path}: same"
   for (name, im) in Examples.rasters do
     let bytes := im.writePng.toOption.getD .empty
     let path : System.FilePath := "examples" / name

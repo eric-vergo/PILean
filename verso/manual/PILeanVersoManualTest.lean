@@ -129,6 +129,26 @@ def main : IO UInt32 := do
         !es.isEmpty && es.all (has · "is not inert") && !es.any (has · "not an explorer") &&
           !es.any (has · "no inline picture"))
       "a refused SVG is the only error of its figure, shown as an explorer or inline"
+    -- a motion that its checks did not stop, built at `warn`, is refused by default
+    let keyAt (x : Float) : Plane.Figure :=
+      { items := #[Plane.point ⟨-3, -3⟩, Plane.point ⟨3, 3⟩, (Plane.point ⟨x, 0⟩).actor "X"] }
+    let motionOf (x : Float) (checks : CheckLevel) : Plane.Motion :=
+      { keys := #[keyAt 0, keyAt x], captions := #["Before.", "After."],
+        steps := #[{ moves := #[("X", .slide ⟨1, 0⟩)] }], checks,
+        info := { title := "A slide", description := "The point X slides." } }
+    let motionOutputs (m : Plane.Motion) : Array Trust.Output :=
+      Trust.withStanding (.illustration true) (Trust.ToOutputs.outputs m)
+    let motionEntry (decl : String) (m : Plane.Motion) : Trust.FigureEntry :=
+      { src with decl := decl, outputs := fun _ => motionOutputs m }
+    let siteError (decl : String) (m : Plane.Motion) : String :=
+      match renderSite #[motionEntry decl m] #[(decl : FigureUse)] {} with
+      | .ok _ => ""
+      | .error e => e
+    check (has (siteError "M.missed" (motionOf 1.5 .warn))
+        "is a motion built at the check level warn with 1 error left")
+      "a site build refuses a motion built at warn with an error left"
+    check (siteError "M.landed" (motionOf 1 .fail) == "")
+      "a site build accepts a motion checked strictly"
     -- standing and page data
     let standingOf := fun (n : String) => (table.entries.find? (·.decl == n)).map (·.standing)
     check (standingOf "ManualExample.trianglePlot" ==
