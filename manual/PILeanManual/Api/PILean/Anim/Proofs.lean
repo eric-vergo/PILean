@@ -11,6 +11,8 @@ import PILean.Anim.Proofs
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Anim.Proofs" =>
 %%%
 tag := "api-PILean.Anim.Proofs"

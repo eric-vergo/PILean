@@ -11,6 +11,8 @@ import PILean.Trust.Manifest
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Trust.Manifest" =>
 %%%
 tag := "api-PILean.Trust.Manifest"

@@ -11,6 +11,8 @@ import PILean.Graph.Nested
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Nested" =>
 %%%
 tag := "api-PILean.Graph.Nested"

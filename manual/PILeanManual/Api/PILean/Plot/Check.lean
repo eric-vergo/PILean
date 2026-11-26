@@ -11,6 +11,8 @@ import PILean.Plot.Check
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Plot.Check" =>
 %%%
 tag := "api-PILean.Plot.Check"

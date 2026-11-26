@@ -11,6 +11,8 @@ import PILean.Graph.Route
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Route" =>
 %%%
 tag := "api-PILean.Graph.Route"

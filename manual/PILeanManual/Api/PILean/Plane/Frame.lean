@@ -11,6 +11,8 @@ import PILean.Plane.Frame
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Plane.Frame" =>
 %%%
 tag := "api-PILean.Plane.Frame"

@@ -11,6 +11,8 @@ import PILean.Text.LetteringScripts
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Text.LetteringScripts" =>
 %%%
 tag := "api-PILean.Text.LetteringScripts"

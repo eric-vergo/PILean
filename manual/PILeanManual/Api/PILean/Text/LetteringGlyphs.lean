@@ -11,6 +11,8 @@ import PILean.Text.LetteringGlyphs
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Text.LetteringGlyphs" =>
 %%%
 tag := "api-PILean.Text.LetteringGlyphs"

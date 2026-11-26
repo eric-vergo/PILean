@@ -11,6 +11,8 @@ import PILean.Text.LetteringTypo
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Text.LetteringTypo" =>
 %%%
 tag := "api-PILean.Text.LetteringTypo"

@@ -19,8 +19,11 @@ rest, the whole baked drawing (every path and every text, in order: `Drawn`, `dr
 key's still, within `restTolerance` (0.05 px, plus `5.5e-4 r` for a path of half-width `r`, for
 the cubic approximations of turned circles, `drawingDiff`). **The writer against the baker.**
 `Motion.writerProblems` reads the written moving picture with `Smil.valueAt` at the middle of every
-segment of the timeline and requires what the baker draws (`writerDiff`). `Motion.problems` is the
-problems of the keys and steps (`Motion.keyProblems`) with these.
+segment of the timeline and requires what the baker draws (`writerDiff`). **Nothing leaves the
+picture.** `boundsProblems` draws every layer at eight times through every move and requires every
+point of it in the page (0.5 px). `Motion.problems` is the problems of the keys and steps
+(`Motion.keyProblems`) with these. A motion's own prefix (`Motion.idPrefix`) goes on every id of
+its SVG, for several pictures in one page.
 
 ## Main definitions
 
@@ -29,7 +32,8 @@ problems of the keys and steps (`Motion.keyProblems`) with these.
 * `Motion.svgRootUnchecked`, `Motion.toSvgUnchecked`, `Motion.figureAtUnchecked`,
   `Motion.toAnimationUnchecked`.
 * `Drawn`, `drawnOf`, `drawingDiff`, `restTolerance`, `Motion.restProblems`.
-* `writtenMarkers`, `writerDiff`, `Motion.writerProblems`.
+* `writtenMarkers`, `markersDiff`, `writerDiff`, `Motion.writerProblems`.
+* `shapePoints`, `boundsTolerance`, `boundsProblems`.
 -/
 
 namespace PILean.Plane
@@ -57,13 +61,15 @@ def svgRootIn (K : MotionKeys) (p : MotionPlan) : Node :=
   let f := p.env.frame
   let w := f.width.round
   let h := f.height.round
-  let poster := (K.figure m.poster).svgNodes.map (prefixIds "poster-" 256)
+  let outer := fun (ns : Array Node) =>
+    if m.idPrefix.isEmpty then ns else ns.map (prefixNodeIds m.idPrefix 256)
+  let poster := outer ((K.figure m.poster).svgNodes.map (prefixIds "poster-" 256))
   let head := (if m.info.title.isEmpty then #[] else #[el "title" #[] #[.text m.info.title]]) ++
     (if m.description.isEmpty then #[] else #[el "desc" #[] #[.text m.description]])
   el "svg" #[("xmlns", "http://www.w3.org/2000/svg"), ("width", fmtNum w),
     ("height", fmtNum h), ("viewBox", s!"0 0 {fmtNum w} {fmtNum h}"), ("role", "img")]
     (head ++ #[Animation.reducedMotionStyle] ++ p.background.render p.mode ++
-      #[el "g" #[("class", Animation.liveClass)] p.toNodesUnchecked,
+      #[el "g" #[("class", Animation.liveClass)] (outer p.toNodesUnchecked),
         el "g" #[("class", Animation.posterClass)] poster])
 
 /-- The root element of the motion's animated SVG (`svgRootIn`), whatever its problems: for tests
@@ -223,17 +229,16 @@ def affineNear (a b : Affine) (tol : Float) : Bool :=
   [(a.a, b.a), (a.b, b.b), (a.c, b.c), (a.d, b.d), (a.e, b.e), (a.f, b.f)].all fun (x, y) =>
     (x - y).abs < tol
 
-/-- The first way the written moving picture `nodes` disagrees, at the time `t`, with the baker
-of the plan `p`: another number of actors or of upright groups than the plan declares, an anchor
-farther than `1e-6` px, an opacity or a coefficient of a transform off by more than `1e-6`. -/
-def writerDiff (p : MotionPlan) (nodes : Array Node) (t : Float) : Option String :=
+/-- The first way the written moving picture `nodes` disagrees, at the time `t`, with the marked
+points `baked` of a baker (`MotionPlan.markersAt`, in document order): another number of actors
+than `actors` or of upright groups than `ups`, an anchor farther than `1e-6` px, an opacity or a
+coefficient of a transform off by more than `1e-6`. -/
+def markersDiff (baked : Array (String × Point × Float × Affine)) (actors ups : Nat)
+    (nodes : Array Node) (t : Float) : Option String :=
   match nodes.mapM (writtenMarkers t 256 Affine.id 1) with
   | none => some "has an animation that does not evaluate"
   | some ws =>
     let written := ws.flatten
-    let baked := p.markersAt t
-    let actors := (p.layers.filter fun L => L.version.actor.isSome).size
-    let ups := (p.layers.map (·.uprights.size)).foldl (· + ·) 0
     if (written.filter (·.1 != "upright")).size != actors then
       some s!"shows {(written.filter (·.1 != "upright")).size} actors where the plan has {actors}"
     else if (written.filter (·.1 == "upright")).size != ups then
@@ -248,6 +253,12 @@ def writerDiff (p : MotionPlan) (nodes : Array Node) (t : Float) : Option String
         else if !((o - o').abs < 1e-6) then some s!"shows {n} at another opacity"
         else if !affineNear M M' 1e-6 then some s!"puts {n} under another transform"
         else none
+
+/-- The first way the written moving picture `nodes` disagrees, at the time `t`, with the baker
+of the plan `p`: another number of actors or of upright groups than the plan declares, an anchor
+farther than `1e-6` px, an opacity or a coefficient of a transform off by more than `1e-6`. -/
+def writerDiff (p : MotionPlan) (nodes : Array Node) (t : Float) : Option String :=
+  markersDiff (p.markersAt t) p.markerCounts.1 p.markerCounts.2 nodes t
 
 namespace Motion
 
@@ -280,6 +291,41 @@ def writerProblems (p : MotionPlan) : Array MotionProblem :=
 
 end Motion
 
+/-- The page points of a drawing under the transform `M`, at most `fuel` deep: the points of
+every path flattened to `0.5` px and the anchor point of every text. -/
+def shapePoints : Nat → Affine → Shape → Array Point
+  | 0, _, _ => #[]
+  | _, M, .path q .. => ((q.transform M).flatten 0.5).flatMap (·.points)
+  | _, M, .text _ at_ .. => #[M.apply at_]
+  | fuel + 1, M, .group cs t _ _ => cs.flatMap (shapePoints fuel (M.comp t))
+  | fuel + 1, M, .tagged _ c => shapePoints fuel M c
+
+/-- How far outside its box a drawn point may lie (pixels). -/
+def boundsTolerance : Float := 0.5
+
+/-- What leaves the box `box` (page coordinates) while the plan `p` moves: at a ninth, two ninths,
+…, eight ninths of every segment of every move, every point of every layer shown then
+(`shapePoints`: its paths and its texts' anchors, turned and slid as its chain has them) must lie
+in the box within `boundsTolerance`; each layer that leaves it is reported once per step, as
+`… leaves {place} during step …`. -/
+def boundsProblems (p : MotionPlan) (box : Box) (place : String) : Array MotionProblem :=
+  let inside := fun (q : Point) =>
+    box.x0 - boundsTolerance ≤ q.x && q.x ≤ box.x1 + boundsTolerance &&
+      box.y0 - boundsTolerance ≤ q.y && q.y ≤ box.y1 + boundsTolerance
+  let found := p.timeline.segments.toList.flatMap fun s => match s.kind with
+    | .move j => (List.range 8).flatMap fun i =>
+      let t := Exact.toFloat (s.start + s.dur * ((i + 1 : Nat) : Rat) / 9)
+      (p.layers.toList.zipIdx.filter fun (L, _) =>
+          p.opacityAt L t > 1e-3 &&
+            !((p.layerShape L t).flatMap (shapePoints 256 Affine.id)).all inside).map
+        fun (_, li) => (li, j)
+    | _ => []
+  (found.eraseDups.toArray.map fun (li, j) =>
+    let what := match (p.layers.getD li default).version.actor with
+      | some id => id
+      | none => "an item without an id"
+    { severity := .error, message := s!"{what} leaves {place} during step {j + 1}" })
+
 /-- A motion with its keys as drawn, its plan and its problems, computed once: the checked
 outputs (`svg?`, `animation?`) and the build's messages read it, so a consumer computes the
 problems of a motion once (`Motion.report`). -/
@@ -298,14 +344,16 @@ namespace Motion
 variable (m : Motion)
 
 /-- The motion checked: the problems of its keys and steps (`keyProblems`) and, for a well-formed
-motion, those of its plan against the stills (`restProblems`) and of its writer against its baker
-(`writerProblems`). -/
+motion, those of its plan against the stills (`restProblems`), of its writer against its baker
+(`writerProblems`) and of what leaves the picture while it moves (`boundsProblems`). -/
 def report : MotionReport :=
   let K := m.keysOf
   let p := m.planIn K K.env
   let base := m.keyProblems
+  let f := p.env.frame
   let problems := if !decide m.WellFormed then base
-    else base ++ m.restProblems K p ++ writerProblems p
+    else base ++ m.restProblems K p ++ writerProblems p ++
+      boundsProblems p ⟨0, 0, f.width, f.height⟩ "the picture"
   { motion := m, keys := K, plan := p, problems }
 
 /-- The problems of the motion (`report`). -/

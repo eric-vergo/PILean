@@ -11,6 +11,8 @@ import PILean.Raster.SvgRender
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Raster.SvgRender" =>
 %%%
 tag := "api-PILean.Raster.SvgRender"

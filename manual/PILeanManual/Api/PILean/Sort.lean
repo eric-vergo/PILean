@@ -11,6 +11,8 @@ import PILean.Sort
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Sort" =>
 %%%
 tag := "api-PILean.Sort"

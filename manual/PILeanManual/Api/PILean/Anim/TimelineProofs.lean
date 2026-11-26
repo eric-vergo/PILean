@@ -11,6 +11,8 @@ import PILean.Anim.TimelineProofs
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Anim.TimelineProofs" =>
 %%%
 tag := "api-PILean.Anim.TimelineProofs"

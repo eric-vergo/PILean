@@ -11,6 +11,8 @@ import PILean.Image.Basic
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Image.Basic" =>
 %%%
 tag := "api-PILean.Image.Basic"

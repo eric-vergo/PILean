@@ -11,6 +11,8 @@ import PILean.Anim.Compose
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Anim.Compose" =>
 %%%
 tag := "api-PILean.Anim.Compose"

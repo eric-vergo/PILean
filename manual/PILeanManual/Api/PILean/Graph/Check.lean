@@ -11,6 +11,8 @@ import PILean.Graph.Check
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Check" =>
 %%%
 tag := "api-PILean.Graph.Check"

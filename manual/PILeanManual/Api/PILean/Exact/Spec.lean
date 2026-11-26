@@ -11,6 +11,8 @@ import PILean.Exact.Spec
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Exact.Spec" =>
 %%%
 tag := "api-PILean.Exact.Spec"

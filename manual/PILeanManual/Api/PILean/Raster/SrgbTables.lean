@@ -11,6 +11,8 @@ import PILean.Raster.SrgbTables
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Raster.SrgbTables" =>
 %%%
 tag := "api-PILean.Raster.SrgbTables"

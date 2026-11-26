@@ -11,6 +11,8 @@ import PILean.Diagram.Sequence
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Diagram.Sequence" =>
 %%%
 tag := "api-PILean.Diagram.Sequence"

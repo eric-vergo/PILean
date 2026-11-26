@@ -11,6 +11,8 @@ import PILean.Anim.Animation
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Anim.Animation" =>
 %%%
 tag := "api-PILean.Anim.Animation"

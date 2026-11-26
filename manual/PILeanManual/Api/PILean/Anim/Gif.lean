@@ -11,6 +11,8 @@ import PILean.Anim.Gif
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Anim.Gif" =>
 %%%
 tag := "api-PILean.Anim.Gif"

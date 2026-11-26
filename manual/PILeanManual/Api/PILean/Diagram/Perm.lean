@@ -11,6 +11,8 @@ import PILean.Diagram.Perm
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Diagram.Perm" =>
 %%%
 tag := "api-PILean.Diagram.Perm"

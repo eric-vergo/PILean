@@ -19,8 +19,11 @@ own pipeline.
 
 This module holds the model and its checks.
 
-* **One view.** The keys are drawn in one frame (`commonView`), so nothing rescales during the
-  loop; a key with a frame of its own is a problem.
+* **One view.** The keys are drawn in one frame (`commonViewWith`), so nothing rescales during
+  the loop; a key with a frame of its own is a problem. The frame holds the keys and what their
+  turns sweep (`Motion.sweptItems`: each turning actor drawn at the start and end of its turn, at
+  96 steps a full turn between, and where each of its points is farthest on its circle), so that
+  nothing turns out of the picture.
 * **Kept label placements.** An automatic label (`Placement.auto`, `across`) of an actor is placed
   on the first key where the actor appears and keeps that placement on every later key
   (`Motion.resolved`), so that it rides the actor's moves; the key figures with these placements
@@ -57,6 +60,7 @@ This module holds the model and its checks.
   `Plane.Exact.slideFromTo`.
 * `Motion.WellFormed` (decidable), `Motion.animSteps`, `MotionKeys`, `Motion.keysOf`,
   `Motion.resolved`, `Motion.keyFigure`.
+* `Geom.turnAbout`, `Item.turnAbout`, `sweepAngles`, `Motion.sweptItems`: what a turn sweeps.
 * `MotionVersion`, `Motion.continuation`, `Motion.versions`: the layers of a motion (an actor for
   as long as its steps carry it, an item without an id for as long as the keys draw it alike).
 * `mergeOrder`, `inOrder`: one drawing order for the layers of all keys.
@@ -136,6 +140,9 @@ structure Motion where
   between : Nat → Rat → Option Figure := fun _ _ => none
   /-- How many intervals a morph with `between` is sampled in. -/
   morphSamples : Nat := 16
+  /-- How many intervals the morph of step `j` is sampled in, where it is not `morphSamples` (a
+  picture of panels sets it so that its panels sample a step alike). -/
+  stepSamples : Nat → Option Nat := fun _ => none
   /-- The durations, easing and seam. -/
   pacing : Anim.Pacing := {}
   /-- The title and description of the whole picture. -/
@@ -145,6 +152,9 @@ structure Motion where
   checks : CheckLevel := .fail
   /-- The key shown as the still (under reduced motion, and as the poster). -/
   poster : Nat := 0
+  /-- A prefix for every id, every reference to one and every `data-pilean-actor` of the
+  motion's SVG, so that several pictures can be put inline in one page (none when empty). -/
+  idPrefix : String := ""
   deriving Inhabited
 
 namespace Exact
@@ -325,10 +335,84 @@ def keepItemIn (viewed placed : Array Figure) (k : Nat) (it here : Item) : Item 
       else here
     | none => here
 
-/-- The keys of a motion as drawn, computed once: in one view (`commonView`), with their automatic
-labels placed each on its own (`placed`), and as drawn (`figs`): an actor's automatic labels
-placed on the first key where it appears and kept on the later ones; the drawing environment and
-the SVG text mode of key `0`. -/
+/-! ### What a turn sweeps -/
+
+/-- The point `p` turned about `c` by the angle `a` (radians, counterclockwise in the figure). -/
+def turnPointAbout (c : Point) (a : Float) (p : Point) : Point :=
+  let d := p - c
+  ⟨c.x + d.x * a.cos - d.y * a.sin, c.y + d.x * a.sin + d.y * a.cos⟩
+
+/-- The element turned about `c` by the angle `a` in the figure's coordinates: its points turned,
+its angles and directions turned with them; a label's point turned, the label itself upright. -/
+def Geom.turnAbout (c : Point) (a : Float) : Geom → Geom
+  | .point p => .point (turnPointAbout c a p)
+  | .segment p q => .segment (turnPointAbout c a p) (turnPointAbout c a q)
+  | .line p q => .line (turnPointAbout c a p) (turnPointAbout c a q)
+  | .ray p q => .ray (turnPointAbout c a p) (turnPointAbout c a q)
+  | .arrow p q => .arrow (turnPointAbout c a p) (turnPointAbout c a q)
+  | .circle o r => .circle (turnPointAbout c a o) r
+  | .disk o r => .disk (turnPointAbout c a o) r
+  | .arc o r θ₀ θ₁ => .arc (turnPointAbout c a o) r (θ₀ + a) (θ₁ + a)
+  | .sector o r θ₀ θ₁ => .sector (turnPointAbout c a o) r (θ₀ + a) (θ₁ + a)
+  | .polygon vs => .polygon (vs.map (turnPointAbout c a))
+  | .polyline vs => .polyline (vs.map (turnPointAbout c a))
+  | .angleMark o θ₀ θ₁ r => .angleMark (turnPointAbout c a o) (θ₀ + a) (θ₁ + a) r
+  | .label s p pl off => .label s (turnPointAbout c a p) pl off
+  | .tick p dir len => .tick (turnPointAbout c a p) (turnPointAbout ⟨0, 0⟩ a dir) len
+  | .disks op c₁ r₁ c₂ r₂ => .disks op (turnPointAbout c a c₁) r₁ (turnPointAbout c a c₂) r₂
+
+/-- The points of an element whose turning moves its extremes: a point's or a label's point, the
+ends of a segment, the centre of a circle, disk, arc, sector or angle mark, the vertices of a
+polygon or polyline, a tick's point, the centres of a region of disks. -/
+def Geom.keyPoints : Geom → Array Point
+  | .point p | .label _ p _ _ | .tick p _ _ => #[p]
+  | .segment p q | .line p q | .ray p q | .arrow p q => #[p, q]
+  | .circle o _ | .disk o _ | .arc o _ _ _ | .sector o _ _ _ | .angleMark o _ _ _ => #[o]
+  | .polygon vs | .polyline vs => vs
+  | .disks _ c₁ _ c₂ _ => #[c₁, c₂]
+
+/-- The item turned about `c` by the angle `a` (`Geom.turnAbout` on every element). -/
+def Item.turnAbout (c : Point) (a : Float) : Item → Item
+  | .shape g l i => .shape (g.turnAbout c a) l i
+  | .group xs i => .group (xs.attach.map fun ⟨x, _⟩ => Item.turnAbout c a x) i
+
+/-- The angles (radians) at which the item `it` turned about `c` through the angle `sweep` is
+drawn to bound what the turn sweeps: the start and the end, 96 steps a full turn in between, and
+for every point of every element (`Geom.keyPoints`) the angles at which it is farthest left,
+right, up or down on its circle about `c` (where an extreme of the swept drawing lies, for every
+element but an arc, whose own extremes the dense steps bound). -/
+def sweepAngles (c : Point) (sweep : Float) (it : Item) : Array Float :=
+  let n := max 8 ((sweep.abs / (2 * pi) * 96).ceil.toUInt64.toNat)
+  let steady := (Array.range (n + 1)).map fun k => sweep * k.toFloat / n.toFloat
+  let twoPi := 2 * pi
+  let extremes := (it.leaves.flatMap (·.geom.keyPoints)).flatMap fun p =>
+    let φ := Float.atan2 (p.y - c.y) (p.x - c.x)
+    (#[0, pi / 2, pi, 3 * pi / 2] : Array Float).filterMap fun t =>
+      let up := (t - φ) - twoPi * ((t - φ) / twoPi).floor
+      let δ := if sweep ≥ 0 then up else up - twoPi
+      if (sweep ≥ 0 && δ ≤ sweep) || (sweep < 0 && δ ≥ sweep) then some δ else none
+  steady ++ extremes
+
+namespace Motion
+
+/-- What the turns of the motion sweep: for every turn of an actor in step `j`, the actor as key
+`j` draws it turned to each of its sweep angles (`sweepAngles`). The motion's one view includes
+them (`keysOf`), so that nothing turns out of the picture; slides stay in the hull of their keys,
+and the figures of a sampled morph are drawn at its keys' and its samples' extents. -/
+def sweptItems (m : Motion) : Array Item :=
+  (m.steps.mapIdx fun j s => (j, s)).flatMap fun (j, s) =>
+    s.moves.flatMap fun (id, mv) => match mv, (m.keys.getD j default).actor? id with
+      | .turn c q, some it =>
+        let sweep := 2 * pi * Exact.toFloat q
+        (sweepAngles c sweep it).map (it.turnAbout c ·)
+      | _, _ => #[]
+
+end Motion
+
+/-- The keys of a motion as drawn, computed once: in one view (`commonViewWith` the items its
+turns sweep, `Motion.sweptItems`), with their automatic labels placed each on its own (`placed`),
+and as drawn (`figs`): an actor's automatic labels placed on the first key where it appears and
+kept on the later ones; the drawing environment and the SVG text mode of key `0`. -/
 structure MotionKeys where
   /-- The keys in one view. -/
   viewed : Array Figure
@@ -341,6 +425,9 @@ structure MotionKeys where
   /-- The text mode of the SVG: key `0`'s. -/
   mode : TextMode
 
+instance : Inhabited MotionKeys :=
+  ⟨{ viewed := #[], placed := #[], figs := #[], env := default, mode := .native "" }⟩
+
 /-- Key `k` as drawn. -/
 def MotionKeys.figure (K : MotionKeys) (k : Nat) : Figure := K.figs.getD k default
 
@@ -350,7 +437,7 @@ variable (m : Motion)
 
 /-- The keys of the motion as drawn (see `MotionKeys`). -/
 def keysOf : MotionKeys :=
-  let viewed := commonView m.keys
+  let viewed := commonViewWith m.keys m.sweptItems
   let placed := viewed.map (·.autoPlaced)
   let figs := viewed.mapIdx fun k fig =>
     let here := placed.getD k fig
@@ -385,10 +472,14 @@ def betweenFigure (K : MotionKeys) (j : Nat) (q : Rat) : Option Figure :=
       keepItemIn K.viewed K.placed (j + 1) it (here.items.getD i it)
     { here with items }
 
+/-- The number of intervals the morph of step `j` is sampled in: `stepSamples j`, or
+`morphSamples`. -/
+def morphSamplesOf (j : Nat) : Nat := (m.stepSamples j).getD m.morphSamples
+
 /-- The figures a morph in step `j` passes through, when `between` gives all of them: key `j`,
-the figures at `i / n` for `0 < i < n` (`n = morphSamples`), key `j + 1`. -/
+the figures at `i / n` for `0 < i < n` (`n = morphSamplesOf j`), key `j + 1`. -/
 def morphFigures (K : MotionKeys) (j : Nat) : Option (Array Figure) :=
-  let n := m.morphSamples
+  let n := m.morphSamplesOf j
   if n < 2 then none
   else do
     let inner ← (List.range (n - 1)).toArray.mapM fun i =>
@@ -553,10 +644,10 @@ variable (m : Motion)
 def morphsIn (j : Nat) : Bool :=
   (m.steps.getD j {}).moves.any fun (_, mv) => match mv with | .morph => true | _ => false
 
-/-- The number of intervals step `j` is divided into: `morphSamples` for a morph with figures
+/-- The number of intervals step `j` is divided into: `morphSamplesOf j` for a morph with figures
 between its keys (`morphFigures`), else one. -/
 def samplesOf (K : MotionKeys) (j : Nat) : Nat :=
-  if m.morphsIn j && (m.morphFigures K j).isSome then m.morphSamples else 1
+  if m.morphsIn j && (m.morphFigures K j).isSome then m.morphSamplesOf j else 1
 
 end Motion
 
