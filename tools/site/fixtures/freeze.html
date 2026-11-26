@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- Released under Apache 2.0 license as described in the file LICENSE.
+     Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
+     The control of the freeze check of motion_browser.py: an inline SMIL picture whose one
+     animation turns a dot about the centre in one segment of 8 seconds, hidden with
+     display: none while the root has data-motion="reduce". Shown again, Chromium draws it frozen
+     at the time it was hidden until the animation repeats, although its clock runs. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Freeze control</title>
+<style>
+html[data-motion="reduce"] #fixture-stage { display: none; }
+body { margin: 0; background: #fff; }
+</style>
+</head>
+<body>
+<div id="fixture-stage">
+<svg id="fixture-mw" xmlns="http://www.w3.org/2000/svg" width="200" height="200"
+     viewBox="0 0 200 200" role="img" aria-label="A dot turning about the centre">
+<rect width="200" height="200" fill="#fff"/>
+<g><animateTransform attributeName="transform" type="rotate" values="0 100 100;360 100 100"
+   dur="8s" begin="0s" repeatCount="indefinite"/>
+<circle cx="160" cy="100" r="12" fill="#000"/></g>
+</svg>
+</div>
+</body>
+</html>

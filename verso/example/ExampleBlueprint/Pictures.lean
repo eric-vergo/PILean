@@ -101,6 +101,10 @@ A picture whose names and ids hold markup, under a label that starts with a digi
 Captions and values that hold the separators of a frame's label and markup: `<b>` · = .
 :::
 
+:::figure oddMotion (label := "odd-motion") (alt := "Two panels whose titles, captions and labels hold markup: <script>alert(1)</script> \"q\" ]]> -- url(#x)")
+A motion whose strings hold markup & quotes: `<b>` "q" `]]>` --.
+:::
+
 # Motion
 
 {figref "circle"}[] moves; with reduced motion the page shows a still frame instead.
@@ -113,7 +117,7 @@ The next three figures are motions of plane figures, drawn from exact key frames
 inline in the page, and shows its key frames as stills while it is hovered or focused, when
 animations are turned off, when the reader's system asks for reduced motion, and in print.
 
-:::figure quarterTurn (label := "quarter") (links := quarterTurn_spec)
+:::figure quarterTurn (label := "quarter") (links := quarterTurn_spec) (alt := "A point P on the unit circle turns a quarter about the origin O, then holds.")
 A point turned a quarter about the origin.
 :::
 

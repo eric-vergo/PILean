@@ -8,15 +8,16 @@ import PILean.Trust.Attr
 /-!
 # The example's motions
 
-Three motions of plane figures, shown inline on the chapter's page "Motion" with their key
-stills (the shapes of PILean's gallery of motions):
+Motions of plane figures, shown inline on the chapter's pages "Motion" and "Escaping" with
+their key stills (the shapes of PILean's gallery of motions):
 
 * `quarterTurn`: a point turned a quarter about the origin, then held; linked to
   `quarterTurn_spec`, which writes it out whole (its key figures and its declared moves);
 * `fifthTurn`: a disk turned a fifth about an outside centre, an illustration;
 * `twoFrames`: two panels on one clock, a point turned by fifths about two centres beside the pair
   of centres turned about the point's centre of the moment, with a narrow rendition stacked for
-  small screens, an illustration.
+  small screens, an illustration;
+* `oddMotion`: two panels whose strings hold markup, shown on the page "Escaping".
 -/
 
 namespace Example
@@ -175,5 +176,33 @@ def twoFrames : MotionPanels where
               disks stay. Right: the pair of centres with its disks turns by fifths about the \
               active centre while the point stays." }
   narrowWidth := some 360
+
+/-! ### Strings that hold markup -/
+
+/-- A key of `oddPanel`: two faint corner points that fix the frame and the point `id`, with a
+label `text`, at `p`. -/
+def oddKey (id text : String) (p : Point) : Plane.Figure :=
+  { items := #[Plane.point ⟨-2, -2⟩ |>.faint, Plane.point ⟨2, 2⟩ |>.faint,
+      (group #[Plane.point p |>.accent 0, Plane.label text p .aboveRight |>.accent 0]).actor id] }
+
+/-- A panel of `oddMotion`: the actor `id`, labelled `text`, turned a quarter about the origin,
+then held. -/
+def oddPanel (id text : String) : Motion where
+  keys := #[oddKey id text ⟨1, 0⟩, oddKey id text ⟨0, 1⟩, oddKey id text ⟨0, 1⟩]
+  steps := #[{ moves := #[(id, .turn ⟨0, 0⟩ (1 / 4))] }, MotionStep.idle]
+
+/-- A picture of two panels whose title, description, panel titles, captions, labels and actor
+ids hold markup, quotes, the end of a CDATA section, `--` and `url(#…)`: the page must show them
+as text. -/
+@[figure illustration]
+def oddMotion : MotionPanels where
+  panels := #[
+    { title := "<script>alert(1)</script> \"q\" ]]> --",
+      motion := oddPanel "<script>alert(3)</script>\"&'" "<i>P</i> & \"Q\"" },
+    { title := "</style> url(#x) <!--", motion := oddPanel "]]> -- url(#a)" "</desc> ]]>" }]
+  captions := #["<script>alert(1)</script> one.", "\"Quotes\" & 'marks' ]]> -- two.",
+    "</style><b>three</b> url(#x)."]
+  info := { title := "<title>]]></title> & \"odd\"",
+            description := "</desc><script>alert(2)</script> -- <!-- url(#x)" }
 
 end Example

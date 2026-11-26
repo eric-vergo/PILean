@@ -137,7 +137,7 @@ def checks : Array (String × Bool) := #[
     (Style.darkVariant? { Style.light with lineWidth := 3 }).map (·.lineWidth) == some 3),
   ("dark: the colours are the dark style's",
     (Style.darkVariant? Style.light).map (·.background) == some Style.dark.background),
-  ("table: eighteen figures", table.size == 18),
+  ("table: nineteen figures", table.size == 19),
   ("standing: a figure linked by figure_links has the standing linked, with its theorem",
     standingOf "Example.divisorHasse" == some (.linked #["Example.divisorHasse_spec"]) &&
     standingOf "Example.reductionSquare" == some (.linked #["Example.reductionSquare_spec"])),
@@ -298,6 +298,7 @@ def main (args : List String) : IO UInt32 := do
     writeMotion dir "Example.quarterTurn" Example.quarterTurn
     writeMotion dir "Example.fifthTurn" Example.fifthTurn
     writePanels dir "Example.twoFrames" Example.twoFrames
+    writePanels dir "Example.oddMotion" Example.oddMotion
     IO.println s!"motion files written to {dir}"
     return 0
   let failed := checks.filter (!·.2)

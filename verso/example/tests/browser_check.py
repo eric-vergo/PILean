@@ -2,16 +2,18 @@
 # Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 """Checks the example site's figures in a headless Chromium (Playwright).
 
-    python3 browser_check.py SITE [SHOTS] [--site-links DIR] [--no-links DIR] [--side-by-side DIR]
-        [--manual DIR] [--motions DIR]
+    python3 -I tests/browser_check.py SITE [SHOTS] [--site-links DIR] [--no-links DIR]
+        [--side-by-side DIR] [--manual DIR] [--motions DIR]
 
 SITE is the generator's `html-multi` folder, built with `--figure-repo` and the default link mode
 (`ideil`); SHOTS, if given, is a folder for screenshots. The other folders are the same site
 built with `--figure-lean-links site`, with `--figure-lean-links none`, and with
 `--side-by-side --figure-lean-links site`; `--manual` names the Manual adapter's example
-(`pilean-verso-manual-example`), and `--motions` the files `example-test --motion-out DIR` writes
-for the example's motions. The checks of a folder not given are skipped; the motions of both
-examples are checked by `motion_browser.py`.
+(`pilean-verso-manual-example`), and `--motions` the expectations of the motions of both examples
+(the example's `example-test --motion-out DIR` and the Manual
+adapter's `pilean-verso-manual-test --motion-out DIR`, into one folder). The checks of a folder not
+given are skipped, but the motions are checked on every page that shows one, and a motion without
+its expectations fails (PILean's `tools/site/motion_browser.py`).
 
 Each site is served on 127.0.0.1 with a strict content policy: scripts only from the site's files
 and the inline scripts of the head (by hash), no inline event handlers, no plug-ins, nothing from
@@ -36,102 +38,18 @@ caption and in the figures page's list. Hostile captions, names and ids show as 
 nothing.
 """
 
-import base64
-import functools
-import hashlib
-import http.server
+import os
 import re
 import sys
-import threading
 
-from playwright.sync_api import sync_playwright
+# PILean's site checks (tools/site), which this script runs on the example as one site of many
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..",
+                                "tools", "site"))
 
-import motion_browser
+from playwright.sync_api import sync_playwright  # noqa: E402
 
-HEAD_SCRIPT = re.compile(rb"<script>(.*?)</script>", re.S)
-STYLE_ELEMENT = re.compile(rb"<style\b[^>]*>(.*?)</style>", re.S)
-
-
-def b64sha(data: bytes) -> str:
-    return "'sha256-" + base64.b64encode(hashlib.sha256(data).digest()).decode() + "'"
-
-
-def policy(page: bytes, styles: str) -> str:
-    head = page.split(b"</head>", 1)[0]
-    hashes = [b64sha(m) for m in HEAD_SCRIPT.findall(head)]
-    scripts = " ".join(["'self'", "'wasm-unsafe-eval'"] + hashes)
-    if styles == "hashes":
-        style = "style-src 'self' " + " ".join(b64sha(m) for m in STYLE_ELEMENT.findall(page)) + \
-            "; style-src-attr 'unsafe-inline'"
-    else:
-        style = "style-src 'self' 'unsafe-inline'"
-    return (
-        f"default-src 'self'; script-src {scripts}; script-src-attr 'none'; {style}; "
-        "object-src 'none'; base-uri 'self'; form-action 'none'; frame-src 'none'; "
-        "frame-ancestors 'none'"
-    )
-
-
-class Handler(http.server.SimpleHTTPRequestHandler):
-    styles = "inline"
-
-    def log_message(self, *args):
-        pass
-
-    def end_headers(self):
-        path = self.translate_path(self.path)
-        if path.endswith("/"):
-            path += "index.html"
-        if path.endswith(".html"):
-            try:
-                with open(path, "rb") as f:
-                    self.send_header("Content-Security-Policy", policy(f.read(), self.styles))
-            except OSError:
-                pass
-        super().end_headers()
-
-
-def serve(site, styles="inline"):
-    handler = functools.partial(type("H", (Handler,), {"styles": styles}), directory=site)
-    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server, f"http://127.0.0.1:{server.server_address[1]}/"
-
-
-# Verso's release loads its docstring Markdown renderer from jsDelivr, which the policy blocks:
-# a report about Verso's page, not about a figure.
-VERSO_CDN = "https://cdn.jsdelivr.net/npm/marked@"
-
-
-def figure_reports(page):
-    """The page's content-policy reports, without the one of Verso's own script address and
-    those of inline event handlers outside figures (Verso's table of contents has one)."""
-    return [r for r in page.evaluate("window.__cspReports")
-            if not (r["directive"] == "script-src-attr" and not r["inFigure"])
-            and not (r["blocked"] or "").startswith(VERSO_CDN)]
-
-
-REPORTS = """
-window.__liveChanges = [];
-document.addEventListener('readystatechange', () => {
-  if (document.readyState !== 'interactive') return;
-  new MutationObserver(ms => { for (const m of ms) {
-    const el = m.target.nodeType === 1 ? m.target : m.target.parentElement;
-    const live = el && el.closest('[aria-live], [role=status], [role=alert], output');
-    if (live && live.getAttribute('aria-live') !== 'off')
-      window.__liveChanges.push(live.className || live.tagName);
-  } }).observe(document, {subtree: true, childList: true, characterData: true});
-});
-window.__cspReports = [];
-window.__alerts = [];
-window.alert = (m) => window.__alerts.push(String(m));
-document.addEventListener('securitypolicyviolation', e => {
-  const t = e.target && e.target.closest ? e.target : null;
-  window.__cspReports.push({directive: e.effectiveDirective, blocked: e.blockedURI,
-    sample: e.sample, source: e.sourceFile,
-    inFigure: !!(t && t.closest('.pilean-figure, .pilean-figure-list, .pilean-figure-page'))});
-});
-"""
+import motion_browser  # noqa: E402
+from site_browser import Checks, figure_reports, goto, new_page, serve  # noqa: E402
 
 PAGES = ["Pictures-with-proofs/A-function/", "Pictures-with-proofs/Data/",
          "Pictures-with-proofs/A-relation/", "Pictures-with-proofs/Motion/", "Figures/",
@@ -141,7 +59,6 @@ EXPLORERS = "Pictures-with-proofs/Explorers/"
 ENTRY = "Pictures-with-proofs/Inside-an-entry/"
 ODD = "Pictures-with-proofs/Escaping/"
 FIGURE_PAGES = [p for p in PAGES if p != "Figures/"]
-TIMEOUT = 10000
 
 
 def current(page, fig):
@@ -160,18 +77,6 @@ def view_box(page, fig):
 
 def width_of(box):
     return float(box.split()[2])
-
-
-def new_page(browser, **kw):
-    ctx = browser.new_context(**kw)
-    ctx.add_init_script(REPORTS)
-    ctx.set_default_timeout(TIMEOUT)
-    return ctx, ctx.new_page()
-
-
-def goto(page, url):
-    page.goto(url)
-    page.wait_for_load_state("networkidle")
 
 
 def theme_checks(c, browser, base, shots):
@@ -908,30 +813,6 @@ def link_checks(c, browser, sites):
         server.shutdown()
 
 
-class Checks:
-    def __init__(self):
-        self.failed = 0
-        self.count = 0
-
-    def section(self, name, fn, *args):
-        """Runs a group of checks; one that stops with an error counts as a failure."""
-        try:
-            fn(*args)
-        except Exception as e:  # noqa: BLE001 - a check that cannot run is a failed check
-            import traceback
-            where = traceback.extract_tb(e.__traceback__)[-1]
-            self.check(f"{name} ran to its end", False,
-                       f"{str(e).splitlines()[0]} (line {where.lineno})")
-
-    def check(self, name, ok, detail=""):
-        self.count += 1
-        if ok:
-            print(f"ok: {name}")
-        else:
-            self.failed += 1
-            print(f"FAIL: {name} {detail}")
-
-
 def shown_pictures(page):
     return page.evaluate("""() => [...document.querySelectorAll('figure.pilean-figure')].map(f => {
       const imgs = [...f.querySelectorAll('img')].filter(i => i.offsetParent !== null);
@@ -1051,7 +932,7 @@ def main(argv):
 
         page.goto(base + "Figures/")
         items = page.locator(".pilean-figure-index > li")
-        c.check("the figures page lists eighteen figures", items.count() == 18, str(items.count()))
+        c.check("the figures page lists nineteen figures", items.count() == 19, str(items.count()))
         thumbs = page.evaluate("""() => [...document.querySelectorAll('.pilean-index-thumb img')]
             .every(i => i.complete && i.naturalWidth > 0)""")
         c.check("the figures page's pictures load", thumbs)
@@ -1090,9 +971,12 @@ def main(argv):
                       "side by side", [1400, 360], FIGURE_PAGES)
             sbs_server.shutdown()
         c.section("links", link_checks, c, browser, sites)
-        c.section("motions", motion_browser.motion_checks, c, browser, base,
-                  "Pictures-with-proofs/Motion/", "blueprint motions", helpers, motions, True,
-                  shots)
+        c.section("freeze control", motion_browser.freeze_control, c, browser)
+        # every page with a motion: the two chapters' pages and the figures' pages
+        for url in motion_browser.motion_pages(site):
+            least = 3 if url == "Pictures-with-proofs/Motion/" else 1
+            c.section(f"motions of {url}", motion_browser.motion_checks, c, browser, base, url,
+                      f"blueprint {url}", helpers, motions, shots, least)
         c.section("anchor space", anchor_space_checks, c, browser, base, "blueprint",
                   ["Figures/Example.cubicPlot/", "Figures/Example.sketch/",
                    "Figures/Example.radiusExplorer/"])
@@ -1101,8 +985,10 @@ def main(argv):
             c.section("manual anchor space", anchor_space_checks, c, browser, manual_base,
                       "manual", ["Figures/ManualExample.trianglePlot/",
                                  "Figures/ManualExample.radiusSlider/"])
-            c.section("manual motions", motion_browser.motion_checks, c, browser, manual_base,
-                      "Motion/", "manual motions", helpers, None, False)
+            for url in motion_browser.motion_pages(manual):
+                c.section(f"manual motions of {url}", motion_browser.motion_checks, c, browser,
+                          manual_base, url, f"manual {url}", helpers, motions, shots,
+                          2 if url == "Motion/" else 1)
             manual_server.shutdown()
 
         for width in [320, 360, 375, 600]:

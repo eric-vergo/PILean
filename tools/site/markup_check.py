@@ -1,7 +1,12 @@
 # Released under Apache 2.0 license as described in the file LICENSE.
 # Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 """Checks that the figures' markup in a built site has no script, no inline event handler and no
-script address: python3 -I markup_check.py SITE_DIR (the html-multi folder).
+script address:
+
+    python3 -I tools/site/markup_check.py SITE_DIR [--min N]
+
+SITE_DIR is the generator's `html-multi` folder; at least N figures and lists must be found (1 by
+default). It is one of PILean's site checks (`tools/site/`).
 
 The pages are parsed as HTML; inside each `figure.pilean-figure`, the figures page's list and
 each figure's page (`div.pilean-figure-page`), an
@@ -12,7 +17,8 @@ that spells out markup, is not markup and is not reported.
 Inside a motion (`div.pilean-motion`, which must carry `data-bp-motion`) nothing may be active at
 all: besides the above, no link, form control, frame, embedded object, `foreignObject`, `use` or
 `image`; no animation that starts or ends on anything but the clock (`begin` and `end` must be
-clock values or `indefinite`), no `restart`; and no tab stop but the stage
+clock values, as PILean writes them; not `indefinite`, which would wait for a script), no
+`restart`; and no tab stop but the stage
 (`div.pilean-motion-stage`, `tabindex="0"`).
 """
 
@@ -23,8 +29,7 @@ import sys
 
 INERT_IN_MOTION = {"a", "button", "input", "select", "textarea", "form", "iframe", "object",
                    "embed", "foreignobject", "use", "image", "area", "audio", "video"}
-CLOCK = re.compile(r"^\s*(indefinite|[+-]?[0-9:.]+(h|min|s|ms)?)(\s*;\s*(indefinite|"
-                   r"[+-]?[0-9:.]+(h|min|s|ms)?))*\s*$")
+CLOCK = re.compile(r"^\s*[+-]?[0-9:.]+(h|min|s|ms)?(\s*;\s*[+-]?[0-9:.]+(h|min|s|ms)?)*\s*$")
 
 
 class Figures(html.parser.HTMLParser):
@@ -97,7 +102,7 @@ class Figures(html.parser.HTMLParser):
             self.motion = None
 
 
-def main(root: str) -> int:
+def main(root: str, least: int = 1) -> int:
     seen, bad, motions = 0, [], 0
     for path in sorted(glob.glob(root + "/**/index.html", recursive=True)):
         with open(path, encoding="utf-8") as f:
@@ -108,12 +113,16 @@ def main(root: str) -> int:
         bad += [f"{path}: {b}" for b in p.bad]
     for line in bad:
         print(f"active markup in a figure: {line}")
-    if seen < 5:
-        print(f"expected the figures and the figures page, found {seen} parts")
+    if seen < least:
+        print(f"expected at least {least} figures and lists, found {seen}")
         return 1
     print(f"markup: {seen} figures and lists, none active, {motions} motions with nothing active")
     return 1 if bad else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1]))
+    args = sys.argv[1:]
+    if len(args) not in (1, 3) or (len(args) == 3 and args[1] != "--min"):
+        print("usage: markup_check.py SITE_DIR [--min N]")
+        sys.exit(2)
+    sys.exit(main(args[0], int(args[2]) if len(args) == 3 else 1))

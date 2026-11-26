@@ -4,6 +4,8 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import ManualExample
 import PILeanVersoManual
+import PILeanTest.Motion
+import PILeanTest.MotionPanels
 
 /-!
 # The Manual-genre adapter's checks
@@ -13,6 +15,11 @@ checks what a reader gets: the figure files and the manifest, every SVG inert, t
 (numbers, text alternatives, light and dark pictures, the source line, the theorem, a figure over
 its backdrop, the reference), the figures page, the same bytes from both builds, and
 `--check-figures` failing on a damaged copy. The checks of the argument values come first.
+
+With `--motion-out DIR` it writes instead, for each motion of the example manual, the expectations
+the browser checks of PILean's site checks read (`tools/site/motion_browser.py`): the animated
+SVG, the keys' stills, the poster's PNG and `<decl>.json` (and `<decl>-narrow.json` for a narrow
+rendition), with the writers of PILean's tests.
 -/
 
 open PILean PILeanVerso Verso.Genre.Manual
@@ -100,8 +107,34 @@ def hasHandler (t : String) : Bool := ((t.splitOn " on").drop 1).any fun rest =>
   let name := (rest.takeWhile Char.isAlpha).toString
   !name.isEmpty && (rest.drop name.length).startsWith "="
 
-/-- Runs the checks; exit status 0 when every one holds. -/
-def main : IO UInt32 := do
+/-- Writes the files of the example manual's motions for the browser checks. -/
+def writeMotions (dir : System.FilePath) : IO Unit := do
+  IO.FS.createDirAll dir
+  let m := ManualExample.quarterTurn
+  let name := "ManualExample.quarterTurn"
+  IO.FS.writeFile (dir / s!"{name}.svg") m.toSvgUnchecked
+  for k in [0:m.keys.size] do
+    IO.FS.writeFile (dir / s!"{name}-key{k}.svg") (m.keyFigure k).toSvg
+  IO.FS.writeBinFile (dir / s!"{name}-poster.png") ((m.keyFigure m.poster).toPng.getD .empty)
+  IO.FS.writeFile (dir / s!"{name}.json") (PILeanTest.MotionChecks.expectations name m)
+  let P := ManualExample.slidePanels
+  let all := #[("ManualExample.slidePanels", P)] ++
+    (P.narrow.map fun n => #[("ManualExample.slidePanels-narrow", n)]).getD #[]
+  for (file, Q) in all do
+    let r := Q.report
+    IO.FS.writeFile (dir / s!"{file}.svg") r.toSvgUnchecked
+    for k in [0:Q.keyCount] do
+      IO.FS.writeFile (dir / s!"{file}-key{k}.svg") (r.keyStillSvg k)
+    IO.FS.writeBinFile (dir / s!"{file}-poster.png") ((r.keyStillPng Q.poster).getD .empty)
+    IO.FS.writeFile (dir / s!"{file}.json") (PILeanTest.MotionPanelsChecks.expectations file r)
+
+/-- Runs the checks (exit status 0 when every one holds), or, with `--motion-out DIR`, writes the
+files of the example manual's motions. -/
+def main (args : List String) : IO UInt32 := do
+  if let ["--motion-out", dir] := args then
+    writeMotions dir
+    IO.println s!"motion files written to {dir}"
+    return 0
   let check (ok : Bool) (what : String) : StateT (Nat × Nat) IO Unit := do
     modify fun (f, k) => (if ok then f else f + 1, k + 1)
     IO.println s!"{if ok then "ok" else "FAIL"}: {what}"
@@ -241,9 +274,9 @@ def main : IO UInt32 := do
     let files ← filesBelow figs
     check (files.contains "manifest.json") "the figures folder has its manifest"
     let svgs := files.filter (·.endsWith ".svg")
-    check (svgs.size == 59)
-      s!"59 SVG files: light, dark, narrow, the explorers' frames, and the motions' animated \
-        pictures, key stills and contact sheets ({svgs.size})"
+    check (svgs.size == 54)
+      s!"54 SVG files: light, dark, narrow, the explorers' frames, and the motions' animated \
+        pictures, key stills (light and dark) and contact sheets ({svgs.size})"
     for f in svgs do
       let t ← IO.FS.readFile (figs / f)
       check (Svg.isInert t) s!"{f} is inert"
@@ -275,9 +308,9 @@ def main : IO UInt32 := do
         has motion "class=\"pilean-inline-svg pilean-motion-live pilean-motion-narrow\"" &&
         has motion "Step 1 of 3: P on the unit circle at (1, 0)." &&
         has motion "ManualExample.quarterTurn-key-2-dark.svg" &&
-        !has motion "bp_motion_link")
-      "the motions are shown inline, with their narrow renditions and their captioned stills, \
-        and without the Blueprint's link to its switch"
+        has motion motionHintText && !has motion "bp_motion_link")
+      "the motions are shown inline, with their narrow renditions, their captioned stills and \
+        the hint that they pause, and without the Blueprint's link to its switch"
     -- each motion's wrapper: up to the end of its list of stills
     let motionParts := (motion.splitOn "data-bp-motion").drop 1 |>.map fun p =>
       (p.splitOn "</ol>").headD ""

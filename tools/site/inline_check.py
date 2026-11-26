@@ -2,7 +2,12 @@
 # Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 """Checks that every inline picture of a built site is the body of a file the manifest lists.
 
-    python3 -I inline_check.py SITE_DIR      (the html-multi folder)
+    python3 -I tools/site/inline_check.py SITE_DIR [--figures DIR]
+
+SITE_DIR is the generator's `html-multi` folder; the figures folder is
+`SITE_DIR/-verso-data/pilean-figures` unless `--figures` names another, with its `manifest.json`.
+It is one of PILean's site checks (`tools/site/`), which any site built with the Verso adapters
+can run.
 
 Each `svg.pilean-inline-svg` of a page must name its file of the figures folder
 (`data-pilean-file`); the file must be listed in `manifest.json` with the SHA-256 of its bytes;
@@ -25,7 +30,13 @@ the same rendition, listed in the manifest with its SHA-256) with every id prefi
 panels does not repeat in it); and the page's picture must be the file's nodes between that
 `style` element and the poster group, element for element, once what the page adds is taken away
 (its prefix is also on every `data-pilean-actor`). The manifest must record the motion as checked
-strictly: `checks` `fail` and `errorsLeft` 0.
+strictly: `checks` `fail` and `errorsLeft` 0. The pictures shown with a motion are its files'
+too: the still over the moving picture (`span.pilean-motion-still`) is exactly the poster key's
+still (`-key-k.svg` for the poster `k` the page names, with `-key-k-dark.svg` when the manifest
+lists it, and the narrow rendition's `-narrow-key-k.svg` and its dark twin as the sources for
+small screens when the motion has one), and the list of stills (`ol.pilean-motion-keys`, left out
+only on the figure's page, `pilean-motion-bare`) has one item for each key `k`, in order, showing
+exactly the files of key `k` likewise, with its caption `Step k+1 of N: …`.
 
 Exit status 0 when every picture holds, 1 otherwise (each failure is printed).
 """
@@ -51,7 +62,8 @@ TAG = re.compile(r"<(/?)svg\b[^>]*?(/?)>")
 
 
 def inline_svgs(text):
-    """The text of each inline picture of a page (nested `svg` elements counted)."""
+    """The text of each inline picture of a page (nested `svg` elements counted), with the
+    position where it ends."""
     out = []
     for m in START.finditer(text):
         depth, pos = 0, m.start()
@@ -61,11 +73,11 @@ def inline_svgs(text):
             elif not t.group(2):
                 depth += 1
             if depth == 0:
-                out.append(text[m.start():t.end()])
+                out.append((text[m.start():t.end()], t.end()))
                 pos = t.end()
                 break
         if pos == m.start():
-            out.append(None)
+            out.append((None, m.start()))
     return out
 
 
@@ -265,8 +277,60 @@ def motion_problem(svg, data, figs, path, entry, manifest):
     return same(page_body(svg), live)
 
 
-def main(site):
-    figs = os.path.join(site, "-verso-data", "pilean-figures")
+KEYS = re.compile(r'</div><ol class="pilean-motion-keys"[^>]*>(.*?)</ol>', re.S)
+WRAPPER = re.compile(r'<div class="(pilean-motion(?: [^"]*)?)" data-bp-motion')
+
+
+def refs(html, attr):
+    """The paths below the figures folder that the attribute `attr` of the markup `html` names."""
+    return sorted(re.findall(attr + r'="[^"]*?pilean-figures/([^"]+)"', html))
+
+
+def key_files(stem, k, manifest, narrow):
+    """The files a page shows for key `k` of the motion whose animated SVG is `stem.svg`: the
+    `src`s (the light still and its dark twin, if listed) and the `srcset`s (the narrow
+    rendition's, if it has one)."""
+    def pair(s):
+        return [p for p in (f"{s}-key-{k}.svg", f"{s}-key-{k}-dark.svg") if p in manifest]
+    return sorted(pair(stem)), sorted(pair(stem + "-narrow") if narrow else [])
+
+
+def stills_problem(text, end, path, manifest, entry, poster):
+    """None if the pictures shown with the moving picture that ends at `end` are the motion's
+    files, as the module docstring says, else why not."""
+    stem = path[:-len(".svg")]
+    narrow = f"{stem}-narrow.svg" in manifest
+    m = re.compile(r'<span class="pilean-motion-still"[^>]*>(.*?)</span>', re.S).search(text, end)
+    if m is None:
+        return "no poster still over the moving picture"
+    want = key_files(stem, poster, manifest, narrow)
+    have = (refs(m.group(1), "src"), refs(m.group(1), "srcset"))
+    if have != want:
+        return f"the still over it shows {have}, not the poster key's files {want}"
+    rest = text[m.end():m.end() + 200]
+    if rest.startswith('</div></div>'):
+        wrappers = list(WRAPPER.finditer(text, 0, end))
+        bare = bool(wrappers) and "pilean-motion-bare" in wrappers[-1].group(1).split()
+        return None if bare else "no list of stills, and not marked pilean-motion-bare"
+    lm = KEYS.match(text, m.end())
+    if lm is None:
+        return "no list of stills after the stage"
+    items = re.findall(r'<li class="pilean-motion-key"[^>]*>(.*?)</li>', lm.group(1), re.S)
+    n = entry.get("keys")
+    if len(items) != n:
+        return f"{len(items)} stills listed for {n} keys"
+    for k, li in enumerate(items):
+        want = key_files(stem, k, manifest, narrow)
+        have = (refs(li, "src"), refs(li, "srcset"))
+        if have != want:
+            return f"still {k} shows {have}, not {want}"
+        if f"Step {k + 1} of {n}: " not in li:
+            return f"still {k} has no caption Step {k + 1} of {n}"
+    return None
+
+
+def main(site, figs=None):
+    figs = figs or os.path.join(site, "-verso-data", "pilean-figures")
     with open(os.path.join(figs, "manifest.json"), encoding="utf-8") as f:
         manifest = {e["path"]: e for e in json.load(f)["files"]}
     checked, failures, motions = 0, [], 0
@@ -274,7 +338,7 @@ def main(site):
         with open(page, encoding="utf-8") as f:
             text = f.read()
         rel = os.path.relpath(page, site)
-        for svg in inline_svgs(text):
+        for svg, end in inline_svgs(text):
             checked += 1
             if svg is None:
                 failures.append(f"{rel}: an inline picture is not closed")
@@ -304,6 +368,9 @@ def main(site):
                 elif entry.get("kind") == "motion":
                     motions += 1
                     why = motion_problem(svg, data, figs, path, entry, manifest)
+                    poster = ET.fromstring(svg).get("data-pilean-poster") or ""
+                    if not why and "pilean-motion-wide" in (ET.fromstring(svg).get("class") or ""):
+                        why = stills_problem(text, end, path, manifest, entry, int(poster))
                 else:
                     why = same(page_body(svg), file_body(data))
             except (ET.ParseError, ValueError) as e:
@@ -318,4 +385,8 @@ def main(site):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1]))
+    args = sys.argv[1:]
+    if len(args) not in (1, 3) or (len(args) == 3 and args[1] != "--figures"):
+        print("usage: inline_check.py SITE_DIR [--figures DIR]")
+        sys.exit(2)
+    sys.exit(main(args[0], args[2] if len(args) == 3 else None))
