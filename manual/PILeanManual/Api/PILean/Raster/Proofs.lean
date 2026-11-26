@@ -11,6 +11,8 @@ import PILean.Raster.Proofs
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Raster.Proofs" =>
 %%%
 tag := "api-PILean.Raster.Proofs"

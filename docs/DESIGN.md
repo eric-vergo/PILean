@@ -1085,10 +1085,11 @@ item with an id (`Item.actor`), which turns about a centre by an exact fraction 
 (`Plane.Exact.turnAbout`), slides (`Plane.Exact.slideFromTo`), appears, vanishes or morphs.
 
 *What is exact.* The key frames are the figures as written, drawn by the plane figures' own
-pipeline in one view (`commonView`, so nothing rescales during the loop), an actor's automatic
-labels placed as on the first key where it appears: the stills (`Motion.keyFigure`) are those
-drawings, byte for byte, and no still or raster is derived from the animation. The timing is the
-exact rational `Anim.Timeline` of the steps.
+pipeline in one view (`commonViewWith`, so nothing rescales during the loop; the view holds what
+the turns sweep, `Motion.sweptItems`, and a check keeps every layer inside the picture while it
+moves, `boundsProblems`), an actor's automatic labels placed as on the first key where it appears:
+the stills (`Motion.keyFigure`) are those drawings, byte for byte, and no still or raster is
+derived from the animation. The timing is the exact rational `Anim.Timeline` of the steps.
 
 *What the checks promise.* The arrival check compares the actor in key `k`, carried by the declared
 turn or slide (applied in floating point to the page points that fix its drawing, `anchors`: a
@@ -1174,8 +1175,85 @@ deviation is a gap in timing along the arc, not off it: the item stays on its ci
 behind the eased angle by at most `1 / n` of the turn; measured, a quarter turn is within 5.79° of
 the eased angle with 4 samples, 2.92° with 8 and 1.45° with 16, and a fifth of a turn within 1.16°
 with the default 16. The plan (`MotionPlan`) holds every animated value as a function of a phase (a
-key, or a fraction of a step) and is computed in a drawing environment (`Motion.planIn`), so that a
-picture of several panels can lay out each motion in a frame of its own on one shared timeline.
+key, or a fraction of a step) and is computed in a drawing environment on a given timeline
+(`Motion.planOn`; `Motion.planIn` on the motion's own), so that a picture of several panels lays out
+each motion in a frame of its own on one shared timeline (below).
+
+### Motions as panels on one clock
+
+A `Plane.MotionPanels` (`PILean/Plane/MotionPanels.lean`) puts several motions side by side (or one
+above another) in one `<svg>` on one timeline: the traditional view of a construction beside the
+same construction in another frame, both moving at once. Each panel is a `Motion` with its own key
+figures, steps and moves and its own view, under a title; the captions, the pacing, the title and
+description and the level of checks are the picture's.
+
+*One timeline.* All panels have the same number of keys, and step `j` of the picture is step `j` of
+every panel. The step is idle only when every panel's step is idle; otherwise it lasts as long as
+the longest kind of move any panel makes in it (a panel without moves idles while the others move),
+unless the picture gives the step a duration or an easing of its own (`MotionPanels.timing`). A
+panel's step may not set its own duration or easing: one step has one duration. A morph sampled in
+one panel (`Motion.between`) divides the step for every panel at the same times, so the other
+panels' turns there follow their eased motion piecewise linearly, as they would in a single motion.
+Panels that sample one step in different numbers of intervals are sampled in their least common
+multiple (at most 1024), which keeps every panel's own samples, when each panel's figures between
+its keys answer at the fractions of that multiple (`Motion.stepSamples` carries the number to the
+panel). When one does not, the step is drawn unsampled: each morph interpolated directly between its
+keys, or crossfaded where it cannot be; that is an error under `.fail` and a note saying so under
+`.warn`. Every panel is laid out on the shared timeline (`Motion.planOn`), so every animation
+element of the picture has the same timing; the panels are in phase by construction, and the browser
+check confirms it at every rest and at three points of every move.
+
+*Common and independent scale.* Side by side, each panel gets a share of the width: the shares given
+(`shares`, for a larger right panel), or under the common scale the least widths at which the panels
+fit at one scale (found by bisection on the scale), or under independent scales the widths of the
+panels' own key figures. Under `PanelScale.common` every panel is drawn at the smallest of the
+scales at which each fits its share (`Frame.fit` of its reaches), and centred again at that scale,
+so a unit length is as long in every panel; under `PanelScale.independent` each is fitted on its own
+(a zoom panel). A panel's reaches are those of its keys and of what its turns sweep
+(`Motion.sweptItems`), as for a single motion, so that nothing turns out of it; a panel whose keys
+set a view of their own (a zoom) keeps that view, and what turns out of it is an error. The panels
+side by side are as tall as the tallest needs, their content centred; stacked, each is as tall as it
+needs. Because a panel's view is the union of all its keys (and sweeps), a panel can show empty room
+at some keys (the golden picture's right panel is empty along its bottom at key 0 and filled there
+at key 2): that is the price of one view through the loop, not slack the layout could trim. The
+title band above the panels is the style's panel title size and title gap; a title wider than its
+panel is made smaller, down to three quarters of its size (`titleFit`, measured by the style's text
+engine), and one still too wide is an error, so titles never run into a neighbour. A gap below zero
+(panels overlapping) is an error. A panel is placed by moving the origin of its frame on the page
+(`shiftEnv`); nothing is wrapped in a `transform`, so the invariant of the SMIL builders holds for
+the whole picture. A line or a ray in a panel is refused, since it is drawn to the edge of the whole
+page, not of its panel.
+
+*The narrow rendition.* With `narrowWidth`, `MotionPanels.narrow` is the same picture with its
+panels stacked at that width (at one scale if the picture asks for it), checked and written as a
+picture of its own.
+
+*Ids and stills.* Every id, reference and `data-pilean-actor` of panel `i` carries the prefix `p{i +
+1}-`, and the poster's ids `poster-p{i + 1}-`, so that panels may use the same actor ids; each
+panel's moving picture is a group marked `data-pilean-panel`. The report checks that every id of the
+document is distinct (`idProblems`). A picture's own prefix (`MotionPanels.idPrefix`, and
+`Motion.idPrefix` for a single motion) goes before all of them, so that several pictures can be put
+inline in one page; empty by default, which leaves every output as it was. Key `k` of the picture is
+the composition of the panels' key-`k` stills (each panel's `Motion.keyFigure`, as laid out, drawn
+in its shifted frame) under the titles; each panel's own key figure stays available
+(`MotionPanelsReport.panelKeyFigure?`), and `stepRows` lists every step with its kind, duration and
+every panel's moves, for a table of steps. A picture's stills carry the same ids as its moving
+picture: a page that shows both inline gives them prefixes of their own.
+
+*Checks.* Every check of a motion applies to each panel on the shared timeline and is reported with
+the panel's name: arrival and the step rules, the layout checks of its keys, the stacking order, the
+rest check of its whole drawing against its stills, its writer against its baker, and that nothing
+leaves its panel while it moves (every layer drawn at eight times through every move, every point
+within 0.5 px of the panel's box; the same check keeps a single motion inside its picture). Then the
+picture's own problems: panels with different numbers of keys, captions that are not one per key,
+sampling the panels disagree on, two panels with one title, a gap below zero, a panel whose content
+or title does not fit its share, a panel's own step timing, a line or a ray in a panel, panels on
+different backgrounds, an id twice in the document, a missing title or text alternative. Last come
+the composed picture's rest check against the composed stills and its writer against the composed
+baker; these run only for a well-formed picture with no error so far, and otherwise a note says that
+the picture was not checked as a whole, so a picture written under `.warn` despite errors says so.
+`.fail` is the default, under which `MotionPanels.svg?` and `animation?` give the errors instead of
+the picture.
 
 ### Outputs of a motion
 

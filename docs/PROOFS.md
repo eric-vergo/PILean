@@ -322,6 +322,49 @@ the declared move, with the actor in key `k + 1`; it does not determine a turn's
 number of revolutions, nor see moves that leave the drawing alike (see
 [`DESIGN.md`](DESIGN.md)).
 
+**Motions as panels of one picture** (`PILean/Plane/MotionPanels.lean`)
+
+* `Motion.planOn_timeline`: a motion laid out on a timeline (`Motion.planOn`) has that timeline;
+  `Motion.planIn` is `planOn` on the motion's own timeline.
+* `MotionPanels.timelineOf_keys`, `MotionPanelsReport.timeline_keys`: the picture's shared
+  timeline has one key more than the picture has steps; `MotionPanels.timelineOf_keys_panel`: for
+  a well-formed picture (`MotionPanels.WellFormed`: a panel, every panel with the picture's number
+  of keys and one step fewer, a caption per key, the poster among the keys, the timing of no step
+  or of every step; decidable, and decided by `MotionPanels.problems`) as many as every panel.
+* `MotionPanels.report_timeline`: every panel's two plans, on its own
+  page (for its checks) and on the picture's page (for the SVG and the baker), are laid out on the
+  shared timeline. With `MotionPlan.anim_eq` this gives `MotionPanelsReport.panel_anim_eq`: every
+  animation element a panel's plan builds has `Smil.smilTiming` of the shared timeline. The
+  picture's writer builds every animation element through a panel's plan's `anim` (each panel's
+  moving picture, and the seam through the first panel's); that is how it is written, not a
+  theorem, and the tests check `Smil.clockProblem?` on the whole root of every output.
+* `panelPrefix_append_ne`: an id prefixed for panel `i` (`p{i + 1}-`) is never an id prefixed for
+  another panel, whatever the two ids were. That the ids within one panel are unique is the
+  motion's own matter (two actors with one id in a key are an error), and the report checks at
+  run time that every id of the document is distinct (`MotionPanelsReport.idProblems`), so the
+  guarantee does not rest on the prefixes alone.
+
+What is tested, not proved, for pictures of panels: the layout (the common scale gives a unit
+segment the same length in every panel within `1e-9` px; shares; titles made smaller to fit their
+panel, or refused; the narrow rendition stacked at its width); the step kinds and durations of the
+shared timeline, and sampling shared in the least common multiple or refused with what is drawn;
+that the composed stills are, byte for byte, the panels' key figures drawn in their shifted frames,
+and each panel's part of them is its own still translated to its place (`1e-9` px); every per-panel
+check of `Motion.problems` (arrival, layout of the keys, stacking, the rest check, writer against
+baker and nothing leaving the panel while it moves, on the shared timeline), labelled with the
+panel, and the picture's own problems; the composed picture's rest check and writer against baker
+(`MotionPanelsReport.restProblems`, `writerProblems`, part of `MotionPanels.problems`). Those two
+composed checks run only for a well-formed picture with no other error; otherwise a note says the
+picture was not checked as a whole, and under `.warn` such a picture is written with that note. In
+Chromium (`tools/motion-browser-check.py`): each panel's part of every rest against the composed
+still; every actor of every panel where the composed baker has it at every rest and at a quarter, a
+half and three quarters of every move, at one clock time (the panels are in phase); and at 60 times
+through the cycle each panel's moving picture, shown alone, inside its own box and the titles'
+band. That a turn's swept extent is inside the view (`Motion.sweptItems`: the turned drawing at 96
+steps a full turn and wherever a point of it is farthest on its circle) is tested on a point turned
+half a turn about a far centre, alone and as a panel; the check that nothing leaves the picture
+(`boundsProblems`, eight times per move, 0.5 px) catches a turn out of a view the keys set.
+
 **Plane figures** (`PILean/Exact/Plane.lean`, `PILean/Exact/Spec.lean`, `PILean/Plane/Draw.lean`)
 
 * `Exact.PlanePoint.re_ratPair`, `im_ratPair`, `toPoint_ratPair`, `toPoint_intPair`,
@@ -753,7 +796,8 @@ a root of the denominator, and there are no other complex roots.
   0.01 px), tested with wrong angles and centres, turns of items that did not move, a slide that
   misses by 0.02 px, a polygon with only a later vertex out of place, a radius that changes under
   a slide, whole turns and moves of missing actors; the rest check, the evaluator, the model
-  computed apart and the browser's pixels, as listed above under "Motions of plane figures".
+  computed apart and the browser's pixels, as listed above under "Motions of plane figures";
+  for pictures of panels, as listed under "Motions as panels of one picture".
 * The hypotheses of the drawing theorems on the gallery pictures (every converted point has a
   page position) are checked at run time by `lake test`.
 

@@ -11,6 +11,8 @@ import PILean.Graph.Dot
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Dot" =>
 %%%
 tag := "api-PILean.Graph.Dot"

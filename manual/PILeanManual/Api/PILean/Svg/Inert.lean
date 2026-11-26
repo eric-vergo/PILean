@@ -11,6 +11,8 @@ import PILean.Svg.Inert
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Svg.Inert" =>
 %%%
 tag := "api-PILean.Svg.Inert"

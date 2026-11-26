@@ -11,6 +11,8 @@ import PILean.Trust.Provenance
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Trust.Provenance" =>
 %%%
 tag := "api-PILean.Trust.Provenance"

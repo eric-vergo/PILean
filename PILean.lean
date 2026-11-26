@@ -44,6 +44,7 @@ import PILean.Plane.Graph
 import PILean.Plane.Motion
 import PILean.Plane.MotionPlan
 import PILean.Plane.MotionOutput
+import PILean.Plane.MotionPanels
 import PILean.Diagram.Basic
 import PILean.Diagram.Graph
 import PILean.Diagram.Hasse

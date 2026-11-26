@@ -43,6 +43,7 @@ import PILeanTest.Timeline
 import PILeanTest.Motion
 import PILeanTest.MotionFigures
 import PILeanTest.MotionTrust
+import PILeanTest.MotionPanels
 
 /-!
 # The axioms of the library, checked by the build

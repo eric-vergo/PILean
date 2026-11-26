@@ -11,6 +11,8 @@ import PILean.Raster.Stroke
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Raster.Stroke" =>
 %%%
 tag := "api-PILean.Raster.Stroke"

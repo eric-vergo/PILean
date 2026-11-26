@@ -11,6 +11,8 @@ import PILean.Text.LetteringSymbols
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Text.LetteringSymbols" =>
 %%%
 tag := "api-PILean.Text.LetteringSymbols"

@@ -11,6 +11,8 @@ import PILean.Graph.Draw
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Draw" =>
 %%%
 tag := "api-PILean.Graph.Draw"

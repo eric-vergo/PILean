@@ -11,6 +11,8 @@ import PILean.Graph.Bundle
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Bundle" =>
 %%%
 tag := "api-PILean.Graph.Bundle"

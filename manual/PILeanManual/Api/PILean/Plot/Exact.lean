@@ -11,6 +11,8 @@ import PILean.Plot.Exact
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Plot.Exact" =>
 %%%
 tag := "api-PILean.Plot.Exact"

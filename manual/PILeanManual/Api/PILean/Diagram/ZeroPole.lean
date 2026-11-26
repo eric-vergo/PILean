@@ -11,6 +11,8 @@ import PILean.Diagram.ZeroPole
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Diagram.ZeroPole" =>
 %%%
 tag := "api-PILean.Diagram.ZeroPole"

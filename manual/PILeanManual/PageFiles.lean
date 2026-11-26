@@ -61,10 +61,15 @@ def ident (m : List String) : String :=
 /-- The manual module of a core module's page: `PILeanManual.Api.PILean.Color`. -/
 def pageModule (m : List String) : List String := ["PILeanManual", "Api"] ++ m
 
+/-- The recursion depth every page allows: the code generator compiles a page's whole document,
+and the pages of the modules with the most declarations need more than the default. -/
+def pageRecDepth : Nat := 16384
+
 /-- The text of the page of module `m`. -/
 def pageText (m : List String) : String :=
   header ++ "import VersoManual\nimport PILeanManual.ApiMeta\nimport " ++ ident m ++ "\n\n" ++
   note ++ "\nopen Verso.Genre Manual\nopen PILeanManual\n\n" ++
+  s!"set_option maxRecDepth {pageRecDepth}\n\n" ++
   s!"#doc (Manual) \"{dotted m}\" =>\n%%%\ntag := \"api-{dotted m}\"\n" ++
   s!"shortTitle := \"{dotted m}\"\n%%%\n\n" ++ "{apiModule " ++ ident m ++ "}\n"
 

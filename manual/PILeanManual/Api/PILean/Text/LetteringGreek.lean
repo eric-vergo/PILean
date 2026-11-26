@@ -11,6 +11,8 @@ import PILean.Text.LetteringGreek
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Text.LetteringGreek" =>
 %%%
 tag := "api-PILean.Text.LetteringGreek"

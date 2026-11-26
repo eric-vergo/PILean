@@ -44,6 +44,7 @@ structure Env where
   frame : Frame
   /-- The style; plane figures use its `plane` colours and sizes, `background` and `text`. -/
   style : Style
+  deriving Inhabited
 
 /-- Whether a character is a direction control or an invisible format character: the marks and
 embeddings, overrides and isolates of bidirectional text (U+061C, U+200E, U+200F,

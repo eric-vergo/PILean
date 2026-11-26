@@ -11,6 +11,8 @@ import PILean.Trust.Json
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Trust.Json" =>
 %%%
 tag := "api-PILean.Trust.Json"

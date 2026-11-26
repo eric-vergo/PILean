@@ -11,6 +11,8 @@ import PILean.Graph.Compound
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Graph.Compound" =>
 %%%
 tag := "api-PILean.Graph.Compound"

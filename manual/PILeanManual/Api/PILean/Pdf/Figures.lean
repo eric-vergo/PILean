@@ -11,6 +11,8 @@ import PILean.Pdf.Figures
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Pdf.Figures" =>
 %%%
 tag := "api-PILean.Pdf.Figures"

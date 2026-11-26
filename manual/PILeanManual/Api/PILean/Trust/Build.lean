@@ -11,6 +11,8 @@ import PILean.Trust.Build
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Trust.Build" =>
 %%%
 tag := "api-PILean.Trust.Build"

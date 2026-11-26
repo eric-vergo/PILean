@@ -11,6 +11,8 @@ import PILean.Plane.Check
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Plane.Check" =>
 %%%
 tag := "api-PILean.Plane.Check"

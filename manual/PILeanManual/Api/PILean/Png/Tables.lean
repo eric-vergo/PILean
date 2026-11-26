@@ -11,6 +11,8 @@ import PILean.Png.Tables
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Png.Tables" =>
 %%%
 tag := "api-PILean.Png.Tables"

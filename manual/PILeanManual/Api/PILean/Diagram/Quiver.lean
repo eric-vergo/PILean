@@ -11,6 +11,8 @@ import PILean.Diagram.Quiver
 open Verso.Genre Manual
 open PILeanManual
 
+set_option maxRecDepth 16384
+
 #doc (Manual) "PILean.Diagram.Quiver" =>
 %%%
 tag := "api-PILean.Diagram.Quiver"
