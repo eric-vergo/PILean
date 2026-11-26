@@ -1288,6 +1288,78 @@ of a motion, for a site with a dark theme, is the same outputs of `Motion.withSt
 stills and the sheet are drawn by the same routes in that style, with no drawing code of their
 own.
 
+### A motion shown in a page
+
+The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `:::figure` names one
+(`PILeanVerso.motionHtml`, `PILeanVerso.motionCss`); nothing of it needs a script.
+
+* **Markup.** A wrapper `div.pilean-motion` with the attribute `data-bp-motion` (what the Verso
+  Blueprint motion switch looks for) holds the *stage* and the *stills*. The stage is a focusable
+  group named "Figure N, animation". It holds the moving picture (`MotionData.live`) as an inline
+  `svg.pilean-motion-live` named by the figure's text alternative and, for a picture of panels
+  with a narrow rendition, the narrow one's beside it; both are in the page from its load, since
+  an `svg` inserted by a script would start a clock of its own. Over them lies the poster key's
+  still (`span.pilean-motion-still`, hidden from assistive technology): the poster key's files,
+  light and dark, the narrow rendition's as the source for small screens. After the stage comes
+  the ordered list of stills `ol.pilean-motion-keys`, named "The key frames of Figure N": each
+  key's still as a picture of its files (`-key-k`, `-narrow-key-k`, the `-dark` twins that follow
+  the page's theme), loaded lazily, with its caption "Step k of N: …". Assistive technology reads
+  the picture's text alternative, then the list once. The moving picture gets no declaration
+  links: hovering or focusing it shows the still instead, so they could not be reached.
+* **Caption.** A motion's caption ends with a quiet note: "Animation; it pauses on a still while
+  you point at it or focus it." (`PILeanVerso.motionHintText`, both adapters; hidden while motion
+  is off and in print), and on a Blueprint site the switch's link, "Animations can be turned off in
+  the page menu." (`PILeanVerso.motionLinkText`), which the Blueprint shows only when its script
+  runs.
+* **Text alternative.** The directive's `alt`; where the Blueprint adapter takes the doc string
+  instead, its first paragraph without code marks, so the name read aloud has no markup.
+* **Ids.** Every id, reference to an id and `data-pilean-actor` of a moving picture gets a prefix
+  made from the figure's anchor (`<anchor>-motion-mw-`, and `-mn-` for the narrow rendition), so
+  several motions, their renditions and other inline pictures share a page; the stills are
+  pictures of files and add no id.
+* **Theme.** The moving picture's own `style` element restyles its light colours under the page's
+  dark theme (`themeCss`), as for any inline picture; only `transform` and `opacity` are animated,
+  so the restyling holds while it moves.
+* **What is shown.** Motion on (the default): the moving picture; the stills' captions stay in the
+  accessibility tree, visually hidden, their pictures not drawn. Hover (on a device that hovers,
+  `@media (hover: hover)`, so a tap on a phone does not leave it stuck) and focus (the keyboard, a
+  click or a tap; the stage then has a 3-pixel ring in `--pilean-focus`, more than 3:1 against the
+  light and the dark page): the poster key's still in the picture's own box, so nothing around it
+  moves; the moving picture is only made transparent, so its text alternative stays in the
+  accessibility tree. A click holds the still until the focus leaves, as the caption's note says;
+  a tap stops the motion the same way. Motion off (the root's `data-motion="reduce"`, which the
+  Blueprint's switch sets, or the reader's `prefers-reduced-motion: reduce`) and print: the stage
+  is hidden and the stills are a grid with their captions. Without JavaScript the same, by the
+  stylesheet alone. Small screens (560 pixels or less, the plane figures' breakpoint): the narrow
+  rendition, and the narrow stills.
+* **Hiding.** A moving picture is never hidden with `display: none`, also not in print: in
+  Chromium an inline SMIL picture shown again after `display: none` (printing included) stays
+  frozen until its animations next repeat, although its clock runs. The stage while motion is off
+  and the hidden rendition are hidden with `visibility: hidden; position: absolute`; under hover
+  and focus the picture has `opacity: 0`. The browser checks show the picture following its clock
+  after each of these, and that the check notices `display: none`.
+* **Layout.** The stage is as wide as the picture and reserves its box: hover and focus change
+  nothing around it, and the hidden rendition takes no space. Turning motion off replaces the
+  picture by the taller grid of stills, a change the reader asked for.
+* **The figure's page.** The motion is shown without its list of stills (`pilean-motion-bare`:
+  turning motion off shows the poster's still in the stage), since the page shows them below, once:
+  the standing (for a linked motion, what a theorem about a motion can state, `motionLinkedWords`),
+  `MotionData.words` (with `MotionData.checkWords` for a motion not checked strictly), the table of
+  the steps (each step's keys, its duration exactly, and each move with its panel, actor and
+  `MotionMoveRow.words`, a crossfade marked), the key stills with their captions, and the contact
+  sheet; the files (the animated SVGs, the stills, the contact sheet with its PDF) are listed with
+  the others.
+* **Files.** A site writes a motion's outputs (`motionOutputs`) and, of the dark motion, only
+  what its pages show: the SVG of each key's still at each width (`-key-k-dark`,
+  `-narrow-key-k-dark`). So `7 + 6 n` files for `n` keys with a narrow rendition, `6 + 3 n`
+  without (`7 + 4 n` and `6 + 2 n` without a dark twin; `tools/site/page_check.py`,
+  `motion_files`). The pages reference the animated SVGs (`data-pilean-file`, the moving
+  picture being their body) and the key stills' SVGs; the PNGs of the stills, the poster's PNG
+  and PDF and the contact sheet (SVG, PNG, PDF) are offered on the figure's page for download,
+  for print and for TeX, and the manifest requires the SVG and PNG of each key at each width.
+* **Checks.** PILean's site checks (`tools/site/`, "Site checks" in `verso/README.md`) check every
+  motion a site shows against its files and in Chromium.
+
 ## Open design questions
 
 Each question has a current default, which the code follows until the question is settled.

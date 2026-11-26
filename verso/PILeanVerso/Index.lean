@@ -57,7 +57,7 @@ block_extension Block.figurePage (decl : String) via withHighlighting where
     let st ← HtmlT.state
     figurePageHtmlWith blueprintDeclStyle "bp_math inline" st site decl (st.htmlId id)
   toTeX := some fun _ _ _ _ _ => pure (.text "The figure's page is in the HTML version.")
-  extraCss := [figureCss, explorerCss, pageCss]
+  extraCss := [figureCss, explorerCss, motionCss, pageCss]
   extraJsFiles := {explorerJsFile}
 
 open Verso Doc Elab Syntax in

@@ -363,6 +363,26 @@ that end in `Unchecked`.
      `Animation.reducedMotionStyle`; check the poster group against key `poster`'s still with the
      `poster-` id prefix; compare `live` with the file element for element;
   6. asserts the manifest's `checks` and `errorsLeft` (`fail`, `0`) for every motion it shows.
+
+  The Verso adapters do so (`docs/DESIGN.md`, "A motion shown in a page"). (1) The site's build
+  renders every output through `renderOutput` and keeps a motion's page data
+  (`SiteFile.motion`) only from an output that rendered; by default `renderOutput` refuses a motion
+  not checked strictly, and the build fails (`--figure-allow-unchecked`,
+  `SiteOptions.allowUnchecked`, builds one for a draft). (2), (3) The figure's page shows
+  `MotionData.words` and the table of the steps with `MotionMoveRow.words`, with the panel's name
+  for a picture of panels and a crossfade marked. (4) Every string is text of the HTML writer,
+  which escapes it; the moving picture is written by the SVG writer, which escapes its attributes
+  and text. (5), (6) PILean's site checks (`tools/site/`) do the rest for any site built with the
+  adapters: `inline_check.py` holds every moving picture of a page to its file so, with the page's
+  prefix also taken off every `data-pilean-actor`, takes the poster key from the page
+  (`data-pilean-poster`) and that still's file from the manifest with its SHA-256, holds the still
+  over the picture and the list of stills to the motion's key files, and refuses a motion the
+  manifest does not record at `fail` with no error left; `markup_check.py` finds nothing active
+  in a motion (no script, event attribute, link, form control, embedded content, animation started
+  by anything but the clock, or tab stop but the picture's own); `page_check.py` finds the
+  motion's words, its steps and its captioned stills on its page; `motion_browser.py` checks what
+  the reader sees in Chromium against expectations written from Lean. A site that shows motions
+  runs PILean's site check (`verso/README.md`, "Site checks").
 * **Accessible names.** The animated SVG's own `title` (the motion's title) is the first `title`
   child of the root; the build writes the source record after it and the `desc`, so the record's
   title (the declaration's name) does not become the picture's accessible name. The contact
@@ -672,13 +692,15 @@ id and reference to an id, a link around each element that names a declaration, 
 page attributes (class, id, role, accessible name, the view box the script starts from); the
 file's source record is not in the page. The manifest entry of a file a page can put inline
 records the theme's data: its light colours paired with the dark ones (`darkColours`) and its
-tint opacities likewise (`darkOpacities`), from the figure's style. The example's site check
-(`verso/example/tests/inline_check.py`) requires the page's `pilean-theme` element to be,
-character for character, the rules the adapter derives from those recorded pairs and the
+tint opacities likewise (`darkOpacities`), from the figure's style. The site check
+(`tools/site/inline_check.py`) requires the page's `pilean-theme` element to be, character for
+character, the rules the adapter derives from those recorded pairs and the
 picture's id, and the picture to have no other `style` element; it takes the page's additions
 away and compares the page's picture with the file element for element and attribute for
 attribute, and the file's SHA-256 with the manifest; a page whose picture or theme rules differ,
-that names no file, or names one the manifest does not list fails it. The site check
+that names no file, or names one the manifest does not list fails it. A motion's moving picture
+is checked against its animated SVG as "Motions" says, its prefix also taken off every
+`data-pilean-actor`. The site check
 ties a page's picture to its file and the page's theme rules to the pairs recorded in the
 manifest. The manifest's pairs are tied to the source only by `--check-figures`, which rebuilds
 the figures and reports a stale manifest; `pilean-verify` alone does not catch a page and a

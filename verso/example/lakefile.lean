@@ -7,10 +7,10 @@ import Lake
 /-!
 # A Verso Blueprint with PILean figures
 
-A small Blueprint project whose chapter shows four figures made by PILean, each the value of a
-Lean declaration with a theorem about it: a function plot, a data plot, a graph of a relation and
-an animation. `PictureExample` holds the figures and theorems, `ExampleBlueprint` the document,
-`example-blueprint` the site's generator.
+A small Blueprint project whose chapters show figures made by PILean, each the value of a Lean
+declaration, most with a theorem about it: function and data plots, graphs and diagrams,
+explorers, an animation and motions of plane figures shown inline. `PictureExample` holds the
+figures and theorems, `ExampleBlueprint` the document, `example-blueprint` the site's generator.
 -/
 
 open Lake DSL

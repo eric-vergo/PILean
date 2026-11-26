@@ -4,6 +4,8 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import ManualExample
 import PILeanVersoManual
+import PILeanTest.Motion
+import PILeanTest.MotionPanels
 
 /-!
 # The Manual-genre adapter's checks
@@ -13,6 +15,11 @@ checks what a reader gets: the figure files and the manifest, every SVG inert, t
 (numbers, text alternatives, light and dark pictures, the source line, the theorem, a figure over
 its backdrop, the reference), the figures page, the same bytes from both builds, and
 `--check-figures` failing on a damaged copy. The checks of the argument values come first.
+
+With `--motion-out DIR` it writes instead, for each motion of the example manual, the expectations
+the browser checks of PILean's site checks read (`tools/site/motion_browser.py`): the animated
+SVG, the keys' stills, the poster's PNG and `<decl>.json` (and `<decl>-narrow.json` for a narrow
+rendition), with the writers of PILean's tests.
 -/
 
 open PILean PILeanVerso Verso.Genre.Manual
@@ -100,8 +107,34 @@ def hasHandler (t : String) : Bool := ((t.splitOn " on").drop 1).any fun rest =>
   let name := (rest.takeWhile Char.isAlpha).toString
   !name.isEmpty && (rest.drop name.length).startsWith "="
 
-/-- Runs the checks; exit status 0 when every one holds. -/
-def main : IO UInt32 := do
+/-- Writes the files of the example manual's motions for the browser checks. -/
+def writeMotions (dir : System.FilePath) : IO Unit := do
+  IO.FS.createDirAll dir
+  let m := ManualExample.quarterTurn
+  let name := "ManualExample.quarterTurn"
+  IO.FS.writeFile (dir / s!"{name}.svg") m.toSvgUnchecked
+  for k in [0:m.keys.size] do
+    IO.FS.writeFile (dir / s!"{name}-key{k}.svg") (m.keyFigure k).toSvg
+  IO.FS.writeBinFile (dir / s!"{name}-poster.png") ((m.keyFigure m.poster).toPng.getD .empty)
+  IO.FS.writeFile (dir / s!"{name}.json") (PILeanTest.MotionChecks.expectations name m)
+  let P := ManualExample.slidePanels
+  let all := #[("ManualExample.slidePanels", P)] ++
+    (P.narrow.map fun n => #[("ManualExample.slidePanels-narrow", n)]).getD #[]
+  for (file, Q) in all do
+    let r := Q.report
+    IO.FS.writeFile (dir / s!"{file}.svg") r.toSvgUnchecked
+    for k in [0:Q.keyCount] do
+      IO.FS.writeFile (dir / s!"{file}-key{k}.svg") (r.keyStillSvg k)
+    IO.FS.writeBinFile (dir / s!"{file}-poster.png") ((r.keyStillPng Q.poster).getD .empty)
+    IO.FS.writeFile (dir / s!"{file}.json") (PILeanTest.MotionPanelsChecks.expectations file r)
+
+/-- Runs the checks (exit status 0 when every one holds), or, with `--motion-out DIR`, writes the
+files of the example manual's motions. -/
+def main (args : List String) : IO UInt32 := do
+  if let ["--motion-out", dir] := args then
+    writeMotions dir
+    IO.println s!"motion files written to {dir}"
+    return 0
   let check (ok : Bool) (what : String) : StateT (Nat × Nat) IO Unit := do
     modify fun (f, k) => (if ok then f else f + 1, k + 1)
     IO.println s!"{if ok then "ok" else "FAIL"}: {what}"
@@ -149,6 +182,20 @@ def main : IO UInt32 := do
       "a site build refuses a motion built at warn with an error left"
     check (siteError "M.landed" (motionOf 1 .fail) == "")
       "a site build accepts a motion checked strictly"
+    let rendered := fun (opts : SiteOptions) (decl : String) (m : Plane.Motion) =>
+      match renderSite #[motionEntry decl m] #[(decl : FigureUse)] opts with
+      | .ok r => (r.figures[decl]?).bind fun f => motionOf? f.files
+      | .error _ => none
+    check ((rendered {} "M.landed" (motionOf 1 .fail)).map (·.1.unchecked) == some false)
+      "a motion checked strictly is shown inline: the site keeps its page data, checked strictly"
+    check (((rendered { allowUnchecked := true } "M.draft" (motionOf 1.5 .warn)).map
+        fun (d, _) => (d.unchecked, d.checkWords.isSome)) == some (true, true))
+      "with allowUnchecked (for drafts) a motion built at warn is rendered, and its page data \
+        says it was not checked strictly"
+    check ((parseWrapperArgs {} ["--figure-allow-unchecked", "--output", "o"]).toOption.map
+        (fun w => (w.options.allowUnchecked, w.rest)) == some (true, ["--output", "o"]) &&
+      figureFlags { allowUnchecked := true } == #["--figure-allow-unchecked"])
+      "--figure-allow-unchecked is taken by the wrapper and repeated in the pages' commands"
     -- standing and page data
     let standingOf := fun (n : String) => (table.entries.find? (·.decl == n)).map (·.standing)
     check (standingOf "ManualExample.trianglePlot" ==
@@ -227,8 +274,9 @@ def main : IO UInt32 := do
     let files ← filesBelow figs
     check (files.contains "manifest.json") "the figures folder has its manifest"
     let svgs := files.filter (·.endsWith ".svg")
-    check (svgs.size == 27)
-      s!"27 SVG files: light, dark, narrow, and the explorers' frames ({svgs.size})"
+    check (svgs.size == 54)
+      s!"54 SVG files: light, dark, narrow, the explorers' frames, and the motions' animated \
+        pictures, key stills (light and dark) and contact sheets ({svgs.size})"
     for f in svgs do
       let t ← IO.FS.readFile (figs / f)
       check (Svg.isInert t) s!"{f} is inert"
@@ -254,6 +302,21 @@ def main : IO UInt32 := do
     check (has marks "pilean-figure-stack" && has marks "-verso-data/backdrop-dark.svg" &&
       has marks "-verso-data/backdrop-light.svg") "a figure is drawn over its backdrop"
     check (has marks "aria-hidden=\"true\"") "the drawing over a backdrop is hidden from readers"
+    let motion ← IO.FS.readFile (out1 / "html-multi" / "Motion" / "index.html")
+    check ((motion.splitOn "data-bp-motion").length - 1 == 2 &&
+        has motion "class=\"pilean-inline-svg pilean-motion-live pilean-motion-wide\"" &&
+        has motion "class=\"pilean-inline-svg pilean-motion-live pilean-motion-narrow\"" &&
+        has motion "Step 1 of 3: P on the unit circle at (1, 0)." &&
+        has motion "ManualExample.quarterTurn-key-2-dark.svg" &&
+        has motion motionHintText && !has motion "bp_motion_link")
+      "the motions are shown inline, with their narrow renditions, their captioned stills and \
+        the hint that they pause, and without the Blueprint's link to its switch"
+    -- each motion's wrapper: up to the end of its list of stills
+    let motionParts := (motion.splitOn "data-bp-motion").drop 1 |>.map fun p =>
+      (p.splitOn "</ol>").headD ""
+    check (motionParts.length == 2 && motionParts.all (!has · "<script") &&
+        motionParts.all (!hasHandler ·) && motionParts.all (!has · "<a "))
+      "a motion's markup has no script, no event handler and no link"
     let figureParts := (numbers.splitOn "<figure").drop 1 |>.map fun p =>
       (p.splitOn "</figure>").headD ""
     check (figureParts.length == 2 && figureParts.all (!has · "<script") &&
@@ -263,9 +326,9 @@ def main : IO UInt32 := do
     check (has list "ManualExample.radiusSlider" && has list "ManualExample.wordSteps")
       "the figures page lists the explorers"
     check ((list.splitOn "pilean-standing pilean-standing-linked").length - 1 == 5 &&
-        (list.splitOn "pilean-standing pilean-standing-illustration").length - 1 == 4)
+        (list.splitOn "pilean-standing pilean-standing-illustration").length - 1 == 6)
       "the figures page shows each figure's standing"
-    check ((list.splitOn "class=\"pilean-page-link\"").length - 1 == 9 &&
+    check ((list.splitOn "class=\"pilean-page-link\"").length - 1 == 11 &&
         has numbers "class=\"pilean-page-link\"")
       "the figures page and the source line link each figure's page"
     let (linksChecked, dead) ← siteLinkProblems (out1 / "html-multi")

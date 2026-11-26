@@ -13,9 +13,10 @@ elements that carry metadata are part of the page: a `title` gives the browser's
 element with a `data-lean-decl` becomes a link to its declaration when the site's link mode gives
 it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put inside another.
 
-* **Ids.** Every `id` of a picture, and every `url(#…)` and `#…` reference to one, gets a prefix
-  unique in the page (`prefixNode`), so that several pictures can share a page. The picture's own
-  id is made of ASCII letters, digits, `-` and `_` only (`domSafe`).
+* **Ids.** Every `id` of a picture, every `url(#…)` and `#…` reference to one, and every
+  `data-pilean-actor` (the moving items of a motion) gets a prefix unique in the page
+  (`prefixNode`), so that several pictures can share a page. The picture's own id is made of ASCII
+  letters, digits, `-` and `_` only (`domSafe`).
 * **Themes.** One inline picture serves both themes: a `style` element inside it (class
   `pilean-theme`) restyles its light colours to its dark twin's (`InlineSvg.darkColours`,
   `darkOpacities`) under the page's `data-theme="dark"`, or the system's dark scheme when the page
@@ -25,8 +26,8 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   unchanged. A content policy must allow these `style` elements (`style-src 'unsafe-inline'`, or the
   hash of each); nothing else of an inline picture needs inline style.
 * **Files.** Each inline picture names the file of the figures folder it is the body of
-  (`data-pilean-file`), so a check of the published site can compare the two (the example's
-  `tests/inline_check.py`).
+  (`data-pilean-file`), so a check of the published site can compare the two (PILean's
+  `tools/site/inline_check.py`).
 * **Explorers** (`explorerHtml`). Every frame is in the page, each in a list item that carries its
   value and its step caption as data attributes (`data-value-text`, `data-step-text`) and shows
   them under the picture. Without script the frames are a grid in their order, as many columns as
@@ -46,6 +47,12 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   zooming, so a gesture under way does not turn into a scroll; two fingers pinch and pan; a mouse
   drag pans; on the focused view `+`, `-` and `0` zoom and reset and the arrows pan (with Ctrl, ⌘
   or Alt held, keys are left to the browser).
+* **Motions** (`motionCss`; the markup is `PILeanVerso.motionHtml`). A motion's moving picture
+  is an inline picture of its own, shown on its clock from the page's load; hovering or focusing
+  it shows its poster's still in its box, and the page's `data-motion="reduce"`, the reader's
+  `prefers-reduced-motion: reduce` and print show its stills with their captions instead. The
+  moving picture is hidden by `visibility` (out of the flow where it must take no space), never by
+  `display: none` but in print, so that it follows its clock when it is shown again.
 * **Announcements.** One polite status region per explorer says the step after previous or next
   (`Step 2 of 4: …`, or `a = 3` for a parameter); a slider says its value itself
   (`aria-valuetext`); nothing is announced when the page loads or while the steps play. A reader who
@@ -55,6 +62,7 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
 ## Main definitions
 
 * `domSafe`, `prefixNode`, `inlineSvgText`, `themeCss`, `explorerHtml`, `explorerJs`, `explorerCss`.
+* `motionCss`, `motionOffRules`, `motionHiddenRendition`: the stylesheet of motions shown in a page.
 -/
 
 namespace PILeanVerso
@@ -72,16 +80,17 @@ an id that a selector and a URL fragment carry as it is. -/
 def domSafe (s : String) : String :=
   s.map fun c => if (c.isAlphanum && c.toNat < 128) || c == '-' || c == '_' then c else '_'
 
-/-- The node with every id prefixed by `pfx`, every reference to an id likewise, and every
-element carrying `data-lean-decl` wrapped in a link to the declaration when `href` gives one (the
-link's label is the element's title, or the declaration's name). An element inside a link is not
+/-- The node with every id prefixed by `pfx`, every reference to an id and every
+`data-pilean-actor` likewise, and every element carrying `data-lean-decl` wrapped in a link to
+the declaration when `href` gives one (the link's label is the element's title, or the
+declaration's name). An element inside a link is not
 linked again (`inLink`). -/
 partial def prefixNode (pfx : String) (href : String → Option String) (inLink : Bool := false) :
     Svg.Node → Svg.Node
   | .text t => .text t
   | .element name attrs children =>
     let attrs := attrs.map fun (k, v) =>
-      if k == "id" then (k, pfx ++ v)
+      if k == "id" || k == "data-pilean-actor" then (k, pfx ++ v)
       else if k == "href" || k.endsWith ":href" then
         (k, if v.startsWith "#" then "#" ++ pfx ++ (v.drop 1).toString else v)
       else (k, v.replace "url(#" ("url(#" ++ pfx))
@@ -115,10 +124,11 @@ def themeCss (id : String) (pairs opacities : Array (String × String)) : String
 
 /-- An inline picture as the text of an `svg` element with the id `id` (`domSafe`; it prefixes
 the picture's own ids, see `prefixNode`), the class `cls`, the accessible name `label`, its theme
-rules in a `style` element, its declaration links (`href`) and the path of its file in the
-figures folder (`file`). -/
+rules in a `style` element, its declaration links (`href`), the path of its file in the
+figures folder (`file`) and further attributes of the root (`attrs`). -/
 def inlineSvgText (id : String) (i : InlineSvg) (href : String → Option String) (label : String)
-    (cls : String := "") (file : Option String := none) : String :=
+    (cls : String := "") (file : Option String := none) (attrs : Array (String × String) := #[]) :
+    String :=
   let id := domSafe id
   let w := fmtNum i.width
   let h := fmtNum i.height
@@ -131,7 +141,7 @@ def inlineSvgText (id : String) (i : InlineSvg) (href : String → Option String
   let root := Svg.el "svg" (#[("xmlns", "http://www.w3.org/2000/svg"),
     ("class", ("pilean-inline-svg " ++ cls).trimAscii.toString), ("id", id),
     ("viewBox", s!"0 0 {w} {h}"), ("width", w), ("height", h), ("role", "img"),
-    ("aria-label", label), ("data-view", s!"0 0 {w} {h}")] ++ fileAttr)
+    ("aria-label", label), ("data-view", s!"0 0 {w} {h}")] ++ fileAttr ++ attrs)
     (style ++ i.nodes.map (prefixNode (id ++ "-") href))
   Svg.render 0 root
 
@@ -529,5 +539,74 @@ a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
   }
 }
 "##
+
+/-- The rules that turn a motion's animation off, below the selector prefix `pre`
+(`html[data-motion="reduce"] ` for the motion switch, empty inside a media query): the stage is
+hidden and taken out of the flow and the stills are shown as a grid with their captions; a motion
+shown without its stills (`pilean-motion-bare`, on the figure's page, whose stills are shown
+below it) keeps its stage and shows the poster's still over the moving picture; the caption's
+hint about pausing is hidden. The moving picture is hidden by `visibility` or `opacity`, never by
+`display: none`, also in print: an inline SVG animation that is not rendered can stay frozen when
+it is shown again, although its clock runs. -/
+def motionOffRules (pre : String) : String :=
+  s!"{pre}.pilean-motion:not(.pilean-motion-bare) .pilean-motion-stage \{visibility:hidden;\
+    position:absolute;top:0;left:0;pointer-events:none}\
+    {pre}.pilean-motion-bare svg.pilean-motion-live \{opacity:0}\
+    {pre}.pilean-motion-bare .pilean-motion-still \{opacity:1}\
+    {pre}.pilean-motion-keys \{position:static;width:auto;height:auto;margin:0;overflow:visible;\
+    clip:auto;clip-path:none;white-space:normal;display:grid;\
+    grid-template-columns:repeat(auto-fit,minmax(min(14rem,100%),1fr));gap:0.75rem;\
+    justify-items:center;align-items:start}\
+    {pre}.pilean-motion-key-pic \{display:block}\
+    {pre}.pilean-motion-hint \{display:none}"
+
+/-- The rules of the hidden rendition of a motion (the narrow one on wide screens, the wide one
+on small screens): kept rendered, so that its clock keeps the picture in step, but invisible and
+out of the flow. -/
+def motionHiddenRendition : String :=
+  "{visibility:hidden;position:absolute;top:0;left:0;pointer-events:none}"
+
+/-- The stylesheet of motions shown in a page (`PILeanVerso.motionHtml`), scoped under
+`.pilean-motion`. While motion is on, the moving picture is shown and the key stills' captions
+are kept for assistive technology only (visually hidden; their pictures are not drawn). Hovering
+the picture (on a device that hovers) or focusing it (by the keyboard, a click or a tap) shows the
+poster key's still in the picture's own box instead, so nothing around it moves; the moving
+picture is then only made transparent, so its text alternative stays in the accessibility tree,
+and the focused stage has a ring in `--pilean-focus`. Motion is off under the page's
+`data-motion="reduce"` (the Verso Blueprint motion switch), under the reader's
+`prefers-reduced-motion: reduce`, and in print (`motionOffRules`). The narrow rendition is shown
+on small screens (the plane figures' breakpoint, 560 pixels), the wide one elsewhere
+(`motionHiddenRendition`). No rule needs a script, and none depends on the Blueprint's own
+classes. -/
+def motionCss : String :=
+  ".pilean-motion{position:relative;width:100%;max-width:100%;min-width:0}\
+  .pilean-motion-stage{position:relative;width:fit-content;max-width:100%;margin:0 auto;\
+    border-radius:6px}\
+  .pilean-motion-stage:focus{outline:3px solid var(--pilean-focus);outline-offset:4px}\
+  .pilean-motion svg.pilean-motion-live{display:block;max-width:100%;height:auto;margin:0 auto}\
+  .pilean-motion-sized svg.pilean-motion-live{width:100%}\
+  @media not all and (max-width: 560px){.pilean-motion svg.pilean-motion-narrow" ++
+    motionHiddenRendition ++ "}\
+  @media (max-width: 560px){.pilean-motion-has-narrow svg.pilean-motion-wide" ++
+    motionHiddenRendition ++ "}\
+  .pilean-motion-still{position:absolute;inset:0;opacity:0;pointer-events:none}\
+  .pilean-motion-still img{position:absolute;inset:0;display:block;width:100%;height:100%}\
+  @media (hover: hover){\
+    .pilean-motion-stage:hover svg.pilean-motion-live{opacity:0}\
+    .pilean-motion-stage:hover .pilean-motion-still{opacity:1}}\
+  .pilean-motion-stage:focus svg.pilean-motion-live{opacity:0}\
+  .pilean-motion-stage:focus .pilean-motion-still{opacity:1}\
+  .pilean-motion-keys{list-style:none;padding:0;position:absolute;width:1px;height:1px;\
+    margin:-1px;border:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);\
+    white-space:nowrap}\
+  .pilean-motion-key{margin:0;min-width:0;max-width:100%;text-align:center}\
+  .pilean-motion-key-pic{display:none}\
+  .pilean-motion-key-pic img{display:block;max-width:100%;height:auto;margin:0 auto;\
+    border-radius:4px}\
+  .pilean-motion-key-caption{margin:0.2rem 0 0;font-size:0.85em;overflow-wrap:anywhere}\
+  .pilean-motion-note{display:block;font-size:0.85em;color:var(--pilean-muted, inherit)}" ++
+  motionOffRules "html[data-motion=\"reduce\"] " ++
+  "@media (prefers-reduced-motion: reduce){" ++ motionOffRules "" ++ "}" ++
+  "@media print{" ++ motionOffRules "" ++ "}"
 
 end PILeanVerso

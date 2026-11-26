@@ -11,8 +11,8 @@ import PictureExample
 /-!
 # The chapter of pictures
 
-Four figures of `PictureExample.Figures` in a Blueprint chapter, each linked to its declaration and to
-the theorem about it.
+The figures of `PictureExample.Figures`, `PictureExample.Diagrams` and `PictureExample.Motions`
+in a Blueprint chapter, each linked to its declaration and to the theorem about it, if any.
 -/
 
 open Verso.Genre
@@ -101,10 +101,30 @@ A picture whose names and ids hold markup, under a label that starts with a digi
 Captions and values that hold the separators of a frame's label and markup: `<b>` · = .
 :::
 
+:::figure oddMotion (label := "odd-motion") (alt := "Two panels whose titles, captions and labels hold markup: <script>alert(1)</script> \"q\" ]]> -- url(#x)")
+A motion whose strings hold markup & quotes: `<b>` "q" `]]>` --.
+:::
+
 # Motion
 
 {figref "circle"}[] moves; with reduced motion the page shows a still frame instead.
 
 :::figure circleAnimation (label := "circle") (links := circleAnimation_spec) (width := "16rem")
 A point going round the unit circle, with its height.
+:::
+
+The next three figures are motions of plane figures, drawn from exact key frames: each moves
+inline in the page, and shows its key frames as stills while it is hovered or focused, when
+animations are turned off, when the reader's system asks for reduced motion, and in print.
+
+:::figure quarterTurn (label := "quarter") (links := quarterTurn_spec) (alt := "A point P on the unit circle turns a quarter about the origin O, then holds.")
+A point turned a quarter about the origin.
+:::
+
+:::figure twoFrames (label := "frames") (alt := "Two panels on one clock: on the left a point turns by fifths about two centres in turn while the disks stay; on the right the pair of centres with its disks turns about the active centre while the point stays.")
+Two frames of one motion, on one clock.
+:::
+
+:::figure fifthTurn (label := "fifth") (alt := "A disk turns a fifth of a turn about the origin O, then holds.")
+A disk turned a fifth about an outside centre.
 :::

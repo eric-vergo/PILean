@@ -12,6 +12,8 @@ documents. A figure with a backdrop is laid over the backdrop's picture at the s
 dark picture of a figure (and of its backdrop) is shown when the page's root has
 `data-theme="dark"`, or when the system prefers dark and the root does not have
 `data-theme="light"`: the rules the Blueprint's and Verso's dark themes follow, without a script.
+The focus ring's colour (`--pilean-focus`) follows the theme too, at more than 3:1 against the
+light and the dark page.
 The `lean:` links are shown only when the root has `data-lean-links` (a viewer that handles them
 sets it); otherwise the declaration is plain code. A caption and the figures page break a word
 too long for the column anywhere rather than widen the page. A caption is the author's text,
@@ -29,6 +31,11 @@ def figureCss : String := r##"
   --pilean-faint: var(--bp-color-text-faint, #7b8190);
   --pilean-rule: var(--bp-color-border-panel, #d9dce3);
   --pilean-surface: var(--bp-color-surface-muted, #f6f7f9);
+  --pilean-focus: #1d4ed8;
+}
+html[data-theme="dark"] { --pilean-focus: #7cb4ff; }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) { --pilean-focus: #7cb4ff; }
 }
 .pilean-figure {
   margin: 1.75rem 0;
@@ -228,6 +235,30 @@ def pageCss : String := r##"
 @media (max-width: 600px) {
   .pilean-page-facts { grid-template-columns: minmax(0, 1fr); }
   .pilean-page-facts dd { margin-bottom: 0.3rem; }
+}
+.pilean-motion-words { max-width: 44rem; }
+.pilean-motion-unchecked { border-left: 3px solid var(--pilean-rule); padding-left: 0.6rem; }
+.pilean-motion-steps-wrap { max-width: 100%; overflow-x: auto; margin: 0.5rem 0 1rem; }
+.pilean-motion-steps { border-collapse: collapse; font-size: 0.92em; }
+.pilean-motion-steps caption {
+  caption-side: top; text-align: left; color: var(--pilean-muted); padding-bottom: 0.3rem;
+}
+.pilean-motion-steps th, .pilean-motion-steps td {
+  border-bottom: 1px solid var(--pilean-rule); padding: 0.3rem 0.7rem 0.3rem 0;
+  text-align: left; vertical-align: top;
+}
+.pilean-motion-steps tbody th { font-weight: normal; white-space: nowrap; }
+.pilean-motion-moves { margin: 0; padding-left: 1rem; }
+.pilean-motion-crossfade { font-style: italic; }
+.pilean-motion-panel { font-weight: 600; }
+.pilean-page-motion-keys {
+  list-style: none; margin: 0.5rem 0 1rem; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); gap: 0.75rem;
+  align-items: start;
+}
+.pilean-page-motion-key { margin: 0; min-width: 0; text-align: center; }
+.pilean-page-motion-key img {
+  display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 4px;
 }
 "##
 

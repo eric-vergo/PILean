@@ -81,6 +81,7 @@ def parseWrapperArgs (opts : SiteOptions) (args : List String) : Except String W
       w := { w with options.sourcePrefix := p }; rest := r
     | "--check-figures" :: d :: r => w := { w with checkDir := some d }; rest := r
     | "--strict-figures" :: r => w := { w with strict := true }; rest := r
+    | "--figure-allow-unchecked" :: r => w := { w with options.allowUnchecked := true }; rest := r
     | "--figure-code" :: "highlight" :: r => w := { w with highlight := true }; rest := r
     | "--figure-code" :: "signatures" :: r => w := { w with highlight := false }; rest := r
     | "--figure-code" :: m :: _ => throw s!"--figure-code {m}: expected highlight or signatures"
@@ -175,7 +176,8 @@ def shellWord (s : String) : String :=
 def figureFlags (o : SiteOptions) : Array String :=
   (match o.repo with | some r => #["--figure-repo", shellWord r] | Option.none => #[]) ++
   (match o.commit with | some c => #["--figure-commit", c] | Option.none => #[]) ++
-  (if o.sourcePrefix.isEmpty then #[] else #["--figure-source-prefix", shellWord o.sourcePrefix])
+  (if o.sourcePrefix.isEmpty then #[] else #["--figure-source-prefix", shellWord o.sourcePrefix]) ++
+  (if o.allowUnchecked then #["--figure-allow-unchecked"] else #[])
 
 /-- How a genre's adapter puts figure pages into a document: the names of its figure blocks and
 of its figures page's block, the figures page's block, and a figure's page block. -/

@@ -17,7 +17,9 @@ and its `<base>`, with percent escapes and character references decoded.
 By default only PILean's links are checked: those of an `a` element with a class that starts with
 `pilean-` (the figures, the figures page and the figures' pages mark every link they write that
 way). With `all := true`, every link of the site is held to the same rule. Links with a scheme
-(`https:`, `lean:`, …) and links to another host are not checked.
+(`https:`, `lean:`, …) and links to another host are not checked, nor is a bare fragment that
+names an element a page's script makes (`scriptPlaces`: the Verso Blueprint motion switch,
+`#bp-motion`, which a motion's caption links).
 
 The pages are read as Verso writes them: attribute values in double quotes, `<`, `>`, `&` and
 `"` in them written as character references, and no tag inside `script` and `style` elements.
@@ -124,6 +126,11 @@ def leavesSite (href : String) : Bool :=
     | c :: rest => c.isAlpha && (rest.dropWhile schemeChar).head? == some ':'
     | [] => false
 
+/-- The ids of elements that a page's script makes rather than its markup, which a link may name
+as a bare fragment: the Verso Blueprint motion switch (`bp-motion`), whose script also follows
+such a link itself and whose stylesheet shows the link only when scripts run. -/
+def scriptPlaces : List String := ["bp-motion"]
+
 /-- The folders and file that the relative address `ref` names from the folder `dir` (both lists
 of components from the site's root); `none` when it goes above the root. The `Bool` says that the
 address names a folder (it ends in `/`, `.` or `..`, or is empty). -/
@@ -206,6 +213,7 @@ def siteLinkProblems (root : System.FilePath) (all : Bool := false) :
     let some p ← pages comps | out := out.push s!"{"/".intercalate comps}: cannot be read"
     for (href, cls) in p.links do
       if !(all || pileanLink cls) || leavesSite href then continue
+      if scriptPlaces.any (href == "#" ++ ·) then continue
       checked := checked + 1
       if let some why ← linkProblem? root comps.dropLast p.base href pages then
         out := out.push s!"{"/".intercalate comps}: {href} ({cls}): {why}"

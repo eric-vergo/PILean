@@ -11,10 +11,26 @@
 # through `getCTM()`:
 #   (a) at the middle of each key's rest every actor is where the key's still has it, and every
 #       label's or marker's anchor where the motion's plan draws it (0.05 px),
-#       and the picture is the key's still SVG up to antialiasing: every channel of every pixel
-#       of each lies within the range of the other's pixels at most one pixel away, widened by
-#       40 (a circle turned by 72 degrees is rasterised a little otherwise than the still's own
-#       circle, along its outline);
+#       and the picture is the key's still SVG up to antialiasing (`UNEXPLAINED`): no pixel is
+#       unexplained, a pixel of one picture being unexplained by the other when both of two
+#       tests fail: (1) one of its channels lies outside the range of the other's pixels at most
+#       one pixel away, widened by 40 levels (`RANGE_WIDEN`); and (2) after a 3 by 3 box blur of
+#       both pictures, one of its channels differs from the other's by more than a fifth
+#       (`BLUR_RATIO`) of the local contrast, the widest range of a channel over the 5 by 5
+#       pixels around it in both pictures. Chromium draws a shape turned into place by `rotate()`
+#       a little otherwise than the same shape drawn in place: at the tangents of a circle and
+#       along a segment, single pixels up to 57 levels apart (the fixtures in
+#       `tools/fixtures/motion-pixels/`), which fail (1) alone; the blur spreads such a pixel over
+#       its neighbours, and where (1) fails, correct pictures differ after it by at most 0.11 of
+#       the local contrast (measured on 58 renditions of a two-panel motion; the fixtures 0.005).
+#       Whatever (1) catches, (2) catches too when a stroke, label, dot or ring is moved by 2
+#       pixels or more or is missing: measured at 0.33 of the local contrast or more for a 1 px
+#       line in ink or faint grey (light and dark theme, 0.75 to 2 px wide), a label, dots of
+#       radius 1 to 2.5 (ink, faint, accent, a #d4d4d8 trail dot, one at 35 % opacity) and dashed
+#       rings. What (1) does not see the rule does not see: a difference of less than about 40 to
+#       50 levels (a fill at 10 % opacity missing or of another colour; a line of less than 50
+#       levels of contrast moved), and most shapes moved by 1 pixel. The anchor checks below are
+#       the precise instrument (0.05 px), for the actors' anchors and the upright marks only;
 #   (b) at a quarter, a half and three quarters of every turn the actor is on the turn's circle
 #       (0.05 px) at the eased fraction of the turn's angle (0.5 degrees): a true arc;
 #   (c) labels and markers (`[data-pilean-upright]`) are not turned (less than 0.01 degrees),
@@ -33,7 +49,10 @@
 #       while it moves, neither out of the picture nor into another panel.
 # Labels and markers that turn (`turning_marks` in the expectations, from the motion's model)
 # must have upright groups; a picture without any (only fades, say) has none to find.
-# Without seeking, the motion plays: two screenshots at different `getCurrentTime()` differ.
+# Without seeking, the motion plays: screenshots taken when the running clock reaches two moments
+# of different moves (from the expectations) differ.
+# Before the motions, the pixel rule is checked on its fixtures (`pixel_rule_checks`): a circle and
+# a segment drawn in place and turned into place pass it, and either moved by 2 or 3 pixels fails.
 #
 # Needs the `playwright` Python package and a Chromium it can find (nothing is installed or
 # downloaded); without them it says so and exits cleanly.
@@ -98,20 +117,70 @@ PIXELS = """async ([a, b]) => {
   return n;
 }"""
 
-UNEXPLAINED = """async ([a, b]) => {
+# The two tests of the pixel rule (see the header): the range widened by RANGE_WIDEN levels, the
+# blurred difference above BLUR_RATIO of the local contrast.
+RANGE_WIDEN = 40
+BLUR_RATIO = 0.2
+
+UNEXPLAINED = """async ([a, b, widen, ratio, shift]) => {
   const load = src => new Promise((ok, bad) => {
     const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
   const [x, y] = await Promise.all([load(a), load(b)]);
   const w = Math.min(x.width, y.width), h = Math.min(x.height, y.height);
-  const grab = i => {
+  // the second picture is drawn `shift` pixels to the right over white (0 but in the tests of
+  // the rule itself)
+  const grab = (i, dx) => {
     const c = document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
     c.width = w; c.height = h;
-    const g = c.getContext('2d'); g.drawImage(i, 0, 0, w, h);
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+    g.drawImage(i, dx, 0, w, h);
     return g.getImageData(0, 0, w, h).data; };
-  const p = grab(x), q = grab(y);
+  const p = grab(x, 0), q = grab(y, shift || 0);
+  // each channel of each picture after a 3 by 3 box blur (edges repeated)
+  const blur = s => {
+    const o = new Float32Array(w * h * 3);
+    for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) for (let c = 0; c < 3; c++) {
+      let sum = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const u = Math.min(w - 1, Math.max(0, xx + dx)), v = Math.min(h - 1, Math.max(0, yy + dy));
+        sum += s[4 * (v * w + u) + c];
+      }
+      o[3 * (yy * w + xx) + c] = sum / 9;
+    }
+    return o;
+  };
+  const bp = blur(p), bq = blur(q);
+  const blurred = k => {
+    let d = 0;
+    for (let c = 0; c < 3; c++) d = Math.max(d, Math.abs(bp[3 * k + c] - bq[3 * k + c]));
+    return d;
+  };
+  // the local contrast at a pixel: the widest range of a channel over the 5 by 5 neighbourhood,
+  // in both pictures
+  const local = (xx, yy) => {
+    let d = 0;
+    for (let c = 0; c < 3; c++) {
+      let lo = 255, hi = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const u = xx + dx, v = yy + dy;
+        if (u < 0 || v < 0 || u >= w || v >= h) continue;
+        for (const s of [p, q]) {
+          const z = s[4 * (v * w + u) + c];
+          if (z < lo) lo = z;
+          if (z > hi) hi = z;
+        }
+      }
+      d = Math.max(d, hi - lo);
+    }
+    return d;
+  };
   // a pixel of s is explained by t when each of its channels lies within the range of t's
-  // pixels at most one pixel away, widened by 40: an edge moved by less than a pixel stays
-  // between its neighbours' colours
+  // pixels at most one pixel away, widened by `widen` (an edge moved by less than a pixel stays
+  // between its neighbours' colours), or when the blurred pictures differ there by at most
+  // `ratio` of the local contrast (a pixel drawn otherwise by the rasteriser, in an outline at
+  // the same place); `worst` is the largest such fraction among the pixels the range test does
+  // not explain
+  let worst = 0;
   const count = (s, t) => {
     let n = 0;
     for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
@@ -126,13 +195,16 @@ UNEXPLAINED = """async ([a, b]) => {
           if (z < lo) lo = z;
           if (z > hi) hi = z;
         }
-        if (s[k + c] < lo - 40 || s[k + c] > hi + 40) ok = false;
+        if (s[k + c] < lo - widen || s[k + c] > hi + widen) ok = false;
       }
-      if (!ok) n++;
+      if (ok) continue;
+      const f = blurred(yy * w + xx) / Math.max(1, local(xx, yy));
+      if (f > worst) worst = f;
+      if (f > ratio) n++;
     }
     return n;
   };
-  return [count(p, q), count(q, p)];
+  return {n: [count(p, q), count(q, p)], worst};
 }"""
 
 OUTSIDE = """async ([a, boxes]) => {
@@ -171,6 +243,16 @@ DIFF = """async ([a, b]) => {
 }"""
 
 
+def unexplained(page, a, b, ratio=BLUR_RATIO, shift=0, raw=False):
+    """The number of unexplained pixels of the screenshots `a` and `b` (PNG bytes, or data URIs
+    with `raw`) both ways, and the largest blurred difference, as a fraction of the local contrast,
+    at a pixel the range test does not explain."""
+    if not raw:
+        a, b = uri(a), uri(b)
+    r = page.evaluate(UNEXPLAINED, [a, b, RANGE_WIDEN, ratio, shift])
+    return sum(r["n"]), r["worst"]
+
+
 def uri(data):
     return "data:image/png;base64," + base64.b64encode(data).decode()
 
@@ -197,7 +279,7 @@ def check(browser, root, name):
     page.on("pageerror", lambda e: errors.append(str(e)))
     page.goto("file://" + path)
     page.evaluate("document.documentElement.pauseAnimations()")
-    rest_err = radius_err = angle_err = upright = 0.0
+    rest_err = radius_err = angle_err = upright = worst_ratio = 0.0
     rest_pixels = []
     ok = True
     box = page.evaluate(
@@ -219,7 +301,9 @@ def check(browser, root, name):
             os.path.join(root, f"{name}-key{rest['key']}.svg")))
         still = still_page.screenshot(clip=clip)
         still_page.close()
-        rest_pixels.append(sum(page.evaluate(UNEXPLAINED, [uri(shot), uri(still)])))
+        n, f = unexplained(page, shot, still)
+        rest_pixels.append(n)
+        worst_ratio = max(worst_ratio, f)
         for panel in spec.get("panels", []):
             x, y, w, h = panel["box"]
             box_clip = {"x": x, "y": y, "width": w, "height": h}
@@ -229,7 +313,8 @@ def check(browser, root, name):
                 os.path.join(root, f"{name}-key{rest['key']}.svg")))
             part_still = still_page.screenshot(clip=box_clip)
             still_page.close()
-            n = sum(page.evaluate(UNEXPLAINED, [uri(part), uri(part_still)]))
+            n, f = unexplained(page, part, part_still)
+            worst_ratio = max(worst_ratio, f)
             panel_pixels[panel["id"]] = max(panel_pixels.get(panel["id"], 0), n)
         for a in rest["actors"]:
             xy = first(seen["actors"], a["id"])
@@ -338,19 +423,29 @@ def check(browser, root, name):
     frozen = off_at(hidden_at)
     switch_ok = switch == 0 or switch * 2 < frozen
     sctx.close()
-    # it plays: no seeking, two moments of the running clock
+    # it plays: no seeking, two moments of the running clock inside different moves (from the
+    # expectations' timeline: samples of the first and the last turn, else the first and the last
+    # rest), each waited for on the clock, so that a long first hold does not hide the motion
+    times = sorted({sm["t"] for tn in spec["turns"] for sm in tn["samples"]})
+    if len(times) < 2:
+        times = [spec["rests"][0]["t"], spec["rests"][-1]["t"]]
     pctx = browser.new_context(viewport=VIEWPORT)
     ppage = pctx.new_page()
     ppage.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     ppage.goto("file://" + path)
-    ppage.wait_for_timeout(600)
-    t1 = ppage.evaluate("document.documentElement.getCurrentTime()")
-    s1 = ppage.screenshot()
-    ppage.wait_for_timeout(1200)
-    t2 = ppage.evaluate("document.documentElement.getCurrentTime()")
-    s2 = ppage.screenshot()
+
+    def at_clock(t):
+        """A screenshot when the running clock is within 0.15 s after `t` (modulo the cycle)."""
+        for _ in range(int((2 * spec["cycle"] + 2) / 0.015)):
+            now = ppage.evaluate("document.documentElement.getCurrentTime()")
+            if 0 <= (now - t) % spec["cycle"] <= 0.15:
+                return now, ppage.screenshot()
+            ppage.wait_for_timeout(15)
+        return None, None
+    t1, s1 = at_clock(times[0])
+    t2, s2 = at_clock(times[-1])
     pctx.close()
-    plays = t2 > t1 and s1 != s2
+    plays = t1 is not None and t2 is not None and s1 != s2
     uprights_ok = (uprights_found == {spec["uprights"]}
                    and (spec["uprights"] > 0) == spec["turning_marks"])
     panels_ok = (all(n == 0 for n in panel_pixels.values())
@@ -361,12 +456,13 @@ def check(browser, root, name):
           and upright <= UPRIGHT_TOL and uprights_ok and all(n == 0 for n in rest_pixels)
           and display == ["hidden 0", "inline"] and diff < 8 and switch_ok and not errors
           and plays and panels_ok)
-    print(f"{name}: rests {rest_err:.2e} px and {rest_pixels} pixels off the stills, "
+    print(f"{name}: rests {rest_err:.2e} px and {rest_pixels} pixels off the stills (worst "
+          f"blurred difference {worst_ratio:.3f} of the local contrast), "
           f"arcs {radius_err:.2e} px and {angle_err:.2e} deg, uprights {sorted(uprights_found)} "
           f"of {spec['uprights']} found, turned {upright:.2e} deg; reduced motion: live "
           f"{display[0]}, poster {display[1]}, {diff:.2f} of 255 from the poster PNG, switched "
           f"off again {switch} pixels off the clock ({frozen} off the time it was hidden); "
-          f"plays ({t1:.2f} s, {t2:.2f} s): {plays}; "
+          f"plays ({t1 or 0:.2f} s, {t2 or 0:.2f} s): {plays}; "
           f"console errors: {len(errors)}"
           + (f"; panels: pixels off their stills {panel_pixels}, in phase within "
              f"{ {k: float(f'{v:.2e}') for k, v in phase_err.items()} } px over "
@@ -375,6 +471,39 @@ def check(browser, root, name):
           + f" -> {'ok' if ok else 'FAILED'}")
     for e in errors:
         print(f"  console: {e}")
+    return ok
+
+
+FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "motion-pixels")
+
+
+def pixel_rule_checks(browser):
+    """The pixel rule on its fixtures: each pair of a shape drawn in place and the same shape
+    turned into place by `rotate()` (a circle, a horizontal segment), which Chromium draws up to
+    57 levels apart at single pixels (which the range test alone does not explain, as it must
+    find for the fixture to test anything), must have no unexplained pixel; the picture in place
+    against itself moved by 2 and by 3 pixels must have some (the rule catches a shape moved so
+    far); moved by 1 pixel is reported, not required. Returns whether all hold."""
+    page = browser.new_page(viewport={"width": 340, "height": 700})
+    ok = True
+    for stem in ["circle", "segment"]:
+        shots = []
+        for f in [f"{stem}-still.svg", f"{stem}-turned.svg"]:
+            page.goto("file://" + os.path.join(FIXTURES, f))
+            shots.append(uri(page.screenshot()))
+        page.goto("about:blank")
+        turned, worst = unexplained(page, shots[0], shots[1], raw=True)
+        alone, _ = unexplained(page, shots[0], shots[1], ratio=-1, raw=True)
+        moved = {d: unexplained(page, shots[0], shots[0], shift=d, raw=True)[0] for d in (1, 2, 3)}
+        # the fixture must show the effect the rule allows for, or it tests nothing
+        good = turned == 0 and alone > 0 and moved[2] > 0 and moved[3] > 0
+        ok = ok and good
+        print(f"pixel rule, {stem}: turned into place {turned} unexplained pixels (the range test "
+              f"alone: {alone}; largest blurred difference there {worst:.3f} of the local "
+              f"contrast, the rule allows {BLUR_RATIO}); moved by 1, 2, 3 px: {moved[1]}, "
+              f"{moved[2]}, {moved[3]} -> "
+              f"{'ok' if good else 'FAILED'}")
+    page.close()
     return ok
 
 
@@ -392,7 +521,8 @@ def main():
         return 0
     try:
         names = sorted(f[:-5] for f in os.listdir(root) if f.endswith(".json"))
-        failures = sum(0 if check(browser, root, name) else 1 for name in names)
+        failures = 0 if pixel_rule_checks(browser) else 1
+        failures += sum(0 if check(browser, root, name) else 1 for name in names)
         if not names:
             print(f"motion-browser-check: no motions in {root}")
             failures = 1

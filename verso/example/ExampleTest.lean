@@ -4,6 +4,8 @@ Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILeanVerso
 import PictureExample
+import PILeanTest.Motion
+import PILeanTest.MotionPanels
 
 /-!
 # Checks of the adapter
@@ -13,6 +15,14 @@ import PictureExample
 the directive accepts, the dark variants, the rendering of a site's figures (an unknown name, bad
 options, the files and the manifest, a figure used in a way it cannot be shown, the inline
 limit), the sizes read from the files, the links and the wrapper's arguments.
+
+With `--motion-out DIR` it writes instead, for each motion of the example, what
+`tools/motion-browser-check.py` and the site's browser check (`tests/browser_check.py`) read: the
+animated SVG, each key's still, the poster's PNG and the expectations (the actors at every rest,
+the turns with samples, the upright marks, for a picture of panels the boxes and the actors at
+common times), named by the declaration (`Example.twoFrames-narrow` for a narrow rendition), with
+the writers of PILean's own tests (`PILeanTest.MotionChecks.expectations`,
+`PILeanTest.MotionPanelsChecks.expectations`).
 -/
 
 open Lean Elab PILean PILean.Trust PILeanVerso
@@ -127,7 +137,7 @@ def checks : Array (String × Bool) := #[
     (Style.darkVariant? { Style.light with lineWidth := 3 }).map (·.lineWidth) == some 3),
   ("dark: the colours are the dark style's",
     (Style.darkVariant? Style.light).map (·.background) == some Style.dark.background),
-  ("table: fifteen figures", table.size == 15),
+  ("table: nineteen figures", table.size == 19),
   ("standing: a figure linked by figure_links has the standing linked, with its theorem",
     standingOf "Example.divisorHasse" == some (.linked #["Example.divisorHasse_spec"]) &&
     standingOf "Example.reductionSquare" == some (.linked #["Example.reductionSquare_spec"])),
@@ -261,8 +271,36 @@ def checks : Array (String × Bool) := #[
   ("arguments: the last output folder counts",
     outputDir ["--output", "a", "x", "--output", "b"] == "b" && outputDir [] == "_out")]
 
-/-- Runs the checks; exit status 1 if one fails. -/
-def main : IO UInt32 := do
+/-- Writes the files of one motion for the browser checks (see the module doc). -/
+def writeMotion (dir : System.FilePath) (name : String) (m : Plane.Motion) : IO Unit := do
+  IO.FS.writeFile (dir / s!"{name}.svg") m.toSvgUnchecked
+  for k in [0:m.keys.size] do
+    IO.FS.writeFile (dir / s!"{name}-key{k}.svg") (m.keyFigure k).toSvg
+  IO.FS.writeBinFile (dir / s!"{name}-poster.png") ((m.keyFigure m.poster).toPng.getD .empty)
+  IO.FS.writeFile (dir / s!"{name}.json") (PILeanTest.MotionChecks.expectations name m)
+
+/-- Writes the files of a picture of panels and of its narrow rendition for the browser checks. -/
+def writePanels (dir : System.FilePath) (name : String) (P : Plane.MotionPanels) : IO Unit := do
+  let all := #[(name, P)] ++ (P.narrow.map fun n => #[(name ++ "-narrow", n)]).getD #[]
+  for (file, Q) in all do
+    let r := Q.report
+    IO.FS.writeFile (dir / s!"{file}.svg") r.toSvgUnchecked
+    for k in [0:Q.keyCount] do
+      IO.FS.writeFile (dir / s!"{file}-key{k}.svg") (r.keyStillSvg k)
+    IO.FS.writeBinFile (dir / s!"{file}-poster.png") ((r.keyStillPng Q.poster).getD .empty)
+    IO.FS.writeFile (dir / s!"{file}.json") (PILeanTest.MotionPanelsChecks.expectations file r)
+
+/-- Runs the checks, exit status 1 if one fails; with `--motion-out DIR`, writes the files of the
+example's motions for the browser checks instead. -/
+def main (args : List String) : IO UInt32 := do
+  if let ["--motion-out", dir] := args then
+    IO.FS.createDirAll dir
+    writeMotion dir "Example.quarterTurn" Example.quarterTurn
+    writeMotion dir "Example.fifthTurn" Example.fifthTurn
+    writePanels dir "Example.twoFrames" Example.twoFrames
+    writePanels dir "Example.oddMotion" Example.oddMotion
+    IO.println s!"motion files written to {dir}"
+    return 0
   let failed := checks.filter (!·.2)
   for (n, _) in failed do IO.eprintln s!"FAIL {n}"
   IO.println s!"checks: {checks.size - failed.size} of {checks.size} hold"
