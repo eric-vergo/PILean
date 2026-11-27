@@ -47,7 +47,23 @@
 #       moved by more than a pixel; `switch_times`), and the pictures of the two times must
 #       differ, or the probe fails as undecided;
 #   (e) no console errors;
-#   (f) for a picture of panels (its expectations list the panels' boxes and `phase`): at every
+#   (f) at every sample of every appearance and disappearance (the expectations' `opacities`: 0.05 s
+#       before its window, in its middle and 0.05 s after, the window in a step, through a whole
+#       step or in a rest), in both loops, the nth layer of its actor (the nth element with that
+#       `data-pilean-actor`) is at the expected opacity, within 0.02 (`OPACITY_TOL`): the opacity
+#       read is the product of the computed opacity of the layer and of each ancestor up to the
+#       root, the seam's group included (`OPACITY`). Chromium, Firefox and WebKit all put the value
+#       of a SMIL animation of the `opacity` attribute in the computed style; that it is what is
+#       drawn is measured from the pixels in the first loop (`drawn_opacity`: the picture, the
+#       picture without the layer and with it opaque, the median of (shown - without) / (opaque -
+#       without) over the pixels where the last two differ by 64 levels or more), within 0.03
+#       (`DRAWN_TOL`: 8-bit channels over 64 levels move in steps of 1/64). Measured on the golden
+#       motions (108 samples, 54 measured from the pixels): read against expected at most 8e-6 in
+#       Chromium, 0 in Firefox and 3e-6 in WebKit (the writer rounds opacities to 4 decimals and
+#       splines to 6); drawn against expected at most 0.006 in Chromium and Firefox and 0.002 in
+#       WebKit (measured once, with a snapshot of the `WKWebView`, which `tools/webkit/` does not
+#       take). Every listed sample must be read (none missing), and the line says how many were;
+#   (g) for a picture of panels (its expectations list the panels' boxes and `phase`): at every
 #       rest each panel's part of the picture is its part of the composed still (the pixel rule
 #       of (a), within the panel's box), and at every rest and at a quarter, a half and three
 #       quarters of every move every actor of every panel is where the composed baker has it
@@ -55,12 +71,22 @@
 #       cycle, with each panel's moving picture shown alone, no pixel of it other than the
 #       background's lies outside its own box and the titles' band: nothing leaves its panel
 #       while it moves, neither out of the picture nor into another panel.
+# The expectations must be in format 3 (`FORMAT`); another format fails, saying which was found.
+# Every key has a rest, a key that is not a still (`still` false) included: it takes part in every
+# check above, and DIR has its picture `<name>-key{k}.svg` like every key's. A rest is checked at
+# the part of it in which its key is shown still (`from` to `until`, after the rest's fades, `t`
+# its middle); the switch probe uses only rests whose part is longer than 0.3 s.
 # Labels and markers that turn (`turning_marks` in the expectations, from the motion's model)
 # must have upright groups; a picture without any (only fades, say) has none to find.
 # Without seeking, the motion plays: screenshots taken when the running clock reaches two moments
 # of different moves (from the expectations) differ.
 # Before the motions, the pixel rule is checked on its fixtures (`pixel_rule_checks`): a circle and
 # a segment drawn in place and turned into place pass it, and either moved by 2 or 3 pixels fails.
+# After the motions, the opacity check is shown to catch a mark whose fade never starts
+# (`opacity_mutation`): in the first motion that lists opacities, the opacity animation of the
+# group nearest the first entry's layer is held at 0 in the page before seeking, and samples must
+# be found off ("caught"); the last line gives the motions, the opacity samples asserted and the
+# failures.
 #
 # Needs the `playwright` Python package and a browser of the engine that it can find (nothing is
 # installed or downloaded); without them it says so and exits cleanly.
@@ -78,7 +104,7 @@
 # pixels, where Chromium finds 5, which is reported, not required) and the segment as Chromium
 # does (19 pixels, 0.005), and a shape moved by 2 or 3 px is caught. `--engine webkit` runs the
 # position checks in the system's WebKit on macOS (`tools/webkit/webkit_check.py`), not the pixel
-# rule.
+# rule, and the opacity samples of (f) without their measure from the pixels.
 import base64
 import json
 import math
@@ -98,8 +124,12 @@ VIEWPORT = {"width": 800, "height": 1000}
 RADIUS_TOL = 0.05
 ANGLE_TOL = 0.5
 UPRIGHT_TOL = 0.01
+# the opacity of a layer read from the computed style, and as measured from its pixels (see the
+# header)
+OPACITY_TOL = 0.02
+DRAWN_TOL = 0.03
 
-READ = """async (t) => {
+READ ="""async (t) => {
   const svg = document.documentElement;
   svg.setCurrentTime(t);
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -262,6 +292,115 @@ DIFF = """async ([a, b]) => {
 }"""
 
 
+# The opacity a reader sees of an actor's layer: the product of the computed opacity of the nth
+# element with that `data-pilean-actor` and of each of its ancestors up to the root (Chromium and
+# Firefox put the value of a SMIL animation of the `opacity` attribute in the computed style;
+# `drawn_opacity` checks that it is what is drawn); `null` when there is no such element.
+OPACITY = """async ([t, id, nth]) => {
+  const svg = document.documentElement;
+  svg.setCurrentTime(t);
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const el = [...svg.querySelectorAll('[data-pilean-actor]')]
+    .filter(e => e.getAttribute('data-pilean-actor') === id)[nth];
+  if (!el) return null;
+  let o = 1;
+  for (let e = el; e; e = e.parentElement) {
+    o *= parseFloat(getComputedStyle(e).opacity);
+    if (e === svg) break;
+  }
+  return o;
+}"""
+
+# What `drawn_opacity` does to the nth layer of an actor between its screenshots: `hide` it
+# (`visibility`), make it `opaque` (every opacity animation of it and its ancestors held at 1),
+# `restore` both; `fade-never-starts` holds the opacity animation of the group nearest the layer
+# at 0 (the mutation of `opacity_mutation`). Returns whether the layer was found.
+LAYER = """([id, nth, what]) => {
+  const svg = document.documentElement;
+  const el = [...svg.querySelectorAll('[data-pilean-actor]')]
+    .filter(e => e.getAttribute('data-pilean-actor') === id)[nth];
+  if (!el) return false;
+  const fades = [];
+  for (let e = el; e && e !== svg; e = e.parentElement)
+    for (const c of e.children)
+      if (c.localName === 'animate' && c.getAttribute('attributeName') === 'opacity') fades.push(c);
+  const held = v => a => {
+    if (!a.hasAttribute('data-kept')) a.setAttribute('data-kept', a.getAttribute('values'));
+    a.setAttribute('values', a.getAttribute('values').split(';').map(() => v).join(';'));
+  };
+  if (what === 'hide') el.style.visibility = 'hidden';
+  else if (what === 'opaque') { el.style.visibility = ''; fades.forEach(held('1')); }
+  else if (what === 'fade-never-starts') { if (!fades.length) return false; held('0')(fades[0]); }
+  else {
+    el.style.visibility = '';
+    for (const a of fades) if (a.hasAttribute('data-kept')) {
+      a.setAttribute('values', a.getAttribute('data-kept')); a.removeAttribute('data-kept'); }
+  }
+  return true;
+}"""
+
+# The opacity drawn, from three screenshots of one time: the picture `s`, the picture without
+# the layer `h` and with the layer opaque `f`. Where some channel of `f` and `h` differs by 64
+# levels or more (the layer's own pixels, away from antialiased edges), (s - h) / (f - h) in that
+# channel is the layer's opacity; the median over those pixels, and how many there were.
+RATIO = """async ([a, b, c]) => {
+  const load = src => new Promise((ok, bad) => {
+    const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
+  const imgs = await Promise.all([load(a), load(b), load(c)]);
+  const w = imgs[0].width, h = imgs[0].height;
+  const [s, hh, f] = imgs.map(i => {
+    const cv = document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
+    cv.width = w; cv.height = h;
+    const g = cv.getContext('2d'); g.drawImage(i, 0, 0, w, h);
+    return g.getImageData(0, 0, w, h).data; });
+  const r = [];
+  for (let k = 0; k < s.length; k += 4) {
+    let best = 0, ch = 0;
+    for (let q = 0; q < 3; q++) {
+      const d = Math.abs(f[k + q] - hh[k + q]);
+      if (d > best) { best = d; ch = q; }
+    }
+    if (best >= 64) r.push((s[k + ch] - hh[k + ch]) / (f[k + ch] - hh[k + ch]));
+  }
+  r.sort((x, y) => x - y);
+  return [r.length ? r[r.length >> 1] : null, r.length];
+}"""
+
+
+def drawn_opacity(page, clip, t, ident, nth):
+    """The opacity of the nth layer of the actor `ident` as drawn at time `t`, measured from the
+    pixels (`RATIO`), and how many pixels it was measured on; `None` when the layer is missing."""
+    if page.evaluate(OPACITY, [t, ident, nth]) is None:
+        return None, 0
+    shown = page.screenshot(clip=clip)
+    page.evaluate(LAYER, [ident, nth, "hide"])
+    page.evaluate(OPACITY, [t, ident, nth])
+    hidden = page.screenshot(clip=clip)
+    page.evaluate(LAYER, [ident, nth, "opaque"])
+    page.evaluate(OPACITY, [t, ident, nth])
+    opaque = page.screenshot(clip=clip)
+    page.evaluate(LAYER, [ident, nth, "restore"])
+    return page.evaluate(RATIO, [uri(shown), uri(hidden), uri(opaque)])
+
+
+def opacity_errors(page, spec):
+    """Every sample of the expectations' `opacities`, in the first loop and one cycle later: the
+    largest difference between the opacity read (`OPACITY`) and the expected one, how many
+    samples were read, how many were off by more than `OPACITY_TOL`, and the ids not found."""
+    err, read, off, missing = 0.0, 0, 0, []
+    for e in spec["opacities"]:
+        for loop in (0, spec["cycle"]):
+            for s in e["samples"]:
+                o = page.evaluate(OPACITY, [s["t"] + loop, e["id"], e["nth"]])
+                if o is None:
+                    missing.append(e["id"])
+                    continue
+                read += 1
+                err = max(err, abs(o - s["o"]))
+                off += abs(o - s["o"]) > OPACITY_TOL
+    return err, read, off, missing
+
+
 def unexplained(page, a, b, ratio=BLUR_RATIO, shift=0, raw=False):
     """The number of unexplained pixels of the screenshots `a` and `b` (PNG bytes, or data URIs
     with `raw`) both ways, and the largest blurred difference, as a fraction of the local contrast,
@@ -287,12 +426,10 @@ def first(actors, ident):
     return None
 
 
-# How long before the moment of comparison the switch probe shows the picture again, the least
-# time it keeps it hidden, and how far from the middle of a rest it may hide it when the
-# expectations do not give the rest's ends (seconds of the motion's clock).
+# How long before the moment of comparison the switch probe shows the picture again, and the least
+# time it keeps it hidden (seconds of the motion's clock).
 SHOW_LEAD = 0.25
 MIN_HIDDEN = 0.8
-NEAR_REST = 0.25
 
 
 def rests_differ(a, b):
@@ -307,18 +444,20 @@ def rests_differ(a, b):
 
 # The version of the expectations' format this check reads (`PILeanTest.MotionChecks
 # .expectationsFormat`).
-FORMAT = 2
+FORMAT = 3
 
 
 def spec_problem(spec):
-    """Why the expectations cannot be checked, or `None`: an older format (without the rests' ends
-    and drawings, the slides and the declared moves, so that a slide would go unchecked), or other
-    turns or slides than the motion declares (a writer that lost some)."""
-    if spec.get("format", 1) < FORMAT or "declared" not in spec or "slides" not in spec or \
-            any("shapes" not in r or "from" not in r for r in spec["rests"]):
+    """Why the expectations cannot be checked, or `None`: another format than `FORMAT` (an older
+    one has no opacities and no rests that are not stills, so that a fade would go unchecked), or
+    other turns or slides than the motion declares (a writer that lost some)."""
+    if spec.get("format", 1) != FORMAT or "declared" not in spec or "slides" not in spec or \
+            "opacities" not in spec or \
+            any(k not in r for r in spec["rests"] for k in ("shapes", "from", "still")):
         return (f"the expectations are in format {spec.get('format', 1)}, this check reads format "
-                f"{FORMAT} (rests with their ends and drawings, slides, declared moves): rebuild "
-                "the expectations writer with this version of PILean")
+                f"{FORMAT} (rests with their ends, drawings and whether they are stills, slides, "
+                "opacities, declared moves): rebuild the expectations writer with this version "
+                "of PILean")
     d = spec["declared"]
     if d["turns"] != len(spec["turns"]) or d["slides"] != len(spec["slides"]):
         return (f"the motion declares {d['turns']} turns and {d['slides']} slides, the "
@@ -327,11 +466,12 @@ def spec_problem(spec):
 
 
 def rest_window(rest):
-    """The part of a rest where the probe may switch: the rest less 0.1 s at each end, from its
-    start and end in the expectations, else `NEAR_REST` about its middle."""
-    if "from" in rest and rest["until"] - rest["from"] > 0.3:
+    """The part of a rest where the probe may switch: the part in which the key is shown still
+    (`from` to `until`, after the rest's fades) less 0.1 s at each end; `None` for a part of 0.3 s
+    or less, which the probe does not use."""
+    if rest["until"] - rest["from"] > 0.3:
         return rest["from"] + 0.1, rest["until"] - 0.1
-    return rest["t"] - NEAR_REST, rest["t"] + NEAR_REST
+    return None
 
 
 def switch_times(spec, start=0.3):
@@ -342,13 +482,14 @@ def switch_times(spec, start=0.3):
     `None` when no two rests certainly differ."""
     cycle = spec["cycle"]
     best = None
-    for a in spec["rests"]:
+    rests = [r for r in spec["rests"] if rest_window(r)]
+    for a in rests:
         lo_a, hi_a = rest_window(a)
         if (start - lo_a) % cycle <= hi_a - lo_a:
             wait, begin = 0.0, start
         else:
             wait, begin = (lo_a - start) % cycle, lo_a
-        for b in spec["rests"]:
+        for b in rests:
             if not rests_differ(a, b):
                 continue
             lo_b, hi_b = rest_window(b)
@@ -383,7 +524,7 @@ def check(browser, root, name):
     why = spec_problem(spec)
     if why:
         print(f"{name}: {why} -> FAILED")
-        return False
+        return False, 0
     path = os.path.abspath(os.path.join(root, spec["svg"]))
     errors = []
     ctx = browser.new_context(viewport=VIEWPORT)
@@ -408,10 +549,23 @@ def check(browser, root, name):
         if len(seen["uprights"]) == len(rest["uprights"]):
             for (_, xy), want in zip(seen["uprights"], rest["uprights"]):
                 rest_err = max(rest_err, math.dist(xy, want))
+        for a in rest["actors"]:
+            xy = first(seen["actors"], a["id"])
+            if xy is None:
+                ok = False
+                print(f"{name}: key {rest['key']}: no element for {a['id']}")
+                continue
+            rest_err = max(rest_err, math.dist(xy, a["at"]))
+        # the test writer writes the picture of every key, a key that is not a still included,
+        # which the picture at the middle of its rest (`t`, after the rest's fades) must be
+        still_file = os.path.abspath(os.path.join(root, f"{name}-key{rest['key']}.svg"))
+        if not os.path.exists(still_file):
+            ok = False
+            print(f"{name}: key {rest['key']}: no file {os.path.basename(still_file)}")
+            continue
         shot = page.screenshot(clip=clip)
         still_page = ctx.new_page()
-        still_page.goto("file://" + os.path.abspath(
-            os.path.join(root, f"{name}-key{rest['key']}.svg")))
+        still_page.goto("file://" + still_file)
         still = still_page.screenshot(clip=clip)
         still_page.close()
         n, f = unexplained(page, shot, still)
@@ -422,20 +576,12 @@ def check(browser, root, name):
             box_clip = {"x": x, "y": y, "width": w, "height": h}
             part = page.screenshot(clip=box_clip)
             still_page = ctx.new_page()
-            still_page.goto("file://" + os.path.abspath(
-                os.path.join(root, f"{name}-key{rest['key']}.svg")))
+            still_page.goto("file://" + still_file)
             part_still = still_page.screenshot(clip=box_clip)
             still_page.close()
             n, f = unexplained(page, part, part_still)
             worst_ratio = max(worst_ratio, f)
             panel_pixels[panel["id"]] = max(panel_pixels.get(panel["id"], 0), n)
-        for a in rest["actors"]:
-            xy = first(seen["actors"], a["id"])
-            if xy is None:
-                ok = False
-                print(f"{name}: key {rest['key']}: no element for {a['id']}")
-                continue
-            rest_err = max(rest_err, math.dist(xy, a["at"]))
     # the second loop: every rest's anchors again, one cycle later
     for rest in spec["rests"]:
         seen = page.evaluate(READ, rest["t"] + spec["cycle"])
@@ -482,6 +628,22 @@ def check(browser, root, name):
             f = sample["f"]
             slide_err = max(slide_err, math.dist(xy, [a[0] + f * (b[0] - a[0]),
                                                        a[1] + f * (b[1] - a[1])]))
+    # opacities: every sample of every appearance and disappearance, in both loops, read from the
+    # computed style, and in the first loop also measured from the pixels (`drawn_opacity`)
+    listed = 2 * sum(len(e["samples"]) for e in spec["opacities"])
+    opacity_err, opacity_read, opacity_off, opacity_missing = opacity_errors(page, spec)
+    drawn_err, drawn_read = 0.0, 0
+    for e in spec["opacities"]:
+        for s in e["samples"]:
+            o, pixels = drawn_opacity(page, clip, s["t"], e["id"], e["nth"])
+            if o is not None:
+                drawn_read += 1
+                drawn_err = max(drawn_err, abs(o - s["o"]))
+    if opacity_missing:
+        ok = False
+        print(f"{name}: no element for the fading {sorted(set(opacity_missing))}")
+    opacities_ok = (opacity_read == listed and opacity_off == 0 and opacity_err <= OPACITY_TOL
+                    and drawn_read == listed // 2 and drawn_err <= DRAWN_TOL)
     # panels in phase: every actor of every panel where the composed baker has it, at one time
     phase_err = {}
     for off, sample in [(o, sm) for o in loops for sm in spec.get("phase", [])]:
@@ -575,6 +737,8 @@ def check(browser, root, name):
     if not times:
         print(f"{name}: the switch probe could not run: " +
               ("the motion has a single rest" if len(spec["rests"]) < 2 else
+               "fewer than two rests show their key still for more than 0.3 s"
+               if sum(1 for r in spec["rests"] if rest_window(r)) < 2 else
                "no two rests certainly draw different pictures (same actors, anchors and "
                "drawings)"))
     elif frozen == 0:
@@ -612,11 +776,13 @@ def check(browser, root, name):
           and slide_err <= REST_TOL
           and upright <= UPRIGHT_TOL and uprights_ok and all(n == 0 for n in rest_pixels)
           and display == ["hidden 0", "inline"] and diff < 8 and switch_ok and not errors
-          and plays and panels_ok)
+          and plays and panels_ok and opacities_ok)
     print(f"{name}: rests {rest_err:.2e} px and {rest_pixels} pixels off the stills (worst "
           f"blurred difference {worst_ratio:.3f} of the local contrast), "
           f"arcs {radius_err:.2e} px and {angle_err:.2e} deg over {len(spec['turns'])} turns, "
           f"slides {slide_err:.2e} px over {len(spec.get('slides', []))}, "
+          f"opacities {opacity_err:.2e} over {opacity_read} of {listed} samples (drawn "
+          f"{drawn_err:.3f} over {drawn_read}), "
           f"uprights {sorted(uprights_found)} "
           f"of {spec['uprights']} found, turned {upright:.2e} deg; reduced motion: live "
           f"{display[0]}, poster {display[1]}, {diff:.2f} of 255 from the poster PNG, switched "
@@ -630,7 +796,34 @@ def check(browser, root, name):
           + f" -> {'ok' if ok else 'FAILED'}")
     for e in errors:
         print(f"  console: {e}")
-    return ok
+    return ok, opacity_read
+
+
+def opacity_mutation(browser, root, names):
+    """The opacity check must catch a mark whose fade never starts: in the first motion whose
+    expectations list opacities, the opacity animation of the group nearest the first entry's
+    layer is held at 0 in the page (`LAYER`, before seeking), and `opacity_errors` must find
+    samples off. Returns whether it did."""
+    for name in names:
+        with open(os.path.join(root, name + ".json")) as f:
+            spec = json.load(f)
+        if not spec_problem(spec) and spec["opacities"]:
+            break
+    else:
+        print("opacity mutation: no motion lists opacities -> FAILED")
+        return False
+    first_fade = spec["opacities"][0]
+    page = browser.new_page(viewport=VIEWPORT)
+    page.goto("file://" + os.path.abspath(os.path.join(root, spec["svg"])))
+    page.evaluate("document.documentElement.pauseAnimations()")
+    held = page.evaluate(LAYER, [first_fade["id"], first_fade["nth"], "fade-never-starts"])
+    _, read, off, _ = opacity_errors(page, spec)
+    page.close()
+    caught = held and off > 0
+    print(f"opacity mutation: in {name} the fade of {first_fade['id']} never starts (its group's "
+          f"opacity animation held at 0): {off} of {read} samples off -> "
+          f"{'caught' if caught else 'NOT CAUGHT, FAILED'}")
+    return caught
 
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "motion-pixels")
@@ -694,10 +887,15 @@ def main():
     try:
         names = sorted(f[:-5] for f in os.listdir(root) if f.endswith(".json"))
         failures = 0 if pixel_rule_checks(browser, engine) else 1
-        failures += sum(0 if check(browser, root, name) else 1 for name in names)
+        verdicts = [check(browser, root, name) for name in names]
+        failures += sum(0 if v else 1 for v, _ in verdicts)
         if not names:
             print(f"motion-browser-check: no motions in {root}")
             failures = 1
+        else:
+            failures += 0 if opacity_mutation(browser, root, names) else 1
+        print(f"motion-browser-check ({engine}): {len(names)} motions, "
+              f"{sum(n for _, n in verdicts)} opacity samples asserted, {failures} failures")
     finally:
         browser.close()
         pw.stop()

@@ -6,13 +6,13 @@
 
 DIR holds animated SVG files with their expectations, as `lake exe pilean-test --motion-out DIR`
 and a site's own writer (`example-test --motion-out DIR`) write them: every `<name>.json` with its
-`<name>.svg` is checked (expectations of an older format fail). Each file is opened in the
-system's WebKit by `runner.swift` (compiled once with the system's `swiftc` into a folder of the
-temporary directory named after the source's hash, unless `--runner` names a built one), which
-loads files below DIR only and reaches no network, in a transparent click-through window (see
-`runner.swift` for exactly what it does to the desktop; it needs a logged-in session with a
-screen, and is not for a Linux CI); its home is a temporary folder, so nothing is written into
-the user's Library. `runner_test.py` shows the runner's limits hold. Checked, for every motion:
+`<name>.svg` is checked (expectations in another format than 3, `FORMAT`, fail, saying which
+format was found). Each file is opened in the system's WebKit by `runner.swift` (compiled once
+with the system's `swiftc` into a folder of the temporary directory named after the source's
+hash, unless `--runner` names a built one), which loads files below DIR only and reaches no
+network, in a transparent click-through window (see `runner.swift` for exactly what it does to the
+desktop; it needs a logged-in session with a screen, and is not for a Linux CI); its home is a
+temporary folder, so nothing is written into the user's Library. `runner_test.py` shows the runner's limits hold. Checked, for every motion:
 
 * the clock runs: read twice 0.3 s apart it has advanced, and it gets past two cycles; otherwise
   the motion fails (WebKit stops the clock of a picture in no window, which would make every
@@ -21,11 +21,26 @@ the user's Library. `runner_test.py` shows the runner's limits hold. Checked, fo
   its key's still has it at the middle of every rest, on its circle at the eased angle at a
   quarter, a half and three quarters of every turn, on its segment at the eased fraction at the
   same times of every slide, the panels of a picture of panels in phase, labels and markers
-  upright (the tolerances of `tools/motion-browser-check.py`);
+  upright (the tolerances of `tools/motion-browser-check.py`); and at every sample of every
+  appearance and disappearance (the expectations' `opacities`) the layer of its actor at the
+  expected opacity within 0.02 (`OPACITY_TOL`), read as the product of the computed opacity of the
+  layer and of each ancestor up to the root. WebKit puts the value of a SMIL animation of the
+  `opacity` attribute in the computed style, and draws it: measured once on the golden motions
+  with a snapshot of the `WKWebView` (which this runner does not take), the drawn opacity is
+  within 0.002 of the expected one, the computed one within 3e-6. Every listed sample must be
+  read, and each line says how many were;
 * free-running over the first two loops, read every 30 ms or so: near the middle of every rest
-  every actor where its key's still has it, and inside every turn and every slide the actor on its
-  circle or its segment; each kind of reading must have been made in both loops, so none passes
-  for want of readings.
+  (within 0.1 s of it, and inside the part of the rest in which the key is shown still, however
+  short) every actor where its key's still has it, and inside every turn and every slide the actor
+  on its circle or its segment; each kind of reading must have been made in both loops, so none
+  passes for want of readings.
+
+A key that is not a still has a rest like every key, and is checked like every key. The opacity
+check is shown to catch a mark whose fade never starts: in the page of the first motion that
+lists opacities, after its readings, the opacity animation of the group nearest the first entry's
+layer is held at 0 and the samples are read again; some must be off ("caught"), or the run fails.
+The last line gives the motions that hold, the opacity samples asserted and the mutation's
+verdict.
 
 A motion with no anchored actor (a morph alone) has no position to check here: it is reported as
 "positions not checked" (`clock only`), not as holding; `tools/motion-browser-check.py` checks
@@ -46,6 +61,7 @@ REST_TOL = 0.05
 RADIUS_TOL = 0.05
 ANGLE_TOL = 0.5
 UPRIGHT_TOL = 0.01
+OPACITY_TOL = 0.02
 # how near the middle of a rest a free-running reading counts as one of the rest (seconds)
 NEAR_REST = 0.1
 
@@ -84,22 +100,77 @@ for (const loop of [0, 1])
     await sleep(5);
     seek.push(Object.assign(read(), {want: t, loop}));
   }
-return JSON.stringify({ua: navigator.userAgent, t0, t1, free, seek});
+// the opacity a reader sees of the nth layer of an actor: the product of the computed opacity of
+// the element and of each of its ancestors up to the root (`null` when there is no such element)
+const layer = (id, nth) => [...svg.querySelectorAll('[data-pilean-actor]')]
+  .filter(e => e.getAttribute('data-pilean-actor') === id)[nth];
+const opacity = (id, nth) => {
+  const el = layer(id, nth);
+  if (!el) return null;
+  let o = 1;
+  for (let e = el; e; e = e.parentElement) {
+    o *= parseFloat(getComputedStyle(e).opacity);
+    if (e === svg) break;
+  }
+  return o;
+};
+const fades = async () => {
+  const out = [];
+  for (const loop of [0, 1])
+    SPEC.opacities.forEach((e, entry) => e.samples.forEach(s => out.push([entry, s, loop])));
+  const read = [];
+  for (const [entry, s, loop] of out) {
+    svg.setCurrentTime(s.t + loop * SPEC.cycle);
+    await sleep(5);
+    const e = SPEC.opacities[entry];
+    read.push({entry, t: s.t, loop, o: opacity(e.id, e.nth)});
+  }
+  return read;
+};
+const opacities = await fades();
+// the mutation: the opacity animation of the group nearest the first entry's layer held at 0
+let mutated = null;
+if (MUTATE && SPEC.opacities.length) {
+  const e = SPEC.opacities[0];
+  let fade = null;
+  for (let g = layer(e.id, e.nth); g && g !== svg && !fade; g = g.parentElement)
+    fade = [...g.children].find(c =>
+      c.localName === 'animate' && c.getAttribute('attributeName') === 'opacity');
+  if (fade) {
+    fade.setAttribute('values', fade.getAttribute('values').split(';').map(() => '0').join(';'));
+    mutated = await fades();
+  }
+}
+return JSON.stringify({ua: navigator.userAgent, t0, t1, free, seek, opacities, mutated});
 """
+
+
+# The version of the expectations' format this check reads (`PILeanTest.MotionChecks
+# .expectationsFormat`).
+FORMAT = 3
 
 
 def spec_problem(spec):
     """Why the expectations cannot be checked (`tools/motion-browser-check.py`, the same rule):
-    an older format, or other turns or slides than the motion declares."""
-    if spec.get("format", 1) < 2 or "declared" not in spec or "slides" not in spec or \
-            any("from" not in r for r in spec["rests"]):
+    another format than `FORMAT`, or other turns or slides than the motion declares."""
+    if spec.get("format", 1) != FORMAT or "declared" not in spec or "slides" not in spec or \
+            "opacities" not in spec or \
+            any(k not in r for r in spec["rests"] for k in ("from", "until", "still")):
         return (f"the expectations are in format {spec.get('format', 1)}, this check reads format "
-                "2: rebuild the expectations writer with this version of PILean")
+                f"{FORMAT} (rests with their ends and whether they are stills, slides, "
+                "opacities): rebuild the expectations writer with this version of PILean")
     d = spec["declared"]
     if d["turns"] != len(spec["turns"]) or d["slides"] != len(spec["slides"]):
         return (f"the motion declares {d['turns']} turns and {d['slides']} slides, the "
                 f"expectations list {len(spec['turns'])} and {len(spec['slides'])}")
     return None
+
+
+def listed_opacities(root, name):
+    """Whether the expectations of `name` can be read and list opacities."""
+    with open(os.path.join(root, name + ".json")) as f:
+        spec = json.load(f)
+    return not spec_problem(spec) and bool(spec["opacities"])
 
 
 def first(actors, ident):
@@ -229,7 +300,9 @@ def free_errors(spec, reads):
             continue
         t = r["t"] % cycle
         for rest in spec["rests"]:
-            if abs((t - rest["t"] + cycle / 2) % cycle - cycle / 2) <= NEAR_REST:
+            # within the part of the rest in which the key is shown still, however short
+            near = min(NEAR_REST, (rest["until"] - rest["from"]) / 2 - 0.02)
+            if abs((t - rest["t"] + cycle / 2) % cycle - cycle / 2) <= near:
                 counts[("rest", loop)] += 1
                 for a in rest["actors"]:
                     xy = first(r["actors"], a["id"])
@@ -253,14 +326,32 @@ def free_errors(spec, reads):
     return err, counts
 
 
-def check(runner, root, name):
+def opacity_errors(spec, reads):
+    """The largest difference between the opacities read and the expected ones, how many samples
+    were read, and how many were off by more than `OPACITY_TOL`."""
+    err, read, off = 0.0, 0, 0
+    for r in reads or []:
+        if r["o"] is None:
+            continue
+        want = next(s["o"] for s in spec["opacities"][r["entry"]]["samples"] if s["t"] == r["t"])
+        read += 1
+        err = max(err, abs(r["o"] - want))
+        off += abs(r["o"] - want) > OPACITY_TOL
+    return err, read, off
+
+
+def check(runner, root, name, mutate=False):
+    """The checks of the module docstring on the motion `name`; with `mutate`, also the opacity
+    mutation in its page. Returns the verdict (`ok`, `clock only` or `FAILED`), the number of
+    opacity samples asserted, and with `mutate` whether the mutation was caught."""
     with open(os.path.join(root, name + ".json")) as f:
         spec = json.load(f)
     why = spec_problem(spec)
     if why:
         print(f"{name}: {why} -> FAILED")
-        return False
-    prelude = f"const SPEC = {json.dumps(spec)};\nconst TIMES = {json.dumps(times_of(spec))};\n"
+        return "FAILED", 0, None
+    prelude = (f"const SPEC = {json.dumps(spec)};\nconst TIMES = {json.dumps(times_of(spec))};\n"
+               f"const MUTATE = {'true' if mutate else 'false'};\n")
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
         f.write(prelude + SCRIPT)
         script = f.name
@@ -269,7 +360,7 @@ def check(runner, root, name):
     os.unlink(script)
     if not out.startswith("{"):
         print(f"{name}: WebKit did not run the check: {out[:200]} -> FAILED")
-        return False
+        return "FAILED", 0, None
     r = json.loads(out)
     runs = r["t1"] > r["t0"] and bool(r["free"]) and r["free"][-1]["t"] >= 2 * spec["cycle"]
     seek, missing = seek_errors(spec, r["seek"])
@@ -278,7 +369,17 @@ def check(runner, root, name):
         (["slide"] if spec.get("slides") else [])
     vacuous = [f"{k} in loop {loop + 1}" for k in kinds for loop in (0, 1)
                if counts[(k, loop)] == 0]
-    ok = (runs and not missing and not vacuous and seek["rest"] <= REST_TOL
+    listed = 2 * sum(len(e["samples"]) for e in spec["opacities"])
+    o_err, o_read, o_off = opacity_errors(spec, r["opacities"])
+    caught = None
+    if mutate:
+        _, m_read, m_off = opacity_errors(spec, r["mutated"])
+        caught = m_off > 0
+        print(f"opacity mutation: in {name} the fade of {spec['opacities'][0]['id']} never starts "
+              f"(its group's opacity animation held at 0): {m_off} of {m_read} samples off -> "
+              f"{'caught' if caught else 'NOT CAUGHT, FAILED'}")
+    ok = (runs and not missing and not vacuous and o_read == listed and o_off == 0
+          and o_err <= OPACITY_TOL and seek["rest"] <= REST_TOL
           and seek["radius"] <= RADIUS_TOL and seek["angle"] <= ANGLE_TOL
           and seek["slide"] <= REST_TOL and seek["phase"] <= REST_TOL
           and seek["upright"] <= UPRIGHT_TOL and free["rest"] <= REST_TOL
@@ -289,7 +390,8 @@ def check(runner, root, name):
           f"{(r['free'][-1]['t'] if r['free'] else 0):.2f} s (cycle {spec['cycle']} s); paused, "
           f"both loops: rests {seek['rest']:.2e} px, arcs {seek['radius']:.2e} px and "
           f"{seek['angle']:.2e} deg, slides {seek['slide']:.2e} px, phase {seek['phase']:.2e} px, "
-          f"uprights {seek['upright']:.2e} deg; free-running, {len(r['free'])} readings: rests "
+          f"uprights {seek['upright']:.2e} deg, opacities {o_err:.2e} over {o_read} of {listed} "
+          f"samples; free-running, {len(r['free'])} readings: rests "
           f"{free['rest']:.2e} px, on the circle {free['turn']:.2e} px, on the segment "
           f"{free['slide']:.2e} px"
           + (f"; missing {sorted(set(missing))[:3]}" if missing else "")
@@ -298,7 +400,7 @@ def check(runner, root, name):
           + ("" if anchored or not ok else "; positions not checked: no anchored actor (a "
              "morph is checked by motion-browser-check.py, its pixels and its probe)")
           + f" -> {'FAILED' if not ok else 'ok' if anchored else 'clock only'}")
-    return "ok" if ok and anchored else "clock only" if ok else "FAILED"
+    return ("ok" if ok and anchored else "clock only" if ok else "FAILED"), o_read, caught
 
 
 def main(argv):
@@ -324,13 +426,21 @@ def main(argv):
     if not names:
         print(f"webkit_check: no motions in {root}")
         return 1
-    verdicts = [check(runner, root, n) for n in names]
+    # the opacity mutation runs in the page of the first motion whose expectations list opacities
+    target = next((n for n in names if listed_opacities(root, n)), None)
+    results = [check(runner, root, n, mutate=n == target) for n in names]
+    verdicts = [v for v, _, _ in results]
     failures = verdicts.count("FAILED")
     only = verdicts.count("clock only")
+    caught = next((c for n, (_, _, c) in zip(names, results) if n == target), None)
+    if target is None:
+        print("opacity mutation: no motion lists opacities -> FAILED")
     print(f"webkit: {len(names) - failures - only} of {len(names)} motions hold"
           + (f", {only} with positions not checked (no anchored actor; their clock runs)"
-             if only else "") + (f", {failures} failed" if failures else ""))
-    return 1 if failures else 0
+             if only else "") + (f", {failures} failed" if failures else "")
+          + f"; {sum(n for _, n, _ in results)} opacity samples asserted; the opacity mutation "
+          + ("caught" if caught else "NOT CAUGHT"))
+    return 1 if failures or not caught else 0
 
 
 if __name__ == "__main__":
