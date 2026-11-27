@@ -311,17 +311,21 @@ def main (args : List String) : IO UInt32 := do
         has motion motionHintText && !has motion "bp_motion_link")
       "the motions are shown inline, with their narrow renditions, their captioned stills and \
         the caption's note, and without the Blueprint's link to its switch"
-    check (motionHintText == "Animation; a still replaces it while you point at it, or after a \
-        click or tap until you click elsewhere." && !has motion "pauses on a still")
-      "the caption's note says that a still covers the picture (whose clock runs on), not that \
-        it pauses"
-    check (stillColumnMin 320 == 240 && stillColumnMin 300 == 240 && stillColumnMin 720 == 540 &&
-        stillColumnMin 0 == 20 && stillColumnMin 5000 == 960 &&
-        has stillColumnCss ".pilean-stills-c540{--pilean-still-min:540px}" &&
-        has stillColumnCss "@media (max-width: 560px){.pilean-stills-n20{--pilean-still-min:20px}")
-      "a grid of stills has columns of at least three quarters of a still's width"
-    check (has motion "class=\"pilean-motion-keys pilean-stills-c240\"" &&
-        has motion "class=\"pilean-motion-keys pilean-stills-c540 pilean-stills-n240\"")
+    let note := "<span class=\"pilean-motion-hint\">Animation; a still replaces it while you \
+      point at it or focus it, or after a click or tap until you click elsewhere.</span>"
+    check ((motion.splitOn note).length - 1 == 2 && !has motion "pauses on a still")
+      "each motion's caption ends with the note that a still covers the picture (whose clock \
+        runs on) while it is pointed at or focused, or after a click or tap until a click \
+        elsewhere"
+    check (stillColumnMin 320 == 240 && stillColumnMin 300 == 225 && stillColumnMin 721 == 541 &&
+        stillColumnStyle (some 720) (some 300) ==
+          "--pilean-still-w:540px;--pilean-still-n:225px;" &&
+        stillColumnStyle none none == "" && stillColumnCss.length < 400)
+      "a grid of stills has columns of at least three quarters of a still's width, in one small \
+        rule"
+    check (has motion "class=\"pilean-motion-keys\" id=\"quarter-motion-keys\" \
+          aria-label=\"The key frames of Figure 6\" style=\"--pilean-still-w:240px;\"" &&
+        has motion "style=\"--pilean-still-w:540px;--pilean-still-n:225px;\"")
       "the lists of stills are sized from the stills' widths, the narrow ones' on small screens"
     -- each motion's wrapper: up to the end of its list of stills
     let motionParts := (motion.splitOn "data-bp-motion").drop 1 |>.map fun p =>

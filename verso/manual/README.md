@@ -55,12 +55,12 @@ each declaration it has no place for; `ideil` writes `lean:decl/<Name>` links fo
 Inline pictures, explorers, motions, gestures, announcements, the behaviour without script and
 the content policy they need are as described in the [Verso Blueprint adapter's
 README](../README.md#what-a-reader-sees). A motion (`PILean.Plane.Motion`,
-`PILean.Plane.MotionPanels`) is shown with `:::figure` and the same options, always inline, its
-own captions under its stills; it follows the page's `data-motion="reduce"` and the reader's
+`PILean.Plane.MotionPanels`) is shown with `:::figure` and the same options, always inline, its own
+captions under its stills; it follows the page's `data-motion="reduce"` and the reader's
 reduced-motion setting by the stylesheet alone, so it works on a manual without the Blueprint's
-switch (its caption ends with the note that a still replaces it while you point at it, or after
-a click or tap until you click elsewhere; this genre adds no link to a switch). A motion not
-checked strictly fails the build unless `--figure-allow-unchecked` is given (for drafts).
+switch (its caption ends with the note that a still replaces it while you point at it or focus it,
+or after a click or tap until you click elsewhere; this genre adds no link to a switch). A motion
+not checked strictly fails the build unless `--figure-allow-unchecked` is given (for drafts).
 
 ## Figure pages
 

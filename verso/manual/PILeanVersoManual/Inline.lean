@@ -52,7 +52,7 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   it shows its poster's still in its box (its clock runs on under the still), and the page's
   `data-motion="reduce"`, the reader's `prefers-reduced-motion: reduce` and print show its stills
   with their captions instead, in a grid whose columns keep every still at `stillFraction` of its
-  width or more, or as wide as the grid (`stillColumnCss`). The
+  width or more, or as wide as the grid, and never larger than its own (`stillColumnCss`). The
   moving picture is hidden by `visibility` or `opacity` (out of the flow where it must take no
   space), never by `display: none`, in print too, so that it follows its clock when it is shown
   again.
@@ -66,8 +66,8 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
 
 * `domSafe`, `prefixNode`, `inlineSvgText`, `themeCss`, `explorerHtml`, `explorerJs`, `explorerCss`.
 * `motionCss`, `motionOffRules`, `motionHiddenRendition`: the stylesheet of motions shown in a page.
-* `stillFraction`, `stillColumnMin`, `stillColumnCss`, `stillColumns`: the columns of grids of
-  stills.
+* `stillFraction`, `stillColumnMin`, `stillColumnStyle`, `stillColumnCss`, `stillColumns`: the
+  columns of grids of stills.
 -/
 
 namespace PILeanVerso
@@ -550,36 +550,34 @@ it fills the grid's width alone: three quarters, so that text drawn at 14 pixels
 pixels or more. -/
 def stillFraction : Rat := 3 / 4
 
-/-- The step of the column widths of grids of stills (`stillColumnMin`), in pixels. -/
-def stillColumnStep : Nat := 20
-
-/-- The largest column width of a grid of stills (`stillColumnMin`), in pixels. -/
-def stillColumnMax : Nat := 960
-
 /-- The least width of a column of a grid of stills of width `w` (pixels): `stillFraction` of
-`w`, rounded up to a multiple of `stillColumnStep` and at most `stillColumnMax`, which no column
-of a page reaches. -/
+`w`, rounded up to a whole pixel. -/
 def stillColumnMin (w : Nat) : Nat :=
-  let q := stillFraction * w / stillColumnStep
-  let n := (q.num.toNat + q.den - 1) / q.den
-  min stillColumnMax (max 1 n * stillColumnStep)
+  let q := stillFraction * w
+  (q.num.toNat + q.den - 1) / q.den
 
-/-- The rules of the classes that size the columns of a grid of stills: `pilean-stills-cN` sets
-`--pilean-still-min` to `N` pixels, and `pilean-stills-nN` does on small screens (560 pixels or
-less, where the narrow rendition's stills are shown), for every `N` that `stillColumnMin` gives.
-A grid of stills makes each column at least that wide, or as wide as the grid when it is
-narrower (`minmax(min(var(--pilean-still-min), 100%), 1fr)`), so a still is shown at
-`stillFraction` of its width or more, or fills the grid's width alone. -/
+/-- The `style` attribute of a grid of stills whose stills are `wide` pixels wide, and `narrow`
+pixels for the narrow rendition's (shown on small screens): the custom properties
+`--pilean-still-w` and `--pilean-still-n`, each `stillColumnMin` of the width, which
+`stillColumnCss` reads. Empty when the widths are not known. -/
+def stillColumnStyle (wide narrow : Option Nat) : String :=
+  String.join ((wide.map fun w => s!"--pilean-still-w:{stillColumnMin w}px;").toList ++
+    (narrow.map fun w => s!"--pilean-still-n:{stillColumnMin w}px;").toList)
+
+/-- The rule that sizes the columns of the grids of stills (inline and on a figure's page): each
+column is at least `--pilean-still-w` wide (`--pilean-still-n` on small screens, 560 pixels or
+less), or as wide as the grid when that is narrower, so that a still is shown at `stillFraction`
+of its width or more, or fills the grid's width alone; `14rem` when the list has no width. A
+still is drawn at its own width at most (`width: auto`, the width of the file its picture shows,
+the narrow rendition's on small screens), never larger. -/
 def stillColumnCss : String :=
-  let ns := (List.range (stillColumnMax / stillColumnStep)).map fun i => (i + 1) * stillColumnStep
-  String.join (ns.map fun n => s!".pilean-stills-c{n}\{--pilean-still-min:{n}px}") ++
-    "@media (max-width: 560px){" ++
-    String.join (ns.map fun n => s!".pilean-stills-n{n}\{--pilean-still-min:{n}px}") ++ "}"
+  ".pilean-motion-keys,.pilean-page-motion-keys{--pilean-still-col:var(--pilean-still-w,14rem)}\
+  @media (max-width: 560px){.pilean-motion-keys,.pilean-page-motion-keys\
+  {--pilean-still-col:var(--pilean-still-n,var(--pilean-still-w,14rem))}}"
 
-/-- The columns of a grid of stills (`stillColumnCss`); `14rem` where the stills' widths are not
-known. -/
+/-- The columns of a grid of stills (`stillColumnCss`). -/
 def stillColumns : String :=
-  "repeat(auto-fit,minmax(min(var(--pilean-still-min,14rem),100%),1fr))"
+  "repeat(auto-fit,minmax(min(var(--pilean-still-col),100%),1fr))"
 
 /-- The rules that turn a motion's animation off, below the selector prefix `pre`
 (`html[data-motion="reduce"] ` for the motion switch, empty inside a media query): the stage is
@@ -644,7 +642,7 @@ def motionCss : String :=
     white-space:nowrap}\
   .pilean-motion-key{margin:0;min-width:0;max-width:100%;text-align:center}\
   .pilean-motion-key-pic{display:none}\
-  .pilean-motion-key-pic img{display:block;max-width:100%;height:auto;margin:0 auto;\
+  .pilean-motion-key-pic img{display:block;width:auto;max-width:100%;height:auto;margin:0 auto;\
     border-radius:4px}\
   .pilean-motion-key-caption{margin:0.2rem 0 0;font-size:0.85em;overflow-wrap:anywhere}\
   .pilean-motion-note{display:block;font-size:0.85em;color:var(--pilean-muted, inherit)}" ++

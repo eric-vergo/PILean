@@ -748,14 +748,6 @@ def themedPictures (files : Array FileInfo) (name : String) (narrow : Option Str
 def motionStepText (captions : Array String) (k : Nat) : String :=
   s!"Step {k + 1} of {captions.size}: {(captions[k]?).getD ""}"
 
-/-- The classes that size the columns of a grid of a motion's stills (`stillColumnCss`) from the
-widths of its stills, `wide` and, for a motion with a narrow rendition, `narrow`: each column is
-at least `stillColumnMin` of the width, so that no still is shown smaller than `stillFraction` of
-its own width unless it fills the grid's width alone. Empty when the widths are not known. -/
-def stillColumnClasses (wide narrow : Option Nat) : String :=
-  " ".intercalate <| (wide.map fun w => s!"pilean-stills-c{stillColumnMin w}").toList ++
-    (narrow.map fun w => s!"pilean-stills-n{stillColumnMin w}").toList
-
 /-- The width of the still `name` (`-key-0`, `-narrow-key-0`) among a figure's files, if
 known. -/
 def stillWidth? (files : Array FileInfo) (name : String) : Option Nat :=
@@ -775,7 +767,7 @@ carries `data-bp-motion` (what the Verso Blueprint motion switch looks for), hol
 * unless `stills` is false (the figure's page, which shows them below): the key stills, in order,
   as pictures of their files (`-key-k`, the narrow rendition's `-narrow-key-k`, and their dark
   twins), each with its caption (`motionStepText`), read once by assistive technology after the
-  picture, the list's columns sized from the stills' widths (`stillColumnClasses`). Without them
+  picture, the list's columns sized from the stills' widths (`stillColumnStyle`). Without them
   the motion has the class `pilean-motion-bare`, and turning motion off shows the poster's still
   in the stage instead (`motionOffRules`).
 
@@ -819,11 +811,11 @@ def motionHtml (base : String) (name alt : String) (main : MotionData)
       | some n => live "mn" "narrow" n
       | none => .empty,
       .element "span" #[("class", "pilean-motion-still"), ("aria-hidden", "true")] posterPics]),
-    let columns := stillColumnClasses (stillWidth? files s!"-key-{poster}")
+    let columns := stillColumnStyle (stillWidth? files s!"-key-{poster}")
       (narrow.bind fun _ => stillWidth? files s!"-narrow-key-{poster}")
-    if stills then .element "ol" #[("class", s!"pilean-motion-keys {columns}".trimAscii.toString),
-      ("id", keysId),
-      ("aria-label", s!"The key frames of {name}")] (.seq keys) else .empty])
+    if stills then .element "ol" (#[("class", "pilean-motion-keys"), ("id", keysId),
+      ("aria-label", s!"The key frames of {name}")] ++
+      (if columns.isEmpty then #[] else #[("style", columns)])) (.seq keys) else .empty])
 
 /-- The inline markup of a figure (`inline := true`, explorers and motions), from the site's
 render: the picture (and its narrow rendition, shown on small screens) as `svg` elements, an
@@ -863,13 +855,13 @@ def inlinePicture? (l : Links) (site : Option SiteRender) (p : Placed)
 
 open Verso.Output.Html in
 /-- What a motion's caption says, in every adapter: that it is an animation, and that the poster
-key's still covers it while the pointer is over it, and after a click or a tap until a click
-elsewhere (the focus; the keyboard focuses it too). The clock runs on under the still, so the
+key's still covers it while the pointer is over it or it has the keyboard's focus, and after a click
+or a tap until a click elsewhere (the focus they give it). The clock runs on under the still, so the
 picture is elsewhere in its cycle when the still goes. Hidden while motion is off, when the stills
 are shown, and in print (`motionOffRules`). -/
 def motionHintText : String :=
-  "Animation; a still replaces it while you point at it, or after a click or tap until you click \
-    elsewhere."
+  "Animation; a still replaces it while you point at it or focus it, or after a click or tap \
+    until you click elsewhere."
 
 /-- The HTML of a figure block; `site` is the site's render, which inline pictures, explorers and
 motions are read from and which sets the link mode. The caption of a motion ends with
