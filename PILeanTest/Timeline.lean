@@ -544,9 +544,59 @@ def invariantChecks : Array (String × Bool) := Id.run do
     Smil.clockProblem? (Svg.el "g" #[] #[Svg.el "rect" #[]]) == none)
   return r
 
+/-- The checks of rests of their own, of divided segments and of the parts of an easing. -/
+def divisionChecks : Array (String × Bool) := Id.run do
+  let mut r : Array (String × Bool) := #[]
+  let steps := turns 3
+  let own : Pacing := { holds := #[some 2, none, some (1 / 10), some (1 / 2)] }
+  let tl := Timeline.build steps own
+  let restOf := fun (k : Nat) => ((tl.segments.find? (·.kind == .rest k)).map (·.dur)).getD 0
+  r := r.push ("timeline: a key's own rest wins over the first, the last and the other holds",
+    restOf 0 == 2 && restOf 1 == own.hold && restOf 2 == 1 / 10 && restOf 3 == 1 / 2 &&
+      wellFormed tl &&
+      tl.cycle == (Timeline.build steps {}).cycle + (2 - 1.2) + (1 / 10 - 0.6) + (1 / 2 - 1.8))
+  -- a timeline divided: every rest in three parts, every move in two
+  let parts := fun (s : Segment) => match s.kind with
+    | .rest _ => [((1 : Rat) / 4, Easing.linear), (1 / 2, .standard), (1, .linear)]
+    | .move _ => [((7 : Rat) / 10, Easing.linear), (1, .linear)]
+    | _ => []
+  let d := tl.divide parts
+  r := r.push ("timeline: divided, its parts tile the cycle, the key times start at 0 and end at 1",
+    wellFormed d && d.segments.size == tl.segments.size + 2 * 4 + 3 && d.cycle == tl.cycle &&
+      d.keys == tl.keys)
+  r := r.push ("timeline: divided, a key's still is in the middle of the last part of its rest",
+    (List.range 4).all fun k =>
+      d.restTime k == ((d.segments.findRev? (·.kind == .rest k)).map fun s =>
+        s.start + s.dur / 2).getD 0 &&
+      (d.stillPart? k).map (·.dur) == some (restOf k / 2))
+  -- the parts of an easing are the easing between its values at the part's ends
+  let partWithin := fun (tol : Float) (e : Easing) (a b : Float) =>
+    match e.part a b with
+    | none => false
+    | some q =>
+      let ya := e.eval a
+      let yb := e.eval b
+      (List.range 21).all fun i =>
+        let x := i.toFloat / 20
+        let want := (e.eval (a + x * (b - a)) - ya) / (yb - ya)
+        (q.eval x - want).abs < tol
+  let partOk := partWithin 1e-6
+  r := r.push ("easing: a part of the standard easing is a timing curve that follows it",
+    [(0, 0.3), (0.7, 1), (0.2, 0.4), (0.45, 0.55), (0, 0.05), (0.9, 1)].all fun (a, b) =>
+      partOk .standard a b)
+  r := r.push ("easing: parts of other curves follow them; the identity's parts are the identity",
+    partOk (.spline 0.25 0.1 0.25 1) 0.1 0.6 && partOk (.spline 0 0 1 1) 0.3 0.8 &&
+      Easing.linear.part 0.2 0.7 == some .linear)
+  r := r.push ("easing: a part of no length is refused; extreme curves have parts that follow them \
+      (within 1e-4 where the curve is steep)",
+    Easing.standard.part 0.5 0.5 == none &&
+      [Easing.spline 1 0 0 1, .spline 0 1 1 0, .spline 1 1 0 0, .spline 0 1 0 1].all fun e =>
+        [(0, 0.3), (0.3, 0.7), (0.7, 1), (0.45, 0.55)].all fun (a, b) => partWithin 1e-4 e a b)
+  return r
+
 /-- All checks. -/
 def checks : Array (String × Bool) :=
   easingChecks ++ timelineChecks ++ smilChecks ++ evaluatorChecks ++ turnChecks ++
-    invariantChecks
+    invariantChecks ++ divisionChecks
 
 end PILeanTest.TimelineChecks

@@ -188,6 +188,9 @@ structure MotionMoveRow where
   the declared move does not carry the actor onto the next key and the two drawings crossfade
   instead (possible only under the check levels `warn` and `ignore`). -/
   drawn : String := ""
+  /-- For an appearance or a disappearance in part of its step or during a rest: where it starts
+  and ends, in seconds from the start of the step or of the rest. -/
+  window : Option (Rat × Rat) := none
   deriving Inhabited
 
 /-- A point of the figure's coordinates as a page writes it: `(x, y)`, at most four decimals. -/
@@ -197,6 +200,10 @@ def pointWords (p : Point) : String := s!"({fmtNum p.x 4}, {fmtNum p.y 4})"
 def turnDegreesWords (q : Rat) : String :=
   let d := 360 * q
   if d.den == 1 then s!"{d.num}°" else s!"{d.num}/{d.den}°"
+
+/-- A time in seconds as a page writes it, exactly: `1 s`, `3/10 s`. -/
+def secondsWords (t : Rat) : String :=
+  if t.den == 1 then s!"{t.num} s" else s!"{t.num}/{t.den} s"
 
 /-- Whether the move is drawn as it is declared. -/
 def MotionMoveRow.asDeclared (r : MotionMoveRow) : Bool := r.drawn.isEmpty || r.drawn == r.kind
@@ -210,8 +217,24 @@ def MotionMoveRow.words (r : MotionMoveRow) : String :=
       s!"turn about {pointWords c} by {q} of a full turn ({turnDegreesWords q})"
     | "slide", _, _, some v => s!"slide by {pointWords v}"
     | k, _, _, _ => k
+  let declared := match r.window with
+    | some (a, b) => s!"{declared} from {secondsWords a} to {secondsWords b}"
+    | none => declared
   if r.asDeclared then declared
   else s!"{declared}, drawn as a {r.drawn} (the move does not land on the next key)"
+
+/-- The rest on a key of a motion, as a figure page lists it: the key, how long the rest lasts,
+whether the key is a still, and the actors that appear or vanish during it, with their windows. -/
+structure MotionRestRow where
+  /-- The key. -/
+  key : Nat
+  /-- How long the rest lasts, in seconds. -/
+  duration : Rat
+  /-- Whether the key is a still. -/
+  still : Bool := true
+  /-- The fades during the rest, in the order the key declares them. -/
+  fades : Array MotionMoveRow := #[]
+  deriving Inhabited
 
 /-- One step of a motion, from key `step` to key `step + 1`, as a figure page lists it. -/
 structure MotionStepRow where
@@ -234,8 +257,9 @@ reduced-motion rule) and its poster group: the background (and the panels' title
 of class `pilean-motion-live` that holds every animation. The file's root holds, in order, the
 title and the description (when the motion has them), that `style` element, the nodes of `live`,
 and the poster group; so a site check can rebuild the file from `live` and compare. `stills`
-holds every key's still (the picture of the output `-key-k`, `k` from 0) with the captions
-(`stepCaptions`) and the poster key (`poster`, always among the frames).
+holds the still of every key that is one (the picture of the output `-key-k`, `k` the key, which
+`stillKeys` gives for each frame) with their captions (`stepCaptions`) and the poster's position
+among them (`poster`, always among the frames).
 
 A page must say so when `MotionData.unchecked` holds (`MotionData.checkWords`). -/
 structure MotionData where
@@ -249,6 +273,10 @@ structure MotionData where
   steps : Array MotionStepRow
   /-- Whether items change between two keys without a declared move, and crossfade. -/
   crossfades : Bool := false
+  /-- The key of each still of `stills`, in order (the `k` of its files `-key-k`). -/
+  stillKeys : Array Nat := #[]
+  /-- The rest on every key, in order. -/
+  rests : Array MotionRestRow := #[]
   deriving Inhabited
 
 /-- Whether the motion was not checked strictly: built at the check level `warn` or `ignore`
@@ -299,8 +327,11 @@ figure's own description), what the browser does between them (`betweenWords`), 
 `checkWords` when the motion is unchecked. -/
 def MotionData.words (d : MotionData) : String :=
   let n := d.summary.keys
-  " ".intercalate ([s!"An animation drawn from {n} key frame{if n == 1 then "" else "s"}; the \
-    stills are the key figures as drawn.", d.betweenWords] ++ d.checkWords.toList)
+  let shown := match d.summary.stills with
+    | some ks => s!", {ks.size} of them shown as stills"
+    | none => ""
+  " ".intercalate ([s!"An animation drawn from {n} key frame{if n == 1 then "" else "s"}{shown}; \
+    the stills are the key figures as drawn.", d.betweenWords] ++ d.checkWords.toList)
 
 /-- What a figure page says of a theorem linked to a motion: what such a theorem can state. -/
 def motionLinkedWords : String :=

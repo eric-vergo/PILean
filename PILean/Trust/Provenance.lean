@@ -121,6 +121,9 @@ structure MotionSummary where
   errorsLeft : Nat := 0
   /-- Whether the motion has a narrow rendition (files with the suffix `-narrow`). -/
   narrow : Bool := false
+  /-- The keys that are stills, in increasing order, when some key is not one (`none`: every key
+  is a still). Only the stills have files of their own (`-key-k`, `k` the key). -/
+  stills : Option (Array Nat) := none
   deriving BEq, Repr, Inhabited
 
 /-- Whether the record says the motion was checked strictly: at the level `fail`, no error left. -/
@@ -129,20 +132,40 @@ def MotionSummary.strict (m : MotionSummary) : Bool := m.checks == "fail" && m.e
 /-- The levels a motion's checks can be applied at, as a record writes them. -/
 def motionCheckWords : Array String := #["fail", "warn", "ignore"]
 
+/-- The keys that are stills, as a record writes them: `0,2,3`. -/
+def stillsText (ks : Array Nat) : String := ",".intercalate (ks.toList.map toString)
+
+/-- Whether the stills of a record are well formed for a motion of `keys` keys: at least one, in
+increasing order, each a key of the motion, and not every key (then the record has none). -/
+def stillsOk (keys : Nat) (ks : Array Nat) : Bool :=
+  !ks.isEmpty && ks.size < keys && ks.all (· < keys) &&
+    (ks.toList.zip ks.toList.tail).all fun (a, b) => a < b
+
 /-- The record of a motion as one value:
-`keys=3;cycle=59/10;captions=3;checks=fail;errorsLeft=0;narrow=no`. -/
+`keys=3;cycle=59/10;captions=3;checks=fail;errorsLeft=0;narrow=no`, followed by `;stills=0,2` when
+some key is not a still. -/
 def MotionSummary.text (m : MotionSummary) : String :=
   s!"keys={m.keys};cycle={cycleText m.cycle};captions={m.captions};checks={m.checks};\
-    errorsLeft={m.errorsLeft};narrow={if m.narrow then "yes" else "no"}"
+    errorsLeft={m.errorsLeft};narrow={if m.narrow then "yes" else "no"}" ++
+    match m.stills with
+    | some ks => ";stills=" ++ stillsText ks
+    | none => ""
 
 /-- The record of a motion `MotionSummary.text` writes, read back: exactly its six fields in its
-order, the numbers in decimal (at most nine digits, no leading zero), the cycle as
-`cycleOfText?` reads it, a known level; none for anything else. -/
+order, then the stills when some key is not one, the numbers in decimal (at most nine digits, no
+leading zero), the cycle as `cycleOfText?` reads it, a known level, stills that `stillsOk`
+accepts; none for anything else. -/
 def MotionSummary.ofText? (t : String) : Option MotionSummary := do
   let num := fun (d : String) =>
     if d.isEmpty || d.length > 9 || !d.all Char.isDigit || (d.length > 1 && d.startsWith "0")
     then none else d.toNat?
-  match t.splitOn ";" with
+  let (fields, stills) ← match t.splitOn ";" with
+    | [k, c, n, l, e, w] => some ([k, c, n, l, e, w], none)
+    | [k, c, n, l, e, w, st] => do
+      let ks ← ((← (st.dropPrefix? "stills=").map (·.toString)).splitOn ",").mapM num
+      some ([k, c, n, l, e, w], some ks.toArray)
+    | _ => none
+  match fields with
   | [k, c, n, l, e, w] =>
     let keys ← num (← (k.dropPrefix? "keys=").map (·.toString))
     let cycle ← cycleOfText? (← (c.dropPrefix? "cycle=").map (·.toString))
@@ -156,7 +179,9 @@ def MotionSummary.ofText? (t : String) : Option MotionSummary := do
       | _ => none
     if keys == 0 then none
     if checks == "fail" && errorsLeft != 0 then none
-    let m : MotionSummary := { keys, cycle, captions, checks, errorsLeft, narrow }
+    if let some ks := stills then
+      if !stillsOk keys ks then none
+    let m : MotionSummary := { keys, cycle, captions, checks, errorsLeft, narrow, stills }
     if m.text == t then some m else none
   | _ => none
 

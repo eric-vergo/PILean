@@ -729,9 +729,12 @@ def themedPictures (files : Array FileInfo) (name : String) (narrow : Option Str
     let size := match light.size with
       | some (w, h) => #[("width", toString w), ("height", toString h)]
       | none => #[]
+    -- the narrow file's own size, so that a lazy still reserves the box it is drawn in
     let source := match narrowFile with
-      | some nf => Html.element "source" #[("media", "(max-width: 560px)"),
-          ("srcset", fileUrlRelative nf.path)] .empty
+      | some nf => Html.element "source" (#[("media", "(max-width: 560px)"),
+          ("srcset", fileUrlRelative nf.path)] ++ match nf.size with
+            | some (w, h) => #[("width", toString w), ("height", toString h)]
+            | none => #[]) .empty
       | none => .empty
     .element "picture" #[("class", cls)] (.seq #[source,
       .element "img" (#[("src", fileUrl light.path), ("alt", "")] ++ size ++
@@ -744,9 +747,14 @@ def themedPictures (files : Array FileInfo) (name : String) (narrow : Option Str
         one dark (narrow.bind fun n => pick? files "svg" (n ++ "-dark")) "pilean-figure-dark"]
     | none => one light (narrow.bind (pick? files "svg" ·)) "pilean-figure-only"
 
-/-- What the stills of a motion say of key `k` (from 0) of `n`: `Step 3 of 5: caption`. -/
+/-- What the stills of a motion say of still `k` (from 0) of `n`: `Step 3 of 5: caption`. The stills
+are counted, not the keys: a key that is not a still has no step of its own here. -/
 def motionStepText (captions : Array String) (k : Nat) : String :=
   s!"Step {k + 1} of {captions.size}: {(captions[k]?).getD ""}"
+
+/-- The key of still `i` of a motion (the `k` of its files `-key-k`): `MotionData.stillKeys`, or
+`i` when the data has none. -/
+def stillKeyOf (d : MotionData) (i : Nat) : Nat := d.stillKeys.getD i i
 
 /-- The width of the still `name` (`-key-0`, `-narrow-key-0`) among a figure's files, if
 known. -/
@@ -781,7 +789,7 @@ def motionHtml (base : String) (name alt : String) (main : MotionData)
     (width : Option String := none) (stills : Bool := true) : Html :=
   let base := domSafe base
   let keysId := s!"{base}-keys"
-  let poster := main.stills.poster
+  let poster := stillKeyOf main main.stills.poster
   let live := fun (suffix rendition : String) (d : MotionData) =>
     Html.raw (inlineSvgText s!"{base}-{suffix}" d.live (fun _ => none) alt
       (cls := s!"pilean-motion-live pilean-motion-{rendition}") (file := path
@@ -790,13 +798,14 @@ def motionHtml (base : String) (name alt : String) (main : MotionData)
   let posterPics := themedPictures files s!"-key-{poster}"
     (narrow.map fun _ => s!"-narrow-key-{poster}") (lazy := false)
   let captions := main.stills.stepCaptions
-  let keys := (Array.range main.stills.frames.size).map fun k =>
+  let keys := (Array.range main.stills.frames.size).map fun i =>
+    let k := stillKeyOf main i
     Html.element "li" (#[("class", "pilean-motion-key")] ++
         (if k == poster then #[("data-poster", "")] else #[])) (.seq #[
       .element "span" #[("class", "pilean-motion-key-pic")]
         (themedPictures files s!"-key-{k}" (narrow.map fun _ => s!"-narrow-key-{k}")
           (lazy := true)),
-      .element "p" #[("class", "pilean-motion-key-caption")] (.text (motionStepText captions k))])
+      .element "p" #[("class", "pilean-motion-key-caption")] (.text (motionStepText captions i))])
   let stageStyle := match width with
     | some w => #[("style", s!"width: {w}")]
     | none => #[]

@@ -109,10 +109,52 @@ def fifthMotion : Motion where
   steps := #[{ moves := #[("D", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 5))] }, MotionStep.idle]
   info := { title := "A fifth of a turn", description := "The disk D turns about O by 72°." }
 
+/-- The backdrop of `announceMotion`: the centres `A` and `B` of its turns, faint. -/
+def announceBackdrop : Array Item :=
+  #[Plane.Exact.point ((0, 0) : Q) |>.faint, Plane.Exact.label "A" ((0, 0) : Q) .belowLeft |>.faint,
+    Plane.Exact.point ((0, 2) : Q) |>.faint, Plane.Exact.label "B" ((0, 2) : Q) .aboveLeft |>.faint]
+
+/-- The triangle of `announceMotion` with the vertices `a`, `b` and `c`. -/
+def announceTriangle (a b c : Q) : Item :=
+  Plane.Exact.polygon [a, b, c] |>.filled |>.accent 0 |>.actor "T"
+
+/-- The ring that marks the centre `c` of the next turn, an actor `id`. -/
+def announceMark (id : String) (c : Q) : Item :=
+  Plane.Exact.circle c (3 / 10 : Rat) |>.accent 1 |>.actor id
+
+/-- A triangle turned a quarter about `A`, then a quarter about `B`, then slid down, a ring marking
+the centre of each turn before it: the ring at `A` is there on key 0; during the rest on key 1
+(0.9 s, its own) the ring at `A` fades out in the first 0.2 s and the ring at `B` fades in over the
+next 0.2 s, then stands with the triangle for 0.5 s; the ring at `B` fades out in the last 0.3 s
+of the turn about `B`. Key 2, after that turn, is not a still: the motion rests on it for 0.3 s and
+slides on. -/
+def announceMotion : Motion where
+  keys :=
+    let k := fun (t : Item) (marks : Array Item) =>
+      ({ items := announceBackdrop ++ #[t] ++ marks, width := 320 } : Figure)
+    #[k (announceTriangle (1, 0) (2, 0) (1, 1)) #[announceMark "mA" (0, 0)],
+      k (announceTriangle (0, 1) (0, 2) (-1, 1)) #[announceMark "mB" (0, 2)],
+      k (announceTriangle (1, 2) (0, 2) (1, 1)) #[],
+      k (announceTriangle (1, 0) (0, 0) (1, -1)) #[]]
+  captions := #["The triangle; the ring at A marks the next turn, a quarter about A.",
+    "Turned a quarter about A; the ring at B marks the next turn, a quarter about B.", "",
+    "Turned a quarter about B, then slid down by 2."]
+  steps := #[{ moves := #[("T", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4))] },
+    { moves := #[("T", Plane.Exact.turnAbout ((0, 2) : Q) (1 / 4)), ("mB", .vanish)],
+      windows := #[("mB", .last (3 / 10))] },
+    { moves := #[("T", Plane.Exact.slideFromTo ((1, 2) : Q) (1, 0))] }]
+  keyOptions := #[{},
+    { rest := some (9 / 10),
+      fades := #[("mA", .vanish, .seconds 0 (1 / 5)), ("mB", .appear, .seconds (1 / 5) (2 / 5))] },
+    { still := false, rest := some (3 / 10) }, {}]
+  info := { title := "A mark that announces the next turn",
+            description := "A triangle turns about A, then about B, then slides down; a ring marks \
+              the centre of each turn before it." }
+
 /-- The golden motions, by file name. -/
 def golden : Array (String × Motion) :=
   #[("motion-turn", turnMotion), ("motion-two-centres", twoCentresMotion),
-    ("motion-fifth", fifthMotion)]
+    ("motion-fifth", fifthMotion), ("motion-announce", announceMotion)]
 
 /-- `turnMotion` with a first hold of 2 seconds: a probe that switches reduced motion on at a
 fixed 0.3 s and compares at about 2 s sees the first rest at both moments, so a frozen picture
@@ -586,7 +628,7 @@ def modelAnchor (m : Motion) (id : String) (first : Nat) (t : Rat) : Option Poin
   let f := K.env.frame
   let lf ← ((K.figure first).actor? id).bind (·.leaves[0]?)
   let a0 ← (anchors f K.env.style lf.geom)[0]?
-  let tl := Timeline.build m.animSteps m.pacing
+  let tl := m.baseTimeline
   let (kind, e) := tl.locate t
   let (key, frac) := match kind with
     | .rest k => (k, (0 : Float))
@@ -611,7 +653,7 @@ morph steps (whose turns follow the eased motion piecewise linearly, `sampledAgr
 def modelAgrees (m : Motion) : Bool :=
   let p := m.plan
   let K := m.keysOf
-  let tl := Timeline.build m.animSteps m.pacing
+  let tl := m.baseTimeline
   (sampleTimes p.timeline.cycle).all fun tr =>
     let t := Exact.toFloat tr
     let sampled := match (tl.locate tr).1 with
@@ -775,8 +817,196 @@ def outputChecks : Array (String × Bool) := Id.run do
         a.width == (m.keyFigure 0).pixelSize.1 && a.height == (m.keyFigure 0).pixelSize.2)
   return r
 
+/-! ### Rests of their own, fades in part of a step or a rest, and keys that are not stills -/
+
+/-- `announceMotion` with other key options. -/
+def announceWith (f : Array MotionKey → Array MotionKey) : Motion :=
+  { announceMotion with keyOptions := f announceMotion.keyOptions }
+
+/-- `announceMotion` with other steps. -/
+def announceSteps (f : Array MotionStep → Array MotionStep) : Motion :=
+  { announceMotion with steps := f announceMotion.steps }
+
+/-- The opacity at the time `t` of the `n`-th layer of the actor `id` (in the order of the
+document) in the written tree `root`, read with `Smil.valueAt` alone (`shown`), the seam's
+included. -/
+def writtenOpacity (root : Node) (id : String) (n : Nat) (t : Float) : Option Float := do
+  let ms ← shown t 256 Affine.id 1 root
+  let mine := ms.filter (·.1 == s!"actor {id}")
+  return (← mine[n]?).2.2.1
+
+/-- The tree with every opacity animation of a group that holds the actor `id` set to `0` at
+every boundary, at most `fuel` deep: a fade of the actor that never starts. -/
+def silence (id : String) : Nat → Node → Node
+  | 0, n => n
+  | _, .text t => .text t
+  | fuel + 1, .element name attrs cs =>
+    let holds := (elements "g" 256 (.element name attrs cs)).any fun g =>
+      attrOf g "data-pilean-actor" == id
+    let cs := cs.map fun c => match c with
+      | .element "animate" as ks =>
+        if holds && Smil.attr? as "attributeName" == some "opacity" then
+          let vals := ((Smil.attr? as "values").getD "").splitOn ";"
+          .element "animate" (as.map fun (k, v) =>
+            if k == "values" then (k, ";".intercalate (vals.map fun _ => "0")) else (k, v)) ks
+        else c
+      | _ => silence id fuel c
+    .element name attrs cs
+
+/-- Whether `x` and `y` are within `tol`. -/
+def near (x y tol : Float) : Bool := (x - y).abs ≤ tol
+
+/-- The checks of rests of their own, fades in part of a step or of a rest, and keys that are not
+stills, with a mutation of each rule caught by its named check. -/
+def featureChecks : Array (String × Bool) := Id.run do
+  let mut r : Array (String × Bool) := #[]
+  let m := announceMotion
+  let base := m.baseTimeline
+  let rest := fun (k : Nat) => kindDur base (.rest k)
+  r := r.push ("motion rests: a key's own rest wins; the others rest as the pacing says",
+    rest 0 == m.pacing.firstHold && rest 1 == 9 / 10 && rest 2 == 3 / 10 &&
+      rest 3 == m.pacing.lastHold &&
+      kindDur (announceWith (·.set! 0 { rest := some 2 })).baseTimeline (.rest 0) == 2 &&
+      kindDur (announceWith (·.set! 3 { rest := some (1 / 2) })).baseTimeline (.rest 3) == 1 / 2)
+  r := r.push ("motion rests: a rest of its own of 0 s is an error (mutation)",
+    hasError (announceWith (·.set! 3 { rest := some 0 })) "is not longer than zero" &&
+      hasError (announceWith (·.set! 0 { rest := some (-1) })) "is not longer than zero")
+  -- the windows
+  r := r.push ("motion windows: a window outside its step or rest is an error (mutation)",
+    hasError (announceSteps (·.modify 1 fun s => { s with windows := #[("mB", .fractions (1 / 2)
+      (6 / 5))] })) "runs outside the step" &&
+      hasError (announceWith (·.modify 1 fun o => { o with fades := #[("mA", .vanish,
+        .seconds 0 2), ("mB", .appear, .seconds (1 / 5) (2 / 5))] })) "runs outside the rest" &&
+      hasError (announceSteps (·.modify 1 fun s => { s with windows := #[("mB", .fractions (1 / 2)
+        (1 / 2))] })) "ends where it starts")
+  r := r.push ("motion windows: two windows on one actor in a step or a rest are an error \
+      (mutation)",
+    hasError (announceSteps (·.modify 1 fun s => { s with windows := s.windows.push ("mB",
+      .first (1 / 10)) })) "more than one window" &&
+      hasError (announceWith (·.modify 1 fun o => { o with fades := o.fades.push ("mA", .appear,
+        .seconds (1 / 2) (3 / 5)) })) "fades more than once")
+  r := r.push ("motion windows: a window on a turn, or on an actor without a move, is an error",
+    hasError (announceSteps (·.modify 1 fun s => { s with windows := #[("T", .first (1 / 2))] }))
+      "only an appearance or a disappearance runs in part of a step" &&
+      hasError (announceSteps (·.modify 0 fun s => { s with windows := #[("mA", .first (1 / 2))] }))
+      "has a window but no move")
+  r := r.push ("motion rest fades: an actor that fades during a rest and moves in the step before \
+      it is an error (mutation)",
+    -- the ring at A turns with the triangle in step 1 and still vanishes during the rest on key 1
+    let moved := { m with steps := m.steps.modify 0 fun s =>
+      { s with moves := s.moves.push ("mA", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4))} }
+    hasError moved "fades during the rest and also has a turn in step 1")
+  r := r.push ("motion rest fades: fades that run to the end of the rest, overlapping windows, and \
+      fades that contradict the keys are errors",
+    hasError (announceWith (·.modify 1 fun o => { o with fades := #[("mA", .vanish,
+      .seconds 0 (1 / 5)), ("mB", .appear, .last (1 / 5))] })) "never shown still" &&
+      hasError (announceWith (·.modify 1 fun o => { o with fades := #[("mA", .vanish,
+        .seconds 0 (3 / 10)), ("mB", .appear, .seconds (1 / 5) (2 / 5))] })) "overlap" &&
+      hasError (announceWith (·.modify 1 fun o => { o with fades := #[("mA", .appear,
+        .seconds 0 (1 / 5)), ("mB", .appear, .seconds (1 / 5) (2 / 5))] }))
+        "appears but is not in key 1" &&
+      hasError (announceWith (·.modify 0 fun o => { o with fades := #[("mA", .vanish,
+        .first (1 / 5))] })) "no key before key 0" &&
+      -- without its fades, the rings come and go without a declared move
+      hasError (announceWith (·.modify 1 fun o => { o with fades := #[] }))
+        "leaves without a declared disappearance")
+  r := r.push ("motion stills: a poster that is not a still is an error and stops the motion at \
+      every level (mutation)",
+    hasError { m with poster := 2 } "which is not a still" &&
+      (PILean.Trust.ToCheckedMotion.checked ({ m with poster := 2, checks := .warn } : Motion)).stopped)
+  r := r.push ("motion stills: a caption of a key that is not a still is a note",
+    hasNote { m with captions := m.captions.set! 2 "Passed through." } "is not a still")
+  -- the timeline: the rest on key 1 and the turn about B divided at the windows' ends
+  let tl := m.timeline
+  let kinds := tl.segments.toList.map (·.kind)
+  r := r.push ("motion windows: the rest on key 1 is cut at 0.2 s and 0.4 s, the turn about B at \
+      0.7 s; the parts tile the cycle",
+    kinds.count (.rest 1) == 3 && kinds.count (.move 1) == 2 && kinds.count (.rest 2) == 1 &&
+      (tl.segments.filter (·.kind = .rest 1)).map (·.dur) == #[1 / 5, 1 / 5, 1 / 2] &&
+      (tl.segments.filter (·.kind = .move 1)).map (·.dur) == #[7 / 10, 3 / 10] &&
+      tl.cycle == base.cycle &&
+      (tl.segments.toList.zip tl.segments.toList.tail).all (fun (a, b) => a.stop == b.start) &&
+      (tl.segments[0]?.map (·.start)) == some 0 &&
+      (tl.segments.back?.map (·.stop)) == some tl.cycle)
+  r := r.push ("motion windows: the key is shown still in the last part of its rest, after its \
+      fades",
+    tl.restTime 1 == ((tl.stillPart? 1).map (fun s => s.start + s.dur / 2)).getD 0 &&
+      ((tl.stillPart? 1).map (·.dur)) == some (1 / 2))
+  -- the written opacities, read with `Smil.valueAt`, against the model
+  let root := liveGroup m
+  let r1 := Exact.toFloat ((tl.segments.find? (·.kind = .rest 1)).map (·.start) |>.getD 0)
+  let s1 := Exact.toFloat ((tl.segments.find? (·.kind = .move 1)).map (·.start) |>.getD 0)
+  let op := fun (id : String) (t : Float) => (writtenOpacity root id 0 t).getD (-1)
+  r := r.push ("motion fades: the ring at A fades out in the first 0.2 s of the rest on key 1, the \
+      ring at B in over the next 0.2 s, then stands; it fades out in the last 0.3 s of the turn",
+    near (op "mA" (r1 - 0.05)) 1 1e-6 && near (op "mA" (r1 + 0.1)) 0.5 1e-3 &&
+      near (op "mA" (r1 + 0.25)) 0 1e-6 &&
+      near (op "mB" (r1 + 0.1)) 0 1e-6 && near (op "mB" (r1 + 0.3)) 0.5 1e-3 &&
+      near (op "mB" (r1 + 0.6)) 1 1e-6 && near (op "mB" (s1 + 0.5)) 1 1e-6 &&
+      (op "mB" (s1 + 0.85) > 0.05 && op "mB" (s1 + 0.85) < 0.95) &&
+      near (op "mB" (s1 + 1.05)) 0 1e-6)
+  r := r.push ("motion fades: a fade that never starts is caught by the opacity samples \
+      (mutation)",
+    let bad := silence "mB" 256 root
+    near (op "mB" (r1 + 0.6)) 1 1e-6 &&
+      ((writtenOpacity bad "mB" 0 (r1 + 0.6)).map (near · 1 1e-3)) == some false)
+  -- the turn in a divided step follows its eased angle
+  let T := (m.plan.layers.find? (·.version.actor == some "T")).getD default
+  let eased := fun (x : Float) => Easing.standard.eval x
+  r := r.push ("motion windows: the turn about B, its step divided at 0.7 s, follows the step's \
+      eased angle in the written picture",
+    let p := m.plan
+    [0.25, 0.5, 0.7, 0.8, 0.95].all fun (x : Float) =>
+      let t := s1 + x
+      let M := p.chainAt T t
+      let ms := (shown t 256 Affine.id 1 root).getD #[]
+      let w := (ms.find? (·.1 == "actor T")).map (·.2.2.2)
+      -- the written transform is the baker's, and the turn is at the eased angle: the vertex
+      -- (0, 1) of key 1, on the page, lands where the eased turn about B puts it
+      w.any (affineNear · M 1e-6) &&
+        let f := p.env.frame
+        let c := f.toScreen ⟨0, 2⟩
+        let q := f.toScreen ⟨0, 1⟩
+        let θ := -(Plane.pi / 2) * eased x
+        let d := q - c
+        let want : Point := ⟨c.x + d.x * θ.cos - d.y * θ.sin, c.y + d.x * θ.sin + d.y * θ.cos⟩
+        -- the chain carries the vertex (1, 0) of key 0 by the turn about A, done, and the turn
+        -- about B, in progress
+        (M.apply (f.toScreen ⟨1, 0⟩)).dist want < 0.05)
+  -- the outputs of a motion with a key that is not a still
+  let c := PILean.Trust.ToCheckedMotion.checked m
+  let names := (PILean.Trust.motionOutputs c).map fun o => s!"{o.name}.{o.format.name}"
+  r := r.push ("motion stills: a key that is not a still has no files; the others keep their key's \
+      number",
+    names.contains "-key-0.svg" && names.contains "-key-1.png" && names.contains "-key-3.svg" &&
+      !names.contains "-key-2.svg" && !names.contains "-key-2.png" &&
+      c.main.stills.size == 3 && c.stillKeys == #[0, 1, 3] &&
+      c.summary.stills == some #[0, 1, 3] && c.summary.keys == 4)
+  r := r.push ("motion stills: the page counts the stills, not the keys",
+    let d := c.page c.main
+    d.stills.frames.size == 3 && d.stills.stepCaptions.size == 3 && d.stillKeys == #[0, 1, 3] &&
+      d.rests.size == 4 && ((d.rests[1]?).map (·.fades.size)) == some 2 &&
+      ((d.rests[2]?).map (·.still)) == some false &&
+      has (d.words) "4 key frames, 3 of them shown as stills")
+  r := r.push ("motion stills: the record of a motion with stills reads back; a bad one does not",
+    let s := c.summary
+    PILean.Trust.MotionSummary.ofText? s.text == some s &&
+      has s.text ";stills=0,1,3" &&
+      PILean.Trust.MotionSummary.ofText? (s.text ++ ",4") == none &&
+      PILean.Trust.MotionSummary.ofText?
+        ((s.text.splitOn ";stills=").headD "" ++ ";stills=0,1,2,3") == none &&
+      PILean.Trust.MotionSummary.ofText?
+        ((s.text.splitOn ";stills=").headD "" ++ ";stills=1,0") == none)
+  r := r.push ("motion windows: the step table gives each fade its window, in seconds",
+    let rows := m.stepRows
+    let fades := (rows[1]?).map fun row => row.moves.filterMap (·.window)
+    fades == some #[(7 / 10, 1)] &&
+      ((m.restRows[1]?).map fun rr => rr.fades.map (·.window)) ==
+        some #[some (0, 1 / 5), some (1 / 5, 2 / 5)])
+  return r
+
 /-- All checks. -/
-def checks : Array (String × Bool) := ruleChecks ++ layoutChecks ++ outputChecks
+def checks : Array (String × Bool) := ruleChecks ++ layoutChecks ++ outputChecks ++ featureChecks
 
 /-! ### Files for the browser check -/
 
@@ -796,8 +1026,93 @@ def turningMarks (m : Motion) : Bool :=
 
 /-- The version of the expectations' format (`expectations`, `MotionPanelsChecks.expectations`),
 which the browser checks require: 2 has the rests' ends, the slides, the declared moves and the
-actors' drawings. -/
-def expectationsFormat : Nat := 2
+actors' drawings; 3 has the opacity of every appearance and disappearance before, in and after its
+window (`opacities`), whether each key is a still, the part of each rest in which its key is shown
+still (`from`, `until`), and the samples of a turn or a slide over its whole step. -/
+def expectationsFormat : Nat := 3
+
+/-- The span of step `j` in the timeline `tl`, in seconds: from the start of its first segment to
+the end of its last (a step divided for a morph or for its fades has several). -/
+def stepSpan (tl : Timeline) (j : Nat) : Option (Float × Float) := do
+  let segs := tl.segments.filter (·.kind = .move j)
+  let a ← segs[0]?
+  let b ← segs.back?
+  return (Exact.toFloat a.start, Exact.toFloat (b.start + b.dur))
+
+/-- The span of the rest on key `k` in the timeline `tl`, in seconds (all its parts). -/
+def restSpan (tl : Timeline) (k : Nat) : Option (Float × Float) := do
+  let segs := tl.segments.filter (·.kind = .rest k)
+  let a ← segs[0]?
+  let b ← segs.back?
+  return (Exact.toFloat a.start, Exact.toFloat (b.start + b.dur))
+
+/-- The eased fraction of step `j` of the timeline `base` (undivided) at the fraction `x` of its
+time, with the step's easing as written (its control values to six decimals). -/
+def stepEased (base : Timeline) (j : Nat) (x : Float) : Float :=
+  match base.segments.find? (·.kind = .move j) with
+  | some s =>
+    let (a, b, c, d) := s.easing.controls
+    (Easing.spline (quant 6 a) (quant 6 b) (quant 6 c) (quant 6 d)).eval x
+  | none => x
+
+/-- Three samples of step `j` of the timeline `tl` (undivided, `base`), at a quarter, a half and
+three quarters of its time, with the eased fraction of the step done then, as JSON. -/
+def stepSamplesJson (tl base : Timeline) (j : Nat) : Option String := do
+  let (a, b) ← stepSpan tl j
+  let samples := [0.25, 0.5, 0.75].map fun (x : Float) =>
+    s!"\{\"t\": {num (a + x * (b - a))}, \"f\": {num (stepEased base j x)}}"
+  return s!"[{", ".intercalate samples}]"
+
+/-- The fades of a motion as the expectations list them, from its plan `p` on the timeline `tl`
+(undivided, `base`), its fades in part of a step or a rest `F` and its steps and keys: for every
+appearance and disappearance (a step's, in its window or through the whole step, and a rest's),
+the actor's marked name with the prefix `pfx`, which of the actor's marked layers it is (`nth`, in
+the order of the document), and the plan's opacity of that layer (with the seam's) before its
+window starts, in its middle and after it ends (`0.05 s` out, within the cycle), as JSON. -/
+def opacitiesJson (m : Motion) (p : MotionPlan) (F : MotionFades) (base : Timeline)
+    (pfx : String := "") : List String :=
+  let tl := p.timeline
+  let cycle := Exact.toFloat tl.cycle
+  let order := (p.runs.flatMap fun run => run.flatMap id).toList
+  -- the layer of the actor `id` that a fade begins (`first`) or ends (`last`)
+  let nthOf := fun (id : String) (pick : MotionVersion → Bool) => do
+    let mine := order.filter fun i => (p.layers.getD i default).version.actor == some id
+    let i ← mine.findIdx? fun i => pick (p.layers.getD i default).version
+    return i
+  let markerAt := fun (id : String) (n : Nat) (t : Float) =>
+    let tt := t - cycle * (t / cycle).floor
+    let ms := (p.markersAt tt).filter (·.1 == s!"actor {Canvas.safeToken id}")
+    ((ms[n]?).map (·.2.2.1)).getD 0
+  let one := fun (id kind : String) (n : Nat) (t0 t1 : Float) =>
+    let ts := [t0 - 0.05, (t0 + t1) / 2, t1 + 0.05]
+    let samples := ts.map fun t =>
+      let tt := t - cycle * (t / cycle).floor
+      s!"\{\"t\": {num tt}, \"o\": {num (markerAt id n t)}}"
+    s!"\{\"id\": \"{pfx}{Canvas.safeToken id}\", \"nth\": {n}, \"kind\": \"{kind}\", \
+      \"from\": {num t0}, \"until\": {num t1}, \"samples\": [{", ".intercalate samples}]}"
+  let stepFades := (List.range m.steps.size).flatMap fun j =>
+    let s := m.steps.getD j {}
+    let d := Exact.toFloat (kindDur base (.move j))
+    s.moves.toList.filterMap fun (id, mv) => do
+      let (pick, kind) ← match mv with
+        | .appear => some ((fun (v : MotionVersion) => v.first == j + 1), "appearance")
+        | .vanish => some ((fun (v : MotionVersion) => v.last == j), "disappearance")
+        | _ => none
+      let (a, _) ← stepSpan tl j
+      let (wa, wb) := ((F.steps.getD j #[]).find? (·.1 == id)).map (fun (_, _, x, y) =>
+        (Exact.toFloat x, Exact.toFloat y)) |>.getD (0, 1)
+      let n ← nthOf id pick
+      return one id kind n (a + wa * d) (a + wb * d)
+  let restFades := (List.range m.keys.size).flatMap fun k =>
+    let d := Exact.toFloat (kindDur base (.rest k))
+    (F.rests.getD k #[]).toList.filterMap fun (id, f, wa, wb) => do
+      let (a, _) ← restSpan tl k
+      let (pick, kind) := match f with
+        | .appear => ((fun (v : MotionVersion) => v.first == k), "appearance")
+        | .vanish => ((fun (v : MotionVersion) => v.last + 1 == k), "disappearance")
+      let n ← nthOf id pick
+      return one id kind n (a + Exact.toFloat wa * d) (a + Exact.toFloat wb * d)
+  stepFades ++ restFades
 
 /-- How many turns and slides the motion's steps declare, as JSON. -/
 def declaredMoves (ms : Array Motion) : String :=
@@ -816,17 +1131,21 @@ def actorShapes (e : Env) (fig : Figure) (pfx : String := "") : List String :=
     s!"\"{pfx}{Canvas.safeToken id}\": \"{h}\""
 
 /-- What `tools/motion-browser-check.py` expects of the motion's SVG, as JSON (format
-`expectationsFormat`): the cycle; the turns and slides the steps declare; at the middle of each
-key's rest (and the rest's start and end), every actor's anchor in the key's still, every actor's
-drawing as a fingerprint (`actorShapes`), and every upright group's anchor where the plan draws it
-(which the rest check holds to the still); for every turn, its centre, the actor's anchor where
-the turn starts, its angle in SVG's degrees, and the times at a quarter, a half and three quarters
-of the turn with the eased fraction of the turn done then; and for every slide (of an actor that
-does nothing else in its step), the actor's anchors in the two keys and the same times and
-fractions. -/
+`expectationsFormat`): the cycle; the turns and slides the steps declare; for each key whether it
+is a still and, at the middle of the part of its rest in which it is shown still (after the fades
+of the rest, `Timeline.restTime`; that part's start and end too), every actor's anchor in the key's
+still, every actor's drawing as a fingerprint (`actorShapes`), and every upright group's anchor
+where the plan draws it (which the rest check holds to the still); for every turn, its centre, the
+actor's anchor where the turn starts, its angle in SVG's degrees, and the times at a quarter, a
+half and three quarters of its step with the eased fraction of the turn done then; for every slide
+(of an actor that does nothing else in its step), the actor's anchors in the two keys and the same
+times and fractions; and the opacity of every appearance and disappearance before, in and after
+its window (`opacitiesJson`). -/
 def expectations (name : String) (m : Motion) : String :=
   let K := m.keysOf
   let p := m.planIn K K.env
+  let base := m.baseTimeline
+  let F := m.fadesOn K base
   let st := K.env.style
   let anchorOf := fun (fig : Figure) (id : String) =>
     (fig.actor? id).bind fun it => (it.leaves[0]?).bind fun lf =>
@@ -839,25 +1158,21 @@ def expectations (name : String) (m : Motion) : String :=
       s!"\{\"id\": \"{Canvas.safeToken id}\", \"at\": {pt a}}"
     let t := Exact.toFloat (p.timeline.restTime k)
     let ups := ((p.markersAt t).filter (·.1 == "upright")).toList.map fun (_, q, _) => pt q
-    let seg := p.timeline.segments.find? (·.kind = .rest k)
+    let seg := p.timeline.stillPart? k
     let lo := Exact.toFloat ((seg.map (·.start)).getD 0)
     let hi := Exact.toFloat ((seg.map fun s => s.start + s.dur).getD 0)
-    s!"\{\"key\": {k}, \"t\": {num t}, \"from\": {num lo}, \"until\": {num hi}, \
-      \"actors\": [{", ".intercalate actors}], \"uprights\": [{", ".intercalate ups}], \
-      \"shapes\": \{{", ".intercalate (actorShapes K.env fig)}}}"
-  let segs := p.timeline.segments
+    s!"\{\"key\": {k}, \"still\": {m.isStill k}, \"t\": {num t}, \"from\": {num lo}, \
+      \"until\": {num hi}, \"actors\": [{", ".intercalate actors}], \
+      \"uprights\": [{", ".intercalate ups}], \"shapes\": \{{", ".intercalate (actorShapes K.env fig)}}}"
+  let tl := p.timeline
   let turns := still.toList.flatMap fun L => match L.version.actor with
     | none => []
     | some id => L.links.toList.filterMap fun
       | .turn j c deg => do
-        let i ← (List.range segs.size).find? fun i => (segs[i]?.map (·.kind)) == some (.move j)
-        let s ← segs[i]?
         let start ← anchorOf (K.figure j) id
-        let samples := [0.25, 0.5, 0.75].map fun (x : Float) =>
-          let t := Exact.toFloat s.start + x * Exact.toFloat s.dur
-          s!"\{\"t\": {num t}, \"f\": {num ((p.clock.splines.getD i .linear).eval x)}}"
+        let samples ← stepSamplesJson tl base j
         return s!"\{\"id\": \"{Canvas.safeToken id}\", \"step\": {j}, \"centre\": {pt c}, \
-          \"start\": {pt start}, \"sweep\": {num deg}, \"samples\": [{", ".intercalate samples}]}"
+          \"start\": {pt start}, \"sweep\": {num deg}, \"samples\": {samples}}"
       | .slide .. => none
   -- the slides: an actor whose only move in its step is a slide, from its anchor in the step's
   -- first key to its anchor in the next
@@ -866,15 +1181,11 @@ def expectations (name : String) (m : Motion) : String :=
     | some id => L.links.toList.filterMap fun
       | .slide j _ => do
         guard ((L.links.filter (·.step == j)).size == 1)
-        let i ← (List.range segs.size).find? fun i => (segs[i]?.map (·.kind)) == some (.move j)
-        let s ← segs[i]?
         let a ← anchorOf (K.figure j) id
         let b ← anchorOf (K.figure (j + 1)) id
-        let samples := [0.25, 0.5, 0.75].map fun (x : Float) =>
-          let t := Exact.toFloat s.start + x * Exact.toFloat s.dur
-          s!"\{\"t\": {num t}, \"f\": {num ((p.clock.splines.getD i .linear).eval x)}}"
+        let samples ← stepSamplesJson tl base j
         return s!"\{\"id\": \"{Canvas.safeToken id}\", \"step\": {j}, \"from\": {pt a}, \
-          \"to\": {pt b}, \"samples\": [{", ".intercalate samples}]}"
+          \"to\": {pt b}, \"samples\": {samples}}"
       | .turn .. => none
   let ups := (p.layers.map (·.uprights.size)).foldl (· + ·) 0
   s!"\{\"format\": {expectationsFormat}, \"name\": \"{name}\", \"svg\": \"{name}.svg\", \
@@ -882,7 +1193,8 @@ def expectations (name : String) (m : Motion) : String :=
     \"cycle\": {num (Exact.toFloat p.timeline.cycle)}, \"uprights\": {ups}, \
     \"turning_marks\": {turningMarks m}, \
     \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}], \
-    \"slides\": [{", ".intercalate slides}]}\n"
+    \"slides\": [{", ".intercalate slides}], \
+    \"opacities\": [{", ".intercalate (opacitiesJson m p F base)}]}\n"
 
 /-- The motions written for the browser check besides the golden ones: a long first hold, a long
 cycle, and a morph alone (a disk whose radius grows, its anchor unchanged). -/

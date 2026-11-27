@@ -46,10 +46,13 @@ namespace Motion
 
 variable (m : Motion)
 
-/-- The text alternative of the motion: its description and the captions of its keys. -/
+/-- The captions of the stills (`Motion.stillKeys`), in order. -/
+def stillCaptions : Array String := m.stillKeys.map (m.captions.getD · "")
+
+/-- The text alternative of the motion: its description and the captions of its stills. -/
 def description : String :=
   " ".intercalate ((if m.info.description.isEmpty then [] else [m.info.description]) ++
-    m.captions.toList)
+    m.stillCaptions.toList)
 
 /-- The root element of the motion's animated SVG from its keys as drawn `K` and its plan `p`,
 whatever its problems: the background; the moving picture (`MotionPlan.toNodesUnchecked`) in a
@@ -264,7 +267,16 @@ namespace Motion
 
 variable (m : Motion)
 
-/-- The baker against the stills: at the middle of each key's rest, the whole baked drawing
+/-- The steps whose easing cannot be divided exactly at the ends of the windows of their fades
+(`divideSegments`), as errors: their parts are drawn without easing. -/
+def _root_.PILean.Plane.inexactProblems (steps : Array Nat) : Array MotionProblem :=
+  steps.map fun j =>
+    { severity := .error, message := s!"step {j + 1}: its easing cannot be divided exactly at the \
+        ends of the windows of its fades (a part of its curve is not a timing curve), so its parts \
+        would be drawn without easing; move the windows, or give the step another easing" }
+
+/-- The baker against the stills: at the middle of each key's rest (of its last part, after its
+fades, `Timeline.restTime`), the whole baked drawing
 (`MotionPlan.figureAtUnchecked`: every path and every text, in order) must be the still of that
 key (the drawing of `keyFigure k`) within the rest tolerance (`drawingDiff`). This pins the
 animation to the exact keys for every motion: a turn carried through many steps (each landing
@@ -352,7 +364,7 @@ def report : MotionReport :=
   let base := m.keyProblems
   let f := p.env.frame
   let problems := if !decide m.WellFormed then base
-    else base ++ m.restProblems K p ++ writerProblems p ++
+    else base ++ inexactProblems (m.inexactSteps K) ++ m.restProblems K p ++ writerProblems p ++
       boundsProblems p ⟨0, 0, f.width, f.height⟩ "the picture"
   { motion := m, keys := K, plan := p, problems }
 

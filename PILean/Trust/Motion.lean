@@ -23,10 +23,11 @@ For a motion `m` declared as `d`, with `n` keys, the files are (`docs/DESIGN.md`
 
 * `d.svg`: the animated SVG (`MotionReport.svg?`, `MotionPanelsReport.svg?`);
 * `d-poster.png`, `d-poster.pdf`: the poster key's still;
-* `d-keys.svg`, `.png`, `.pdf`: the contact sheet, every key's still in a grid with its caption
+* `d-keys.svg`, `.png`, `.pdf`: the contact sheet, every still in a grid with its caption
   (`CheckedMotion.sheet`), with a title and a description listing the captions;
-* `d-key-k.svg`, `d-key-k.png` for each key `k` from `0`: the still of key `k`, byte for byte the
-  SVG and PNG of the key figure (`Plane.Motion.keyFigure k`) or of the picture's key
+* `d-key-k.svg`, `d-key-k.png` for each key `k` that is a still (`Plane.Motion.stillKeys`; every
+  key, from `0`, unless some key is not a still): the still of key `k`, byte for byte the SVG and
+  PNG of the key figure (`Plane.Motion.keyFigure k`) or of the picture's key
   (`MotionPanelsReport.keyStillSvg k`, `keyStillPng k`);
 * with a narrow rendition (a picture of panels with a `narrowWidth`): `d-narrow.svg` and
   `d-narrow-key-k.svg`, `.png`;
@@ -111,7 +112,7 @@ structure MotionRendition where
   svg : Except (Array String) String
   /-- The moving picture for a page; empty when the rendition is stopped. -/
   live : Array Svg.Node
-  /-- The still of each key, in order. -/
+  /-- The still of each key that is one (`CheckedMotion.stillKeys`), in order. -/
   stills : Array MotionStill
   /-- What stops this rendition beyond what stops the motion. -/
   stops : Array String := #[]
@@ -122,6 +123,10 @@ every field that says how the motion was checked comes from its checks. -/
 structure CheckedMotion where private mk ::
   /-- The title of the picture (the sheet's heading and title). -/
   title : String
+  /-- The number of keys. -/
+  keyCount : Nat
+  /-- The keys that are stills, in order. -/
+  stillKeys : Array Nat
   /-- One caption per key. -/
   captions : Array String
   /-- The key shown as the poster. -/
@@ -140,6 +145,8 @@ structure CheckedMotion where private mk ::
   narrow : Option MotionRendition
   /-- The table of the steps. -/
   steps : Array MotionStepRow
+  /-- The rest on every key. -/
+  rests : Array MotionRestRow
   /-- Whether items change between two keys without a declared move. -/
   crossfades : Bool
   /-- The messages of the problems a build reports as warnings (empty when stopped). -/
@@ -167,8 +174,17 @@ def levelWord : CheckLevel → String
 
 /-- The record every output of the checked motion carries. -/
 def CheckedMotion.summary (c : CheckedMotion) : MotionSummary :=
-  { keys := c.main.stills.size, cycle := c.cycle, captions := c.captions.size,
-    checks := levelWord c.checks, errorsLeft := c.errorsLeft, narrow := c.narrow.isSome }
+  { keys := c.keyCount, cycle := c.cycle, captions := c.captions.size,
+    checks := levelWord c.checks, errorsLeft := c.errorsLeft, narrow := c.narrow.isSome,
+    stills := if c.stillKeys.size == c.keyCount then none else some c.stillKeys }
+
+/-- The captions of the stills, in order. -/
+def CheckedMotion.stillCaptions (c : CheckedMotion) : Array String :=
+  c.stillKeys.map (c.captions.getD · "")
+
+/-- The position of the poster among the stills (`0` when it is not one, which stops the
+motion). -/
+def CheckedMotion.posterIndex (c : CheckedMotion) : Nat := (c.stillKeys.idxOf? c.poster).getD 0
 
 /-- The body of the root `root` of an animated SVG as a page puts it inline: its children without
 `title`, `desc`, `style` and the poster group (class `Animation.posterClass`). -/
@@ -205,9 +221,9 @@ def idStops (doc : String) (actors : Array String) : Array String :=
 /-- What a page needs to show the rendition `r` of the checked motion inline. -/
 def CheckedMotion.page (c : CheckedMotion) (r : MotionRendition) : MotionData :=
   { summary := c.summary, live := InlineSvg.ofStyle r.width r.height r.live c.style,
-    stills := { stepCaptions := c.captions, frames := r.stills.map (·.inline),
-                poster := c.poster },
-    steps := c.steps, crossfades := c.crossfades }
+    stills := { stepCaptions := c.stillCaptions, frames := r.stills.map (·.inline),
+                poster := c.posterIndex },
+    steps := c.steps, crossfades := c.crossfades, stillKeys := c.stillKeys, rests := c.rests }
 
 /-! ### The contact sheet -/
 
@@ -288,7 +304,7 @@ def sheetOf (title : String) (captions : Array String) (stills : Array MotionSti
 
 /-- The contact sheet of the checked motion's key stills (`sheetOf`). -/
 def CheckedMotion.sheet (c : CheckedMotion) : ExplorerFrame :=
-  sheetOf c.title c.captions c.main.stills c.style c.textAsShapes
+  sheetOf c.title c.stillCaptions c.main.stills c.style c.textAsShapes
 
 /-- The nodes of the contact sheet's SVG: a `title` (the motion's title and `key frames`) and a
 `desc` listing the captions, the accessible name and description of a sheet whose text is drawn
@@ -296,7 +312,7 @@ as shapes, then the sheet's drawing. -/
 def CheckedMotion.sheetNodes (c : CheckedMotion) : Array Svg.Node :=
   let title := if c.title.isEmpty then "Key frames" else s!"{c.title}: key frames"
   #[Svg.el "title" #[] #[.text title],
-    Svg.el "desc" #[] #[.text (" ".intercalate c.captions.toList)]] ++ c.sheet.svgNodes
+    Svg.el "desc" #[] #[.text (" ".intercalate c.stillCaptions.toList)]] ++ c.sheet.svgNodes
 
 /-- The contact sheet's SVG document (`sheetNodes`). -/
 def CheckedMotion.sheetSvg (c : CheckedMotion) : String :=
@@ -358,7 +374,7 @@ def motionOutputs (c : CheckedMotion) (rasters : Bool := false) (fps : Nat := 30
        theme := fun _ => InlineSvg.themeOf c.style,
        motionPage := fun _ => some (c.page r) } : Output)
   let stills := fun (suffix : String) (r : MotionRendition) =>
-    r.stills.zipIdx.flatMap fun (f, k) => stillOutputs f s!"{suffix}-key-{k}"
+    r.stills.zipIdx.flatMap fun (f, i) => stillOutputs f s!"{suffix}-key-{c.stillKeys.getD i i}"
   let main := animated "" c.main
   let anim := fun (fmt : Format) =>
     ({ name := "", format := fmt, spec := main.spec, textEngine := t,
@@ -367,7 +383,8 @@ def motionOutputs (c : CheckedMotion) (rasters : Bool := false) (fps : Nat := 30
          | .error es => .error ("problems: " ++ "; ".intercalate es.toList) } : Output)
   let raster : Array Output := if rasters then #[anim .apng, anim .gif] else #[]
   -- a poster out of range stops the motion (it is not well formed); its files still fail
-  let poster := (stillOutputs (c.main.stills.getD c.poster default) "-poster" (pdf := true)).filter
+  let poster := (stillOutputs (c.main.stills.getD c.posterIndex default) "-poster"
+    (pdf := true)).filter
     (·.format != .svg)
   let sh := c.sheet
   let sheetSvg := c.sheetSvg
@@ -422,15 +439,34 @@ def moveDrawn (vs : Array MotionVersion) (j : Nat) (id : String) (mv : Move) : S
   if ok then mv.name else "crossfade"
 
 /-- The rows of the moves `moves` of step `j` of a panel named `panel` (empty for one motion),
-with what the animation draws for each (`moveDrawn`). -/
+with what the animation draws for each (`moveDrawn`) and the windows of the fades in part of the
+step (`windows`: the actors with their windows in seconds from the step's start). -/
 def moveRows (vs : Array MotionVersion) (panel : String) (j : Nat)
-    (moves : Array (String × Move)) : Array MotionMoveRow :=
+    (moves : Array (String × Move)) (windows : Array (String × Rat × Rat) := #[]) :
+    Array MotionMoveRow :=
   moves.map fun (id, mv) =>
     let drawn := moveDrawn vs j id mv
+    let window := (windows.find? (·.1 == id)).map (·.2)
     match mv with
     | .turn c q => { panel, actor := id, kind := mv.name, centre := some c, turns := some q, drawn }
     | .slide v => { panel, actor := id, kind := mv.name, vector := some v, drawn }
-    | _ => { panel, actor := id, kind := mv.name, drawn }
+    | _ => { panel, actor := id, kind := mv.name, drawn, window }
+
+/-- The windows of the fades of the motion in part of step `j` (`Motion.fadesOn` on the timeline
+`base`), in seconds from the step's start. -/
+def Motion.stepWindowSeconds (m : Motion) (K : MotionKeys) (base : Anim.Timeline) (j : Nat) :
+    Array (String × Rat × Rat) :=
+  let d := kindDur base (.move j)
+  ((m.fadesOn K base).steps.getD j #[]).map fun (id, _, a, b) => (id, a * d, b * d)
+
+/-- The fades of the motion during the rest on key `k` of a panel named `panel` (empty for one
+motion), as rows (`Motion.fadesOn` on the timeline `base`), their windows in seconds from the
+rest's start. -/
+def Motion.restFadeRows (m : Motion) (K : MotionKeys) (base : Anim.Timeline) (panel : String)
+    (k : Nat) : Array MotionMoveRow :=
+  let d := kindDur base (.rest k)
+  ((m.fadesOn K base).rests.getD k #[]).map fun (id, f, a, b) =>
+    { panel, actor := id, kind := f.name, drawn := f.name, window := some (a * d, b * d) }
 
 /-- Whether some item of the motion with layers `vs` and `n` keys changes between two keys
 without a declared move: a layer that begins after the first key, or ends before the last, in a
@@ -438,9 +474,10 @@ step that declares no move for its actor (an item without an id has none). A lay
 ends where its actor has a declared move is that move's appearance or disappearance, or the
 crossfade of a move that does not land, which the step table marks (`moveDrawn`). -/
 def crossfadesIn (m : Motion) (vs : Array MotionVersion) (n : Nat) : Bool :=
+  -- a move in step `j`, or a fade during the rest on key `j + 1`, that ends or begins the layer
   let declared := fun (j : Nat) (actor : Option String) =>
     match actor with
-    | some id => (m.moveOf j id).isSome
+    | some id => (m.moveOf j id).isSome || (m.restFadeOf (j + 1) id).isSome
     | none => false
   vs.any fun v =>
     (v.first > 0 && !declared (v.first - 1) v.actor) ||
@@ -454,7 +491,15 @@ def Motion.stepRows (m : Motion) (K : MotionKeys := m.keysOf) : Array MotionStep
   let vs := (m.versions K K.env).1
   m.steps.mapIdx fun j s =>
     { step := j, duration := max 0 (Motion.animStep m.pacing s).dur, idle := s.kind == .idle,
-      moves := moveRows vs "" j s.moves }
+      moves := moveRows vs "" j s.moves (m.stepWindowSeconds K m.baseTimeline j) }
+
+/-- The rest on every key of the motion (its keys as drawn `K`): its duration on the motion's
+timeline, whether the key is a still, and the fades during it (`Motion.restFadeRows`). -/
+def Motion.restRows (m : Motion) (K : MotionKeys := m.keysOf) : Array MotionRestRow :=
+  let base := m.baseTimeline
+  (Array.range m.keys.size).map fun k =>
+    { key := k, duration := max 0 (kindDur base (.rest k)), still := m.isStill k,
+      fades := m.restFadeRows K base "" k }
 
 /-- The motion with every key, and every figure between two keys, drawn in the style `st`: for
 the dark twin of a motion whose keys have the light colours, `Style.darkTwin?` of
@@ -501,16 +546,20 @@ def Motion.checked (m : Motion) : CheckedMotion :=
   let idProblems := match r.svg? with
     | .ok doc => idStops doc m.actorIds
     | .error _ => #[]
-  let stops := (if r.problemsFail || !wellFormed then errors else #[]) ++ idProblems
+  let posterStops := if wellFormed && !m.isStill m.poster then
+      #[s!"the poster is key {m.poster}, which is not a still"] else #[]
+  let stops := (if r.problemsFail || !wellFormed then errors else #[]) ++ idProblems ++ posterStops
   let st := (r.keys.figure 0).style
-  { title := m.info.title, captions := m.captions, poster := m.poster,
+  { title := m.info.title, keyCount := m.keys.size, stillKeys := m.stillKeys,
+    captions := m.captions, poster := m.poster,
     cycle := r.plan.timeline.cycle, style := st,
     textAsShapes := (r.keys.figure 0).textAsShapes, checks := m.checks,
     main := { width := f.width.round, height := f.height.round, svg := r.svg?,
               live := if !stops.isEmpty then #[] else liveNodes (m.svgRootIn r.keys r.plan),
-              stills := r.keys.figs.map fun fig => MotionStill.ofFrame (ExplorerFrame.ofPlane fig) },
+              stills := m.stillKeys.map fun k =>
+                MotionStill.ofFrame (ExplorerFrame.ofPlane (r.keys.figure k)) },
     narrow := none,
-    steps := m.stepRows r.keys,
+    steps := m.stepRows r.keys, rests := m.restRows r.keys,
     crossfades := crossfadesIn m (m.versions r.keys r.keys.env).1 m.keys.size,
     warnings := if !stops.isEmpty then #[] else r.checkMessages,
     stops, errorsLeft := if stops.isEmpty then m.strictErrors r else 0,
@@ -527,7 +576,7 @@ instance : ToOutputs Motion where
 
 /-- What stops a picture of panels from being written as recorded, at every level: the errors of
 a picture that is not well formed, panels drawn with different text engines (its stills and its
-sheet are drawn with one), and an id written twice (`idStops`). -/
+sheet are drawn with one), an id written twice (`idStops`), and a poster that is not a still. -/
 def MotionPanelsReport.writeStops (r : MotionPanelsReport) : Array String :=
   let engines := (r.panels.map (·.keys.env.style.text.id)).toList.eraseDups
   let actors := r.figure.panels.flatMap (·.motion.actorIds)
@@ -537,7 +586,9 @@ def MotionPanelsReport.writeStops (r : MotionPanelsReport) : Array String :=
     else #[]) ++
     (match r.svg? with
       | .ok doc => idStops doc actors
-      | .error _ => #[])
+      | .error _ => #[]) ++
+    (if decide r.figure.WellFormed && !r.figure.isStill r.figure.poster then
+      #[s!"the poster is key {r.figure.poster}, which is not a still"] else #[])
 
 /-- The still of key `k` of a picture of panels: the picture's key (`stillNodes`, whose document
 is `keyStillSvg k`; `keyStillPng k`), its PDF drawn from the same shapes (`stillShape`, text by
@@ -561,17 +612,29 @@ def MotionPanelsReport.rendition (r : MotionPanelsReport) (stops : Array String)
     live := if !stops.isEmpty then #[] else
       r.background.render r.mode ++ r.titleNodes ++
         #[Svg.el "g" #[("class", Animation.liveClass)] r.liveNodes],
-    stills := (Array.range r.figure.keyCount).map r.still, stops }
+    stills := r.figure.stillKeys.map r.still, stops }
 
 /-- The step table of a picture of panels (`stepRows`): each step's duration on the shared
 timeline, whether it is idle, and every panel's moves, named by the panel (`MotionPanels.name`),
 with what the animation draws for each (`moveDrawn`, from the panel's layers). -/
 def MotionPanelsReport.tableRows (r : MotionPanelsReport) : Array MotionStepRow :=
   let vss := r.panels.map fun pr => (pr.motion.versions pr.keys pr.keys.env).1
+  let base := r.figure.baseTimeline
   r.stepRows.map fun row =>
     { step := row.step, duration := max 0 row.duration, idle := row.kind == .idle,
       moves := row.moves.flatMap fun (i, id, mv) =>
-        moveRows (vss.getD i #[]) (r.figure.name i) row.step #[(id, mv)] }
+        let pr := r.panels.getD i default
+        moveRows (vss.getD i #[]) (r.figure.name i) row.step #[(id, mv)]
+          (pr.motion.stepWindowSeconds pr.keys base row.step) }
+
+/-- The rest on every key of a picture of panels: its duration on the shared timeline, whether the
+key is a still, and every panel's fades during it, named by the panel. -/
+def MotionPanelsReport.restRows (r : MotionPanelsReport) : Array MotionRestRow :=
+  let base := r.figure.baseTimeline
+  (Array.range r.figure.keyCount).map fun k =>
+    { key := k, duration := max 0 (kindDur base (.rest k)), still := r.figure.isStill k,
+      fades := r.panels.zipIdx.flatMap fun (pr, i) =>
+        pr.motion.restFadeRows pr.keys base (r.figure.name i) k }
 
 /-- The number of problems the strict level treats as errors in the picture `P` whose report is
 `r`: `r`'s errors when its level is `fail`, else those of the picture checked at `fail`. -/
@@ -595,14 +658,15 @@ def MotionPanels.checked (P : MotionPanels) : CheckedMotion :=
   let narrowLeft := match narrowP, narrow with
     | some nP, some n => if (stops ++ narrowStops n).isEmpty then nP.strictErrors n else 0
     | _, _ => 0
-  { title := P.info.title, captions := P.captions, poster := P.poster,
+  { title := P.info.title, keyCount := P.keyCount, stillKeys := P.stillKeys,
+    captions := P.captions, poster := P.poster,
     cycle := r.timeline.cycle, style := r.style,
     textAsShapes := ((r.panels[0]?).bind fun pr => (pr.keys.figs[0]?).map (·.textAsShapes)).getD
       true,
     checks := P.checks,
     main := r.rendition stops,
     narrow := narrow.map fun n => n.rendition (narrowStops n),
-    steps := r.tableRows,
+    steps := r.tableRows, rests := r.restRows,
     crossfades := r.panels.any fun pr =>
       crossfadesIn pr.motion (pr.motion.versions pr.keys pr.keys.env).1 pr.motion.keys.size,
     warnings := if !stops.isEmpty then #[] else

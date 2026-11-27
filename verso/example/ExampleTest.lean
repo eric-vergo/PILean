@@ -299,6 +299,8 @@ def main (args : List String) : IO UInt32 := do
     writeMotion dir "Example.fifthTurn" Example.fifthTurn
     writeMotion dir "Example.slideAcross" Example.slideAcross
     writePanels dir "Example.twoFrames" Example.twoFrames
+    writeMotion dir "Example.announceTurns" Example.announceTurns
+    writePanels dir "Example.announcePanels" Example.announcePanels
     writePanels dir "Example.oddMotion" Example.oddMotion
     IO.println s!"motion files written to {dir}"
     return 0

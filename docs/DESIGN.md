@@ -1041,13 +1041,31 @@ key 0, then each step's move and the rest on the key it reaches, closed by the s
 `Seam.cut` the picture jumps back to key 0 when the cycle repeats; under `Seam.crossfade d` the
 cycle starts with a fade in and ends with a fade out, `d / 2` each, so that jump happens while
 nothing is visible. One function, `Timeline.spec`, gives every segment's duration and easing
-(rests and fades are not eased). Durations are rationals (`Rat`): the start of every segment, the
+(rests and fades are not eased). A key may rest as long as it says (`Pacing.holds`, filled from a
+motion's `MotionKey.rest`): its own rest wins over `firstHold` and `lastHold` too, and a key
+without one rests `firstHold` on key 0, `lastHold` on the last key and `hold` on any other
+(`Pacing.restOf`). Durations are rationals (`Rat`): the start of every segment, the
 cycle and the key times are exact, and the order of the segments, their durations and easings,
 the tiling of the cycle, the key times from 0 to 1 and the segment found at a time are theorems
 (`PILean/Anim/TimelineProofs.lean`, [`PROOFS.md`](PROOFS.md)). Floating point begins with the
 eased progress through a segment: `Easing.eval` solves the cubic Bézier of SMIL's `keySplines`
 (and CSS's `cubic-bezier`) for its parameter by 64 halvings and has its control values clamped
 into `[0, 1]`, so it never overshoots.
+
+A segment can be divided into parts (`Timeline.divide`, `Segment.divide`), each given by the
+fraction of the segment's time where it ends and its easing: a step sampled for a morph, and a
+step or a rest cut at the ends of the windows of its fades (below). The parts tile the cycle as
+the segments did, and none lasts less than zero when their ends do not decrease from `0` and the
+last is `1` (`Timeline.divide_tiles`, `Timeline.divide_dur_nonneg`). A part of a step keeps the
+step's eased motion exactly: its easing is the part of the step's curve between the parameters
+where its first coordinate is the part's ends (`Easing.part`, de Casteljau's construction on the
+curve's blossom), scaled into the unit square, so the values written at the part's ends and SMIL's
+interpolation between them give the eased value of the whole step at every moment; a part whose
+scaled control values would leave `[0, 1]` is refused (and is an error of the motion), which has
+not been seen on any curve with control values in `[0, 1]` (the tests try the standard curve and
+four extreme ones, within `1e-6`, and `1e-4` where a curve is steep). The control values are
+written to six decimals: at four, a part of the standard curve would leave a turn up to `1e-4` of
+its angle off its eased angle.
 
 `PILean/Anim/Smil.lean` writes SMIL animation elements on a timeline: `animateRotate` (values
 `θ cx cy` of an `animateTransform` of type `rotate`), `animateTranslate`, `animateOpacity`,
@@ -1188,6 +1206,95 @@ with the default 16. The plan (`MotionPlan`) holds every animated value as a fun
 key, or a fraction of a step) and is computed in a drawing environment on a given timeline
 (`Motion.planOn`; `Motion.planIn` on the motion's own), so that a picture of several panels lays out
 each motion in a frame of its own on one shared timeline (below).
+
+### Rests of their own, fades in part of a step or a rest, keys that are not stills
+
+A mark that announces the next move (a ring at the centre of the next turn, an arrow of its sense)
+should appear while everything else stands still, stay through the move and go after it, without
+lengthening the loop and without stills that show a transition rather than a state. Three
+features of a motion give this, all declared per key and per step (`MotionKey` in
+`Motion.keyOptions`, empty or one per key; `MotionStep.windows`):
+
+* **A rest of its own.** `MotionKey.rest` is the length of the rest on that key, which wins over
+  the pacing's (`Pacing.restOf`: the key's own, else `firstHold` on key 0, `lastHold` on the last
+  key, `hold` on any other). It must be longer than zero (an error otherwise): every key is shown,
+  and checked, in its rest.
+* **Fades during a rest.** `MotionKey.fades` lists actors that appear or vanish during the rest on
+  the key, each in a `Window` of the rest (its edges a fraction of the rest's time, or seconds after
+  its start or before its end). A key's figure is the picture at the *end* of its rest, after its
+  fades: an actor that appears during the rest on key `k` is in key `k` and not in key `k - 1`;
+  one that vanishes is in key `k - 1` and not in key `k` (so none vanishes on key 0); the step
+  from key `k - 1` arrives with the first absent and the second still there. The still of a key is
+  therefore the state a reader studies, the mark of the next move already shown. The rules, each
+  an error: an actor fades at most once in a rest; it does not move in the step before the rest
+  (it is drawn as key `k - 1` draws it until it has gone, and no key would show where a move took
+  it); its window lies in the rest, its end after its start; the rest goes on after the last fade
+  ends, so that the key is shown still there; and windows in one rest are apart or the same, across
+  the panels of a picture too, because each part of the rest between two ends of windows is one
+  interval of the shared clock, a fade's part eased with the pacing's easing and any other part not
+  eased. The key is shown still in the last part of its rest (`Timeline.stillPart?`): the rest
+  check, the poster's time and the expectations' rests use its middle.
+* **Fades in part of a step.** `MotionStep.windows` gives the window of an actor's appearance or
+  disappearance in its step. Only fades: a turn, a slide or a morph runs through its whole step
+  on the step's easing, because one interval of the clock has one spline for every animation in
+  it, and a turn in part of a step would need an easing of its own beside a whole-step turn in the
+  same intervals. The step is cut at the ends of its windows (across the panels of a picture,
+  every panel's), each part eased as that part of the step is (`Easing.part`), so a turn in the
+  same step follows its eased angle exactly and a fade in a window is eased as that part of the
+  step is (in the first 0.3 s of an eased turn it eases in only). The rules, each an error: one
+  window per actor in a step, on its appearance or disappearance, inside the step, its end after
+  its start, and none in a step sampled for a morph (`Motion.between`), whose parts are not eased.
+* **Keys that are not stills.** `MotionKey.still := false` marks a key that the motion passes
+  through: it takes part in the timeline (it rests, as its own `rest` or the pacing says), in the
+  arrival checks, in the rest check and in the browser checks of positions, and is recorded; it is
+  not written as a still (no `-key-k` files: the other stills keep their key's number, so a
+  motion's file names do not change when one key stops being a still), not listed in the grid of
+  stills, the contact sheet or the figure page's stills, and not counted in their numbering (`Step
+  k of N` counts the stills). Its caption is not needed (one that is not empty is a note, since it
+  is not shown). The poster must be a still: an error, and the outputs stop at every level. The
+  step table still lists every step, with a row of its own for the rest on a key that is not a
+  still or that has fades (`Rest on key frame 3 (not a still)`, its duration and its fades with
+  their windows): merging the steps around such a key would hide which move happens when.
+
+The case of a mark that announces each turn: the rest on key 1 lasts 0.9 s; in it the ring at `A`
+(the centre of the turn just done) fades out in the first 0.2 s, the ring at `B` (the centre of the
+next turn) fades in over the next 0.2 s, and the triangle stands with the ring at `B` for 0.5 s;
+the ring at `B` fades out in the last 0.3 s of the turn about `B`:
+
+```lean
+keyOptions := #[{},
+  { rest := some (9 / 10),
+    fades := #[("mA", .vanish, .seconds 0 (1 / 5)), ("mB", .appear, .seconds (1 / 5) (2 / 5))] },
+  {}]
+steps := #[{ moves := #[("T", turnAbout a (1 / 4))] },
+  { moves := #[("T", turnAbout b (1 / 4)), ("mB", .vanish)],
+    windows := #[("mB", .last (3 / 10))] }]
+```
+
+The rings need no keys of their own: key 0 shows the ring at `A`, key 1 the ring at `B`, and the
+stills are one per state. The golden motions `motion-announce` and `motion-panels-announce` (the
+same in two panels, with a narrow rendition, a key passed through that is not a still, and a point
+that appears in the first 0.3 s of a turn) and the example site's `announceTurns` and
+`announcePanels` show all of it.
+
+The alternatives rejected: more keys with short rests (each fade a step between two keys), which
+makes a pause a hand-over and multiplies near-duplicate stills; fades in a step only, reaching
+back into the rest before it, which leaves the key's still without the mark that announces the
+move; and a key's figure as the picture when its rest begins, which does the same.
+
+*As written.* A layer's opacity is given at every boundary of the divided timeline from the phase
+there (`MotionPhase`: in a rest, the fraction of the rest done; in a step, the fractions of its
+time and of its change done), with its fades (`LayerFades`): in a rest, `0` before the window of an
+appearance and `1` after it; in a step, the step's progress through the window. Consecutive layers
+with the same opacity at every boundary share one opacity animation (layers shown on the same keys
+without fades of their own have it).
+Only `opacity` is animated for a fade, on the one clock; the reduced-motion rule and the stills are
+untouched.
+
+*Recorded.* A motion with a key that is not a still records its stills (`MotionSummary.stills`:
+`;stills=0,1,3` at the end of the source record's value, `"stills": [0, 1, 3]` in the manifest;
+neither is written when every key is a still), and the manifest requires the SVG and PNG of exactly those keys at each width. The page data
+gives each still's key (`MotionData.stillKeys`) and every rest (`MotionData.rests`).
 
 ### Motions as panels on one clock
 

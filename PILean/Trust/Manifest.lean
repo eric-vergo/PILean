@@ -122,7 +122,7 @@ deriving BEq, Repr, Inhabited
 def manifestKeys : Array String :=
   #["path", "format", "bytes", "sha256", "fingerprint", "module", "decl", "file", "line", "column",
     "version", "repo", "commit", "darkColours", "darkOpacities", "standing", "theorems", "kind",
-    "keys", "cycle", "captions", "checks", "errorsLeft", "narrow"]
+    "keys", "cycle", "captions", "checks", "errorsLeft", "narrow", "stills"]
 
 /-- A character a file name may have: a letter, a digit, `.`, `_`, `-`; all ASCII. -/
 def nameChar (c : Char) : Bool :=
@@ -174,7 +174,10 @@ def ManifestEntry.render (m : ManifestEntry) : String :=
     (match m.motion with
       | some mo => [s "kind" "motion", n "keys" mo.keys, s "cycle" (cycleText mo.cycle),
           n "captions" mo.captions, s "checks" mo.checks,
-          n "errorsLeft" mo.errorsLeft, s!"\"narrow\":{if mo.narrow then "true" else "false"}"]
+          n "errorsLeft" mo.errorsLeft, s!"\"narrow\":{if mo.narrow then "true" else "false"}"] ++
+          (match mo.stills with
+            | some ks => [s!"\"stills\":[{",".intercalate (ks.toList.map toString)}]"]
+            | none => [])
       | none => [])) ++ "}"
 
 /-- The manifest text of a list of entries (in the given order). -/
@@ -235,7 +238,10 @@ def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) (current : Bool := 
   let motion ← if !current then pure none else
     match j.get? "kind", (j.get? "keys", j.get? "cycle", j.get? "captions"),
         (j.get? "checks", j.get? "errorsLeft", j.get? "narrow") with
-    | none, (none, none, none), (none, none, none) => pure none
+    | none, (none, none, none), (none, none, none) =>
+      if (j.get? "stills").isSome then
+        throw "the key stills belongs to a motion (kind motion)"
+      pure none
     | some (.str "motion"), (some (.num keys), some (.str c), some (.num captions)),
         (some (.str checks), some (.num errorsLeft), some (.bool narrow)) =>
       match cycleOfText? c with
@@ -245,7 +251,18 @@ def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) (current : Bool := 
           throw s!"the check level {checks} is not fail, warn or ignore"
         if checks == "fail" && errorsLeft != 0 then
           throw "a motion checked at the level fail has no error left"
-        pure (some { keys, cycle, captions, checks, errorsLeft, narrow })
+        let stills ← match j.get? "stills" with
+          | none => pure none
+          | some (.arr xs) =>
+            let ks ← xs.mapM fun
+              | .num k => pure k
+              | _ => throw "the key stills must be a list of numbers"
+            if !stillsOk keys ks then
+              throw "the stills of a motion are keys of it, in increasing order, at least one and \
+                not every key"
+            pure (some ks)
+          | some _ => throw "the key stills must be a list of numbers"
+        pure (some { keys, cycle, captions, checks, errorsLeft, narrow, stills })
       | none => throw s!"the cycle {c} is not a non-negative number n or n/d in lowest terms"
     | some (.str "motion"), _, _ =>
       throw "a motion needs the numbers keys, captions and errorsLeft, the strings cycle and checks \
@@ -302,7 +319,10 @@ def motionKeyProblem? (decl : String) (mo : MotionSummary) (es : Array ManifestE
   else if !(stems.all fun stem => paths.contains (stem ++ ".svg")) then
     some s!"the files of {decl} record a motion but do not list its animated SVG at each width"
   else stems.findSome? fun stem =>
-    let want := (List.range mo.keys).flatMap fun k => [(k, "svg"), (k, "png")]
+    let keys := match mo.stills with
+      | some ks => ks.toList
+      | none => List.range mo.keys
+    let want := keys.flatMap fun k => [(k, "svg"), (k, "png")]
     let have_ := (stills.filter (·.1 == stem)).toList.map fun (_, k, f) => (k, f)
     if want.all have_.contains && have_.all want.contains && have_.length == want.length then
       none
