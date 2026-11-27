@@ -9,7 +9,8 @@
 #
 # With the clock paused and set (`setCurrentTime`), every `[data-pilean-actor]` anchor is read
 # through `getCTM()`:
-#   (a) at the middle of each key's rest every actor is where the key's still has it, and every
+#   (a) at the middle of each key's rest every actor is where the key's still has it (again one
+#       cycle later, in the second loop: the anchors; turns, slides and phase likewise), and every
 #       label's or marker's anchor where the motion's plan draws it (0.05 px),
 #       and the picture is the key's still SVG up to antialiasing (`UNEXPLAINED`): no pixel is
 #       unexplained, a pixel of one picture being unexplained by the other when both of two
@@ -69,11 +70,15 @@
 #   python3 tools/motion-browser-check.py DIR [--engine chromium|firefox|webkit]
 #
 # Engines: Chromium (the default) is the engine the pixel rule's tolerances were measured on and
-# the one a continuous-integration gate runs. `--engine webkit` runs the position checks in the
-# system's WebKit on macOS (`tools/webkit/webkit_check.py`), not the pixel rule; it has been run
-# on the golden motions and both examples. `--engine firefox` would run the same checks in
-# Playwright's Firefox with Chromium's tolerances (the fixtures need not show Chromium's effect
-# there, and it is reported); that mode has not been run yet, so its results are not known.
+# the one a continuous-integration gate runs. `--engine firefox` runs the same checks in
+# Playwright's Firefox (Firefox 159), with the same tolerances, measured there too: on the golden
+# motions and both examples' motions no rest pixel is unexplained and the largest blurred
+# difference where the range test fails is 0.000 of the local contrast; on the fixtures Firefox
+# draws the circle turned into place as it draws it in place (the range test alone finds 0
+# pixels, where Chromium finds 5, which is reported, not required) and the segment as Chromium
+# does (19 pixels, 0.005), and a shape moved by 2 or 3 px is caught. `--engine webkit` runs the
+# position checks in the system's WebKit on macOS (`tools/webkit/webkit_check.py`), not the pixel
+# rule.
 import base64
 import json
 import math
@@ -431,12 +436,25 @@ def check(browser, root, name):
                 print(f"{name}: key {rest['key']}: no element for {a['id']}")
                 continue
             rest_err = max(rest_err, math.dist(xy, a["at"]))
+    # the second loop: every rest's anchors again, one cycle later
+    for rest in spec["rests"]:
+        seen = page.evaluate(READ, rest["t"] + spec["cycle"])
+        uprights_found.add(len(seen["uprights"]))
+        upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
+        for a in rest["actors"]:
+            xy = first(seen["actors"], a["id"])
+            if xy is None:
+                ok = False
+                print(f"{name}: key {rest['key']}, second loop: no element for {a['id']}")
+                continue
+            rest_err = max(rest_err, math.dist(xy, a["at"]))
+    loops = (0, spec["cycle"])
     for turn in spec["turns"]:
         c, s = turn["centre"], turn["start"]
         r = math.dist(s, c)
         a0 = math.degrees(math.atan2(s[1] - c[1], s[0] - c[0]))
-        for sample in turn["samples"]:
-            seen = page.evaluate(READ, sample["t"])
+        for off, sample in [(o, sm) for o in loops for sm in turn["samples"]]:
+            seen = page.evaluate(READ, sample["t"] + off)
             uprights_found.add(len(seen["uprights"]))
             upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
             xy = first(seen["actors"], turn["id"])
@@ -452,8 +470,8 @@ def check(browser, root, name):
     slide_err = 0.0
     for sl in spec.get("slides", []):
         a, b = sl["from"], sl["to"]
-        for sample in sl["samples"]:
-            seen = page.evaluate(READ, sample["t"])
+        for off, sample in [(o, sm) for o in loops for sm in sl["samples"]]:
+            seen = page.evaluate(READ, sample["t"] + off)
             uprights_found.add(len(seen["uprights"]))
             upright = max([upright] + [abs(x) for x, _ in seen["uprights"]])
             xy = first(seen["actors"], sl["id"])
@@ -466,8 +484,8 @@ def check(browser, root, name):
                                                        a[1] + f * (b[1] - a[1])]))
     # panels in phase: every actor of every panel where the composed baker has it, at one time
     phase_err = {}
-    for sample in spec.get("phase", []):
-        seen = page.evaluate(READ, sample["t"])
+    for off, sample in [(o, sm) for o in loops for sm in spec.get("phase", [])]:
+        seen = page.evaluate(READ, sample["t"] + off)
         if [i for i, _ in seen["actors"]] != [i for i, _ in sample["actors"]]:
             ok = False
             print(f"{name}: at {sample['t']:.3f} s the actors differ from the expected ones")

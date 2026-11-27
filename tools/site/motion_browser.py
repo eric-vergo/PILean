@@ -14,17 +14,16 @@ a motion without its expectations fails. The site is served on 127.0.0.1 under a
 policy (`site_browser.serve`) and checked in Chromium (Playwright, nothing installed or downloaded).
 `--engine firefox` runs the same checks in Playwright's Firefox, with the freeze control (a freeze
 seen in Chromium) and the PDF print (which Playwright makes in Chromium only) reported as not
-applicable; that mode has not been run yet, so its results are not known. `--workers N` checks N
+applicable (`n/a:` lines); every other check runs there as in Chromium. `--workers N` checks N
 pages at a time, each in a process with its own browser. `motion_checks` checks one page; on a
 Blueprint site (a caption with the switch's link) also the switch and the link. Checked:
-
-* with the clock paused and set, every actor of the page's moving picture is where its key still
-  has it at every rest (0.05 px), on its circle at a quarter, a half and three quarters of every
-  turn (0.05 px, a true arc) at the eased angle (0.5 degrees), on the straight segment between its
-  keys at the eased fraction at the same times of every slide (0.05 px; a motion may have no turn
-  or no slide), every label and marker upright
-  (0.01 degrees), and every panel of a picture of panels in phase with the others (0.05 px); this
-  covers the actors' anchors and the upright marks, not every pixel (`tools/motion-browser-check.py`
+* with the clock paused and set, in the first loop and again one cycle later, every actor of the
+  page's moving picture is where its key still has it at every rest (0.05 px), on its circle at a
+  quarter, a half and three quarters of every turn (0.05 px, a true arc) at the eased angle (0.5
+  degrees), on the straight segment between its keys at the eased fraction at the same times of
+  every slide (0.05 px; a motion may have no turn or no slide), every label and marker upright (0.01
+  degrees), and every panel of a picture of panels in phase with the others (0.05 px); this covers
+  the actors' anchors and the upright marks, not every pixel (`tools/motion-browser-check.py`
   compares pixels);
 * every moving picture plays on its own clock; the wide rendition is shown at 1440 px and the
   narrow one at 360 px, the other hidden and taking no space;
@@ -150,8 +149,10 @@ STATE = """(sid) => {
 def console_error(m):
     """Whether a console message is an error of the page, other than the content policy's report
     of the inline event handler of Verso's table of contents (outside every figure; the policy
-    reports of figures are checked by `figure_reports`)."""
-    return m.type == "error" and "inline event handler" not in m.text
+    reports of figures are checked by `figure_reports`), in Chromium's words ("inline event
+    handler") or Firefox's ("blocked an event handler", naming the table of contents' toggle)."""
+    return m.type == "error" and "inline event handler" not in m.text and not (
+        "blocked an event handler" in m.text and "toggle-toc" in m.text)
 
 
 def uri(data):
@@ -183,13 +184,15 @@ def file_of(page, sid):
 
 
 def position_checks(c, page, sid, spec, label):
-    """Rests, arcs, uprights and phase of one moving picture against the expectations."""
+    """Rests, arcs, slides, uprights and phase of one moving picture against the expectations, in
+    its first loop and again one cycle later (the clock paused and set)."""
     page.evaluate("(sid) => document.getElementById(sid).pauseAnimations()", sid)
     rest_err = radius_err = angle_err = upright = 0.0
     missing = []
     counts = set()
-    for rest in spec["rests"]:
-        seen = page.evaluate(READ, [sid, rest["t"]])
+    loops = [(k * spec["cycle"], r) for k in (0, 1) for r in spec["rests"]]
+    for off, rest in loops:
+        seen = page.evaluate(READ, [sid, rest["t"] + off])
         counts.add(len(seen["uprights"]))
         upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
         if len(seen["uprights"]) == len(rest["uprights"]):
@@ -205,8 +208,8 @@ def position_checks(c, page, sid, spec, label):
         cc, s = turn["centre"], turn["start"]
         r = math.dist(s, cc)
         a0 = math.degrees(math.atan2(s[1] - cc[1], s[0] - cc[0]))
-        for sample in turn["samples"]:
-            seen = page.evaluate(READ, [sid, sample["t"]])
+        for off, sample in [(k * spec["cycle"], sm) for k in (0, 1) for sm in turn["samples"]]:
+            seen = page.evaluate(READ, [sid, sample["t"] + off])
             upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
             xy = first(seen["actors"], turn["id"])
             if xy is None:
@@ -219,8 +222,8 @@ def position_checks(c, page, sid, spec, label):
     slide_err = 0.0
     for sl in spec.get("slides", []):
         a, b = sl["from"], sl["to"]
-        for sample in sl["samples"]:
-            seen = page.evaluate(READ, [sid, sample["t"]])
+        for off, sample in [(k * spec["cycle"], sm) for k in (0, 1) for sm in sl["samples"]]:
+            seen = page.evaluate(READ, [sid, sample["t"] + off])
             upright = max([upright] + [abs(x) for x, _ in seen["uprights"]])
             xy = first(seen["actors"], sl["id"])
             if xy is None:
@@ -243,8 +246,8 @@ def position_checks(c, page, sid, spec, label):
     c.check(f"{label}: labels and markers stay upright", upright <= UPRIGHT_TOL, f"{upright:.3g}")
     if spec.get("phase"):
         err, bad = 0.0, 0
-        for sample in spec["phase"]:
-            seen = page.evaluate(READ, [sid, sample["t"]])
+        for off, sample in [(k * spec["cycle"], sm) for k in (0, 1) for sm in spec["phase"]]:
+            seen = page.evaluate(READ, [sid, sample["t"] + off])
             if [i for i, _ in seen["actors"]] != [i for i, _ in sample["actors"]]:
                 bad += 1
                 continue
@@ -528,9 +531,11 @@ def freeze_control(c, browser, engine="chromium"):
     nothing either, which is why the real check takes its moments from the motion's timeline
     (`rest_pair`) and the control uses a picture that moves all the time."""
     if engine != "chromium":
-        c.say(f"n/a: the freeze control in {engine}: the freeze it shows is an observation of "
-              "Chromium; the check that every picture follows its clock after every hide runs "
-              "in every engine")
+        # Firefox 159 does not freeze the fixture: shown again after display: none it follows its
+        # clock (measured on three runs), so the control has nothing to show there
+        c.say(f"n/a: the freeze control in {engine}: the freeze it shows is Chromium's (Firefox "
+              "follows its clock after display: none); the check that every picture follows its "
+              "clock after every hide runs in every engine")
         return
     cmp = browser.new_page()
     verdicts = []
@@ -593,6 +598,12 @@ def state_checks(c, browser, base, url, sid, label, helpers, blueprint, spec=Non
                 wait_clock(page, sid, lo, spec["cycle"], 0.0, hi - lo)
             hidden_at = page.evaluate(clock, sid)
             enter(page, state, stage, sid, prepared)
+            if state in OFF:
+                # the stills are pictures loaded lazily: bring the list into view, as a reader who
+                # turned motion off sees it (Firefox loads a lazy picture only near the view)
+                page.evaluate("""(sid) => { const k = document.getElementById(sid)
+                  .closest('.pilean-motion').querySelector('.pilean-motion-keys');
+                  if (k) k.scrollIntoView({block: 'nearest'}); }""", sid)
             if times:
                 wait_clock(page, sid, at - SHOW_LEAD, spec["cycle"])
             else:

@@ -469,12 +469,13 @@ list other turns or slides than the motion declares, fail the checks with a mess
 motion shown without its expectations fails the check. With `--workers N` the pages are checked N
 at a time.
 
-The checks run in Chromium, and that is the engine a continuous-integration gate uses. On macOS,
-`tools/webkit/webkit_check.py DIR` checks the positions in the system's WebKit, the engine of
-Safari, from a transparent window that lets every click through and never takes the focus; it
-fails when the clock does not run, and is for a local run, not a Linux gate. Chromium and WebKit
-are the engines the checks have been run in: the Firefox mode of the scripts (`--engine
-firefox`) has not been run yet, so what it finds is not known.
+The checks have been run in Chromium, Firefox and WebKit. A continuous-integration gate runs them
+in Chromium. `--engine firefox` runs them in Playwright's Firefox (installed for Playwright
+first), where the freeze control (a freeze of Chromium's) and the PDF print (which Playwright
+makes in Chromium only) are reported as not applicable. On macOS, `tools/webkit/webkit_check.py
+DIR` checks the positions in the system's WebKit, the engine of Safari, from a transparent window
+that lets every click through and never takes the focus; it fails when the clock does not run,
+and is for a local run, not a Linux gate.
 
 # The Browser Check
 %%%

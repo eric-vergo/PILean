@@ -391,20 +391,27 @@ stage and rules, are checked where the stills are listed. Each section prints it
 declares, fail with a message that says so. `tools/motion-browser-check.py` checks the same files
 on their own, pixel by pixel against the stills.
 
-Engines. The checks are measured and run on Chromium, and a continuous-integration gate runs them
-there; Chromium and WebKit are the engines they have been run in. WebKit, the engine of Safari,
-is checked on macOS only, locally, by `python3 tools/webkit/webkit_check.py DIR` (or
-`motion-browser-check.py DIR --engine webkit`) on the files of the expectations: the positions at
-rests, turns, slides and the panels' phase, paused in the first and the second loop and
-free-running over both, failing when the clock does not run. It compiles a small runner with the
-system's `swiftc`, which loads files below DIR only, reaches no network and has no bridge from
-the page, and shows the page in a transparent window that lets every click through and never
-takes the focus (`tools/webkit/runner.swift` says exactly what it does to the desktop;
-`tools/webkit/runner_test.py` shows its limits hold); it needs a logged-in session and is no part
-of a Linux gate. `motion_browser.py` and `motion-browser-check.py` also have a Firefox mode
-(`--engine firefox`, with Playwright's Firefox installed first) that has not been run yet: its
-results are not known. `browser_check.py` runs in Chromium only (some of its sections use
-Chromium's DevTools protocol).
+Engines. The motion checks have been run in three engines; a continuous-integration gate runs
+them in Chromium, and Firefox and WebKit are run locally:
+
+* Chromium (the default): `motion_browser.py`, `motion-browser-check.py` and `browser_check.py`.
+* Firefox, with Playwright's Firefox installed for Playwright (`python -m playwright install
+  firefox`): `motion_browser.py SITE --expect DIR --engine firefox` and `motion-browser-check.py DIR
+  --engine firefox`. Every check runs as in Chromium but two, which are reported as not applicable
+  (`n/a:`): the freeze control, whose freeze is Chromium's (Firefox shows the fixture following its
+  clock after `display: none`), and the PDF print, which Playwright makes in Chromium only; the
+  check that every picture follows its clock after every hide runs in every engine. The pixel rule's
+  tolerances were measured in Firefox too. `browser_check.py` is Chromium only: some of its sections
+  drive Chromium's DevTools protocol (event listeners, touch and scroll gestures).
+* WebKit, the engine of Safari, on macOS only: `python3 tools/webkit/webkit_check.py DIR` (or
+  `motion-browser-check.py DIR --engine webkit`) on the files of the expectations: the positions
+  at rests, turns, slides and the panels' phase, paused in the first and the second loop and
+  free-running over both, failing when the clock does not run. It compiles a small runner with
+  the system's `swiftc`, which loads files below DIR only, reaches no network and has no bridge
+  from the page, and shows the page in a transparent window that lets every click through and
+  never takes the focus (`tools/webkit/runner.swift` says exactly what it does to the desktop;
+  `tools/webkit/runner_test.py` shows its limits hold); it needs a logged-in session and is no
+  part of a Linux gate. The pages of a site are not checked in WebKit, only the motions' files.
 
 A site with motions under its own Content-Security-Policy must allow the `style` element of every
 inline picture, a motion's moving picture included (`style-src 'unsafe-inline'`, or the hash of

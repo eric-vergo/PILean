@@ -103,10 +103,9 @@ document.addEventListener('securitypolicyviolation', e => {
 
 TIMEOUT = 10000
 
-# The engines Playwright may drive here. Chromium is the one the checks are measured and run on,
-# and the one a continuous-integration gate uses. Firefox is a mode of `motion_browser.py` that
-# has not been run yet (Playwright's Firefox was not installed where the checks were written):
-# its results are not known, and the checks that rest on an observation of Chromium say so.
+# The engines Playwright drives here. Chromium is the one a continuous-integration gate uses;
+# Firefox runs the motion checks too (`motion_browser.py --engine firefox`), the checks that rest
+# on an observation of Chromium saying that they do not apply there.
 ENGINES = ("chromium", "firefox")
 
 
