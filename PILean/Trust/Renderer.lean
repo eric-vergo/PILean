@@ -47,6 +47,7 @@ def rendererSources : Array (String × String) :=
     ("PILean.Anim.Quantize", include_str "../Anim/Quantize.lean"),
     ("PILean.Anim.Smil", include_str "../Anim/Smil.lean"),
     ("PILean.Anim.Timeline", include_str "../Anim/Timeline.lean"),
+    ("PILean.Anim.TimelineProofs", include_str "../Anim/TimelineProofs.lean"),
     ("PILean.Canvas", include_str "../Canvas.lean"),
     ("PILean.CheckLevel", include_str "../CheckLevel.lean"),
     ("PILean.Color", include_str "../Color.lean"),
