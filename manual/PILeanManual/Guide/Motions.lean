@@ -244,6 +244,35 @@ left (`errorsLeft` in the manifest), and its figure page says in words what that
 {ref "trust-pilean-build"}[`pilean-build`] lists the options; `--require-checked` is accepted and
 is the default.
 
+# Questions That Come Up
+%%%
+tag := "motions-questions"
+%%%
+
+* *A moving point that lands on a point of the next key.* The layout checks keep two markers at
+  least 2 px apart (`CheckOptions.markerGap`) on every key, so a moving copy cannot come to rest
+  on a point that is another item. Make them one actor: give the point of the later key the moving actor's
+  id, so the actor that moves is the point that stays. When the two must be different items (a
+  different look, say), they can only crossfade, and the point dips in opacity for the length of
+  the fade; the model has no declaration that one actor becomes another item.
+* *An item that appears or vanishes needs an id.* `appear` and `vanish` name an actor, so an item
+  that is in one key and not the next carries an id ({name}`PILean.Plane.Item.actor`), also when
+  the key is a static figure reused; the items that stay as they are need none.
+* *Labels placed automatically.* A label with an automatic placement is placed once, on the first
+  key where its actor appears, against that key's elements, and rides its actor afterwards; a
+  stroke that appears in a later key is not considered, and the layout checks of that key report
+  the collision. Give such a label an explicit placement (`.above`, `.right`, …, or an offset).
+  Placing it against the elements of all keys at once would be a change to the placement, which
+  is not made.
+* *The same items, fainter.* {name}`PILean.Plane.Item.fillOpacity` sets the opacity of a tint;
+  there is no opacity for strokes. For a fainter stroke use {name}`PILean.Plane.Item.faint`, or a
+  colour role of the style (`PlaneStyle.roles`, {name}`PILean.Plane.Item.role`), which keeps a
+  dark twin; a fixed colour with an alpha ({name}`PILean.Plane.Item.color`) has none.
+* *A curved arrow.* An arc with an arrowhead is an element of its own:
+  `Plane.arc c r θ₀ θ₁ |>.withArrow` ({name}`PILean.Plane.Item.withArrow`) ends in an arrowhead
+  at `θ₁` (with `θ₁ < θ₀` it points clockwise), and {name}`PILean.Plane.angleMark` draws an angle
+  mark with its arrowhead.
+
 # Panels on One Clock
 %%%
 tag := "motions-panels"
@@ -365,22 +394,28 @@ Both Verso adapters show a motion wherever `:::figure` names one, as this chapte
 of it needs a script. The reader sees:
 
 * *Motion on* (the default): the moving picture, inline, on its own clock, in the page's theme.
-  Under it the caption, which ends with a note that the animation pauses on a still while you
-  point at it or focus it.
-* *On hover or focus*: the poster key's still, in the picture's own box, so nothing around it
-  moves. Hover applies on a device that hovers, so a tap on a phone does not leave it stuck;
-  focus is the keyboard, a click or a tap, with a ring that is at least 3:1 against the page.
-  The moving picture is only made transparent, so its text alternative stays.
+  Under it the caption, which ends with the note "Animation; a still replaces it while you point
+  at it, or after a click or tap until you click elsewhere."
+* *On hover or focus*: the poster key's still covers the picture, in the picture's own box, so
+  nothing around it moves. Hover applies on a device that hovers, so a tap on a phone does not
+  leave it stuck; focus is the keyboard, a click or a tap, and lasts until a click elsewhere, with
+  a ring that is at least 3:1 against the page. The moving picture is only made transparent, so
+  its text alternative stays, and its clock runs on: when the still goes, the picture is where
+  its clock has got to, not where it was covered.
 * *Motion off*: under the Blueprint's switch (`data-motion="reduce"`), under the reader's
   `prefers-reduced-motion: reduce`, and in print, the picture is hidden and the key stills are
-  shown in a grid, each with its caption. Assistive technology reads the list of key frames with
+  shown in a grid, each with its caption. The grid has as many columns as fit with each column at
+  least three quarters of a still's width (one column for a wide picture of two panels, more for a
+  small one), so that the text in the stills stays legible; a still wider than the page's column
+  fills it. Assistive technology reads the list of key frames with
   their captions; with motion on it
   reads the picture's text alternative and then that list, once.
 * *Small screens* (560 px or less): the narrow rendition and its stills, when the motion has one.
 
 A figure's page lists what the animation is in words, the table of its steps (each step's keys,
-its duration exactly, each move with its actor), the stills with their captions, and every file,
-among them the contact sheet.
+its duration exactly, each move with its actor), the stills with their captions in the same kind
+of grid, and every file, among them the contact sheet. Its code comes after the animation, folded
+when it is longer than 60 lines.
 
 The picture is hidden by `visibility` or `opacity`, never by `display: none`: Chromium freezes a
 picture whose `transform` is animated when it is hidden with `display: none` and shown again,
@@ -415,16 +450,29 @@ Python 3 and, for the browser checks, the `playwright` package with a Chromium i
   captions;
 * `motion_browser.py SITE --expect DIR` loads every page with a motion in Chromium: the picture
   at the middle of every rest is where the key's still has it, labels and markers stay upright,
-  motion off shows the stills with their captions, hover and focus show the poster's still in the
-  picture's box, and in print the moving picture is hidden and a still is shown.
+  motion off shows the stills with their captions, each still at three quarters of its width or
+  more or as wide as its column, hover and focus show the poster's still in the picture's box, and
+  in print the moving picture is hidden and a still is shown; after each of these the picture
+  follows its clock, compared at two rests of the motion's timeline that certainly draw different
+  pictures, so that a frozen picture cannot pass.
 
 `DIR` holds, for each motion the site shows, `<decl>.json` (and `<decl>-narrow.json`) with the
 animated SVG, the stills of the keys and the poster's PNG beside it: the expectations. A site
 writes them with its own few lines of Lean, as the example's `writeMotion` (a `Plane.Motion`) and
 `writePanels` (a `Plane.MotionPanels`) do, in
 {sourceFile}`verso/example/ExampleTest.lean`, with the library's
-`PILeanTest.MotionChecks.expectations` and `PILeanTest.MotionPanelsChecks.expectations`. A motion
-shown without its expectations fails the check.
+`PILeanTest.MotionChecks.expectations` and `PILeanTest.MotionPanelsChecks.expectations`, which
+list the rests, the turns and the slides (a slide's actor stays on the straight segment between
+its keys, at the eased fraction); a writer that calls them gets what they list by rebuilding. A
+motion shown without its expectations fails the check. With `--workers N` the pages are checked N
+at a time.
+
+The checks run in Chromium by default, and that is the engine a continuous-integration gate
+uses. `--engine firefox` runs them in Playwright's Firefox (installed for Playwright first),
+where the freeze control and the PDF print, which are Chromium's, are reported as not
+applicable. On macOS, `tools/webkit/webkit_check.py DIR` checks the positions in the system's
+WebKit, the engine of Safari, from a transparent window that lets every click through and never
+takes the focus; it fails when the clock does not run, and is for a local run, not a Linux gate.
 
 # The Browser Check
 %%%
@@ -436,8 +484,10 @@ headless Chromium, with the clock paused and set, and reads where every actor is
 each key's rest every actor is where the key's still has it; at a quarter, a half and three
 quarters of each turn the actor is on the turn's circle at the eased fraction of its angle; labels
 and markers are not turned; under reduced motion the poster's still is shown and the picture
-matches its PNG; the motion plays when it is not paused; and, for panels, every panel is in phase
-and nothing leaves its panel while it moves.
+matches its PNG; turning reduced motion on inside one key's rest and off again for a moment inside a
+later key's rest whose picture differs shows the picture of the running clock, and
+the check fails when the two moments draw the same picture; the motion plays when it is not
+paused; and, for panels, every panel is in phase and nothing leaves its panel while it moves.
 
 The pictures are compared with the stills pixel by pixel, with a rule that allows for what
 Chromium does differently when it draws a shape turned into place and the same shape drawn in
