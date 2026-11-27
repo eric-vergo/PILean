@@ -310,7 +310,27 @@ def main (args : List String) : IO UInt32 := do
         has motion "ManualExample.quarterTurn-key-2-dark.svg" &&
         has motion motionHintText && !has motion "bp_motion_link")
       "the motions are shown inline, with their narrow renditions, their captioned stills and \
-        the hint that they pause, and without the Blueprint's link to its switch"
+        the caption's note, and without the Blueprint's link to its switch"
+    let note := "<span class=\"pilean-motion-hint\">Animation; a still replaces it while you \
+      point at it or focus it, or after a click or tap until you click elsewhere.</span>"
+    check ((motion.splitOn note).length - 1 == 2 && !has motion "pauses on a still")
+      "each motion's caption ends with the note that a still covers the picture (whose clock \
+        runs on) while it is pointed at or focused, or after a click or tap until a click \
+        elsewhere"
+    check (stillColumnMin 320 == 240 && stillColumnMin 300 == 225 && stillColumnMin 721 == 541 &&
+        stillColumnClasses (some 720) (some 300) == "pilean-stills-w540 pilean-stills-n225" &&
+        stillColumnRules (some 720) (some 300) == ".pilean-stills-w540{--pilean-still-w:540px}\
+          .pilean-stills-n225{--pilean-still-n:225px}" &&
+        stillColumnClasses none none == "" && stillColumnCss.length < 400)
+      "a grid of stills has columns of at least three quarters of a still's width, in one small \
+        rule"
+    check (has motion
+          "class=\"pilean-motion-keys pilean-stills-w240\" id=\"quarter-motion-keys\"" &&
+        has motion "class=\"pilean-motion-keys pilean-stills-w540 pilean-stills-n225\"" &&
+        has motion "<style class=\"pilean-stills-css\">.pilean-stills-w240{--pilean-still-w:240px}\
+          </style>" &&
+        !has motion "style=\"--pilean-still")
+      "the lists of stills are sized from the stills' widths, the narrow ones' on small screens"
     -- each motion's wrapper: up to the end of its list of stills
     let motionParts := (motion.splitOn "data-bp-motion").drop 1 |>.map fun p =>
       (p.splitOn "</ol>").headD ""

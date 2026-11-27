@@ -748,6 +748,11 @@ def themedPictures (files : Array FileInfo) (name : String) (narrow : Option Str
 def motionStepText (captions : Array String) (k : Nat) : String :=
   s!"Step {k + 1} of {captions.size}: {(captions[k]?).getD ""}"
 
+/-- The width of the still `name` (`-key-0`, `-narrow-key-0`) among a figure's files, if
+known. -/
+def stillWidth? (files : Array FileInfo) (name : String) : Option Nat :=
+  (pick? files "svg" name).bind fun f => f.size.map (·.1)
+
 /-- The markup of a motion shown in a page (see `motionCss`): a wrapper `div.pilean-motion` that
 carries `data-bp-motion` (what the Verso Blueprint motion switch looks for), holding
 
@@ -756,13 +761,16 @@ carries `data-bp-motion` (what the Verso Blueprint motion switch looks for), hol
   present from the page's load (an `svg` inserted later would start a clock of its own), each with
   the accessible name `alt`; and over them the poster key's still (`-key-k` of the poster, its
   narrow and dark twins), shown while the stage is hovered or focused. The stage is focusable, so
-  that a reader at the keyboard can stop the motion. The moving picture has no declaration links:
-  they could not be reached, since hovering and focusing it show the still instead;
+  that a reader at the keyboard can cover the motion with the still. The moving picture has no
+  declaration links: they could not be reached, since hovering and focusing it show the still
+  instead;
 * unless `stills` is false (the figure's page, which shows them below): the key stills, in order,
   as pictures of their files (`-key-k`, the narrow rendition's `-narrow-key-k`, and their dark
   twins), each with its caption (`motionStepText`), read once by assistive technology after the
-  picture. Without them the motion has the class `pilean-motion-bare`, and turning motion off
-  shows the poster's still in the stage instead (`motionOffRules`).
+  picture, the list's columns sized from the stills' widths (`stillColumnClasses`, with their
+  rules in a `style` element after the list). Without them
+  the motion has the class `pilean-motion-bare`, and turning motion off shows the poster's still
+  in the stage instead (`motionOffRules`).
 
 `base` is unique in the page: every id and `data-pilean-actor` of a moving picture gets the
 prefix `base-mw-` (its narrow rendition `base-mn-`), and the list of stills has the id
@@ -804,8 +812,14 @@ def motionHtml (base : String) (name alt : String) (main : MotionData)
       | some n => live "mn" "narrow" n
       | none => .empty,
       .element "span" #[("class", "pilean-motion-still"), ("aria-hidden", "true")] posterPics]),
-    if stills then .element "ol" #[("class", "pilean-motion-keys"), ("id", keysId),
-      ("aria-label", s!"The key frames of {name}")] (.seq keys) else .empty])
+    let wide := stillWidth? files s!"-key-{poster}"
+    let small := narrow.bind fun _ => stillWidth? files s!"-narrow-key-{poster}"
+    let rules := stillColumnRules wide small
+    if stills then .seq #[
+      .element "ol" #[("class", s!"pilean-motion-keys {stillColumnClasses wide small}".trimAscii
+          |>.toString), ("id", keysId), ("aria-label", s!"The key frames of {name}")] (.seq keys),
+      if rules.isEmpty then .empty
+      else .element "style" #[("class", "pilean-stills-css")] (.text rules)] else .empty])
 
 /-- The inline markup of a figure (`inline := true`, explorers and motions), from the site's
 render: the picture (and its narrow rendition, shown on small screens) as `svg` elements, an
@@ -844,10 +858,14 @@ def inlinePicture? (l : Links) (site : Option SiteRender) (p : Placed)
   | none => return some (.element "div" #[("class", "pilean-inline-frame")] (.raw wide))
 
 open Verso.Output.Html in
-/-- What a motion's caption says, in every adapter: that the animation pauses on a still, and
-how (a hover, or the focus: the keyboard, a click or a tap). Hidden while motion is off, when the
-stills are shown, and in print (`motionOffRules`). -/
-def motionHintText : String := "Animation; it pauses on a still while you point at it or focus it."
+/-- What a motion's caption says, in every adapter: that it is an animation, and that the poster
+key's still covers it while the pointer is over it or it has the keyboard's focus, and after a click
+or a tap until a click elsewhere (the focus they give it). The clock runs on under the still, so the
+picture is elsewhere in its cycle when the still goes. Hidden while motion is off, when the stills
+are shown, and in print (`motionOffRules`). -/
+def motionHintText : String :=
+  "Animation; a still replaces it while you point at it or focus it, or after a click or tap \
+    until you click elsewhere."
 
 /-- The HTML of a figure block; `site` is the site's render, which inline pictures, explorers and
 motions are read from and which sets the link mode. The caption of a motion ends with

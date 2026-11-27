@@ -621,9 +621,10 @@ open PILeanTest.MotionChecks (num pt)
 
 /-- What `tools/motion-browser-check.py` expects of a picture of panels, as JSON, in the shape of
 `MotionChecks.expectations` (ids with their panel's prefix, points on the picture's page): the
-cycle; at the middle of each key's rest every actor's anchor in the composed still and every
-upright group's anchor where the plan draws it; every turn with its centre, start, angle and
-three samples; and also each panel's box on the page, and the marked points of every actor of
+cycle; at the middle of each key's rest (with the rest's start and end) every actor's anchor in
+the composed still and every upright group's anchor where the plan draws it; every turn with its
+centre, start, angle and three samples; every slide with its two anchors and three samples; and
+also each panel's box on the page, and the marked points of every actor of
 every panel at every rest and at a quarter, a half and three quarters of every move (`phase`), to
 show that the panels are in phase. -/
 def expectations (name : String) (r : MotionPanelsReport) : String :=
@@ -640,8 +641,14 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
         s!"\{\"id\": \"{pr.idPrefix}{Canvas.safeToken id}\", \"at\": {pt a}}"
     let t := Exact.toFloat (r.timeline.restTime k)
     let ups := ((r.markersAt t).filter (·.1 == "upright")).toList.map fun (_, q, _) => pt q
-    s!"\{\"key\": {k}, \"t\": {num t}, \"actors\": [{", ".intercalate actors}], \
-      \"uprights\": [{", ".intercalate ups}]}"
+    let seg := r.timeline.segments.find? (·.kind = .rest k)
+    let lo := Exact.toFloat ((seg.map (·.start)).getD 0)
+    let hi := Exact.toFloat ((seg.map fun s => s.start + s.dur).getD 0)
+    let shapes := r.panels.toList.flatMap fun pr =>
+      MotionChecks.actorShapes pr.env (pr.keys.figure k) pr.idPrefix
+    s!"\{\"key\": {k}, \"t\": {num t}, \"from\": {num lo}, \"until\": {num hi}, \
+      \"actors\": [{", ".intercalate actors}], \"uprights\": [{", ".intercalate ups}], \
+      \"shapes\": \{{", ".intercalate shapes}}}"
   let segs := r.timeline.segments
   let turns := r.panels.toList.flatMap fun pr =>
     let still := pr.plan.layers.filter (·.geoms.isNone)
@@ -659,6 +666,23 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
             \"centre\": {pt c}, \"start\": {pt start}, \"sweep\": {num deg}, \
             \"samples\": [{", ".intercalate samples}]}"
         | .slide .. => none
+  let slides := r.panels.toList.flatMap fun pr =>
+    let still := pr.plan.layers.filter (·.geoms.isNone)
+    still.toList.flatMap fun L => match L.version.actor with
+      | none => []
+      | some id => L.links.toList.filterMap fun
+        | .slide j _ => do
+          guard ((L.links.filter (·.step == j)).size == 1)
+          let i ← (List.range segs.size).find? fun i => (segs[i]?.map (·.kind)) == some (.move j)
+          let s ← segs[i]?
+          let a ← anchorOf pr (pr.keys.figure j) id
+          let b ← anchorOf pr (pr.keys.figure (j + 1)) id
+          let samples := [0.25, 0.5, 0.75].map fun (x : Float) =>
+            let t := Exact.toFloat s.start + x * Exact.toFloat s.dur
+            s!"\{\"t\": {num t}, \"f\": {num ((pr.plan.clock.splines.getD i .linear).eval x)}}"
+          return s!"\{\"id\": \"{pr.idPrefix}{Canvas.safeToken id}\", \"step\": {j}, \
+            \"from\": {pt a}, \"to\": {pt b}, \"samples\": [{", ".intercalate samples}]}"
+        | .turn .. => none
   let ups := (markerCounts r).2
   let panels := (r.panels.zip r.layout.places).toList.map fun (pr, place) =>
     s!"\{\"id\": \"{pr.idPrefix.dropEnd 1}\", \"box\": [{num place.x}, {num place.y}, \
@@ -674,11 +698,14 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
       s!"[\"{(n.drop 6).toString}\", {pt q}]"
     s!"\{\"t\": {num t}, \"actors\": [{", ".intercalate actors}]}"
   let marks := r.figure.panels.any fun p => MotionChecks.turningMarks p.motion
-  s!"\{\"name\": \"{name}\", \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
+  s!"\{\"format\": {MotionChecks.expectationsFormat}, \"name\": \"{name}\", \
+    \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
+    \"declared\": {MotionChecks.declaredMoves (r.figure.panels.map (·.motion))}, \
     \"cycle\": {num (Exact.toFloat r.timeline.cycle)}, \"uprights\": {ups}, \
     \"turning_marks\": {marks}, \"band\": {num r.layout.band}, \
     \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}], \
-    \"panels\": [{", ".intercalate panels}], \"phase\": [{", ".intercalate phase}]}\n"
+    \"slides\": [{", ".intercalate slides}], \"panels\": [{", ".intercalate panels}], \
+    \"phase\": [{", ".intercalate phase}]}\n"
 
 /-- Writes the golden pictures and their narrow renditions, and `farPanels`, into `dir` for
 `tools/motion-browser-check.py`: each picture's SVG, the SVG of each key of the picture, the

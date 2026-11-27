@@ -3,7 +3,7 @@
 """Checks the example site's figures in a headless Chromium (Playwright).
 
     python3 -I tests/browser_check.py SITE [SHOTS] [--site-links DIR] [--no-links DIR]
-        [--side-by-side DIR] [--manual DIR] [--motions DIR]
+        [--side-by-side DIR] [--manual DIR] [--motions DIR] [--workers N]
 
 SITE is the generator's `html-multi` folder, built with `--figure-repo` and the default link mode
 (`ideil`); SHOTS, if given, is a folder for screenshots. The other folders are the same site
@@ -12,7 +12,8 @@ built with `--figure-lean-links site`, with `--figure-lean-links none`, and with
 (`pilean-verso-manual-example`), and `--motions` the expectations of the motions of both examples
 (the example's `example-test --motion-out DIR` and the Manual
 adapter's `pilean-verso-manual-test --motion-out DIR`, into one folder). The checks of a folder not
-given are skipped, but the motions are checked on every page that shows one, and a motion without
+given are skipped, but the motions are checked on every page that shows one (`--workers N` pages at
+a time, each in a process with its own Chromium; one by default), and a motion without
 its expectations fails (PILean's `tools/site/motion_browser.py`).
 
 Each site is served on 127.0.0.1 with a strict content policy: scripts only from the site's files
@@ -49,7 +50,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from playwright.sync_api import sync_playwright  # noqa: E402
 
 import motion_browser  # noqa: E402
-from site_browser import Checks, figure_reports, goto, new_page, serve  # noqa: E402
+from site_browser import Checks, figure_reports, goto, launch, new_page, serve  # noqa: E402
 
 PAGES = ["Pictures-with-proofs/A-function/", "Pictures-with-proofs/Data/",
          "Pictures-with-proofs/A-relation/", "Pictures-with-proofs/Motion/", "Figures/",
@@ -855,6 +856,91 @@ def option(args, name):
     return args[args.index(name) + 1] if name in args else None
 
 
+def grid_column_checks(c, layouts):
+    """The grids of stills follow the stills' widths: with motion off, the picture of two panels
+    (720 px wide) has fewer columns than the small single motion (320 px), inline and on the
+    figures' pages, at 1440 px, and never more at 768 px; at 390 px each has one column (two
+    would show each still at less than three quarters of its width)."""
+    two, small = "Example.twoFrames.svg", "Example.quarterTurn.svg"
+    for where in ["inline", "page"]:
+        a, b = layouts.get((two, where), {}), layouts.get((small, where), {})
+        c.check(f"{where} at 1440 px: the two-panel picture's stills have fewer columns than the "
+                "small motion's", 1440 in a and 1440 in b and a[1440] < b[1440],
+                f"{a.get(1440)} and {b.get(1440)}")
+        c.check(f"{where} at 768 px: the two-panel picture's stills have no more columns than the "
+                "small motion's", 768 in a and 768 in b and a[768] <= b[768],
+                f"{a.get(768)} and {b.get(768)}")
+        c.check(f"{where} at 390 px: one still per row for both",
+                a.get(390) == 1 and b.get(390) == 1, f"{a.get(390)} and {b.get(390)}")
+
+
+def strict_grid_checks(c, browser, site):
+    """Under a policy that allows the page's style elements by hash and no style attribute at all
+    (`style-src-attr 'none'`), the grids of stills keep their widths: with motion off at 1440 px
+    the two-panel picture's stills are one column and the small motion's more than one."""
+    server, base = serve(site, styles="strict")
+    ctx, page = new_page(browser, viewport={"width": 1440, "height": 900})
+    goto(page, base + "Pictures-with-proofs/Motion/")
+    page.evaluate("document.documentElement.setAttribute('data-motion', 'reduce')")
+    page.wait_for_timeout(1000)
+    # the number of the grid's columns, as the browser lays them out
+    cols = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll(
+      '.pilean-motion-keys')].map(ol => [ol.closest('.pilean-motion').querySelector(
+        'svg.pilean-motion-wide').getAttribute('data-pilean-file').split('/').pop(),
+        getComputedStyle(ol).gridTemplateColumns.trim().split(/\\s+/).length]))""")
+    # a style attribute of a figure (`width :=`) is refused under this policy, as it should be;
+    # a refused style element of a figure (the grid's widths) would be the fault
+    blocked = [r for r in figure_reports(page)
+               if r["directive"].startswith("style-src-elem") and r["inFigure"]]
+    two, small = cols.get("Example.twoFrames.svg"), cols.get("Example.quarterTurn.svg")
+    c.check("without style-src-attr the grids keep their widths: the two-panel picture's stills "
+            "one column at 1440 px, the small motion's more", two == 1 and (small or 0) > 1 and
+            not blocked, f"{cols} {blocked[:2]}")
+    ctx.close()
+    server.shutdown()
+
+
+def code_fold_checks(c, browser, base, shots):
+    """A figure's page with more than 60 lines of code (the two-panel motion's) folds it in a
+    closed `details` after its animation's section: the page is shorter than with it open, the
+    summary is reached with Tab, has a ring of 3 px and opens it with Enter; a page with less code
+    (the cubic plot's) shows it unfolded."""
+    ctx, page = new_page(browser, viewport={"width": 1440, "height": 900})
+    goto(page, base + "Figures/Example.twoFrames/")
+    fold = page.locator("details.pilean-page-code-fold")
+    order = page.evaluate("""() => { const a = document.querySelector('.pilean-page-motion'),
+      k = document.querySelector('.pilean-page-codes');
+      return !!(a && k && (a.compareDocumentPosition(k) & Node.DOCUMENT_POSITION_FOLLOWING)); }""")
+    c.check("the two-panel motion's page folds its code, closed, after the animation",
+            fold.count() == 1 and fold.get_attribute("open") is None and order,
+            f"{fold.count()} {order}")
+    closed = page.evaluate("document.documentElement.scrollHeight")
+    if shots:
+        page.screenshot(path=f"{shots}/code-fold-closed-1440.png", full_page=True)
+    summary = fold.locator("summary")
+    reached = False
+    for _ in range(600):
+        page.keyboard.press("Tab")
+        if summary.evaluate("e => document.activeElement === e"):
+            reached = True
+            break
+    ring = summary.evaluate("""e => { const s = getComputedStyle(e);
+      return [s.outlineStyle, s.outlineWidth]; }""")
+    c.check("the code's summary is a tab stop with a ring of 3 px",
+            reached and ring == ["solid", "3px"], f"{reached} {ring}")
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(200)
+    opened = page.evaluate("document.documentElement.scrollHeight")
+    c.check("Enter on the summary opens the code, which makes the page longer",
+            fold.get_attribute("open") is not None and opened > closed + 200,
+            f"{closed} -> {opened} px")
+    goto(page, base + "Figures/Example.cubicPlot/")
+    c.check("a page with less code shows it unfolded",
+            page.locator("details.pilean-page-code-fold").count() == 0 and
+            page.locator(".pilean-page-codes .pilean-page-decl").count() > 0)
+    ctx.close()
+
+
 def main(argv):
     site = argv[0]
     rest = argv[1:]
@@ -863,11 +949,16 @@ def main(argv):
              "none": option(rest, "--no-links"), "side-by-side": option(rest, "--side-by-side")}
     manual = option(rest, "--manual")
     motions = option(rest, "--motions")
-    helpers = {"new_page": new_page, "goto": goto, "figure_reports": figure_reports}
+    workers = int(option(rest, "--workers") or "1")
+    # Chromium only: some sections drive Chromium's DevTools protocol (event listeners, touch and
+    # scroll gestures); `tools/site/motion_browser.py --engine` runs the motion checks elsewhere
+    engine = "chromium"
+    helpers = {"new_page": new_page, "goto": goto, "figure_reports": figure_reports,
+               "layouts": {}, "listed": motion_browser.listed_motions(site), "engine": engine}
     server, base = serve(site)
     c = Checks()
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = launch(p, engine)
         for scheme in ["light", "dark"]:
             ctx, page = new_page(browser, color_scheme=scheme,
                                  viewport={"width": 1100, "height": 900})
@@ -932,7 +1023,7 @@ def main(argv):
 
         page.goto(base + "Figures/")
         items = page.locator(".pilean-figure-index > li")
-        c.check("the figures page lists nineteen figures", items.count() == 19, str(items.count()))
+        c.check("the figures page lists twenty figures", items.count() == 20, str(items.count()))
         thumbs = page.evaluate("""() => [...document.querySelectorAll('.pilean-index-thumb img')]
             .every(i => i.complete && i.naturalWidth > 0)""")
         c.check("the figures page's pictures load", thumbs)
@@ -962,6 +1053,7 @@ def main(argv):
                      noscript_checks, touch_checks, long_word_checks, figure_page_checks]:
             c.section(part.__name__, part, c, browser, base, shots)
         c.section("strict styles", strict_style_checks, c, browser, site)
+        c.section("grid without style attributes", strict_grid_checks, c, browser, site)
         c.section("centring", centring_checks, c, browser, base, "stacked", [1100, 360],
                   FIGURE_PAGES)
         if sites["side-by-side"]:
@@ -971,12 +1063,15 @@ def main(argv):
                       "side by side", [1400, 360], FIGURE_PAGES)
             sbs_server.shutdown()
         c.section("links", link_checks, c, browser, sites)
-        c.section("freeze control", motion_browser.freeze_control, c, browser)
+        c.section("freeze control", motion_browser.freeze_control, c, browser, engine)
         # every page with a motion: the two chapters' pages and the figures' pages
-        for url in motion_browser.motion_pages(site):
-            least = 3 if url == "Pictures-with-proofs/Motion/" else 1
-            c.section(f"motions of {url}", motion_browser.motion_checks, c, browser, base, url,
-                      f"blueprint {url}", helpers, motions, shots, least)
+        motion_browser.motion_pages_checks(
+            c, browser, base, [(url, f"blueprint {url}",
+                                4 if url == "Pictures-with-proofs/Motion/" else 1)
+                               for url in motion_browser.motion_pages(site)],
+            helpers, motions, shots, workers)
+        c.section("grid columns", grid_column_checks, c, helpers["layouts"])
+        c.section("code fold", code_fold_checks, c, browser, base, shots)
         c.section("anchor space", anchor_space_checks, c, browser, base, "blueprint",
                   ["Figures/Example.cubicPlot/", "Figures/Example.sketch/",
                    "Figures/Example.radiusExplorer/"])
@@ -985,10 +1080,12 @@ def main(argv):
             c.section("manual anchor space", anchor_space_checks, c, browser, manual_base,
                       "manual", ["Figures/ManualExample.trianglePlot/",
                                  "Figures/ManualExample.radiusSlider/"])
-            for url in motion_browser.motion_pages(manual):
-                c.section(f"manual motions of {url}", motion_browser.motion_checks, c, browser,
-                          manual_base, url, f"manual {url}", helpers, motions, shots,
-                          2 if url == "Motion/" else 1)
+            manual_helpers = dict(helpers, listed=motion_browser.listed_motions(manual),
+                                  layouts={})
+            motion_browser.motion_pages_checks(
+                c, browser, manual_base, [(url, f"manual {url}", 2 if url == "Motion/" else 1)
+                                          for url in motion_browser.motion_pages(manual)],
+                manual_helpers, motions, shots, workers)
             manual_server.shutdown()
 
         for width in [320, 360, 375, 600]:

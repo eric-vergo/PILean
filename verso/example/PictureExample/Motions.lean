@@ -14,6 +14,8 @@ their key stills (the shapes of PILean's gallery of motions):
 * `quarterTurn`: a point turned a quarter about the origin, then held; linked to
   `quarterTurn_spec`, which writes it out whole (its key figures and its declared moves);
 * `fifthTurn`: a disk turned a fifth about an outside centre, an illustration;
+* `slideAcross`: a square and a point slid along tracks, one after the other: slides only, an
+  illustration;
 * `twoFrames`: two panels on one clock, a point turned by fifths about two centres beside the pair
   of centres turned about the point's centre of the moment, with a narrow rendition stacked for
   small screens, an illustration;
@@ -93,6 +95,30 @@ def fifthTurn : Motion :=
     steps := #[{ moves := #[("D", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 5))] },
       MotionStep.idle]
     info := { title := "A fifth of a turn", description := "The disk D turns about O by 72°." } }
+
+/-! ### Slides only -/
+
+/-- The key figure of `slideAcross`: a faint track from `(0, 0)` to `(3, 0)`, the square `S`
+(a point drawn as a square) at `s` and the point `B` at `b`, each with its label. -/
+def slideKey (s b : Q) : Plane.Figure :=
+  { items := #[Plane.Exact.segment ((0, 0) : Q) ((3, 0) : Q) |>.faint,
+      Plane.Exact.segment ((0, 1) : Q) ((3, 1) : Q) |>.faint,
+      (group #[Plane.Exact.point s |>.marker .square |>.accent 2,
+        Plane.Exact.label "S" s .above |>.accent 2]).actor "S",
+      (group #[Plane.Exact.point b |>.accent 0,
+        Plane.Exact.label "B" b .above |>.accent 0]).actor "B"],
+    width := 360 }
+
+/-- The square `S` slides along its track, then the point `B` slides back along its own: a motion
+with slides only, and no turn. -/
+@[figure illustration]
+def slideAcross : Motion :=
+  { keys := #[slideKey (0, 0) (3, 1), slideKey (3, 0) (3, 1), slideKey (3, 0) (0, 1)]
+    captions := #["S at the start of its track, B at the end of its own.",
+      "S slid three to the right.", "B slid three to the left."]
+    steps := #[{ moves := #[("S", Plane.Exact.slideFromTo ((0, 0) : Q) (3, 0))] },
+      { moves := #[("B", Plane.Exact.slideFromTo ((3, 1) : Q) (0, 1))] }]
+    info := { title := "Two slides", description := "A square and a point slide along tracks." } }
 
 /-! ### Two frames on one clock -/
 

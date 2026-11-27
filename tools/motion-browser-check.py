@@ -9,7 +9,8 @@
 #
 # With the clock paused and set (`setCurrentTime`), every `[data-pilean-actor]` anchor is read
 # through `getCTM()`:
-#   (a) at the middle of each key's rest every actor is where the key's still has it, and every
+#   (a) at the middle of each key's rest every actor is where the key's still has it (again one
+#       cycle later, in the second loop: the anchors; turns, slides and phase likewise), and every
 #       label's or marker's anchor where the motion's plan draws it (0.05 px),
 #       and the picture is the key's still SVG up to antialiasing (`UNEXPLAINED`): no pixel is
 #       unexplained, a pixel of one picture being unexplained by the other when both of two
@@ -33,11 +34,18 @@
 #       the precise instrument (0.05 px), for the actors' anchors and the upright marks only;
 #   (b) at a quarter, a half and three quarters of every turn the actor is on the turn's circle
 #       (0.05 px) at the eased fraction of the turn's angle (0.5 degrees): a true arc;
+#   (b') at a quarter, a half and three quarters of every slide (of an actor that does nothing
+#       else in its step) the actor is on the straight segment between its anchors in the two
+#       keys, at the eased fraction (0.05 px); a motion may have no turn or no slide;
 #   (c) labels and markers (`[data-pilean-upright]`) are not turned (less than 0.01 degrees),
 #       and there are as many of them as the motion declares (none found is a failure);
 #   (d) under `prefers-reduced-motion: reduce` the moving picture is not shown, the poster
 #       still is, and the page matches the poster key's PNG; switching reduced motion on and off
-#       again without seeking shows the picture of the running clock (not a frozen one);
+#       again without seeking shows the picture of the running clock (not a frozen one): it is
+#       switched on inside one key's rest and off again for a moment inside a later key's rest
+#       that certainly draws another picture (an actor in one and not the other, or
+#       moved by more than a pixel; `switch_times`), and the pictures of the two times must
+#       differ, or the probe fails as undecided;
 #   (e) no console errors;
 #   (f) for a picture of panels (its expectations list the panels' boxes and `phase`): at every
 #       rest each panel's part of the picture is its part of the composed still (the pixel rule
@@ -54,12 +62,23 @@
 # Before the motions, the pixel rule is checked on its fixtures (`pixel_rule_checks`): a circle and
 # a segment drawn in place and turned into place pass it, and either moved by 2 or 3 pixels fails.
 #
-# Needs the `playwright` Python package and a Chromium it can find (nothing is installed or
-# downloaded); without them it says so and exits cleanly.
+# Needs the `playwright` Python package and a browser of the engine that it can find (nothing is
+# installed or downloaded); without them it says so and exits cleanly.
 #
 # Usage, from the repository root:
 #   lake exe pilean-test --motion-out DIR
-#   python3 tools/motion-browser-check.py DIR
+#   python3 tools/motion-browser-check.py DIR [--engine chromium|firefox|webkit]
+#
+# Engines: Chromium (the default) is the engine the pixel rule's tolerances were measured on and
+# the one a continuous-integration gate runs. `--engine firefox` runs the same checks in
+# Playwright's Firefox (Firefox 159), with the same tolerances, measured there too: on the golden
+# motions and both examples' motions no rest pixel is unexplained and the largest blurred
+# difference where the range test fails is 0.000 of the local contrast; on the fixtures Firefox
+# draws the circle turned into place as it draws it in place (the range test alone finds 0
+# pixels, where Chromium finds 5, which is reported, not required) and the segment as Chromium
+# does (19 pixels, 0.005), and a shape moved by 2 or 3 px is caught. `--engine webkit` runs the
+# position checks in the system's WebKit on macOS (`tools/webkit/webkit_check.py`), not the pixel
+# rule.
 import base64
 import json
 import math
@@ -268,9 +287,103 @@ def first(actors, ident):
     return None
 
 
+# How long before the moment of comparison the switch probe shows the picture again, the least
+# time it keeps it hidden, and how far from the middle of a rest it may hide it when the
+# expectations do not give the rest's ends (seconds of the motion's clock).
+SHOW_LEAD = 0.25
+MIN_HIDDEN = 0.8
+NEAR_REST = 0.25
+
+
+def rests_differ(a, b):
+    """Whether two rests of the expectations certainly draw different pictures: an actor is in one
+    and not the other, an actor's anchor is more than a pixel apart, or an actor is drawn
+    otherwise (its fingerprint in `shapes` differs: a morph, whose anchor may stay)."""
+    at_a = {x["id"]: x["at"] for x in a["actors"]}
+    at_b = {x["id"]: x["at"] for x in b["actors"]}
+    return at_a.keys() != at_b.keys() or any(math.dist(at_a[k], at_b[k]) > 1 for k in at_a) or \
+        a.get("shapes", {}) != b.get("shapes", {})
+
+
+# The version of the expectations' format this check reads (`PILeanTest.MotionChecks
+# .expectationsFormat`).
+FORMAT = 2
+
+
+def spec_problem(spec):
+    """Why the expectations cannot be checked, or `None`: an older format (without the rests' ends
+    and drawings, the slides and the declared moves, so that a slide would go unchecked), or other
+    turns or slides than the motion declares (a writer that lost some)."""
+    if spec.get("format", 1) < FORMAT or "declared" not in spec or "slides" not in spec or \
+            any("shapes" not in r or "from" not in r for r in spec["rests"]):
+        return (f"the expectations are in format {spec.get('format', 1)}, this check reads format "
+                f"{FORMAT} (rests with their ends and drawings, slides, declared moves): rebuild "
+                "the expectations writer with this version of PILean")
+    d = spec["declared"]
+    if d["turns"] != len(spec["turns"]) or d["slides"] != len(spec["slides"]):
+        return (f"the motion declares {d['turns']} turns and {d['slides']} slides, the "
+                f"expectations list {len(spec['turns'])} and {len(spec['slides'])}")
+    return None
+
+
+def rest_window(rest):
+    """The part of a rest where the probe may switch: the rest less 0.1 s at each end, from its
+    start and end in the expectations, else `NEAR_REST` about its middle."""
+    if "from" in rest and rest["until"] - rest["from"] > 0.3:
+        return rest["from"] + 0.1, rest["until"] - 0.1
+    return rest["t"] - NEAR_REST, rest["t"] + NEAR_REST
+
+
+def switch_times(spec, start=0.3):
+    """The moments of the switch probe, from the expectations, for a clock at `start`: hidden
+    inside one key's rest (`rest_window`) and compared inside a later key's rest that certainly
+    draws another picture (`rests_differ`; shown again `SHOW_LEAD` before), at least
+    `MIN_HIDDEN` later; the probe that is over soonest, as `(window, time to compare at)`, or
+    `None` when no two rests certainly differ."""
+    cycle = spec["cycle"]
+    best = None
+    for a in spec["rests"]:
+        lo_a, hi_a = rest_window(a)
+        if (start - lo_a) % cycle <= hi_a - lo_a:
+            wait, begin = 0.0, start
+        else:
+            wait, begin = (lo_a - start) % cycle, lo_a
+        for b in spec["rests"]:
+            if not rests_differ(a, b):
+                continue
+            lo_b, hi_b = rest_window(b)
+            hi_b = max(lo_b, hi_b - 0.2)
+            d = (lo_b - begin) % cycle
+            if d >= MIN_HIDDEN:
+                off = d
+            elif (begin + MIN_HIDDEN - lo_b) % cycle <= hi_b - lo_b:
+                off = MIN_HIDDEN
+            else:
+                off = d + cycle
+            if best is None or wait + off < best[0]:
+                best = (wait + off, (lo_a, hi_a), (begin + off) % cycle)
+    return best and best[1:]
+
+
+def wait_clock(page, t, cycle, early=0.0, late=0.15):
+    """Waits until the running clock of the document is between `early` seconds before `t` and
+    `late` seconds after it, modulo the cycle, and returns its time then; `None` if it does not
+    get there within two cycles."""
+    for _ in range(int((2 * cycle + 2) / 0.015)):
+        now = page.evaluate("document.documentElement.getCurrentTime()")
+        if 0 <= (now - t + early) % cycle <= early + late:
+            return now
+        page.wait_for_timeout(15)
+    return None
+
+
 def check(browser, root, name):
     with open(os.path.join(root, name + ".json")) as f:
         spec = json.load(f)
+    why = spec_problem(spec)
+    if why:
+        print(f"{name}: {why} -> FAILED")
+        return False
     path = os.path.abspath(os.path.join(root, spec["svg"]))
     errors = []
     ctx = browser.new_context(viewport=VIEWPORT)
@@ -323,12 +436,25 @@ def check(browser, root, name):
                 print(f"{name}: key {rest['key']}: no element for {a['id']}")
                 continue
             rest_err = max(rest_err, math.dist(xy, a["at"]))
+    # the second loop: every rest's anchors again, one cycle later
+    for rest in spec["rests"]:
+        seen = page.evaluate(READ, rest["t"] + spec["cycle"])
+        uprights_found.add(len(seen["uprights"]))
+        upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
+        for a in rest["actors"]:
+            xy = first(seen["actors"], a["id"])
+            if xy is None:
+                ok = False
+                print(f"{name}: key {rest['key']}, second loop: no element for {a['id']}")
+                continue
+            rest_err = max(rest_err, math.dist(xy, a["at"]))
+    loops = (0, spec["cycle"])
     for turn in spec["turns"]:
         c, s = turn["centre"], turn["start"]
         r = math.dist(s, c)
         a0 = math.degrees(math.atan2(s[1] - c[1], s[0] - c[0]))
-        for sample in turn["samples"]:
-            seen = page.evaluate(READ, sample["t"])
+        for off, sample in [(o, sm) for o in loops for sm in turn["samples"]]:
+            seen = page.evaluate(READ, sample["t"] + off)
             uprights_found.add(len(seen["uprights"]))
             upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
             xy = first(seen["actors"], turn["id"])
@@ -339,10 +465,27 @@ def check(browser, root, name):
             if r >= 1:  # an anchor on the centre itself has no angle
                 a = math.degrees(math.atan2(xy[1] - c[1], xy[0] - c[0]))
                 angle_err = max(angle_err, abs(wrap((a - a0) - turn["sweep"] * sample["f"])))
+    # slides: on the straight segment between the actor's anchors in the two keys, at the eased
+    # fraction
+    slide_err = 0.0
+    for sl in spec.get("slides", []):
+        a, b = sl["from"], sl["to"]
+        for off, sample in [(o, sm) for o in loops for sm in sl["samples"]]:
+            seen = page.evaluate(READ, sample["t"] + off)
+            uprights_found.add(len(seen["uprights"]))
+            upright = max([upright] + [abs(x) for x, _ in seen["uprights"]])
+            xy = first(seen["actors"], sl["id"])
+            if xy is None:
+                ok = False
+                print(f"{name}: no element for the sliding {sl['id']}")
+                continue
+            f = sample["f"]
+            slide_err = max(slide_err, math.dist(xy, [a[0] + f * (b[0] - a[0]),
+                                                       a[1] + f * (b[1] - a[1])]))
     # panels in phase: every actor of every panel where the composed baker has it, at one time
     phase_err = {}
-    for sample in spec.get("phase", []):
-        seen = page.evaluate(READ, sample["t"])
+    for off, sample in [(o, sm) for o in loops for sm in spec.get("phase", [])]:
+        seen = page.evaluate(READ, sample["t"] + off)
         if [i for i, _ in seen["actors"]] != [i for i, _ in sample["actors"]]:
             ok = False
             print(f"{name}: at {sample['t']:.3f} s the actors differ from the expected ones")
@@ -390,17 +533,23 @@ def check(browser, root, name):
         diff = rpage.evaluate(DIFF, [uri(shot), uri(f.read())])
     rctx.close()
     # reduced motion switched on, the clock running on, and off again: the picture shown is the
-    # one of the running clock, not one frozen when it was hidden
+    # one of the running clock, not one frozen when it was hidden. The moments come from the
+    # expectations (`switch_times`): hidden at the middle of one key's rest and shown again for
+    # the middle of a later key's rest whose picture certainly differs, so that a frozen picture
+    # and a running one cannot look the same
+    times = switch_times(spec)
     sctx = browser.new_context(viewport=VIEWPORT)
     spage = sctx.new_page()
     spage.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     spage.goto("file://" + path)
-    spage.wait_for_timeout(300)
-    hidden_at = spage.evaluate("document.documentElement.getCurrentTime()")
-    spage.emulate_media(reduced_motion="reduce")
-    spage.wait_for_timeout(1500)
-    spage.emulate_media(reduced_motion="no-preference")
-    spage.wait_for_timeout(100)
+    hidden_at = None
+    if times:
+        (lo, hi), show_t = times
+        hidden_at = wait_clock(spage, lo, spec["cycle"], 0.0, hi - lo)
+        spage.emulate_media(reduced_motion="reduce")
+        wait_clock(spage, show_t - SHOW_LEAD, spec["cycle"])
+        spage.emulate_media(reduced_motion="no-preference")
+        wait_clock(spage, show_t, spec["cycle"])
     spage.evaluate("document.documentElement.pauseAnimations()")
     spage.wait_for_timeout(150)
     shown = spage.screenshot(clip=clip)
@@ -413,20 +562,31 @@ def check(browser, root, name):
     # the paused clock and the last frame drawn can be a frame or two apart while something
     # moves: the picture shown must match the running clock's near the pause (5 ms steps within
     # 100 ms before it and 50 ms after) better than half as far as the picture of the time it was
-    # hidden, which a picture frozen then would match exactly
+    # hidden, which a picture frozen then would match exactly; and the two times must draw
+    # different pictures (the control), or the probe could not tell the two apart
     switch = None
     for k in range(31):
         n = off_at(now - 0.1 + 0.005 * k)
         switch = n if switch is None else min(switch, n)
         if switch == 0:
             break
-    frozen = off_at(hidden_at)
-    switch_ok = switch == 0 or switch * 2 < frozen
+    frozen = off_at(hidden_at) if hidden_at is not None else 0
+    switch_ok = frozen > 0 and (switch == 0 or switch * 2 < frozen)
+    if not times:
+        print(f"{name}: the switch probe could not run: " +
+              ("the motion has a single rest" if len(spec["rests"]) < 2 else
+               "no two rests certainly draw different pictures (same actors, anchors and "
+               "drawings)"))
+    elif frozen == 0:
+        print(f"{name}: the switch probe is undecided: the picture at {now:.2f} s (shown again) "
+              f"draws the same as at {hidden_at or 0:.2f} s (hidden), although their rests "
+              "differ, so a frozen picture would pass")
     sctx.close()
     # it plays: no seeking, two moments of the running clock inside different moves (from the
-    # expectations' timeline: samples of the first and the last turn, else the first and the last
-    # rest), each waited for on the clock, so that a long first hold does not hide the motion
-    times = sorted({sm["t"] for tn in spec["turns"] for sm in tn["samples"]})
+    # expectations' timeline: samples of the first and the last turn or slide, else the first and
+    # the last rest), each waited for on the clock, so that a long first hold does not hide it
+    times = sorted({sm["t"] for tn in spec["turns"] + spec.get("slides", [])
+                    for sm in tn["samples"]})
     if len(times) < 2:
         times = [spec["rests"][0]["t"], spec["rests"][-1]["t"]]
     pctx = browser.new_context(viewport=VIEWPORT)
@@ -436,12 +596,8 @@ def check(browser, root, name):
 
     def at_clock(t):
         """A screenshot when the running clock is within 0.15 s after `t` (modulo the cycle)."""
-        for _ in range(int((2 * spec["cycle"] + 2) / 0.015)):
-            now = ppage.evaluate("document.documentElement.getCurrentTime()")
-            if 0 <= (now - t) % spec["cycle"] <= 0.15:
-                return now, ppage.screenshot()
-            ppage.wait_for_timeout(15)
-        return None, None
+        now = wait_clock(ppage, t, spec["cycle"])
+        return (now, ppage.screenshot()) if now is not None else (None, None)
     t1, s1 = at_clock(times[0])
     t2, s2 = at_clock(times[-1])
     pctx.close()
@@ -453,12 +609,15 @@ def check(browser, root, name):
                  and all(e <= PHASE_TOL for e in phase_err.values()) and outside == 0
                  and (not spec.get("phase") or len(phase_err) == len(spec.get("panels", []))))
     ok = (ok and rest_err <= REST_TOL and radius_err <= RADIUS_TOL and angle_err <= ANGLE_TOL
+          and slide_err <= REST_TOL
           and upright <= UPRIGHT_TOL and uprights_ok and all(n == 0 for n in rest_pixels)
           and display == ["hidden 0", "inline"] and diff < 8 and switch_ok and not errors
           and plays and panels_ok)
     print(f"{name}: rests {rest_err:.2e} px and {rest_pixels} pixels off the stills (worst "
           f"blurred difference {worst_ratio:.3f} of the local contrast), "
-          f"arcs {radius_err:.2e} px and {angle_err:.2e} deg, uprights {sorted(uprights_found)} "
+          f"arcs {radius_err:.2e} px and {angle_err:.2e} deg over {len(spec['turns'])} turns, "
+          f"slides {slide_err:.2e} px over {len(spec.get('slides', []))}, "
+          f"uprights {sorted(uprights_found)} "
           f"of {spec['uprights']} found, turned {upright:.2e} deg; reduced motion: live "
           f"{display[0]}, poster {display[1]}, {diff:.2f} of 255 from the poster PNG, switched "
           f"off again {switch} pixels off the clock ({frozen} off the time it was hidden); "
@@ -477,7 +636,7 @@ def check(browser, root, name):
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "motion-pixels")
 
 
-def pixel_rule_checks(browser):
+def pixel_rule_checks(browser, engine="chromium"):
     """The pixel rule on its fixtures: each pair of a shape drawn in place and the same shape
     turned into place by `rotate()` (a circle, a horizontal segment), which Chromium draws up to
     57 levels apart at single pixels (which the range test alone does not explain, as it must
@@ -495,8 +654,10 @@ def pixel_rule_checks(browser):
         turned, worst = unexplained(page, shots[0], shots[1], raw=True)
         alone, _ = unexplained(page, shots[0], shots[1], ratio=-1, raw=True)
         moved = {d: unexplained(page, shots[0], shots[0], shift=d, raw=True)[0] for d in (1, 2, 3)}
-        # the fixture must show the effect the rule allows for, or it tests nothing
-        good = turned == 0 and alone > 0 and moved[2] > 0 and moved[3] > 0
+        # the fixture must show the effect the rule allows for, or it tests nothing; the effect
+        # is Chromium's, so another engine that draws both alike only reports it
+        shown = alone > 0 or engine != "chromium"
+        good = turned == 0 and shown and moved[2] > 0 and moved[3] > 0
         ok = ok and good
         print(f"pixel rule, {stem}: turned into place {turned} unexplained pixels (the range test "
               f"alone: {alone}; largest blurred difference there {worst:.3f} of the local "
@@ -508,20 +669,31 @@ def pixel_rule_checks(browser):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("usage: python3 tools/motion-browser-check.py DIR (from `lake exe pilean-test "
-              "--motion-out DIR`)")
+    args = sys.argv[1:]
+    engine = "chromium"
+    if "--engine" in args:
+        i = args.index("--engine")
+        engine = args[i + 1] if i + 1 < len(args) else ""
+        del args[i:i + 2]
+    if len(args) != 1 or engine not in ("chromium", "firefox", "webkit"):
+        print("usage: python3 tools/motion-browser-check.py DIR [--engine chromium|firefox|webkit] "
+              "(DIR from `lake exe pilean-test --motion-out DIR`)")
         return 2
-    root = sys.argv[1]
+    root = args[0]
+    if engine == "webkit":
+        # the position checks in the system's WebKit, through the optional macOS runner
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "webkit"))
+        import webkit_check
+        return webkit_check.main([root])
     try:
         pw = sync_playwright().start()
-        browser = pw.chromium.launch(headless=True)
+        browser = getattr(pw, engine).launch(headless=True)
     except Exception as e:  # no browser found
-        print(f"motion-browser-check: no Chromium available ({type(e).__name__}); nothing checked")
+        print(f"motion-browser-check: no {engine} available ({type(e).__name__}); nothing checked")
         return 0
     try:
         names = sorted(f[:-5] for f in os.listdir(root) if f.endswith(".json"))
-        failures = 0 if pixel_rule_checks(browser) else 1
+        failures = 0 if pixel_rule_checks(browser, engine) else 1
         failures += sum(0 if check(browser, root, name) else 1 for name in names)
         if not names:
             print(f"motion-browser-check: no motions in {root}")

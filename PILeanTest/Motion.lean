@@ -114,6 +114,16 @@ def golden : Array (String × Motion) :=
   #[("motion-turn", turnMotion), ("motion-two-centres", twoCentresMotion),
     ("motion-fifth", fifthMotion)]
 
+/-- `turnMotion` with a first hold of 2 seconds: a probe that switches reduced motion on at a
+fixed 0.3 s and compares at about 2 s sees the first rest at both moments, so a frozen picture
+would pass it. Written for the browser check only (no golden file). -/
+def longHoldMotion : Motion := { turnMotion with pacing := { firstHold := 2 } }
+
+/-- `turnMotion` paced slowly, with a cycle of about half a minute: a probe that waits for longer
+than the cycle shows in the check's duration. Written for the browser check only. -/
+def longCycleMotion : Motion :=
+  { turnMotion with pacing := { turn := 12, firstHold := 6, hold := 4, idle := 4, lastHold := 4 } }
+
 /-! ### Small motions for the rules -/
 
 /-- `turnMotion` with other steps. -/
@@ -748,6 +758,9 @@ def outputChecks : Array (String × Bool) := Id.run do
       { L with uprights := L.uprights.map fun u =>
         { u with values := u.values.map fun v => #[2 * v.getD 0 0, v.getD 1 0, v.getD 2 0] } } }
     (Motion.writerProblems p).isEmpty && !(Motion.writerProblems bad).isEmpty)
+  r := r.push ("motion: the long-hold fixture is checked and holds its first key for 2 s",
+    noErrors longHoldMotion && longHoldMotion.svg?.toOption.isSome &&
+      longHoldMotion.timeline.cycle == turnMotion.timeline.cycle + 2 - 1.2)
   for (name, m) in golden do
     r := r.push (s!"motion {name}: at every rest the baker draws the key still, every element",
       (m.restProblems m.keysOf m.plan).isEmpty &&
@@ -781,11 +794,36 @@ def turningMarks (m : Motion) : Bool :=
     | .turn .., some it => it.leaves.any (·.geom.upright)
     | _, _ => false
 
-/-- What `tools/motion-browser-check.py` expects of the motion's SVG, as JSON: the cycle; at the
-middle of each key's rest, every actor's anchor in the key's still and every upright group's
-anchor where the plan draws it (which the rest check holds to the still); and for every turn, its
-centre, the actor's anchor where the turn starts, its angle in SVG's degrees, and the times at a
-quarter, a half and three quarters of the turn with the eased fraction of the turn done then. -/
+/-- The version of the expectations' format (`expectations`, `MotionPanelsChecks.expectations`),
+which the browser checks require: 2 has the rests' ends, the slides, the declared moves and the
+actors' drawings. -/
+def expectationsFormat : Nat := 2
+
+/-- How many turns and slides the motion's steps declare, as JSON. -/
+def declaredMoves (ms : Array Motion) : String :=
+  let count := fun (p : Move → Bool) => ms.foldl (init := 0) fun n m =>
+    m.steps.foldl (init := n) fun n s => n + (s.moves.filter (p ·.2)).size
+  let turns := count fun | .turn .. => true | _ => false
+  let slides := count fun | .slide _ => true | _ => false
+  s!"\{\"turns\": {turns}, \"slides\": {slides}}"
+
+/-- Each actor of `fig` with a fingerprint of its drawing in `e` (the first 16 digits of the
+SHA-256 of its SVG text), as JSON members, its id prefixed by `pfx`: two rests whose fingerprints
+differ draw that actor otherwise, even where its anchor is the same (a morph). -/
+def actorShapes (e : Env) (fig : Figure) (pfx : String := "") : List String :=
+  fig.items.toList.filterMap fun it => it.actorId?.map fun id =>
+    let h := (PILean.Sha256.hex (PILean.Sha256.hash (itemText e fig.svgMode it).toUTF8)).take 16
+    s!"\"{pfx}{Canvas.safeToken id}\": \"{h}\""
+
+/-- What `tools/motion-browser-check.py` expects of the motion's SVG, as JSON (format
+`expectationsFormat`): the cycle; the turns and slides the steps declare; at the middle of each
+key's rest (and the rest's start and end), every actor's anchor in the key's still, every actor's
+drawing as a fingerprint (`actorShapes`), and every upright group's anchor where the plan draws it
+(which the rest check holds to the still); for every turn, its centre, the actor's anchor where
+the turn starts, its angle in SVG's degrees, and the times at a quarter, a half and three quarters
+of the turn with the eased fraction of the turn done then; and for every slide (of an actor that
+does nothing else in its step), the actor's anchors in the two keys and the same times and
+fractions. -/
 def expectations (name : String) (m : Motion) : String :=
   let K := m.keysOf
   let p := m.planIn K K.env
@@ -801,8 +839,12 @@ def expectations (name : String) (m : Motion) : String :=
       s!"\{\"id\": \"{Canvas.safeToken id}\", \"at\": {pt a}}"
     let t := Exact.toFloat (p.timeline.restTime k)
     let ups := ((p.markersAt t).filter (·.1 == "upright")).toList.map fun (_, q, _) => pt q
-    s!"\{\"key\": {k}, \"t\": {num t}, \"actors\": [{", ".intercalate actors}], \
-      \"uprights\": [{", ".intercalate ups}]}"
+    let seg := p.timeline.segments.find? (·.kind = .rest k)
+    let lo := Exact.toFloat ((seg.map (·.start)).getD 0)
+    let hi := Exact.toFloat ((seg.map fun s => s.start + s.dur).getD 0)
+    s!"\{\"key\": {k}, \"t\": {num t}, \"from\": {num lo}, \"until\": {num hi}, \
+      \"actors\": [{", ".intercalate actors}], \"uprights\": [{", ".intercalate ups}], \
+      \"shapes\": \{{", ".intercalate (actorShapes K.env fig)}}}"
   let segs := p.timeline.segments
   let turns := still.toList.flatMap fun L => match L.version.actor with
     | none => []
@@ -817,17 +859,43 @@ def expectations (name : String) (m : Motion) : String :=
         return s!"\{\"id\": \"{Canvas.safeToken id}\", \"step\": {j}, \"centre\": {pt c}, \
           \"start\": {pt start}, \"sweep\": {num deg}, \"samples\": [{", ".intercalate samples}]}"
       | .slide .. => none
+  -- the slides: an actor whose only move in its step is a slide, from its anchor in the step's
+  -- first key to its anchor in the next
+  let slides := still.toList.flatMap fun L => match L.version.actor with
+    | none => []
+    | some id => L.links.toList.filterMap fun
+      | .slide j _ => do
+        guard ((L.links.filter (·.step == j)).size == 1)
+        let i ← (List.range segs.size).find? fun i => (segs[i]?.map (·.kind)) == some (.move j)
+        let s ← segs[i]?
+        let a ← anchorOf (K.figure j) id
+        let b ← anchorOf (K.figure (j + 1)) id
+        let samples := [0.25, 0.5, 0.75].map fun (x : Float) =>
+          let t := Exact.toFloat s.start + x * Exact.toFloat s.dur
+          s!"\{\"t\": {num t}, \"f\": {num ((p.clock.splines.getD i .linear).eval x)}}"
+        return s!"\{\"id\": \"{Canvas.safeToken id}\", \"step\": {j}, \"from\": {pt a}, \
+          \"to\": {pt b}, \"samples\": [{", ".intercalate samples}]}"
+      | .turn .. => none
   let ups := (p.layers.map (·.uprights.size)).foldl (· + ·) 0
-  s!"\{\"name\": \"{name}\", \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
+  s!"\{\"format\": {expectationsFormat}, \"name\": \"{name}\", \"svg\": \"{name}.svg\", \
+    \"poster_png\": \"{name}-poster.png\", \"declared\": {declaredMoves #[m]}, \
     \"cycle\": {num (Exact.toFloat p.timeline.cycle)}, \"uprights\": {ups}, \
     \"turning_marks\": {turningMarks m}, \
-    \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}]}\n"
+    \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}], \
+    \"slides\": [{", ".intercalate slides}]}\n"
 
-/-- Writes the golden motions into `dir` for `tools/motion-browser-check.py`: each motion's SVG,
-the SVG of each key's still, the poster still's PNG and the expectations (`expectations`). -/
+/-- The motions written for the browser check besides the golden ones: a long first hold, a long
+cycle, and a morph alone (a disk whose radius grows, its anchor unchanged). -/
+def browserOnly : Array (String × Motion) :=
+  #[("motion-long-hold", longHoldMotion), ("motion-long-cycle", longCycleMotion),
+    ("motion-morph", morphMotion true)]
+
+/-- Writes the golden motions and `browserOnly` into `dir` for `tools/motion-browser-check.py`:
+each motion's SVG, the SVG of each key's still, the poster still's PNG and the expectations
+(`expectations`). -/
 def writeBrowserFiles (dir : System.FilePath) : IO Unit := do
   IO.FS.createDirAll dir
-  for (name, m) in golden do
+  for (name, m) in golden ++ browserOnly do
     IO.FS.writeFile (dir / s!"{name}.svg") m.toSvgUnchecked
     for k in [0:m.keys.size] do
       IO.FS.writeFile (dir / s!"{name}-key{k}.svg") (m.keyFigure k).toSvg

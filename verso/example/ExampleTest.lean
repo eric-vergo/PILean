@@ -137,7 +137,7 @@ def checks : Array (String × Bool) := #[
     (Style.darkVariant? { Style.light with lineWidth := 3 }).map (·.lineWidth) == some 3),
   ("dark: the colours are the dark style's",
     (Style.darkVariant? Style.light).map (·.background) == some Style.dark.background),
-  ("table: nineteen figures", table.size == 19),
+  ("table: twenty figures", table.size == 20),
   ("standing: a figure linked by figure_links has the standing linked, with its theorem",
     standingOf "Example.divisorHasse" == some (.linked #["Example.divisorHasse_spec"]) &&
     standingOf "Example.reductionSquare" == some (.linked #["Example.reductionSquare_spec"])),
@@ -297,6 +297,7 @@ def main (args : List String) : IO UInt32 := do
     IO.FS.createDirAll dir
     writeMotion dir "Example.quarterTurn" Example.quarterTurn
     writeMotion dir "Example.fifthTurn" Example.fifthTurn
+    writeMotion dir "Example.slideAcross" Example.slideAcross
     writePanels dir "Example.twoFrames" Example.twoFrames
     writePanels dir "Example.oddMotion" Example.oddMotion
     IO.println s!"motion files written to {dir}"

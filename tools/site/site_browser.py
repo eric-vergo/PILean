@@ -28,9 +28,11 @@ def policy(page: bytes, styles: str) -> str:
     head = page.split(b"</head>", 1)[0]
     hashes = [b64sha(m) for m in HEAD_SCRIPT.findall(head)]
     scripts = " ".join(["'self'", "'wasm-unsafe-eval'"] + hashes)
-    if styles == "hashes":
+    if styles in ("hashes", "strict"):
+        # the page's style elements by hash; with "strict", no style attribute either
+        attrs = "'none'" if styles == "strict" else "'unsafe-inline'"
         style = "style-src 'self' " + " ".join(b64sha(m) for m in STYLE_ELEMENT.findall(page)) + \
-            "; style-src-attr 'unsafe-inline'"
+            f"; style-src-attr {attrs}"
     else:
         style = "style-src 'self' 'unsafe-inline'"
     return (
@@ -103,6 +105,31 @@ document.addEventListener('securitypolicyviolation', e => {
 
 TIMEOUT = 10000
 
+# The engines Playwright drives here. Chromium is the one a continuous-integration gate uses;
+# Firefox runs the motion checks too (`motion_browser.py --engine firefox`), the checks that rest
+# on an observation of Chromium saying that they do not apply there.
+ENGINES = ("chromium", "firefox")
+
+
+def engine_option(args, default="chromium"):
+    """The value of `--engine NAME` in `args` (both removed from it), or `default`; a missing
+    name raises `ValueError`."""
+    if "--engine" not in args:
+        return default
+    i = args.index("--engine")
+    if i + 1 >= len(args):
+        raise ValueError("--engine needs a name: " + ", ".join(ENGINES))
+    name = args[i + 1]
+    del args[i:i + 2]
+    return name
+
+
+def launch(p, engine="chromium"):
+    """A headless browser of the engine `engine` (one of `ENGINES`) from Playwright `p`."""
+    if engine not in ENGINES:
+        raise ValueError(f"unknown engine {engine}: one of {', '.join(ENGINES)}")
+    return getattr(p, engine).launch()
+
 
 def new_page(browser, **kw):
     ctx = browser.new_context(**kw)
@@ -117,12 +144,25 @@ def goto(page, url):
 
 
 class Checks:
-    def __init__(self):
+    """Counts checks and prints each verdict, or keeps the lines in `lines` when `keep` is set
+    (for a worker process whose lines are printed by its parent)."""
+
+    def __init__(self, keep=False):
         self.failed = 0
         self.count = 0
+        self.lines = [] if keep else None
+
+    def say(self, line):
+        if self.lines is None:
+            print(line, flush=True)
+        else:
+            self.lines.append(line)
 
     def section(self, name, fn, *args):
-        """Runs a group of checks; one that stops with an error counts as a failure."""
+        """Runs a group of checks, and says how long it took; one that stops with an error counts
+        as a failure."""
+        import time
+        start = time.monotonic()
         try:
             fn(*args)
         except Exception as e:  # noqa: BLE001 - a check that cannot run is a failed check
@@ -130,11 +170,12 @@ class Checks:
             where = traceback.extract_tb(e.__traceback__)[-1]
             self.check(f"{name} ran to its end", False,
                        f"{str(e).splitlines()[0]} (line {where.lineno})")
+        self.say(f"time: {name}: {time.monotonic() - start:.1f} s")
 
     def check(self, name, ok, detail=""):
         self.count += 1
         if ok:
-            print(f"ok: {name}")
+            self.say(f"ok: {name}")
         else:
             self.failed += 1
-            print(f"FAIL: {name} {detail}")
+            self.say(f"FAIL: {name} {detail}")

@@ -3,22 +3,27 @@
 """The browser checks of motions shown in the pages of a site built with the Verso adapters (one
 of PILean's site checks, `tools/site/`):
 
-    python3 tools/site/motion_browser.py SITE_DIR --expect DIR [--shots DIR]
+    python3 tools/site/motion_browser.py SITE_DIR --expect DIR [--shots DIR] [--workers N]
+        [--engine chromium|firefox]
 
 SITE_DIR is the generator's `html-multi` folder; every page with a motion (`data-bp-motion`) is
 checked. DIR holds the expectations of every motion shown, `<file>.json` for the animated SVG
 `<file>.svg` of each rendition (`<decl>.json`, `<decl>-narrow.json`), in the form PILean's tests
 write them (`PILeanTest.MotionChecks.expectations`, `PILeanTest.MotionPanelsChecks.expectations`);
 a motion without its expectations fails. The site is served on 127.0.0.1 under a strict content
-policy (`site_browser.serve`) and checked in Chromium (Playwright, nothing installed or
-downloaded). `motion_checks` checks one page; on a Blueprint site (a caption with the switch's link)
-also the switch and the link. Checked:
-
-* with the clock paused and set, every actor of the page's moving picture is where its key still
-  has it at every rest (0.05 px), on its circle at a quarter, a half and three quarters of every
-  turn (0.05 px, a true arc) at the eased angle (0.5 degrees), every label and marker upright
-  (0.01 degrees), and every panel of a picture of panels in phase with the others (0.05 px); this
-  covers the actors' anchors and the upright marks, not every pixel (`tools/motion-browser-check.py`
+policy (`site_browser.serve`) and checked in Chromium (Playwright, nothing installed or downloaded).
+`--engine firefox` runs the same checks in Playwright's Firefox, with the freeze control (a freeze
+seen in Chromium) and the PDF print (which Playwright makes in Chromium only) reported as not
+applicable (`n/a:` lines); every other check runs there as in Chromium. `--workers N` checks N
+pages at a time, each in a process with its own browser. `motion_checks` checks one page; on a
+Blueprint site (a caption with the switch's link) also the switch and the link. Checked:
+* with the clock paused and set, in the first loop and again one cycle later, every actor of the
+  page's moving picture is where its key still has it at every rest (0.05 px), on its circle at a
+  quarter, a half and three quarters of every turn (0.05 px, a true arc) at the eased angle (0.5
+  degrees), on the straight segment between its keys at the eased fraction at the same times of
+  every slide (0.05 px; a motion may have no turn or no slide), every label and marker upright (0.01
+  degrees), and every panel of a picture of panels in phase with the others (0.05 px); this covers
+  the actors' anchors and the upright marks, not every pixel (`tools/motion-browser-check.py`
   compares pixels);
 * every moving picture plays on its own clock; the wide rendition is shown at 1440 px and the
   narrow one at 360 px, the other hidden and taking no space;
@@ -29,14 +34,25 @@ also the switch and the link. Checked:
   (exactly one picture, the poster key's file in the page's theme, filling the picture's own box,
   nothing around it moving) while the moving picture's text alternative stays in the
   accessibility tree, in both themes, and the focused picture has a ring of at least 3:1 against
-  the page; after each of them ends the moving picture follows its clock again without being
-  sought (the regression test for a picture frozen after it was hidden; the check is shown to
-  notice a picture hidden with `display: none`);
+  the page, and a click holds the still after the pointer has left; after each of them ends the
+  moving picture follows its clock again without being sought (the regression test for a picture
+  frozen after it was hidden; the check is shown to notice a picture hidden with `display:
+  none`). Each state starts inside one key's rest and the picture is compared inside a later
+  key's rest that certainly draws another picture (`rest_pair`, from the expectations), so that
+  a frozen picture and a running one cannot look the same; a comparison that stays undecided
+  fails;
+* free-running, without seeking, every picture is where its keys have it inside two of its rests
+  that differ, and its clock has advanced (`free_running`);
+* at seven widths from 1440 to 320 px the page does not scroll sideways, with motion on and off,
+  and with motion off every still of every grid of stills (inline and on a figure's page) is
+  shown at `STILL_FRACTION` of its natural width or more, or fills its column alone, and never
+  larger than its natural width (`grid_checks`);
 * the captions are in the accessibility tree while the stills are hidden, and nothing is
   announced (no live region changes);
 * every id of the page once, and no `data-pilean-actor` in two pictures;
-* the caption's hint about pausing, shown only while motion is on; on a Blueprint site the
-  caption's link leads to the motion switch;
+* the caption's note, exactly `HINT` (a still replaces the picture while it is pointed at or
+  focused, or after a click or tap until a click elsewhere), shown only while motion is on; on a
+  Blueprint site the caption's link leads to the motion switch;
 * no content-policy report about a figure and no console error.
 """
 
@@ -46,6 +62,11 @@ import math
 import os
 import re
 import sys
+
+# The note every motion's caption ends with (`PILeanVerso.motionHintText`): while a still covers
+# the picture its clock runs on, so it is said as a still that replaces it, not as a pause.
+HINT = ("Animation; a still replaces it while you point at it or focus it, or after a click or "
+        "tap until you click elsewhere.")
 
 REST_TOL = 0.05
 RADIUS_TOL = 0.05
@@ -128,8 +149,10 @@ STATE = """(sid) => {
 def console_error(m):
     """Whether a console message is an error of the page, other than the content policy's report
     of the inline event handler of Verso's table of contents (outside every figure; the policy
-    reports of figures are checked by `figure_reports`)."""
-    return m.type == "error" and "inline event handler" not in m.text
+    reports of figures are checked by `figure_reports`), in Chromium's words ("inline event
+    handler") or Firefox's ("blocked an event handler", naming the table of contents' toggle)."""
+    return m.type == "error" and "inline event handler" not in m.text and not (
+        "blocked an event handler" in m.text and "toggle-toc" in m.text)
 
 
 def uri(data):
@@ -161,13 +184,15 @@ def file_of(page, sid):
 
 
 def position_checks(c, page, sid, spec, label):
-    """Rests, arcs, uprights and phase of one moving picture against the expectations."""
+    """Rests, arcs, slides, uprights and phase of one moving picture against the expectations, in
+    its first loop and again one cycle later (the clock paused and set)."""
     page.evaluate("(sid) => document.getElementById(sid).pauseAnimations()", sid)
     rest_err = radius_err = angle_err = upright = 0.0
     missing = []
     counts = set()
-    for rest in spec["rests"]:
-        seen = page.evaluate(READ, [sid, rest["t"]])
+    loops = [(k * spec["cycle"], r) for k in (0, 1) for r in spec["rests"]]
+    for off, rest in loops:
+        seen = page.evaluate(READ, [sid, rest["t"] + off])
         counts.add(len(seen["uprights"]))
         upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
         if len(seen["uprights"]) == len(rest["uprights"]):
@@ -183,8 +208,8 @@ def position_checks(c, page, sid, spec, label):
         cc, s = turn["centre"], turn["start"]
         r = math.dist(s, cc)
         a0 = math.degrees(math.atan2(s[1] - cc[1], s[0] - cc[0]))
-        for sample in turn["samples"]:
-            seen = page.evaluate(READ, [sid, sample["t"]])
+        for off, sample in [(k * spec["cycle"], sm) for k in (0, 1) for sm in turn["samples"]]:
+            seen = page.evaluate(READ, [sid, sample["t"] + off])
             upright = max([upright] + [abs(a) for a, _ in seen["uprights"]])
             xy = first(seen["actors"], turn["id"])
             if xy is None:
@@ -194,17 +219,35 @@ def position_checks(c, page, sid, spec, label):
             if r >= 1:
                 a = math.degrees(math.atan2(xy[1] - cc[1], xy[0] - cc[0]))
                 angle_err = max(angle_err, abs(wrap((a - a0) - turn["sweep"] * sample["f"])))
+    slide_err = 0.0
+    for sl in spec.get("slides", []):
+        a, b = sl["from"], sl["to"]
+        for off, sample in [(k * spec["cycle"], sm) for k in (0, 1) for sm in sl["samples"]]:
+            seen = page.evaluate(READ, [sid, sample["t"] + off])
+            upright = max([upright] + [abs(x) for x, _ in seen["uprights"]])
+            xy = first(seen["actors"], sl["id"])
+            if xy is None:
+                missing.append(sl["id"])
+                continue
+            f = sample["f"]
+            slide_err = max(slide_err, math.dist(xy, [a[0] + f * (b[0] - a[0]),
+                                                       a[1] + f * (b[1] - a[1])]))
     c.check(f"{label}: at every rest each actor and upright mark is where the key still has it",
             not missing and rest_err <= REST_TOL and counts == {spec["uprights"]},
             f"{rest_err:.3g} px, missing {missing[:3]}, uprights {counts}")
-    c.check(f"{label}: every turn is a true arc at the eased angle",
-            bool(spec["turns"]) and radius_err <= RADIUS_TOL and angle_err <= ANGLE_TOL,
-            f"{radius_err:.3g} px, {angle_err:.3g} deg over {len(spec['turns'])} turns")
+    if spec["turns"]:
+        c.check(f"{label}: every turn is a true arc at the eased angle",
+                radius_err <= RADIUS_TOL and angle_err <= ANGLE_TOL,
+                f"{radius_err:.3g} px, {angle_err:.3g} deg over {len(spec['turns'])} turns")
+    if spec.get("slides"):
+        c.check(f"{label}: every slide keeps its actor on the straight segment between its keys, "
+                "at the eased fraction", slide_err <= REST_TOL,
+                f"{slide_err:.3g} px over {len(spec['slides'])} slides")
     c.check(f"{label}: labels and markers stay upright", upright <= UPRIGHT_TOL, f"{upright:.3g}")
     if spec.get("phase"):
         err, bad = 0.0, 0
-        for sample in spec["phase"]:
-            seen = page.evaluate(READ, [sid, sample["t"]])
+        for off, sample in [(k * spec["cycle"], sm) for k in (0, 1) for sm in spec["phase"]]:
+            seen = page.evaluate(READ, [sid, sample["t"] + off])
             if [i for i, _ in seen["actors"]] != [i for i, _ in sample["actors"]]:
                 bad += 1
                 continue
@@ -223,14 +266,121 @@ def shot(page, sid):
                                                  "height": box[3]})
 
 
-def follows_clock(page, sid, hidden_at, cmp):
+def wait_clock(page, sid, t, cycle, early=0.0, late=0.15):
+    """Waits until the running clock of the picture `sid` is between `early` seconds before `t`
+    and `late` seconds after it, modulo the cycle, and returns its time then; `None` if it does
+    not get there within two cycles."""
+    for _ in range(int((2 * cycle + 2) / 0.015)):
+        now = page.evaluate("(sid) => document.getElementById(sid).getCurrentTime()", sid)
+        if 0 <= (now - t + early) % cycle <= early + late:
+            return now
+        page.wait_for_timeout(15)
+    return None
+
+
+# Seconds of the motion's clock. A state starts inside one rest and ends `SHOW_LEAD` before the
+# moment of comparison; that moment comes at least `MIN_HELD` after the start for a way of turning
+# motion off (so the state lasts 1.3 s or more, while its stills load) and at least `MIN_COVERED`
+# after it for hover, focus, a click or a tap (0.4 s or more). Without the rests' ends in the
+# expectations, a probe starts within `NEAR_REST` of a rest's middle.
+SHOW_LEAD = 0.5
+MIN_HELD = 1.8
+MIN_COVERED = 0.9
+NEAR_REST = 0.25
+
+# The version of the expectations' format these checks read (`PILeanTest.MotionChecks
+# .expectationsFormat`), and what it has that an older one lacks.
+FORMAT = 2
+
+
+def spec_problem(spec):
+    """Why the expectations cannot be checked by this tool, or `None`: written in an older format
+    (a writer built with an older PILean, without the rests' ends, the slides, the declared moves
+    and the actors' drawings, so that a slide would go unchecked), or listing other turns or
+    slides than the motion declares (a writer that lost some)."""
+    if spec.get("format", 1) < FORMAT or "declared" not in spec or "slides" not in spec or \
+            any("shapes" not in r or "from" not in r for r in spec["rests"]):
+        return (f"the expectations are in format {spec.get('format', 1)}, this check reads format "
+                f"{FORMAT} (rests with their ends and drawings, slides, declared moves): rebuild "
+                "the expectations writer with this version of PILean")
+    d = spec["declared"]
+    if d["turns"] != len(spec["turns"]) or d["slides"] != len(spec["slides"]):
+        return (f"the motion declares {d['turns']} turns and {d['slides']} slides, the "
+                f"expectations list {len(spec['turns'])} and {len(spec['slides'])}")
+    return None
+
+
+def rests_differ(a, b):
+    """Whether two rests of the expectations certainly draw different pictures: an actor is in one
+    and not the other, an actor's anchor is more than a pixel apart, or an actor is drawn
+    otherwise (its fingerprint in `shapes` differs: a morph, whose anchor may stay)."""
+    at_a = {x["id"]: x["at"] for x in a["actors"]}
+    at_b = {x["id"]: x["at"] for x in b["actors"]}
+    return at_a.keys() != at_b.keys() or any(math.dist(at_a[k], at_b[k]) > 1 for k in at_a) or \
+        a.get("shapes", {}) != b.get("shapes", {})
+
+
+def undecided(spec):
+    """Why no probe on the timeline can be chosen (`rest_pair` gave none)."""
+    if len(spec["rests"]) < 2:
+        return "the probe could not run: the motion has a single rest"
+    return ("the probe could not run: no two rests of the motion certainly draw different "
+            "pictures (same actors, anchors and drawings)")
+
+
+def rest_window(rest):
+    """The part of a rest (seconds of the clock) where a probe may read or switch: the rest less
+    0.1 s at each end, from its start and end in the expectations, else `NEAR_REST` about its
+    middle."""
+    if "from" in rest and rest["until"] - rest["from"] > 0.3:
+        return rest["from"] + 0.1, rest["until"] - 0.1
+    return rest["t"] - NEAR_REST, rest["t"] + NEAR_REST
+
+
+def rest_pair(spec, start, least):
+    """A probe on the motion's timeline for a clock at `start`: it starts inside the window
+    (`rest_window`) of one rest, at once when the clock is there already, and ends at a time
+    inside the window of another rest that certainly draws another picture (`rests_differ`), at
+    least `least` seconds after it starts and at least 0.2 s before that window closes; the probe
+    that is over soonest, as `(first rest, its window, second rest, the time to compare at)`, or
+    `None` when no two rests certainly differ."""
+    cycle = spec["cycle"]
+    best = None
+    for a in spec["rests"]:
+        lo_a, hi_a = rest_window(a)
+        if (start - lo_a) % cycle <= hi_a - lo_a:
+            wait, begin = 0.0, start
+        else:
+            wait, begin = (lo_a - start) % cycle, lo_a
+        for b in spec["rests"]:
+            if not rests_differ(a, b):
+                continue
+            lo_b, hi_b = rest_window(b)
+            hi_b = max(lo_b, hi_b - 0.2)
+            d = (lo_b - begin) % cycle
+            if d >= least:
+                off = d
+            elif (begin + least - lo_b) % cycle <= hi_b - lo_b:
+                off = least
+            else:
+                off = d + cycle
+            if best is None or wait + off < best[0]:
+                best = (wait + off, a, (lo_a, hi_a), b, (begin + off) % cycle)
+    return best and best[1:]
+
+
+def follows_clock(page, sid, hidden_at, cmp, pause_at=None, cycle=None):
     """Whether the moving picture, shown again, draws the time of its running clock: paused
-    without seeking, its picture matches the picture of that time (sought) better than half as
+    without seeking (400 ms after it was shown again, or when its clock reaches `pause_at`
+    modulo `cycle`), its picture matches the picture of that time (sought) better than half as
     well as the picture of the time it was hidden, which a frozen picture matches. Returns the
     verdict and the numbers; `None` as verdict when the two times draw the same picture. The
     pictures are compared in `cmp`, a blank page of its own (the site's policy loads no `data:`
     image)."""
-    page.wait_for_timeout(400)
+    if pause_at is None:
+        page.wait_for_timeout(400)
+    else:
+        wait_clock(page, sid, pause_at, cycle)
     page.evaluate("(sid) => document.getElementById(sid).pauseAnimations()", sid)
     page.wait_for_timeout(120)
     drawn = shot(page, sid)
@@ -240,10 +390,13 @@ def follows_clock(page, sid, hidden_at, cmp):
         page.evaluate("([sid, t]) => document.getElementById(sid).setCurrentTime(t)", [sid, t])
         page.wait_for_timeout(80)
         return shot(page, sid)
+    # the times within 40 ms of the pause, nearest first; a perfect match ends the search
     best = None
-    for k in range(9):
-        n = cmp.evaluate(PIXELS, [uri(drawn), uri(at(now - 0.04 + 0.01 * k))])
+    for k in (0, -1, 1, -2, 2, -3, 3, -4, 4):
+        n = cmp.evaluate(PIXELS, [uri(drawn), uri(at(now + 0.01 * k))])
         best = n if best is None else min(best, n)
+        if best == 0:
+            break
     then = at(hidden_at)
     frozen = cmp.evaluate(PIXELS, [uri(drawn), uri(then)])
     apart = cmp.evaluate(PIXELS, [uri(at(now)), uri(then)])
@@ -298,7 +451,42 @@ def still_problem(page, sid, during, dark):
     return None
 
 
-def enter(page, state, stage, sid):
+def prepare(page, state, stage):
+    """What a state needs before it starts at a chosen moment: for keyboard focus, Tab from the
+    start of the page until the stage is focused (it is a tab stop), then one step back, so that
+    one Tab in `enter` focuses it. Returns whether the walk reached the stage."""
+    if state != "keyboard focus":
+        return True
+    reached = False
+    for _ in range(400):
+        page.keyboard.press("Tab")
+        if stage.evaluate("e => document.activeElement === e"):
+            reached = True
+            break
+    page.keyboard.press("Shift+Tab")
+    return reached
+
+
+def enter_checked(c, label, page, state, stage, sid, prepared=False):
+    """`enter`, as a check: a stage that cannot be pointed at, clicked or tapped (it lost its box,
+    or keeps moving under the pointer: a picture hidden by `display: none` collapses it) fails as
+    such, with the stage's box before and after, instead of stopping the section."""
+    box = page.evaluate("(sid) => { const r = document.getElementById(sid).parentElement"
+                        ".getBoundingClientRect(); return [r.width, r.height]; }", sid)
+    try:
+        enter(page, state, stage, sid, prepared)
+        return True
+    except Exception as e:  # noqa: BLE001 - Playwright's timeout, which is the finding here
+        after = page.evaluate("(sid) => { const r = document.getElementById(sid).parentElement"
+                              ".getBoundingClientRect(); return [r.width, r.height]; }", sid)
+        c.check(f"{label}: {state} reaches the stage, which keeps its box", False,
+                f"the stage could not be {state if state != 'hover' else 'pointed at'} "
+                f"({type(e).__name__}); its box {box} -> {after}: the picture or the stage "
+                "collapsed or moved (a moving picture hidden by display: none?)")
+        return False
+
+
+def enter(page, state, stage, sid, prepared=False):
     if state == "reduced motion":
         page.emulate_media(reduced_motion="reduce")
     elif state == "data-motion":
@@ -311,17 +499,21 @@ def enter(page, state, stage, sid):
     elif state == "pdf":
         page.pdf(path=os.devnull)
     elif state == "hover":
-        stage.hover()
+        stage.hover(timeout=3000)
     elif state == "keyboard focus":
-        # the stage is a tab stop: Tab from the elements before it reaches it
-        for _ in range(400):
+        # the stage is a tab stop: Tab from the elements before it reaches it (with `prepared`,
+        # `prepare` has walked there and stepped back once, so one Tab focuses it)
+        for _ in range(1 if prepared else 400):
             page.keyboard.press("Tab")
             if stage.evaluate("e => document.activeElement === e"):
                 break
     elif state == "click":
-        stage.click()
+        # the still stays after the pointer has left: the click's focus holds it, as the
+        # caption's note says
+        stage.click(timeout=3000)
+        page.mouse.move(2, 2)
     elif state == "tap":
-        stage.tap()
+        stage.tap(timeout=3000)
 
 
 def leave(page, state):
@@ -347,7 +539,7 @@ FREEZE_FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtu
                               "freeze.html")
 
 
-def freeze_control(c, browser):
+def freeze_control(c, browser, engine="chromium"):
     """The freeze check must notice a picture hidden with `display: none`: on the fixture
     `fixtures/freeze.html` (one rotation in one segment of 8 seconds, hidden with `display: none`
     under `data-motion="reduce"`), hidden for 1.2 seconds and shown again, it must find the
@@ -355,8 +547,15 @@ def freeze_control(c, browser):
     frozen until the animation repeats when it is shown again after `display: none` (the
     rotation of the fixture, every time); an animation of `opacity` mostly is not (once in eight
     runs), and a picture that draws the same at the two times (a rest that spans both) shows
-    nothing either, which is why the real check retries with longer holds and the control uses a
-    picture that moves all the time."""
+    nothing either, which is why the real check takes its moments from the motion's timeline
+    (`rest_pair`) and the control uses a picture that moves all the time."""
+    if engine != "chromium":
+        # Firefox 159 does not freeze the fixture: shown again after display: none it follows its
+        # clock (measured on three runs), so the control has nothing to show there
+        c.say(f"n/a: the freeze control in {engine}: the freeze it shows is Chromium's (Firefox "
+              "follows its clock after display: none); the check that every picture follows its "
+              "clock after every hide runs in every engine")
+        return
     cmp = browser.new_page()
     verdicts = []
     for run in range(3):
@@ -375,12 +574,25 @@ def freeze_control(c, browser):
             "(a fixture, three runs)", all(v is False for v, _ in verdicts), str(verdicts))
 
 
-def state_checks(c, browser, base, url, sid, label, helpers, blueprint):
+def state_checks(c, browser, base, url, sid, label, helpers, blueprint, spec=None,
+                 only_off=False):
     """Each way of turning motion off, and hover and focus, on the moving picture `sid`: what is
-    shown, and that the picture follows its clock afterwards."""
+    shown, and that the picture follows its clock afterwards. With the motion's expectations
+    `spec`, each state starts inside one key's rest and ends just before a moment inside a later
+    key's rest that certainly draws another picture, where the picture is compared
+    (`rest_pair`); without them it is held for 1.3, 2.1 and then 3.7 seconds until the two times
+    draw different pictures. A comparison that stays undecided fails. With `only_off`, the ways of
+    turning motion off, hover and keyboard focus only (not a click, a tap or a PDF print, whose
+    stage and rules are checked where the stills are listed)."""
     new_page, goto = helpers["new_page"], helpers["goto"]
-    states = list(OFF[:2]) + (["switch"] if blueprint else []) + \
-        ["print", "pdf", "hover", "keyboard focus", "click", "tap"]
+    engine = helpers.get("engine", "chromium")
+    states = list(OFF[:2]) + (["switch"] if blueprint else []) + ["print", "hover",
+                                                                    "keyboard focus"] + \
+        ([] if only_off else ["pdf", "click", "tap"])
+    if engine != "chromium" and "pdf" in states:
+        # Playwright prints a PDF in Chromium only
+        states.remove("pdf")
+        c.say(f"n/a: {label}: printing a PDF in {engine} (Playwright prints in Chromium only)")
     cmp = browser.new_page()
     for state in states:
         kw = {"viewport": {"width": 1440, "height": 900}}
@@ -395,17 +607,40 @@ def state_checks(c, browser, base, url, sid, label, helpers, blueprint):
         before = page.evaluate(STATE, sid)
         verdict = None
         stage = page.locator(f"[id='{sid}']").locator("xpath=ancestor::div[1]")
-        for hold in (1300, 2100, 3700):
-            hidden_at = page.evaluate("(sid) => document.getElementById(sid).getCurrentTime()",
-                                      sid)
-            enter(page, state, stage, sid)
-            page.wait_for_timeout(hold)
+        prepared = prepare(page, state, stage)
+        clock = "(sid) => document.getElementById(sid).getCurrentTime()"
+        least = MIN_HELD if state in OFF else MIN_COVERED
+        times = spec and rest_pair(spec, page.evaluate(clock, sid) + 0.1, least)
+        for hold in ((None,) if times else (1300, 2100, 3700)):
+            if times:
+                _, (lo, hi), _, at = times
+                wait_clock(page, sid, lo, spec["cycle"], 0.0, hi - lo)
+            hidden_at = page.evaluate(clock, sid)
+            enter_checked(c, label, page, state, stage, sid, prepared)
+            if state in OFF:
+                # the stills are pictures loaded lazily: bring the list into view, as a reader who
+                # turned motion off sees it (Firefox loads a lazy picture only near the view)
+                page.evaluate("""(sid) => { const k = document.getElementById(sid)
+                  .closest('.pilean-motion').querySelector('.pilean-motion-keys');
+                  if (k) k.scrollIntoView({block: 'nearest'}); }""", sid)
+            if times:
+                wait_clock(page, sid, at - SHOW_LEAD, spec["cycle"])
+            else:
+                page.wait_for_timeout(hold)
             during = page.evaluate(STATE, sid)
             snap = page.locator(f"[id='{sid}']").locator("xpath=ancestor::div[2]").aria_snapshot()
             bg = page_background(page)
             leave(page, state)
             after = page.evaluate(STATE, sid)
-            verdict, numbers = follows_clock(page, sid, hidden_at, cmp)
+            if times:
+                verdict, numbers = follows_clock(page, sid, hidden_at, cmp, at, spec["cycle"])
+                if verdict is None:
+                    numbers = ("undecided: the two moments drew the same picture, although their "
+                               "rests differ",) + tuple(numbers)
+            else:
+                verdict, numbers = follows_clock(page, sid, hidden_at, cmp)
+                if spec:
+                    numbers = (undecided(spec),) + tuple(numbers)
             if verdict is not None:
                 break
         bare = page.evaluate("(sid) => document.getElementById(sid).closest('.pilean-motion')"
@@ -452,6 +687,78 @@ def state_checks(c, browser, base, url, sid, label, helpers, blueprint):
     cmp.close()
 
 
+# The least fraction of its natural width a still is shown at, unless it fills its column
+# (`PILeanVerso.stillFraction`).
+STILL_FRACTION = 0.75
+
+GRID = """() => {
+  const grids = [...document.querySelectorAll(
+    '.pilean-motion:not(.pilean-motion-bare) ol.pilean-motion-keys, ol.pilean-page-motion-keys')];
+  return grids.map(ol => {
+    const home = ol.closest('.pilean-motion') || ol.closest('.pilean-figure-page');
+    const live = home && home.querySelector('svg.pilean-motion-wide');
+    const items = [...ol.children];
+    const lefts = new Set(items.map(li => Math.round(li.getBoundingClientRect().left)));
+    const imgs = items.map(li => [...li.querySelectorAll('img')].find(i => i.offsetParent !== null))
+      .filter(i => i);
+    return {file: live ? live.getAttribute('data-pilean-file') : '?', page: !!ol.closest(
+        '.pilean-figure-page') && ol.classList.contains('pilean-page-motion-keys'),
+      grid: ol.getBoundingClientRect().width, columns: lefts.size, items: items.length,
+      stills: imgs.map(i => [Math.round(i.getBoundingClientRect().width * 10) / 10,
+        i.naturalWidth, i.complete])};
+  });
+}"""
+
+
+def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None):
+    """At 1440, 1024, 768, 560, 390, 360 and 320 px the page does not scroll sideways with motion
+    on, and with motion off: every still of every grid of stills (inline and on a figure's page)
+    is shown at `STILL_FRACTION` of its natural width or more, or fills its column alone, no still
+    is drawn larger than its natural width (the narrow rendition's at small widths), and the page
+    does not scroll sideways. Records the number of columns of each motion's grid in `layouts` (by
+    its file, the page's grid apart), and with `shots` saves a picture of each grid."""
+    new_page, goto = helpers["new_page"], helpers["goto"]
+    for width in [1440, 1024, 768, 560, 390, 360, 320]:
+        ctx, page = new_page(browser, viewport={"width": width, "height": 900})
+        goto(page, base + url)
+        on = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
+        c.check(f"{label} {width} px: no sideways scrolling", on <= 0, f"{on} px")
+        page.evaluate("""() => { document.documentElement.setAttribute('data-motion', 'reduce');
+          for (const i of document.querySelectorAll('.pilean-motion-keys img,'
+            + ' .pilean-page-motion-keys img')) i.loading = 'eager'; }""")
+        page.wait_for_function("""() => [...document.querySelectorAll('.pilean-motion-keys img,'
+          + ' .pilean-page-motion-keys img')].every(i => i.offsetParent === null || i.complete)""",
+                               timeout=10000)
+        grids = page.evaluate(GRID)
+        wide = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
+        bad, big = [], []
+        for g in grids:
+            for w, natural, done in g["stills"]:
+                fills = g["columns"] == 1 and w >= min(natural, g["grid"]) - 1
+                if not done or natural == 0 or not (w >= STILL_FRACTION * natural - 1 or fills):
+                    bad.append((g["file"], w, natural, g["columns"], g["grid"]))
+                if w > natural + 1:
+                    big.append((g["file"], w, natural))
+            if layouts is not None:
+                key = (os.path.basename(g["file"]), "page" if g["page"] else "inline")
+                layouts.setdefault(key, {})[width] = g["columns"]
+        c.check(f"{label} {width} px: with motion off every still is shown at "
+                f"{STILL_FRACTION} of its natural width or more, or fills its column",
+                bool(grids) and not bad and all(g["stills"] for g in grids),
+                f"{[(g['file'], g['columns'], g['stills'][:1]) for g in grids]}; off: {bad[:3]}")
+        c.check(f"{label} {width} px: with motion off no still is drawn larger than its natural "
+                "width", bool(grids) and not big, str(big[:3]))
+        c.check(f"{label} {width} px: with motion off no sideways scrolling", wide <= 0,
+                f"{wide} px")
+        if shots and width in (1440, 768, 560, 390):
+            loc = page.locator(".pilean-motion:not(.pilean-motion-bare) ol.pilean-motion-keys,"
+                               " ol.pilean-page-motion-keys")
+            for i in range(loc.count()):
+                stem = re.sub(r"[^A-Za-z0-9._-]", "_", (url or "root").strip("/"))
+                loc.nth(i).screenshot(path=f"{shots}/grid-{stem}-{i}-{width}.png")
+        ctx.close()
+
+
 def still_checks(c, browser, base, url, sids, label, helpers, shots=None):
     """Hover and keyboard focus in both themes and at two widths, on every motion of the page:
     exactly one still picture, the poster key's file in the theme, in the stage's box; the
@@ -470,7 +777,9 @@ def still_checks(c, browser, base, url, sids, label, helpers, shots=None):
                 stage = page.locator(f"[id='{shown}']").locator("xpath=ancestor::div[1]")
                 stage.scroll_into_view_if_needed()
                 for state in ["hover", "keyboard focus"]:
-                    enter(page, state, stage, shown)
+                    if not enter_checked(c, f"{label} {scheme} {width} px", page, state, stage,
+                                         shown):
+                        continue
                     page.wait_for_timeout(250)
                     during = page.evaluate(STATE, shown)
                     why = still_problem(page, shown, during, scheme == "dark")
@@ -492,9 +801,67 @@ def still_checks(c, browser, base, url, sids, label, helpers, shots=None):
             ctx.close()
 
 
+def free_running(page, sids, specs, timeout=None):
+    """Without seeking, while every clock runs: for each motion, the clock is read inside two
+    rests that certainly draw different pictures (`rest_pair`), every actor's anchor read there
+    must be where its key's still has it, and the clock must have advanced between the two. All
+    the motions of the page are watched at once, so the wait is that of the slowest. Returns, per
+    motion, `(problem, largest distance in px)`, the problem `None` when it holds; for a motion
+    with no anchored actor (a morph alone) the second member says that positions were not read,
+    only the clock (`tools/motion-browser-check.py` holds such a motion to its stills by pixels)."""
+    clock = "(ids) => ids.map(i => document.getElementById(i).getCurrentTime())"
+    todo, out = {}, {}
+    for sid in sids:
+        spec = specs[sid]
+        now = page.evaluate("(sid) => document.getElementById(sid).getCurrentTime()", sid)
+        pair = rest_pair(spec, now + 0.1, 0.6)
+        if not pair:
+            out[sid] = (undecided(spec), 0.0)
+            continue
+        a, (lo, hi), b, at = pair
+        todo[sid] = {"spec": spec, "targets": [(a, lo, hi), (b, at, at + 0.15)], "seen": []}
+    limit = timeout or 2 * max([d["spec"]["cycle"] for d in todo.values()] + [1]) + 2
+    deadline = page.evaluate("performance.now()") + limit * 1000
+    while todo and page.evaluate("performance.now()") < deadline:
+        ids = list(todo)
+        for sid, now in zip(ids, page.evaluate(clock, ids)):
+            d = todo[sid]
+            rest, lo, hi = d["targets"][len(d["seen"])]
+            if (now - lo) % d["spec"]["cycle"] <= hi - lo:
+                seen = page.evaluate(READ, [sid, None])
+                err = max([0.0] + [math.dist(xy, a["at"]) if xy is not None else math.inf
+                                   for a in rest["actors"]
+                                   for xy in [first(seen["actors"], a["id"])]])
+                d["seen"].append((seen["time"], err))
+                if len(d["seen"]) == 2:
+                    (t1, e1), (t2, e2) = d["seen"]
+                    e = max(e1, e2)
+                    why = None
+                    if t2 <= t1:
+                        why = f"the clock did not advance ({t1:.2f} s, then {t2:.2f} s)"
+                    elif e > REST_TOL:
+                        why = f"an actor is {e:.3g} px from its key at a rest, not sought"
+                    if why is None and not any(r["actors"] for r, _, _ in d["targets"]):
+                        why = None
+                        e = "its clock advanced; positions not read: no anchored actor (a morph " \
+                            "is held to its stills by motion-browser-check.py)"
+                    out[sid] = (why, e)
+                    del todo[sid]
+        page.wait_for_timeout(15)
+    for sid, d in todo.items():
+        out[sid] = (f"the clock did not reach the rests it was waited for within {limit:.0f} s "
+                    f"({len(d['seen'])} of 2 read)", math.inf)
+    return out
+
+
 def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None, least=1):
     """The checks of the module docstring on the page `url` of the site at `base`, which must
-    show at least `least` motions; `expect` is the folder of expectations."""
+    show at least `least` motions; `expect` is the folder of expectations. A motion shown without
+    its stills (on its figure's page) whose stills are shown on another page of the site
+    (`helpers["listed"]`, the files of `listed_motions`) gets the checks that differ between the
+    two, and hover and keyboard focus once more, each with its still and its clock (the figure's
+    page has rules of its own); a click, a tap, a PDF print and the stills in both themes use the
+    same stage and rules, and are checked where the stills are listed."""
     new_page, goto, reports = helpers["new_page"], helpers["goto"], helpers["figure_reports"]
     ctx, page = new_page(browser, viewport={"width": 1440, "height": 900})
     errors = []
@@ -503,13 +870,20 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
     sids = motion_ids(page)
     blueprint = page.locator("a.bp_motion_link").count() > 0
     c.check(f"{label}: the page shows its motions inline", len(sids) >= least, str(sids))
-    # positions, from the expectations: every rendition of every motion must have them
-    missing = []
-    cycle = 0.0
+    narrow_sids = [s for s in sids if page.evaluate(
+        "(sid) => !!document.getElementById(sid.slice(0, -3) + '-mn')", s)]
+    bare = {s: page.evaluate("(sid) => document.getElementById(sid).closest('.pilean-motion')"
+                             ".classList.contains('pilean-motion-bare')", s) for s in sids}
+    elsewhere = set(helpers.get("listed") or ())
+    covered = {s for s in sids if bare[s] and os.path.basename(
+        page.evaluate("(sid) => document.getElementById(sid).getAttribute('data-pilean-file')",
+                      s)) in elsewhere}
+    # the expectations: every rendition of every motion must have them, in this tool's format
+    missing, bad = [], []
+    specs, narrow_specs = {}, {}
     for sid in sids:
-        for suffix, vw in [("", 1440), ("-narrow", 360)]:
-            target = sid if not suffix else sid[:-len("-mw")] + "-mn"
-            if suffix and not page.evaluate("(t) => !!document.getElementById(t)", target):
+        for suffix in ["", "-narrow"]:
+            if suffix and sid not in narrow_sids:
                 continue
             name = file_of(page, sid) + suffix
             path = os.path.join(expect, name + ".json") if expect else None
@@ -518,24 +892,48 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
                 continue
             with open(path) as f:
                 spec = json.load(f)
-            cycle = max(cycle, spec.get("cycle", 0.0))
-            vctx, vpage = new_page(browser, viewport={"width": vw, "height": 900})
-            goto(vpage, base + url)
-            position_checks(c, vpage, target, spec, f"{label} {name} ({vw} px)")
-            vctx.close()
+            why = spec_problem(spec)
+            if why:
+                bad.append(f"{name}: {why}")
+                continue
+            (narrow_specs if suffix else specs)[sid] = spec
     c.check(f"{label}: every motion shown has its expectations", not missing,
             f"none in {expect} for {missing}")
-    # it moves by itself
-    # sampled for longer than the longest cycle (from the expectations), all at once
-    seen = {sid: [] for sid in sids}
-    for _ in range(max(24, min(200, int((cycle + 1) / 0.3) + 1))):
-        for sid in sids:
-            seen[sid].append(page.evaluate(READ, [sid, None]))
-        page.wait_for_timeout(300)
-    moving = [s[-1]["time"] > s[0]["time"] and any(
-        math.dist(x[1], y[1]) > 0.5 for a, b in zip(s, s[1:])
-        for x, y in zip(a["actors"], b["actors"])) for s in seen.values()]
-    c.check(f"{label}: every moving picture plays on its own clock", all(moving), str(moving))
+    c.check(f"{label}: every motion's expectations can be checked", not bad, "; ".join(bad))
+    # it moves by itself, before anything seeks its clock (a seek mends a picture frozen since the
+    # page loaded): free-running, at two rests of its own timeline that differ, each picture is
+    # where its keys have it and its clock has advanced; without expectations, sampled for longer
+    # than the longest cycle, all at once
+    if all(s in specs for s in sids):
+        runs = free_running(page, sids, specs)
+        c.check(f"{label}: every moving picture plays on its own clock and, not sought, is where "
+                "its keys have it at two of its rests",
+                all(r[0] is None for r in runs.values()),
+                str({k: v[0] or (v[1] if isinstance(v[1], str) else
+                                 f"{v[1]:.3g} px, clock advanced") for k, v in runs.items()}))
+    else:
+        seen = {sid: [] for sid in sids}
+        cycle = max([sp["cycle"] for sp in specs.values()] + [0.0])
+        for _ in range(max(24, min(200, int((cycle + 1) / 0.3) + 1))):
+            for sid in sids:
+                seen[sid].append(page.evaluate(READ, [sid, None]))
+            page.wait_for_timeout(300)
+        moving = [s[-1]["time"] > s[0]["time"] and any(
+            math.dist(x[1], y[1]) > 0.5 for a, b in zip(s, s[1:])
+            for x, y in zip(a["actors"], b["actors"])) for s in seen.values()]
+        c.check(f"{label}: every moving picture plays on its own clock", all(moving),
+                str(moving))
+    # positions, with the clock paused and set: the wide rendition on this page, the narrow one at
+    # 360 px
+    for sid, spec in specs.items():
+        position_checks(c, page, sid, spec, f"{label} {file_of(page, sid)} (1440 px)")
+    if narrow_specs:
+        nctx, npage = new_page(browser, viewport={"width": 360, "height": 900})
+        goto(npage, base + url)
+        for sid, spec in narrow_specs.items():
+            position_checks(c, npage, sid[:-len("-mw")] + "-mn", spec,
+                            f"{label} {file_of(page, sid)}-narrow (360 px)")
+        nctx.close()
     # ids, actors
     ids = page.evaluate("""() => { const all = [...document.querySelectorAll('[id]')]
       .map(e => e.id); return all.filter((v, i) => all.indexOf(v) !== i); }""")
@@ -558,8 +956,8 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
     hints = page.evaluate("""() => [...document.querySelectorAll('figure .pilean-motion')].map(m =>
       { const h = m.closest('figure').querySelector('figcaption .pilean-motion-hint');
         return h && h.offsetParent !== null && h.textContent; })""")
-    c.check(f"{label}: every motion's caption says that it pauses on a still",
-            all(h and "pauses on a still" in h for h in hints), str(hints))
+    c.check(f"{label}: every motion's caption says what hovering, a click and a tap do",
+            all(h == HINT for h in hints), str(hints))
     live = page.evaluate("""() => [...document.querySelectorAll('.pilean-motion')].some(m =>
       m.querySelector('[aria-live], [role=status], [role=alert]'))""")
     page.wait_for_timeout(500)
@@ -620,8 +1018,9 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
                 for p in printed), str(printed[:1]))
     ctx.close()
     # narrow and wide renditions
-    narrow_sids = [s for s in sids if page_has_narrow(browser, base, url, s, helpers)]
     for width, shown, other in [(1440, "mw", "mn"), (360, "mn", "mw")]:
+        if not narrow_sids:
+            break
         ctx, page = new_page(browser, viewport={"width": width, "height": 900})
         goto(page, base + url)
         res = []
@@ -633,30 +1032,88 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
                 getComputedStyle(y).position,
                 Math.abs(st.getBoundingClientRect().height - x.getBoundingClientRect().height)];
               }""", [f"{base_id}-{shown}", f"{base_id}-{other}"]))
-        if narrow_sids:
-            c.check(f"{label} {width} px: the {'wide' if shown == 'mw' else 'narrow'} rendition "
-                    "is shown and the other takes no space",
-                    all(r[0] == "visible" and r[1] == "hidden" and r[2] == "absolute" and r[3] < 1
-                        for r in res), str(res))
+        c.check(f"{label} {width} px: the {'wide' if shown == 'mw' else 'narrow'} rendition "
+                "is shown and the other takes no space",
+                all(r[0] == "visible" and r[1] == "hidden" and r[2] == "absolute" and r[3] < 1
+                    for r in res), str(res))
         ctx.close()
-    for width in [360, 768, 1440]:
-        ctx, page = new_page(browser, viewport={"width": width, "height": 900})
-        goto(page, base + url)
-        wide = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
-        c.check(f"{label} {width} px: no sideways scrolling", wide <= 0, f"{wide} px")
-        ctx.close()
+    # sideways scrolling with motion on and off, and the grids of stills
+    grid_checks(c, browser, base, url, label, helpers, shots, helpers.get("layouts"))
     # states, with the freeze check, on every motion of the page
     for sid in sids:
-        state_checks(c, browser, base, url, sid, label, helpers, blueprint)
-    still_checks(c, browser, base, url, sids, label, helpers, shots)
+        state_checks(c, browser, base, url, sid, label, helpers, blueprint, specs.get(sid),
+                     only_off=sid in covered)
+    rest = [s for s in sids if s not in covered]
+    if rest:
+        still_checks(c, browser, base, url, rest, label, helpers, shots)
+    if covered:
+        c.check(f"{label}: a click, a tap, a PDF print and the stills in both themes of "
+                f"{sorted(covered)} are checked where their stills are listed (the same stage "
+                "and rules)", True)
 
 
-def page_has_narrow(browser, base, url, sid, helpers):
-    ctx, page = helpers["new_page"](browser, viewport={"width": 800, "height": 600})
-    helpers["goto"](page, base + url)
-    has = page.evaluate("(sid) => !!document.getElementById(sid.slice(0, -3) + '-mn')", sid)
-    ctx.close()
-    return has
+def _page_job(job):
+    """One page's motion checks in a process of its own (`motion_pages_checks`): its own
+    Chromium, the verdicts kept and returned with the grids' columns."""
+    base, url, label, expect, shots, least, listed, engine = job
+    import site_browser
+    from playwright.sync_api import sync_playwright
+    c = site_browser.Checks(keep=True)
+    helpers = {"new_page": site_browser.new_page, "goto": site_browser.goto,
+               "figure_reports": site_browser.figure_reports, "layouts": {}, "listed": listed,
+               "engine": engine}
+    with sync_playwright() as p:
+        browser = site_browser.launch(p, engine)
+        c.section(f"motions of {url}", motion_checks, c, browser, base, url, label, helpers,
+                  expect, shots, least)
+        browser.close()
+    return c.lines, c.count, c.failed, helpers["layouts"]
+
+
+def motion_pages_checks(c, browser, base, jobs, helpers, expect, shots, workers=1):
+    """`motion_checks` on every page of `jobs` (`(url, label, least)`), in order; with `workers`
+    above 1, that many pages at a time, each in a process with its own Chromium (the pages are
+    independent: each check opens its own contexts), the verdicts printed in the pages' order and
+    counted in `c`, the grids' columns merged into `helpers["layouts"]`."""
+    if workers <= 1:
+        for url, label, least in jobs:
+            c.section(f"motions of {url}", motion_checks, c, browser, base, url, label, helpers,
+                      expect, shots, least)
+        return
+    import concurrent.futures
+    import multiprocessing
+    listed = set(helpers.get("listed") or ())
+    engine = helpers.get("engine", "chromium")
+    args = [(base, url, label, expect, shots, least, listed, engine)
+            for url, label, least in jobs]
+    with concurrent.futures.ProcessPoolExecutor(
+            max_workers=workers, mp_context=multiprocessing.get_context("spawn")) as pool:
+        for lines, count, failed, layouts in pool.map(_page_job, args):
+            for line in lines:
+                c.say(line)
+            c.count += count
+            c.failed += failed
+            if helpers.get("layouts") is not None:
+                for k, v in layouts.items():
+                    helpers["layouts"].setdefault(k, {}).update(v)
+
+
+def listed_motions(site):
+    """The files (base names of `data-pilean-file`) of the motions some page of the site shows
+    with their list of stills, that is, not only on a figure's page."""
+    out = set()
+    wrapper = re.compile(r'<div class="(pilean-motion(?: [^"]*)?)" data-bp-motion[^>]*>')
+    for root, _, files in os.walk(site):
+        if "index.html" in files:
+            with open(os.path.join(root, "index.html"), encoding="utf-8") as f:
+                text = f.read()
+            for m in wrapper.finditer(text):
+                if "pilean-motion-bare" in m.group(1).split():
+                    continue
+                f = re.compile(r'data-pilean-file="([^"]+)"').search(text, m.end())
+                if f:
+                    out.add(os.path.basename(f.group(1)))
+    return out
 
 
 MOTION_MARK = re.compile(r'<div class="pilean-motion(?: [^"]*)?" data-bp-motion')
@@ -677,23 +1134,34 @@ def motion_pages(site):
 def main(argv):
     from playwright.sync_api import sync_playwright
     import site_browser
-    if not argv or argv[1:2] != ["--expect"] or len(argv) not in (3, 5):
-        print("usage: motion_browser.py SITE_DIR --expect DIR [--shots DIR]")
+    opts = {}
+    rest = list(argv[1:])
+    try:
+        engine = site_browser.engine_option(rest)
+    except ValueError as e:
+        print(f"motion_browser.py: {e}")
         return 2
-    site, expect = argv[0], argv[2]
-    shots = argv[4] if len(argv) == 5 and argv[3] == "--shots" else None
+    while rest and rest[0] in ("--expect", "--shots", "--workers") and len(rest) >= 2:
+        opts[rest[0]] = rest[1]
+        rest = rest[2:]
+    if not argv or "--expect" not in opts or rest:
+        print("usage: motion_browser.py SITE_DIR --expect DIR [--shots DIR] [--workers N] "
+              "[--engine chromium|firefox]")
+        return 2
+    site, expect, shots = argv[0], opts["--expect"], opts.get("--shots")
+    workers = int(opts.get("--workers", "1"))
     helpers = {"new_page": site_browser.new_page, "goto": site_browser.goto,
-               "figure_reports": site_browser.figure_reports}
+               "figure_reports": site_browser.figure_reports, "listed": listed_motions(site),
+               "engine": engine}
     c = site_browser.Checks()
     pages = motion_pages(site)
     server, base = site_browser.serve(site)
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = site_browser.launch(p, engine)
         c.check("the site has pages with motions", bool(pages), site)
-        c.section("freeze control", freeze_control, c, browser)
-        for url in pages:
-            c.section(f"motions of {url}", motion_checks, c, browser, base, url, url or "/",
-                      helpers, expect, shots)
+        c.section("freeze control", freeze_control, c, browser, engine)
+        motion_pages_checks(c, browser, base, [(u, u or "/", 1) for u in pages], helpers,
+                            expect, shots, workers)
         browser.close()
     server.shutdown()
     print(f"motions: {c.count - c.failed} of {c.count} hold")

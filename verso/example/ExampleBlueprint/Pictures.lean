@@ -113,7 +113,7 @@ A motion whose strings hold markup & quotes: `<b>` "q" `]]>` --.
 A point going round the unit circle, with its height.
 :::
 
-The next three figures are motions of plane figures, drawn from exact key frames: each moves
+The next four figures are motions of plane figures, drawn from exact key frames: each moves
 inline in the page, and shows its key frames as stills while it is hovered or focused, when
 animations are turned off, when the reader's system asks for reduced motion, and in print.
 
@@ -127,4 +127,8 @@ Two frames of one motion, on one clock.
 
 :::figure fifthTurn (label := "fifth") (alt := "A disk turns a fifth of a turn about the origin O, then holds.")
 A disk turned a fifth about an outside centre.
+:::
+
+:::figure slideAcross (label := "slides") (alt := "A square S slides three to the right along its track, then a point B slides three to the left along its own.")
+Slides only: a square, then a point, along their tracks.
 :::

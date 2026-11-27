@@ -181,7 +181,9 @@ html[data-lean-links] .pilean-lean-text { display: none; }
 }
 "##
 
-/-- The stylesheet of a figure's page (`PILeanVersoManual.Page`). -/
+/-- The stylesheet of a figure's page (`PILeanVersoManual.Page`). The columns of a motion's grid of
+stills take their least width from `--pilean-still-col`, which `PILeanVerso.stillColumnCss` sets
+from the list's classes (`PILeanVerso.stillColumnClasses`). -/
 def pageCss : String := r##"
 .pilean-figure-page { max-width: 100%; overflow-wrap: anywhere; }
 .pilean-figure-page-anchor, .pilean-figure-page-anchor:target {
@@ -224,6 +226,12 @@ def pageCss : String := r##"
 .pilean-page-plain code { white-space: pre; }
 .pilean-page-module { color: var(--pilean-faint); font-size: 0.88em; }
 .pilean-page-more summary { cursor: pointer; min-height: 24px; }
+.pilean-page-code-fold > summary {
+  cursor: pointer; min-height: 24px; padding: 0.2rem 0; font-weight: 600;
+}
+.pilean-figure-page summary:focus-visible {
+  outline: 3px solid var(--pilean-focus, #2563eb); outline-offset: 2px; border-radius: 3px;
+}
 .pilean-page-facts {
   display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.2rem 0.9rem;
   margin: 0.4rem 0; font-size: 0.9em;
@@ -253,12 +261,12 @@ def pageCss : String := r##"
 .pilean-motion-panel { font-weight: 600; }
 .pilean-page-motion-keys {
   list-style: none; margin: 0.5rem 0 1rem; padding: 0; display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); gap: 0.75rem;
-  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--pilean-still-col), 100%), 1fr));
+  gap: 0.75rem; align-items: start;
 }
 .pilean-page-motion-key { margin: 0; min-width: 0; text-align: center; }
 .pilean-page-motion-key img {
-  display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 4px;
+  display: block; width: auto; max-width: 100%; height: auto; margin: 0 auto; border-radius: 4px;
 }
 "##
 
