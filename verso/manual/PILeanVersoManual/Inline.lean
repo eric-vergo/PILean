@@ -580,8 +580,9 @@ def stillColumnRules (wide narrow : Option Nat) : String :=
 column is at least `--pilean-still-w` wide (`--pilean-still-n` on small screens, 560 pixels or
 less), or as wide as the grid when that is narrower, so that a still is shown at `stillFraction`
 of its width or more, or fills the grid's width alone; `14rem` when the list has no width. A
-still is drawn at its own width at most (`width: auto`, the width of the file its picture shows,
-the narrow rendition's on small screens), never larger. -/
+still is drawn at its own width at most (its `width` attribute, or the narrow file's from its
+`source` on small screens, with `max-width: 100%` and `height: auto`: so the box is known before
+the file loads), never larger. -/
 def stillColumnCss : String :=
   ".pilean-motion-keys,.pilean-page-motion-keys{--pilean-still-col:var(--pilean-still-w,14rem)}\
   @media (max-width: 560px){.pilean-motion-keys,.pilean-page-motion-keys\
@@ -654,7 +655,7 @@ def motionCss : String :=
     white-space:nowrap}\
   .pilean-motion-key{margin:0;min-width:0;max-width:100%;text-align:center}\
   .pilean-motion-key-pic{display:none}\
-  .pilean-motion-key-pic img{display:block;width:auto;max-width:100%;height:auto;margin:0 auto;\
+  .pilean-motion-key-pic img{display:block;max-width:100%;height:auto;margin:0 auto;\
     border-radius:4px}\
   .pilean-motion-key-caption{margin:0.2rem 0 0;font-size:0.85em;overflow-wrap:anywhere}\
   .pilean-motion-note{display:block;font-size:0.85em;color:var(--pilean-muted, inherit)}" ++

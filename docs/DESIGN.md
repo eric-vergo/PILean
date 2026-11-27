@@ -1487,8 +1487,11 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   column is at least `3/4 · w` wide, rounded up to a pixel (`PILeanVerso.stillColumnMin`,
   `stillFraction`), or as wide as the grid when the grid is narrower, so no still is shown at
   less than three quarters of its width (text drawn at 14 pixels at 10.5 pixels or more) unless
-  it fills the grid's width alone; and no still is drawn larger than its own width (`width:
-  auto`, so a narrow rendition's still keeps its width on a screen of 400 to 560 pixels). The
+  it fills the grid's width alone; and no still is drawn larger than its own width (its
+  `width` attribute, the narrow file's from its `source` on small screens, with `max-width:
+  100%` and `height: auto`, so a narrow rendition's still keeps its width on a screen of 400 to 560
+  pixels and every still's box is known before its file loads; `width: auto` would leave it
+  empty, no box at all, until then). The
   list carries classes for the widths, `pilean-stills-wN` and, with a narrow rendition,
   `pilean-stills-nM` (`stillColumnClasses`), defined by a `style` element after the list
   (`stillColumnRules`), so a page defines only the widths it uses and needs no `style` attribute
