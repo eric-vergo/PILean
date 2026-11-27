@@ -249,6 +249,14 @@ elif how == "dark-stills":
     i = s.index('id="quarter-motion-keys"')
     j = s.index("</ol>", i)
     s = s[:i] + re.sub(r'<picture class="pilean-figure-dark">.*?</picture>', "", s[i:j]) + s[j:]
+elif how == "non-still":
+    # a key that is not a still (key 2 of announceTurns) listed among the stills
+    i = s.index('id="announce-motion-keys"')
+    j = s.index("<li", i)
+    k = s.index("</li>", j) + len("</li>")
+    item = s[j:k].replace("Example.announceTurns-key-0", "Example.announceTurns-key-2")
+    assert item != s[j:k]
+    s = s[:k] + item + s[k:]
 elif how == "errors-left":
     for e in man["files"]:
         if e["decl"] == "Example.quarterTurn":
@@ -277,7 +285,7 @@ elif how == "words":
 open(page, "w", encoding="utf-8").write(s)
 PY
 }
-for how in live poster style poster-group still dark-stills errors-left; do
+for how in live poster style poster-group still dark-stills non-still errors-left; do
   tamper_motion "$how"
   desc="the inline check refuses a motion whose $how was changed"
   check bash -c "! python3 -I '$site_checks'/inline_check.py '$scratch/page' >/dev/null"

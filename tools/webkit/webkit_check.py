@@ -30,10 +30,14 @@ temporary folder, so nothing is written into the user's Library. `runner_test.py
   within 0.002 of the expected one, the computed one within 3e-6. Every listed sample must be
   read, and each line says how many were;
 * free-running over the first two loops, read every 30 ms or so: near the middle of every rest
-  (within 0.1 s of it, and inside the part of the rest in which the key is shown still, however
-  short) every actor where its key's still has it, and inside every turn and every slide the actor
-  on its circle or its segment; each kind of reading must have been made in both loops, so none
-  passes for want of readings.
+  long enough to be read so (within 0.1 s of its middle and at least the readings' jitter inside
+  the part of the rest in which the key is shown still: a reading's clock and the frame it reads
+  can be one interval between readings apart, so a rest whose still part is not longer than twice
+  that jitter plus 0.02 s is not read free-running; the paused readings hold every rest) every
+  actor where its key's still has it, and inside every turn and every slide the actor on its
+  circle or its segment; the line names the jitter and the rests read; each kind of reading must
+  have been made in both loops, so none passes for want of readings, and a motion with no rest
+  long enough fails as undecided.
 
 A key that is not a still has a rest like every key, and is checked like every key. The opacity
 check is shown to catch a mark whose fade never starts: in the page of the first motion that
@@ -64,6 +68,10 @@ UPRIGHT_TOL = 0.01
 OPACITY_TOL = 0.02
 # how near the middle of a rest a free-running reading counts as one of the rest (seconds)
 NEAR_REST = 0.1
+# The least time a free-running reading must keep from both ends of the part of a rest in which
+# its key is shown still, beyond the readings' jitter (seconds): a rest is read free-running only
+# when that part is longer than twice the jitter plus twice this (`readable_rests`).
+REST_MARGIN = 0.01
 
 SCRIPT = r"""
 const svg = document.documentElement;
@@ -294,20 +302,42 @@ def on_segment(p, a, b):
     return math.dist(p, [a[0] + f * dx, a[1] + f * dy])
 
 
+def jitter(reads):
+    """The readings' jitter (seconds): the longest time between two consecutive free-running
+    readings. A reading's clock and the drawing it reads may be a whole interval apart (the
+    drawing is of the last frame painted), so a reading is trusted to show a rest only that far
+    inside it."""
+    ts = [r["t"] for r in reads]
+    return max((b - a for a, b in zip(ts, ts[1:])), default=0.0)
+
+
+def readable_rests(spec, j):
+    """The rests whose still part is long enough to be read free-running with the jitter `j`:
+    half of it longer than `j + REST_MARGIN`; each with the distance from its middle within which
+    a reading counts (`NEAR_REST` at most)."""
+    out = []
+    for rest in spec["rests"]:
+        half = (rest["until"] - rest["from"]) / 2
+        if half > j + REST_MARGIN:
+            out.append((rest, min(NEAR_REST, half - j)))
+    return out
+
+
 def free_errors(spec, reads):
-    """The largest errors of the free-running readings by kind, and how many readings of each
-    kind each loop had."""
+    """The largest errors of the free-running readings by kind, how many readings of each kind
+    each loop had, the readings' jitter and the keys of the rests read (`readable_rests`)."""
     cycle = spec["cycle"]
     err = {"rest": 0.0, "turn": 0.0, "slide": 0.0}
     counts = {(k, loop): 0 for k in err for loop in (0, 1)}
+    j = jitter(reads)
+    rests = readable_rests(spec, j)
     for r in reads:
         loop = int(r["t"] // cycle)
         if loop > 1:
             continue
         t = r["t"] % cycle
-        for rest in spec["rests"]:
-            # within the part of the rest in which the key is shown still, however short
-            near = min(NEAR_REST, (rest["until"] - rest["from"]) / 2 - 0.02)
+        for rest, near in rests:
+            # well inside the part of the rest in which the key is shown still
             if abs((t - rest["t"] + cycle / 2) % cycle - cycle / 2) <= near:
                 counts[("rest", loop)] += 1
                 for a in rest["actors"]:
@@ -329,7 +359,7 @@ def free_errors(spec, reads):
                 xy = first(r["actors"], sl["id"])
                 err["slide"] = max(err["slide"], math.inf if xy is None else
                                    on_segment(xy, sl["from"], sl["to"]))
-    return err, counts
+    return err, counts, j, [rest["key"] for rest, _ in rests]
 
 
 def opacity_errors(spec, reads):
@@ -370,7 +400,7 @@ def check(runner, root, name, mutate=False):
     r = json.loads(out)
     runs = r["t1"] > r["t0"] and bool(r["free"]) and r["free"][-1]["t"] >= 2 * spec["cycle"]
     seek, missing = seek_errors(spec, r["seek"])
-    free, counts = free_errors(spec, r["free"])
+    free, counts, jit, read_keys = free_errors(spec, r["free"])
     kinds = ["rest"] + (["turn"] if spec["turns"] else []) + \
         (["slide"] if spec.get("slides") else [])
     vacuous = [f"{k} in loop {loop + 1}" for k in kinds for loop in (0, 1)
@@ -402,9 +432,12 @@ def check(runner, root, name, mutate=False):
           f"both loops: rests {seek['rest']:.2e} px, arcs {seek['radius']:.2e} px and "
           f"{seek['angle']:.2e} deg, slides {seek['slide']:.2e} px, phase {seek['phase']:.2e} px, "
           f"uprights {seek['upright']:.2e} deg, opacities {o_err:.2e} over {o_read} of {listed} "
-          f"samples; free-running, {len(r['free'])} readings: rests "
+          f"samples; free-running, {len(r['free'])} readings (jitter {jit * 1000:.0f} ms, rests "
+          f"read: keys {read_keys}): rests "
           f"{free['rest']:.2e} px, on the circle {free['turn']:.2e} px, on the segment "
           f"{free['slide']:.2e} px"
+          + ("" if read_keys else "; UNDECIDED: no rest is long enough to be read free-running "
+             f"(its still part must be longer than {2 * (jit + REST_MARGIN):.3f} s)")
           + (f"; missing {sorted(set(missing))[:3]}" if missing else "")
           + (f"; no readings of {', '.join(vacuous)}" if vacuous else "")
           + ("" if runs else "; THE CLOCK DID NOT RUN")

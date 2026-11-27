@@ -40,7 +40,9 @@ Blueprint site (a caption with the switch's link) also the switch and the link. 
 * switching the theme while the picture moves recolours it, and it keeps moving;
 * each way of turning motion off (the system's reduced motion, `data-motion="reduce"` on the root,
   the Blueprint's switch, print media, a printed PDF) hides the moving picture and shows the stills
-  with their captions; hovering, keyboard focus, a click and a tap show the poster key's still
+  with their captions, every still loaded (each is brought into view in turn and waited for, at
+  most `STILL_WAIT_MS`, as a reader scrolling through a grid taller than the window loads it: the
+  example's two-panel motion with marks has a grid taller than the window at 1440 px); hovering, keyboard focus, a click and a tap show the poster key's still
   (exactly one picture, the poster key's file in the page's theme, filling the picture's own box,
   nothing around it moving) while the moving picture's text alternative stays in the
   accessibility tree, in both themes, and the focused picture has a ring of at least 3:1 against
@@ -53,7 +55,10 @@ Blueprint site (a caption with the switch's link) also the switch and the link. 
   fails;
 * free-running, without seeking, every picture is where its keys have it inside two of its rests
   that differ, and its clock has advanced (`free_running`);
-* at seven widths from 1440 to 320 px the page does not scroll sideways, with motion on and off,
+* at seven widths from 1440 to 320 px the page does not scroll sideways, with motion on and off
+  (a failure names what reaches past the window and says whether it is outside any figure, the
+  page's own prose, or inside one: `overflow_words`, shown on two small pages by
+  `overflow_control`),
   and with motion off every still of every grid of stills (inline and on a figure's page) is
   shown at `STILL_FRACTION` of its natural width or more, or fills its column alone, and never
   larger than its natural width (`grid_checks`);
@@ -733,11 +738,10 @@ def state_checks(c, browser, base, url, sid, label, helpers, blueprint, spec=Non
             hidden_at = page.evaluate(clock, sid)
             enter_checked(c, label, page, state, stage, sid, prepared)
             if state in OFF:
-                # the stills are pictures loaded lazily: bring the list into view, as a reader who
-                # turned motion off sees it (Firefox loads a lazy picture only near the view)
-                page.evaluate("""(sid) => { const k = document.getElementById(sid)
-                  .closest('.pilean-motion').querySelector('.pilean-motion-keys');
-                  if (k) k.scrollIntoView({block: 'nearest'}); }""", sid)
+                # the stills are pictures loaded lazily: bring each into view in turn, as a reader
+                # who turned motion off scrolls through them (Firefox loads a lazy picture only
+                # near the view, so a grid taller than the window is not loaded by one scroll)
+                page.evaluate(LOAD_KEYS, [sid, STILL_WAIT_MS])
             if times:
                 wait_clock(page, sid, at - SHOW_LEAD, spec["cycle"])
             else:
@@ -825,6 +829,41 @@ GRID = """() => {
 }"""
 
 
+# What makes the page scroll sideways: the innermost elements that reach past the window's right
+# edge, each named (tag, id, classes) with whether it is inside a figure; at most five.
+OVERFLOW = """() => {
+  const w = window.innerWidth;
+  const out = [];
+  for (const e of document.body.querySelectorAll('*')) {
+    const r = e.getBoundingClientRect();
+    if (r.width === 0 || r.right <= w + 0.5) continue;
+    if ([...e.children].some(k => k.getBoundingClientRect().right > w + 0.5)) continue;
+    const name = e.localName + (e.id ? '#' + e.id : '') +
+      (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\\s+/)
+        .join('.') : '');
+    out.push([name, !!e.closest('figure, .pilean-motion, .pilean-figure, .pilean-figure-page')]);
+    if (out.length === 5) break;
+  }
+  return out;
+}"""
+
+
+def overflow_words(page, px):
+    """Why the page scrolls sideways by `px` pixels: the elements that reach past the window,
+    said apart for those outside any figure (the page's own prose, which the figures do not
+    cause) and those inside one."""
+    found = page.evaluate(OVERFLOW)
+    outside = [n for n, inside in found if not inside]
+    inside = [n for n, inside in found if inside]
+    if outside and not inside:
+        return (f"{px} px: the page scrolls sideways because of an element outside any figure "
+                f"({', '.join(outside)}); the figures are not the cause")
+    if inside:
+        return f"{px} px: a figure makes the page scroll sideways ({', '.join(inside)})" + \
+            (f"; also outside any figure: {', '.join(outside)}" if outside else "")
+    return f"{px} px"
+
+
 def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None):
     """At 1440, 1024, 768, 560, 390, 360 and 320 px the page does not scroll sideways with motion
     on, and with motion off: every still of every grid of stills (inline and on a figure's page)
@@ -837,7 +876,8 @@ def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None)
         ctx, page = new_page(browser, viewport={"width": width, "height": 900})
         goto(page, base + url)
         on = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
-        c.check(f"{label} {width} px: no sideways scrolling", on <= 0, f"{on} px")
+        c.check(f"{label} {width} px: no sideways scrolling", on <= 0,
+                overflow_words(page, on) if on > 0 else f"{on} px")
         page.evaluate("""() => { document.documentElement.setAttribute('data-motion', 'reduce');
           for (const i of document.querySelectorAll('.pilean-motion-keys img,'
             + ' .pilean-page-motion-keys img')) i.loading = 'eager'; }""")
@@ -864,7 +904,7 @@ def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None)
         c.check(f"{label} {width} px: with motion off no still is drawn larger than its natural "
                 "width", bool(grids) and not big, str(big[:3]))
         c.check(f"{label} {width} px: with motion off no sideways scrolling", wide <= 0,
-                f"{wide} px")
+                overflow_words(page, wide) if wide > 0 else f"{wide} px")
         if shots and width in (1440, 768, 560, 390):
             loc = page.locator(".pilean-motion:not(.pilean-motion-bare) ol.pilean-motion-keys,"
                                " ol.pilean-page-motion-keys")
@@ -902,6 +942,29 @@ LOAD_STILLS = """async (sel) => {
   await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   return imgs.map(i => { const r = i.getBoundingClientRect();
     return [i.getAttribute('src'), r.width, r.height, i.complete && i.naturalWidth > 0]; });
+}"""
+
+# The longest a still of a motion's own list is waited for once it is in view (milliseconds).
+STILL_WAIT_MS = 5000
+
+# Brings each still shown of the list of the motion `sid` into view in turn, waiting until it has
+# loaded (`STILL_WAIT_MS` at most each), then the list's start back into view: a grid of stills
+# taller than the window is loaded as a reader scrolling through it loads it.
+LOAD_KEYS = """async ([sid, wait]) => {
+  const k = document.getElementById(sid).closest('.pilean-motion')
+    .querySelector('.pilean-motion-keys');
+  if (!k) return;
+  for (const i of [...k.querySelectorAll('img')].filter(i => i.offsetParent !== null)) {
+    i.scrollIntoView({block: 'center'});
+    await new Promise(ok => {
+      if (i.complete && i.naturalWidth > 0) return ok();
+      const t = setTimeout(ok, wait);
+      const done = () => { clearTimeout(t); ok(); };
+      i.addEventListener('load', done, {once: true});
+      i.addEventListener('error', done, {once: true});
+    });
+  }
+  k.scrollIntoView({block: 'nearest'});
 }"""
 
 # A still's file (light or dark, wide or narrow), whose requests `still_boxes` holds.
@@ -973,6 +1036,24 @@ def intrinsic_checks(c, browser, base, url, label, helpers):
                 bool(measured) and len(after) == len(before) and not changed,
                 f"{len(measured)} of {len(before)} measured before loading; changed: "
                 f"{changed[:3]}")
+
+
+def overflow_control(c, browser):
+    """The sideways-scrolling message must tell the page's own prose from a figure: on a page at
+    360 px whose prose holds an element 500 px wide it names that element as outside any figure,
+    and on one whose figure holds it, the figure."""
+    page = browser.new_page(viewport={"width": 360, "height": 800})
+    page.set_content('<body style="margin:0"><p><span class="math" style="display:inline-block;'
+                     'width:500px">x</span></p><figure><div>f</div></figure></body>')
+    prose = overflow_words(page, 140)
+    page.set_content('<body style="margin:0"><figure class="pilean-figure"><div class="wide" '
+                     'style="width:500px">f</div></figure></body>')
+    figure = overflow_words(page, 140)
+    page.close()
+    c.check("the sideways-scrolling message names prose outside any figure as the cause",
+            "outside any figure (span.math)" in prose and "not the cause" in prose, prose)
+    c.check("the sideways-scrolling message names a figure that overflows",
+            "a figure makes the page scroll sideways (div.wide)" in figure, figure)
 
 
 def intrinsic_control(c, browser, base, pages, site, helpers):
@@ -1409,6 +1490,7 @@ def main(argv):
         browser = site_browser.launch(p, engine)
         c.check("the site has pages with motions", bool(pages), site)
         c.section("freeze control", freeze_control, c, browser, engine)
+        c.section("overflow control", overflow_control, c, browser)
         c.section("intrinsic-size control", intrinsic_control, c, browser, base, pages, site,
                   helpers)
         motion_pages_checks(c, browser, base, [(u, u or "/", 1) for u in pages], helpers,
