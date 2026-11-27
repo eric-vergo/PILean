@@ -1,15 +1,23 @@
 // Released under Apache 2.0 license as described in the file LICENSE.
 // Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 //
-// Loads one page in the system's WebKit (a `WKWebView`, the engine of Safari) and runs a script in
-// it: the body of an async JavaScript function, whose result (a string) is printed on stdout.
-// macOS only; it uses the frameworks of the system and nothing else.
+// Loads one local page in the system's WebKit (a `WKWebView`, the engine of Safari) and runs a
+// script in it: the body of an async JavaScript function, whose result (a string) is printed on
+// stdout. macOS only; it uses the frameworks of the system and nothing else.
 //
-//   runner URL SCRIPT [WIDTH HEIGHT]
+//   runner ROOT URL SCRIPT [WIDTH HEIGHT]
 //
-// The page lives in a window, because WebKit does not run the clock of an SVG animation in a view
-// that is in no window, or in a window outside every screen: the clock stays at 0. The window is
-// what the desktop sees of this program, and all of it:
+// What the page may do. URL must be a `file:` URL of a file below the folder ROOT. Every
+// navigation (of the page or of a frame: a link, a redirect, a script setting `location`) to
+// anything but a file below ROOT is refused, and a content rule list blocks every load whose URL
+// is not a `file:` URL (scripts, images, styles, frames, `fetch`, XHR, beacons, WebSockets), so the
+// page reaches no network. Files are readable below ROOT only. There is no bridge from the page to
+// this program: no message handler, nothing the page can call; the program only reads the value
+// the script returns.
+//
+// What the desktop sees. The page lives in a window, because WebKit does not run the clock of an
+// SVG animation in a view that is in no window, or in a window outside every screen (the clock
+// stays at 0). The window is:
 //
 //   * borderless, fully transparent (alpha 0) and click-through (it ignores the mouse), so nothing
 //     shows and every click goes to the window below;
@@ -20,51 +28,68 @@
 //   * closed when the program exits: after the script returns, or after `WEBKIT_TIMEOUT` seconds
 //     (120 by default).
 //
-// The program never moves the pointer, never sends events, and reads nothing but the URL and the
-// script. A message `shot:PATH` posted to `window.webkit.messageHandlers.ctl` saves a picture of
-// the page as a PNG at PATH.
+// The program never moves the pointer and never sends events. Its website data are not kept
+// (`WKWebsiteDataStore.nonPersistent`), its compiled content rules go to the temporary directory,
+// and `webkit_check.py` runs it with `CFFIXED_USER_HOME` set to a temporary folder, so that what
+// WebKit keeps for any program (caches, a data folder) is written there and removed, never into
+// the user's Library.
 import AppKit
 import WebKit
 
-/// The window that holds the page, kept for the pictures the script asks for.
-var window: NSWindow? = nil
+/// Every load whose URL is not a `file:` URL is blocked.
+let rules = """
+  [{"trigger": {"url-filter": ".*"}, "action": {"type": "block"}},
+   {"trigger": {"url-filter": "^file:"}, "action": {"type": "ignore-previous-rules"}}]
+  """
 
-/// Receives the script's messages: `shot:PATH` saves a picture of the page.
-final class Control: NSObject, WKScriptMessageHandler {
-  func userContentController(_ controller: WKUserContentController,
-                             didReceive message: WKScriptMessage) {
-    let body = (message.body as? String) ?? ""
-    guard body.hasPrefix("shot:"), let web = window?.contentView as? WKWebView else { return }
-    let path = String(body.dropFirst(5))
-    web.takeSnapshot(with: nil) { image, _ in
-      guard let image = image, let tiff = image.tiffRepresentation,
-            let bitmap = NSBitmapImageRep(data: tiff),
-            let png = bitmap.representation(using: .png, properties: [:]) else { return }
-      try? png.write(to: URL(fileURLWithPath: path))
-    }
-  }
+/// Whether `url` is a `file:` URL of a file below the folder `root`.
+func isBelow(_ url: URL, _ root: URL) -> Bool {
+  guard url.isFileURL else { return false }
+  let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+  let base = root.standardizedFileURL.resolvingSymlinksInPath().path
+  return path == base || path.hasPrefix(base.hasSuffix("/") ? base : base + "/")
+}
+
+/// Prints `message` on stderr.
+func warn(_ message: String) {
+  FileHandle.standardError.write((message + "\n").data(using: .utf8)!)
 }
 
 /// Loads the page and, once it has loaded, runs the script and exits with its result.
 final class Runner: NSObject, WKNavigationDelegate {
   let web: WKWebView
   let script: String
+  let root: URL
+  var ran = false
 
-  init(url: URL, script: String, width: Double, height: Double) {
+  init(root: URL, script: String, width: Double, height: Double, rules: WKContentRuleList) {
     let config = WKWebViewConfiguration()
-    config.userContentController.add(Control(), name: "ctl")
+    config.userContentController.add(rules)
+    config.websiteDataStore = .nonPersistent()
     web = WKWebView(frame: NSRect(x: 0, y: 0, width: width, height: height), configuration: config)
     self.script = script
+    self.root = root
     super.init()
     web.navigationDelegate = self
-    if url.isFileURL {
-      web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+  }
+
+  func load(_ url: URL) {
+    web.loadFileURL(url, allowingReadAccessTo: root)
+  }
+
+  func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
+               decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+    if let url = action.request.url, isBelow(url, root) {
+      decisionHandler(.allow)
     } else {
-      web.load(URLRequest(url: url))
+      warn("runner: refused to load \(action.request.url?.absoluteString ?? "?")")
+      decisionHandler(.cancel)
     }
   }
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    if ran { return }
+    ran = true
     web.callAsyncJavaScript(script, arguments: [:], in: nil, in: .page) { result in
       switch result {
       case .success(let value): print((value as? String) ?? String(describing: value))
@@ -75,40 +100,64 @@ final class Runner: NSObject, WKNavigationDelegate {
   }
 
   func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+    if ran { return }
     print("ERROR navigation: \(error)")
     exit(1)
   }
 
   func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
                withError error: Error) {
+    if ran { return }
     print("ERROR navigation: \(error)")
     exit(1)
   }
 }
 
 let args = CommandLine.arguments
-guard args.count == 3 || args.count == 5, let url = URL(string: args[1]),
-      let script = try? String(contentsOfFile: args[2], encoding: .utf8) else {
-  FileHandle.standardError.write("usage: runner URL SCRIPT [WIDTH HEIGHT]\n".data(using: .utf8)!)
+guard args.count == 4 || args.count == 6,
+      let script = try? String(contentsOfFile: args[3], encoding: .utf8) else {
+  warn("usage: runner ROOT URL SCRIPT [WIDTH HEIGHT]")
   exit(2)
 }
-let width = args.count == 5 ? Double(args[3]) ?? 1280 : 1280
-let height = args.count == 5 ? Double(args[4]) ?? 800 : 800
+let root = URL(fileURLWithPath: args[1], isDirectory: true)
+guard let url = URL(string: args[2]), isBelow(url, root) else {
+  warn("runner: URL must be a file: URL of a file below ROOT")
+  exit(2)
+}
+let width = args.count == 6 ? Double(args[4]) ?? 1280 : 1280
+let height = args.count == 6 ? Double(args[5]) ?? 800 : 800
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
-let runner = Runner(url: url, script: script, width: width, height: height)
-let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-                   styleMask: [.borderless], backing: .buffered, defer: false)
-win.alphaValue = 0
-win.isOpaque = false
-win.hasShadow = false
-win.ignoresMouseEvents = true
-win.isExcludedFromWindowsMenu = true
-win.collectionBehavior = [.transient, .ignoresCycle]
-win.contentView = runner.web
-win.orderFrontRegardless()
-window = win
+var runner: Runner? = nil
+// The compiled rule list goes to a folder of the temporary directory, not to the user's Library.
+let ruleStore = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+  .appendingPathComponent("pilean-runner-rules-\(getpid())", isDirectory: true)
+guard let store = WKContentRuleListStore(url: ruleStore) else {
+  warn("runner: no store for the content rules")
+  exit(1)
+}
+atexit { try? FileManager.default.removeItem(at: ruleStore) }
+store.compileContentRuleList(
+  forIdentifier: "pilean-runner-local-only", encodedContentRuleList: rules) { list, error in
+  guard let list = list else {
+    print("ERROR rules: \(String(describing: error))")
+    exit(1)
+  }
+  let r = Runner(root: root, script: script, width: width, height: height, rules: list)
+  let win = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+                     styleMask: [.borderless], backing: .buffered, defer: false)
+  win.alphaValue = 0
+  win.isOpaque = false
+  win.hasShadow = false
+  win.ignoresMouseEvents = true
+  win.isExcludedFromWindowsMenu = true
+  win.collectionBehavior = [.transient, .ignoresCycle]
+  win.contentView = r.web
+  win.orderFrontRegardless()
+  runner = r
+  r.load(url)
+}
 
 let limit = Double(ProcessInfo.processInfo.environment["WEBKIT_TIMEOUT"] ?? "") ?? 120
 DispatchQueue.main.asyncAfter(deadline: .now() + limit) {
