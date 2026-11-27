@@ -1168,11 +1168,11 @@ about 2 px or more) and at its positions (every actor and every label's anchor w
 a quarter, a half and three quarters of each turn lie on the turn's circle (0.05 px) at the eased
 angle (0.5°), that labels and markers are not turned (0.01°) and are all there, that reduced motion
 shows the still and switching it off again shows the running clock (switched on inside one key's
-rest and off again for a moment inside a later key's rest that certainly draws another picture,
-from the rests' ends in the expectations; the check fails when the two moments draw the same picture, since a frozen picture would
-then pass), and that the picture plays. A golden fixture with a first hold of 2 seconds
-(`motion-long-hold`, written for the browser check only) is the case where fixed moments would
-both fall in the first rest.
+rest and off again for a moment inside a later key's rest that certainly draws another picture, from
+the rests' ends in the expectations; the check fails when the two moments draw the same picture,
+since a frozen picture would then pass), and that the picture plays. A golden fixture with a first
+hold of 2 seconds (`motion-long-hold`, written for the browser check only) is the case where fixed
+moments would both fall in the first rest.
 
 A morph is interpolated in the page's coordinates, so it must come before any turn or slide of its
 layer (a later one starts a new layer, crossfaded). With figures between its keys (`Motion.between`)
@@ -1317,12 +1317,12 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   stage is hidden from it and only the list is read. The moving picture gets no declaration
   links: hovering or focusing it shows the still instead, so they could not be reached.
 * **Caption.** A motion's caption ends with a quiet note: "Animation; a still replaces it while
-  you point at it, or after a click or tap until you click elsewhere."
-  (`PILeanVerso.motionHintText`, both adapters; hidden while motion is off and in print). The
-  still covers the picture; it does not stop the clock, so when the still goes the picture is where its clock has got to. On a
-  Blueprint site the note is followed by the switch's link, "Animations can be turned off in
-  the page menu." (`PILeanVerso.motionLinkText`), which the Blueprint shows only when its script
-  runs.
+  you point at it or focus it, or after a click or tap until you click elsewhere."
+  (`PILeanVerso.motionHintText`, both adapters; hidden while motion is off and in print). The still
+  covers the picture; it does not stop the clock, so when the still goes the picture is where its
+  clock has got to. On a Blueprint site the note is followed by the switch's link, "Animations can
+  be turned off in the page menu." (`PILeanVerso.motionLinkText`), which the Blueprint shows only
+  when its script runs.
 * **Text alternative.** The directive's `alt`; where the Blueprint adapter takes the doc string
   instead, its first paragraph without code marks, so the name read aloud has no markup.
 * **Ids.** Every id, reference to an id and `data-pilean-actor` of a moving picture gets a prefix
@@ -1347,15 +1347,18 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   stills.
 * **The grid of stills.** Its columns are sized from the stills' own width `w` (the poster key's
   still; the narrow rendition's on small screens), which the adapter knows from the files: each
-  column is at least `3/4 · w` wide, rounded up to a multiple of 20 pixels
-  (`PILeanVerso.stillColumnMin`, `stillFraction`), or as wide as the grid when the grid is
-  narrower, so no still is shown at less than three quarters of its width (text drawn at 14
-  pixels at 10.5 pixels or more) unless it fills the grid's width alone. The rule is CSS only: the
-  list carries the classes `pilean-stills-cN` and, with a narrow rendition, `pilean-stills-nN`,
-  whose rules (`stillColumnCss`) set `--pilean-still-min`, and the grid's columns are
-  `minmax(min(var(--pilean-still-min), 100%), 1fr)`, as many as fit. So a picture of two panels
-  720 pixels wide gets one column in a page column of 800 pixels and a picture of 320 pixels three;
-  on a phone, two stills share a row only when each still keeps three quarters of its width.
+  column is at least `3/4 · w` wide, rounded up to a pixel (`PILeanVerso.stillColumnMin`,
+  `stillFraction`), or as wide as the grid when the grid is narrower, so no still is shown at
+  less than three quarters of its width (text drawn at 14 pixels at 10.5 pixels or more) unless
+  it fills the grid's width alone; and no still is drawn larger than its own width (`width:
+  auto`, so a narrow rendition's still keeps its width on a screen of 400 to 560 pixels). The
+  list carries the widths in a `style` attribute, `--pilean-still-w` and, with a narrow
+  rendition, `--pilean-still-n` (`stillColumnStyle`); one rule (`stillColumnCss`) makes the
+  columns `minmax(min(var(--pilean-still-col), 100%), 1fr)`, as many as fit. A content policy
+  that refuses `style` attributes (`style-src-attr`) leaves the columns at `14rem`, as before.
+  So a picture of two panels 720 pixels wide gets one column in a page column of 800 pixels and
+  a picture of 320 pixels three; on a phone, two stills share a row only when each still keeps
+  three quarters of its width.
 * **Hiding.** A moving picture is never hidden with `display: none`, in print too: Chromium
   freezes a picture whose `transform` is animated when it is hidden with `display: none` and
   shown again, until the animation repeats, although its clock runs. Emulating print media

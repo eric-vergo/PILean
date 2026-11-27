@@ -135,16 +135,17 @@ A link is never put inside another.
   figure shown as a file is an `<img>` of the site and needs no script; the stylesheet switches
   the light and dark files.
 * A motion moves inline, in the theme of the page, on its own clock, its caption saying
-  "Animation; a still replaces it while you point at it, or after a click or tap until you click
-  elsewhere." Hovering it (with a mouse) or focusing it (with the keyboard, a click or a tap,
-  until the focus leaves) covers it with its poster key's still in the same place; the clock runs
-  on under the still, so the picture is further on in its cycle when the still goes. With
+  "Animation; a still replaces it while you point at it or focus it, or after a click or tap until
+  you click elsewhere." Hovering it (with a mouse) or focusing it (with the keyboard, a click or a
+  tap, until the focus leaves) covers it with its poster key's still in the same place; the clock
+  runs on under the still, so the picture is further on in its cycle when the still goes. With
   animations turned off (the Blueprint's switch beside the theme control), with the system's
   reduced motion, and in print, it shows its key frames as stills in a grid with their captions,
   which assistive technology reads after the picture's text alternative; the grid has as many
   columns as fit with every still at three quarters of its own width or more (one column for a
-  wide picture, several for a small one), or a still as wide as the column. On small screens it
-  shows its narrow rendition, when it has one. None of this needs a script ([`docs/DESIGN.md`](../docs/DESIGN.md), "A motion shown in a page").
+  wide picture, several for a small one), or a still as wide as the column, and never larger than
+  its own width. On small screens it shows its narrow rendition, when it has one. None of this
+  needs a script ([`docs/DESIGN.md`](../docs/DESIGN.md), "A motion shown in a page").
 * With `inline := true`, the picture is an `svg` element of the page (its narrow rendition on
   screens up to 560 px wide, when it has one): the titles of its elements show on hover, the
   elements that name a declaration link to it (see "Links to Lean"), and one picture serves both
@@ -153,7 +154,9 @@ A link is never put inside another.
   writes the CSS of its extensions), and each inline picture has its own `style` element; a
   policy must allow all of them, with `style-src 'unsafe-inline'` or the hash of each `<style>`
   element of the page (the example's browser check serves the pages so). A `width :=` is a
-  `style` attribute (`style-src-attr`); Verso's own math markup has some too. Scripts come from
+  `style` attribute (`style-src-attr`), and so are the widths of a motion's grid of stills (a
+  policy without `style-src-attr` leaves its columns at `14rem`); Verso's own math markup has some
+  too. Scripts come from
   the site's files only.
 * An explorer: every frame is in the page. The site's script `pilean-explorer.js` (a file of the
   site, loaded deferred; no network, no `eval`, no `innerHTML`) shows one frame at a time with a
@@ -380,24 +383,28 @@ end) and the turns, the slides with three samples each, which the checks hold to
 segment between the actor's keys; a motion with no turn or no slide is checked for what it has. A
 site's writer that calls the library's `expectations` gets them by rebuilding. `--workers N` checks
 N pages at a time, each in a process with its own browser; a motion shown without its stills on
-its figure's page and with them on another page gets on the figure's page only the checks that
-differ there (the ways of turning motion off, print, positions, the grids), since hover, focus, a
-click and a tap use the same stage and rules. Each section prints its duration (`time: …`).
-`tools/motion-browser-check.py` checks the same files on their own, pixel by pixel against the
-stills.
+its figure's page and with them on another page gets on the figure's page the checks that differ
+there (the ways of turning motion off, print, positions, the grids) and hover and keyboard focus
+once more, while a click, a tap, a PDF print and the stills in both themes, which use the same
+stage and rules, are checked where the stills are listed. Each section prints its duration
+(`time: …`). Expectations of an older format, or listing other turns or slides than the motion
+declares, fail with a message that says so. `tools/motion-browser-check.py` checks the same files
+on their own, pixel by pixel against the stills.
 
-Engines. The checks are measured on Chromium, and a continuous-integration gate runs them there.
-`--engine firefox` (on `motion_browser.py`, `browser_check.py` and `motion-browser-check.py`)
-runs them in Playwright's Firefox, which must be installed for Playwright first; the freeze control
-(a Chromium observation) and the PDF print (Playwright's are Chromium's) are reported there as not
-applicable, and the pixel rule's tolerances, measured on Chromium, are not measured on Firefox.
-WebKit, the engine of Safari, is checked on macOS only, locally, by
-`python3 tools/webkit/webkit_check.py DIR` (or `motion-browser-check.py DIR --engine webkit`) on the
-files of the expectations: the positions at rests, turns, slides and the panels' phase, paused in
-the first and the second loop and free-running over both, failing when the clock does not run. It
-compiles a small runner with the system's `swiftc` and shows the page in a transparent window that
-lets every click through and never takes the focus (`tools/webkit/runner.swift` says exactly what
-it does to the desktop); it needs a logged-in session and is no part of a Linux gate.
+Engines. The checks are measured and run on Chromium, and a continuous-integration gate runs them
+there; Chromium and WebKit are the engines they have been run in. WebKit, the engine of Safari,
+is checked on macOS only, locally, by `python3 tools/webkit/webkit_check.py DIR` (or
+`motion-browser-check.py DIR --engine webkit`) on the files of the expectations: the positions at
+rests, turns, slides and the panels' phase, paused in the first and the second loop and
+free-running over both, failing when the clock does not run. It compiles a small runner with the
+system's `swiftc`, which loads files below DIR only, reaches no network and has no bridge from
+the page, and shows the page in a transparent window that lets every click through and never
+takes the focus (`tools/webkit/runner.swift` says exactly what it does to the desktop;
+`tools/webkit/runner_test.py` shows its limits hold); it needs a logged-in session and is no part
+of a Linux gate. `motion_browser.py` and `motion-browser-check.py` also have a Firefox mode
+(`--engine firefox`, with Playwright's Firefox installed first) that has not been run yet: its
+results are not known. `browser_check.py` runs in Chromium only (some of its sections use
+Chromium's DevTools protocol).
 
 A site with motions under its own Content-Security-Policy must allow the `style` element of every
 inline picture, a motion's moving picture included (`style-src 'unsafe-inline'`, or the hash of

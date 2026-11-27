@@ -250,14 +250,14 @@ tag := "motions-questions"
 %%%
 
 * *A moving point that lands on a point of the next key.* The layout checks keep two markers at
-  least 2 px apart (`CheckOptions.markerGap`) on every key, so a moving copy cannot come to rest
-  on a point that is another item. Make them one actor: give the point of the later key the moving actor's
-  id, so the actor that moves is the point that stays. When the two must be different items (a
-  different look, say), they can only crossfade, and the point dips in opacity for the length of
+  least 2 px apart (`CheckOptions.markerGap`) on every key, so a moving copy cannot come to rest on
+  a point that is another item. Make them one actor: give the point of the later key the moving
+  actor's id, so the actor that moves is the point that stays. When the two must be different items
+  (a different look, say), they can only crossfade, and the point dips in opacity for the length of
   the fade; the model has no declaration that one actor becomes another item.
 * *An item that appears or vanishes needs an id.* `appear` and `vanish` name an actor, so an item
-  that is in one key and not the next carries an id ({name}`PILean.Plane.Item.actor`), also when
-  the key is a static figure reused; the items that stay as they are need none.
+  that is in one key and not the next carries an id ({name}`PILean.Plane.Item.actor`), also when the
+  key is a static figure reused; the items that stay as they are need none.
 * *Labels placed automatically.* A label with an automatic placement is placed once, on the first
   key where its actor appears, against that key's elements, and rides its actor afterwards; a
   stroke that appears in a later key is not considered, and the layout checks of that key report
@@ -395,7 +395,7 @@ of it needs a script. The reader sees:
 
 * *Motion on* (the default): the moving picture, inline, on its own clock, in the page's theme.
   Under it the caption, which ends with the note "Animation; a still replaces it while you point
-  at it, or after a click or tap until you click elsewhere."
+  at it or focus it, or after a click or tap until you click elsewhere."
 * *On hover or focus*: the poster key's still covers the picture, in the picture's own box, so
   nothing around it moves. Hover applies on a device that hovers, so a tap on a phone does not
   leave it stuck; focus is the keyboard, a click or a tap, and lasts until a click elsewhere, with
@@ -463,16 +463,18 @@ writes them with its own few lines of Lean, as the example's `writeMotion` (a `P
 {sourceFile}`verso/example/ExampleTest.lean`, with the library's
 `PILeanTest.MotionChecks.expectations` and `PILeanTest.MotionPanelsChecks.expectations`, which
 list the rests, the turns and the slides (a slide's actor stays on the straight segment between
-its keys, at the eased fraction); a writer that calls them gets what they list by rebuilding. A
+its keys, at the eased fraction); a writer that calls them gets what they list by rebuilding.
+The files carry the version of their format; expectations written by an older version, or that
+list other turns or slides than the motion declares, fail the checks with a message that says so. A
 motion shown without its expectations fails the check. With `--workers N` the pages are checked N
 at a time.
 
-The checks run in Chromium by default, and that is the engine a continuous-integration gate
-uses. `--engine firefox` runs them in Playwright's Firefox (installed for Playwright first),
-where the freeze control and the PDF print, which are Chromium's, are reported as not
-applicable. On macOS, `tools/webkit/webkit_check.py DIR` checks the positions in the system's
-WebKit, the engine of Safari, from a transparent window that lets every click through and never
-takes the focus; it fails when the clock does not run, and is for a local run, not a Linux gate.
+The checks run in Chromium, and that is the engine a continuous-integration gate uses. On macOS,
+`tools/webkit/webkit_check.py DIR` checks the positions in the system's WebKit, the engine of
+Safari, from a transparent window that lets every click through and never takes the focus; it
+fails when the clock does not run, and is for a local run, not a Linux gate. Chromium and WebKit
+are the engines the checks have been run in: the Firefox mode of the scripts (`--engine
+firefox`) has not been run yet, so what it finds is not known.
 
 # The Browser Check
 %%%

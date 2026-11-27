@@ -103,17 +103,21 @@ document.addEventListener('securitypolicyviolation', e => {
 
 TIMEOUT = 10000
 
-# The engines Playwright drives here. Chromium is the one the checks are measured on and the one
-# a continuous-integration gate uses; Firefox runs the same checks, but for those that rest on an
-# observation of Chromium (said where they are).
+# The engines Playwright may drive here. Chromium is the one the checks are measured and run on,
+# and the one a continuous-integration gate uses. Firefox is a mode of `motion_browser.py` that
+# has not been run yet (Playwright's Firefox was not installed where the checks were written):
+# its results are not known, and the checks that rest on an observation of Chromium say so.
 ENGINES = ("chromium", "firefox")
 
 
 def engine_option(args, default="chromium"):
-    """The value of `--engine NAME` in `args` (removed from it), or `default`."""
+    """The value of `--engine NAME` in `args` (both removed from it), or `default`; a missing
+    name raises `ValueError`."""
     if "--engine" not in args:
         return default
     i = args.index("--engine")
+    if i + 1 >= len(args):
+        raise ValueError("--engine needs a name: " + ", ".join(ENGINES))
     name = args[i + 1]
     del args[i:i + 2]
     return name

@@ -11,12 +11,12 @@ checked. DIR holds the expectations of every motion shown, `<file>.json` for the
 `<file>.svg` of each rendition (`<decl>.json`, `<decl>-narrow.json`), in the form PILean's tests
 write them (`PILeanTest.MotionChecks.expectations`, `PILeanTest.MotionPanelsChecks.expectations`);
 a motion without its expectations fails. The site is served on 127.0.0.1 under a strict content
-policy (`site_browser.serve`) and checked in Chromium, or with `--engine firefox` in Firefox
-(Playwright, nothing installed or downloaded; in Firefox the freeze control, which shows a freeze
-seen in Chromium, and the PDF print, which Playwright makes in Chromium only, are reported as not
-applicable). `--workers N` checks N pages at a time, each in a process with its own browser.
-`motion_checks` checks one page; on a Blueprint site (a caption with the switch's link) also the
-switch and the link. Checked:
+policy (`site_browser.serve`) and checked in Chromium (Playwright, nothing installed or downloaded).
+`--engine firefox` runs the same checks in Playwright's Firefox, with the freeze control (a freeze
+seen in Chromium) and the PDF print (which Playwright makes in Chromium only) reported as not
+applicable; that mode has not been run yet, so its results are not known. `--workers N` checks N
+pages at a time, each in a process with its own browser. `motion_checks` checks one page; on a
+Blueprint site (a caption with the switch's link) also the switch and the link. Checked:
 
 * with the clock paused and set, every actor of the page's moving picture is where its key still
   has it at every rest (0.05 px), on its circle at a quarter, a half and three quarters of every
@@ -44,15 +44,16 @@ switch and the link. Checked:
   fails;
 * free-running, without seeking, every picture is where its keys have it inside two of its rests
   that differ, and its clock has advanced (`free_running`);
-* at 1440, 768, 390 and 360 px the page does not scroll sideways, with motion on and off, and with
-  motion off every still of every grid of stills (inline and on a figure's page) is shown at
-  `STILL_FRACTION` of its natural width or more, or fills its column alone (`grid_checks`);
+* at seven widths from 1440 to 320 px the page does not scroll sideways, with motion on and off,
+  and with motion off every still of every grid of stills (inline and on a figure's page) is
+  shown at `STILL_FRACTION` of its natural width or more, or fills its column alone, and never
+  larger than its natural width (`grid_checks`);
 * the captions are in the accessibility tree while the stills are hidden, and nothing is
   announced (no live region changes);
 * every id of the page once, and no `data-pilean-actor` in two pictures;
-* the caption's note, exactly `HINT` (a still replaces the picture while it is pointed at, or
-  after a click or tap until a click elsewhere), shown only while motion is on; on a Blueprint
-  site the caption's link leads to the motion switch;
+* the caption's note, exactly `HINT` (a still replaces the picture while it is pointed at or
+  focused, or after a click or tap until a click elsewhere), shown only while motion is on; on a
+  Blueprint site the caption's link leads to the motion switch;
 * no content-policy report about a figure and no console error.
 """
 
@@ -65,8 +66,8 @@ import sys
 
 # The note every motion's caption ends with (`PILeanVerso.motionHintText`): while a still covers
 # the picture its clock runs on, so it is said as a still that replaces it, not as a pause.
-HINT = ("Animation; a still replaces it while you point at it, or after a click or tap until you "
-        "click elsewhere.")
+HINT = ("Animation; a still replaces it while you point at it or focus it, or after a click or "
+        "tap until you click elsewhere.")
 
 REST_TOL = 0.05
 RADIUS_TOL = 0.05
@@ -274,22 +275,54 @@ def wait_clock(page, sid, t, cycle, early=0.0, late=0.15):
     return None
 
 
-# How long before the moment of comparison a state ends; the least time a way of turning motion
-# off lasts (its stills load meanwhile) and the least time hover, focus, a click or a tap lasts;
-# and how far from the middle of a rest a probe may start when the expectations do not give the
-# rest's ends (seconds of the motion's clock).
+# Seconds of the motion's clock. A state starts inside one rest and ends `SHOW_LEAD` before the
+# moment of comparison; that moment comes at least `MIN_HELD` after the start for a way of turning
+# motion off (so the state lasts 1.3 s or more, while its stills load) and at least `MIN_COVERED`
+# after it for hover, focus, a click or a tap (0.4 s or more). Without the rests' ends in the
+# expectations, a probe starts within `NEAR_REST` of a rest's middle.
 SHOW_LEAD = 0.5
-MIN_HELD = 1.3
-MIN_COVERED = 0.6
+MIN_HELD = 1.8
+MIN_COVERED = 0.9
 NEAR_REST = 0.25
+
+# The version of the expectations' format these checks read (`PILeanTest.MotionChecks
+# .expectationsFormat`), and what it has that an older one lacks.
+FORMAT = 2
+
+
+def spec_problem(spec):
+    """Why the expectations cannot be checked by this tool, or `None`: written in an older format
+    (a writer built with an older PILean, without the rests' ends, the slides, the declared moves
+    and the actors' drawings, so that a slide would go unchecked), or listing other turns or
+    slides than the motion declares (a writer that lost some)."""
+    if spec.get("format", 1) < FORMAT or "declared" not in spec or "slides" not in spec or \
+            any("shapes" not in r or "from" not in r for r in spec["rests"]):
+        return (f"the expectations are in format {spec.get('format', 1)}, this check reads format "
+                f"{FORMAT} (rests with their ends and drawings, slides, declared moves): rebuild "
+                "the expectations writer with this version of PILean")
+    d = spec["declared"]
+    if d["turns"] != len(spec["turns"]) or d["slides"] != len(spec["slides"]):
+        return (f"the motion declares {d['turns']} turns and {d['slides']} slides, the "
+                f"expectations list {len(spec['turns'])} and {len(spec['slides'])}")
+    return None
 
 
 def rests_differ(a, b):
     """Whether two rests of the expectations certainly draw different pictures: an actor is in one
-    and not the other, or an actor's anchor is more than a pixel apart."""
+    and not the other, an actor's anchor is more than a pixel apart, or an actor is drawn
+    otherwise (its fingerprint in `shapes` differs: a morph, whose anchor may stay)."""
     at_a = {x["id"]: x["at"] for x in a["actors"]}
     at_b = {x["id"]: x["at"] for x in b["actors"]}
-    return at_a.keys() != at_b.keys() or any(math.dist(at_a[k], at_b[k]) > 1 for k in at_a)
+    return at_a.keys() != at_b.keys() or any(math.dist(at_a[k], at_b[k]) > 1 for k in at_a) or \
+        a.get("shapes", {}) != b.get("shapes", {})
+
+
+def undecided(spec):
+    """Why no probe on the timeline can be chosen (`rest_pair` gave none)."""
+    if len(spec["rests"]) < 2:
+        return "the probe could not run: the motion has a single rest"
+    return ("the probe could not run: no two rests of the motion certainly draw different "
+            "pictures (same actors, anchors and drawings)")
 
 
 def rest_window(rest):
@@ -524,12 +557,14 @@ def state_checks(c, browser, base, url, sid, label, helpers, blueprint, spec=Non
     `spec`, each state starts inside one key's rest and ends just before a moment inside a later
     key's rest that certainly draws another picture, where the picture is compared
     (`rest_pair`); without them it is held for 1.3, 2.1 and then 3.7 seconds until the two times
-    draw different pictures. A comparison that stays undecided fails. With `only_off`, only the
-    ways of turning motion off."""
+    draw different pictures. A comparison that stays undecided fails. With `only_off`, the ways of
+    turning motion off, hover and keyboard focus only (not a click, a tap or a PDF print, whose
+    stage and rules are checked where the stills are listed)."""
     new_page, goto = helpers["new_page"], helpers["goto"]
     engine = helpers.get("engine", "chromium")
-    states = list(OFF[:2]) + (["switch"] if blueprint else []) + ["print"] + \
-        ([] if only_off else ["pdf", "hover", "keyboard focus", "click", "tap"])
+    states = list(OFF[:2]) + (["switch"] if blueprint else []) + ["print", "hover",
+                                                                    "keyboard focus"] + \
+        ([] if only_off else ["pdf", "click", "tap"])
     if engine != "chromium" and "pdf" in states:
         # Playwright prints a PDF in Chromium only
         states.remove("pdf")
@@ -569,8 +604,13 @@ def state_checks(c, browser, base, url, sid, label, helpers, blueprint, spec=Non
             after = page.evaluate(STATE, sid)
             if times:
                 verdict, numbers = follows_clock(page, sid, hidden_at, cmp, at, spec["cycle"])
+                if verdict is None:
+                    numbers = ("undecided: the two moments drew the same picture, although their "
+                               "rests differ",) + tuple(numbers)
             else:
                 verdict, numbers = follows_clock(page, sid, hidden_at, cmp)
+                if spec:
+                    numbers = (undecided(spec),) + tuple(numbers)
             if verdict is not None:
                 break
         bare = page.evaluate("(sid) => document.getElementById(sid).closest('.pilean-motion')"
@@ -641,13 +681,14 @@ GRID = """() => {
 
 
 def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None):
-    """At 1440, 768, 390 and 360 px the page does not scroll sideways with motion on, and with
-    motion off: every still of every grid of stills (inline and on a figure's page) is shown at
-    `STILL_FRACTION` of its natural width or more, or fills its column alone, and the page does
-    not scroll sideways. Records the number of columns of each motion's grid in `layouts` (by its
-    file, the page's grid apart), and with `shots` saves a picture of each grid."""
+    """At 1440, 1024, 768, 560, 390, 360 and 320 px the page does not scroll sideways with motion
+    on, and with motion off: every still of every grid of stills (inline and on a figure's page)
+    is shown at `STILL_FRACTION` of its natural width or more, or fills its column alone, no still
+    is drawn larger than its natural width (the narrow rendition's at small widths), and the page
+    does not scroll sideways. Records the number of columns of each motion's grid in `layouts` (by
+    its file, the page's grid apart), and with `shots` saves a picture of each grid."""
     new_page, goto = helpers["new_page"], helpers["goto"]
-    for width in [1440, 768, 390, 360]:
+    for width in [1440, 1024, 768, 560, 390, 360, 320]:
         ctx, page = new_page(browser, viewport={"width": width, "height": 900})
         goto(page, base + url)
         on = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
@@ -660,12 +701,14 @@ def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None)
                                timeout=10000)
         grids = page.evaluate(GRID)
         wide = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
-        bad = []
+        bad, big = [], []
         for g in grids:
             for w, natural, done in g["stills"]:
                 fills = g["columns"] == 1 and w >= min(natural, g["grid"]) - 1
                 if not done or natural == 0 or not (w >= STILL_FRACTION * natural - 1 or fills):
                     bad.append((g["file"], w, natural, g["columns"], g["grid"]))
+                if w > natural + 1:
+                    big.append((g["file"], w, natural))
             if layouts is not None:
                 key = (os.path.basename(g["file"]), "page" if g["page"] else "inline")
                 layouts.setdefault(key, {})[width] = g["columns"]
@@ -673,9 +716,11 @@ def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None)
                 f"{STILL_FRACTION} of its natural width or more, or fills its column",
                 bool(grids) and not bad and all(g["stills"] for g in grids),
                 f"{[(g['file'], g['columns'], g['stills'][:1]) for g in grids]}; off: {bad[:3]}")
+        c.check(f"{label} {width} px: with motion off no still is drawn larger than its natural "
+                "width", bool(grids) and not big, str(big[:3]))
         c.check(f"{label} {width} px: with motion off no sideways scrolling", wide <= 0,
                 f"{wide} px")
-        if shots and width != 360:
+        if shots and width in (1440, 768, 560, 390):
             loc = page.locator(".pilean-motion:not(.pilean-motion-bare) ol.pilean-motion-keys,"
                                " ol.pilean-page-motion-keys")
             for i in range(loc.count()):
@@ -725,23 +770,19 @@ def still_checks(c, browser, base, url, sids, label, helpers, shots=None):
 
 
 def free_running(page, sids, specs, timeout=None):
-    """Without seeking, while every clock runs: for each motion with its expectations, the clock
-    is read inside two rests that certainly draw different pictures (`rest_pair`), every
-    actor's anchor read there is where its key's still has it, and the clock has advanced
-    between the two. All the motions of the page are watched at once, so the wait is
-    that of the slowest. Returns, per motion, `None` when it has no expectations, else the
-    largest distance (px) and whether its clock advanced."""
+    """Without seeking, while every clock runs: for each motion, the clock is read inside two
+    rests that certainly draw different pictures (`rest_pair`), every actor's anchor read there
+    must be where its key's still has it, and the clock must have advanced between the two. All
+    the motions of the page are watched at once, so the wait is that of the slowest. Returns, per
+    motion, `(problem, largest distance in px)`, the problem `None` when it holds."""
     clock = "(ids) => ids.map(i => document.getElementById(i).getCurrentTime())"
     todo, out = {}, {}
     for sid in sids:
-        spec = specs.get(sid)
-        if not spec:
-            out[sid] = None
-            continue
+        spec = specs[sid]
         now = page.evaluate("(sid) => document.getElementById(sid).getCurrentTime()", sid)
         pair = rest_pair(spec, now + 0.1, 0.6)
         if not pair:
-            out[sid] = (math.inf, False)
+            out[sid] = (undecided(spec), 0.0)
             continue
         a, (lo, hi), b, at = pair
         todo[sid] = {"spec": spec, "targets": [(a, lo, hi), (b, at, at + 0.15)], "seen": []}
@@ -760,11 +801,18 @@ def free_running(page, sids, specs, timeout=None):
                 d["seen"].append((seen["time"], err))
                 if len(d["seen"]) == 2:
                     (t1, e1), (t2, e2) = d["seen"]
-                    out[sid] = (max(e1, e2), t2 > t1)
+                    e = max(e1, e2)
+                    why = None
+                    if t2 <= t1:
+                        why = f"the clock did not advance ({t1:.2f} s, then {t2:.2f} s)"
+                    elif e > REST_TOL:
+                        why = f"an actor is {e:.3g} px from its key at a rest, not sought"
+                    out[sid] = (why, e)
                     del todo[sid]
         page.wait_for_timeout(15)
-    for sid in todo:
-        out[sid] = (math.inf, False)
+    for sid, d in todo.items():
+        out[sid] = (f"the clock did not reach the rests it was waited for within {limit:.0f} s "
+                    f"({len(d['seen'])} of 2 read)", math.inf)
     return out
 
 
@@ -773,8 +821,9 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
     show at least `least` motions; `expect` is the folder of expectations. A motion shown without
     its stills (on its figure's page) whose stills are shown on another page of the site
     (`helpers["listed"]`, the files of `listed_motions`) gets the checks that differ between the
-    two only: its stage and the rules of hover, focus, a click and a tap are the same markup and
-    the same rules, so those are checked where the stills are listed."""
+    two, and hover and keyboard focus once more, each with its still and its clock (the figure's
+    page has rules of its own); a click, a tap, a PDF print and the stills in both themes use the
+    same stage and rules, and are checked where the stills are listed."""
     new_page, goto, reports = helpers["new_page"], helpers["goto"], helpers["figure_reports"]
     ctx, page = new_page(browser, viewport={"width": 1440, "height": 900})
     errors = []
@@ -791,14 +840,11 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
     covered = {s for s in sids if bare[s] and os.path.basename(
         page.evaluate("(sid) => document.getElementById(sid).getAttribute('data-pilean-file')",
                       s)) in elsewhere}
-    # positions, from the expectations, with the clock paused and set: every rendition of every
-    # motion must have them; the wide one on this page, the narrow one at 360 px
-    missing = []
-    specs = {}
-    nctx = npage = None
+    # the expectations: every rendition of every motion must have them, in this tool's format
+    missing, bad = [], []
+    specs, narrow_specs = {}, {}
     for sid in sids:
         for suffix in ["", "-narrow"]:
-            target = sid if not suffix else sid[:-len("-mw")] + "-mn"
             if suffix and sid not in narrow_sids:
                 continue
             name = file_of(page, sid) + suffix
@@ -808,27 +854,24 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
                 continue
             with open(path) as f:
                 spec = json.load(f)
-            if not suffix:
-                specs[sid] = spec
-                position_checks(c, page, target, spec, f"{label} {name} (1440 px)")
-            else:
-                if npage is None:
-                    nctx, npage = new_page(browser, viewport={"width": 360, "height": 900})
-                    goto(npage, base + url)
-                position_checks(c, npage, target, spec, f"{label} {name} (360 px)")
-    if nctx:
-        nctx.close()
+            why = spec_problem(spec)
+            if why:
+                bad.append(f"{name}: {why}")
+                continue
+            (narrow_specs if suffix else specs)[sid] = spec
     c.check(f"{label}: every motion shown has its expectations", not missing,
             f"none in {expect} for {missing}")
-    # it moves by itself: free-running, at two rests of its own timeline that differ, each
-    # picture is where its keys have it and its clock has advanced; without expectations,
-    # sampled for longer than the longest cycle, all at once
+    c.check(f"{label}: every motion's expectations can be checked", not bad, "; ".join(bad))
+    # it moves by itself, before anything seeks its clock (a seek mends a picture frozen since the
+    # page loaded): free-running, at two rests of its own timeline that differ, each picture is
+    # where its keys have it and its clock has advanced; without expectations, sampled for longer
+    # than the longest cycle, all at once
     if all(s in specs for s in sids):
         runs = free_running(page, sids, specs)
         c.check(f"{label}: every moving picture plays on its own clock and, not sought, is where "
                 "its keys have it at two of its rests",
-                all(r is not None and r[0] <= REST_TOL and r[1] for r in runs.values()),
-                str({k: (f"{v[0]:.3g} px", v[1]) for k, v in runs.items() if v}))
+                all(r[0] is None for r in runs.values()),
+                str({k: v[0] or f"{v[1]:.3g} px, clock advanced" for k, v in runs.items()}))
     else:
         seen = {sid: [] for sid in sids}
         cycle = max([sp["cycle"] for sp in specs.values()] + [0.0])
@@ -841,6 +884,17 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
             for x, y in zip(a["actors"], b["actors"])) for s in seen.values()]
         c.check(f"{label}: every moving picture plays on its own clock", all(moving),
                 str(moving))
+    # positions, with the clock paused and set: the wide rendition on this page, the narrow one at
+    # 360 px
+    for sid, spec in specs.items():
+        position_checks(c, page, sid, spec, f"{label} {file_of(page, sid)} (1440 px)")
+    if narrow_specs:
+        nctx, npage = new_page(browser, viewport={"width": 360, "height": 900})
+        goto(npage, base + url)
+        for sid, spec in narrow_specs.items():
+            position_checks(c, npage, sid[:-len("-mw")] + "-mn", spec,
+                            f"{label} {file_of(page, sid)}-narrow (360 px)")
+        nctx.close()
     # ids, actors
     ids = page.evaluate("""() => { const all = [...document.querySelectorAll('[id]')]
       .map(e => e.id); return all.filter((v, i) => all.indexOf(v) !== i); }""")
@@ -954,8 +1008,9 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
     if rest:
         still_checks(c, browser, base, url, rest, label, helpers, shots)
     if covered:
-        c.check(f"{label}: hover, focus, a click and a tap of {sorted(covered)} are checked where "
-                "their stills are listed (the same stage and rules)", True)
+        c.check(f"{label}: a click, a tap, a PDF print and the stills in both themes of "
+                f"{sorted(covered)} are checked where their stills are listed (the same stage "
+                "and rules)", True)
 
 
 def _page_job(job):
@@ -1042,7 +1097,11 @@ def main(argv):
     import site_browser
     opts = {}
     rest = list(argv[1:])
-    engine = site_browser.engine_option(rest)
+    try:
+        engine = site_browser.engine_option(rest)
+    except ValueError as e:
+        print(f"motion_browser.py: {e}")
+        return 2
     while rest and rest[0] in ("--expect", "--shots", "--workers") and len(rest) >= 2:
         opts[rest[0]] = rest[1]
         rest = rest[2:]

@@ -4,7 +4,6 @@
 
     python3 -I tests/browser_check.py SITE [SHOTS] [--site-links DIR] [--no-links DIR]
         [--side-by-side DIR] [--manual DIR] [--motions DIR] [--workers N]
-        [--engine chromium|firefox]
 
 SITE is the generator's `html-multi` folder, built with `--figure-repo` and the default link mode
 (`ideil`); SHOTS, if given, is a folder for screenshots. The other folders are the same site
@@ -925,7 +924,9 @@ def main(argv):
     manual = option(rest, "--manual")
     motions = option(rest, "--motions")
     workers = int(option(rest, "--workers") or "1")
-    engine = option(rest, "--engine") or "chromium"
+    # Chromium only: some sections drive Chromium's DevTools protocol (event listeners, touch and
+    # scroll gestures); `tools/site/motion_browser.py --engine` runs the motion checks elsewhere
+    engine = "chromium"
     helpers = {"new_page": new_page, "goto": goto, "figure_reports": figure_reports,
                "layouts": {}, "listed": motion_browser.listed_motions(site), "engine": engine}
     server, base = serve(site)

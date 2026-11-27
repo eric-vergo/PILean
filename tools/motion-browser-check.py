@@ -69,11 +69,11 @@
 #   python3 tools/motion-browser-check.py DIR [--engine chromium|firefox|webkit]
 #
 # Engines: Chromium (the default) is the engine the pixel rule's tolerances were measured on and
-# the one a continuous-integration gate runs. `--engine firefox` runs the same checks in
-# Playwright's Firefox with the same tolerances, which were not measured there: a failure of the
-# pixel rule alone in Firefox is to be measured before it is read as a fault, and the fixtures
-# need not show Chromium's effect there (it is reported). `--engine webkit` runs the position
-# checks in the system's WebKit on macOS (`tools/webkit/webkit_check.py`), not the pixel rule.
+# the one a continuous-integration gate runs. `--engine webkit` runs the position checks in the
+# system's WebKit on macOS (`tools/webkit/webkit_check.py`), not the pixel rule; it has been run
+# on the golden motions and both examples. `--engine firefox` would run the same checks in
+# Playwright's Firefox with Chromium's tolerances (the fixtures need not show Chromium's effect
+# there, and it is reported); that mode has not been run yet, so its results are not known.
 import base64
 import json
 import math
@@ -292,10 +292,33 @@ NEAR_REST = 0.25
 
 def rests_differ(a, b):
     """Whether two rests of the expectations certainly draw different pictures: an actor is in one
-    and not the other, or an actor's anchor is more than a pixel apart."""
+    and not the other, an actor's anchor is more than a pixel apart, or an actor is drawn
+    otherwise (its fingerprint in `shapes` differs: a morph, whose anchor may stay)."""
     at_a = {x["id"]: x["at"] for x in a["actors"]}
     at_b = {x["id"]: x["at"] for x in b["actors"]}
-    return at_a.keys() != at_b.keys() or any(math.dist(at_a[k], at_b[k]) > 1 for k in at_a)
+    return at_a.keys() != at_b.keys() or any(math.dist(at_a[k], at_b[k]) > 1 for k in at_a) or \
+        a.get("shapes", {}) != b.get("shapes", {})
+
+
+# The version of the expectations' format this check reads (`PILeanTest.MotionChecks
+# .expectationsFormat`).
+FORMAT = 2
+
+
+def spec_problem(spec):
+    """Why the expectations cannot be checked, or `None`: an older format (without the rests' ends
+    and drawings, the slides and the declared moves, so that a slide would go unchecked), or other
+    turns or slides than the motion declares (a writer that lost some)."""
+    if spec.get("format", 1) < FORMAT or "declared" not in spec or "slides" not in spec or \
+            any("shapes" not in r or "from" not in r for r in spec["rests"]):
+        return (f"the expectations are in format {spec.get('format', 1)}, this check reads format "
+                f"{FORMAT} (rests with their ends and drawings, slides, declared moves): rebuild "
+                "the expectations writer with this version of PILean")
+    d = spec["declared"]
+    if d["turns"] != len(spec["turns"]) or d["slides"] != len(spec["slides"]):
+        return (f"the motion declares {d['turns']} turns and {d['slides']} slides, the "
+                f"expectations list {len(spec['turns'])} and {len(spec['slides'])}")
+    return None
 
 
 def rest_window(rest):
@@ -352,6 +375,10 @@ def wait_clock(page, t, cycle, early=0.0, late=0.15):
 def check(browser, root, name):
     with open(os.path.join(root, name + ".json")) as f:
         spec = json.load(f)
+    why = spec_problem(spec)
+    if why:
+        print(f"{name}: {why} -> FAILED")
+        return False
     path = os.path.abspath(os.path.join(root, spec["svg"]))
     errors = []
     ctx = browser.new_context(viewport=VIEWPORT)
@@ -527,10 +554,15 @@ def check(browser, root, name):
             break
     frozen = off_at(hidden_at) if hidden_at is not None else 0
     switch_ok = frozen > 0 and (switch == 0 or switch * 2 < frozen)
-    if frozen == 0:
+    if not times:
+        print(f"{name}: the switch probe could not run: " +
+              ("the motion has a single rest" if len(spec["rests"]) < 2 else
+               "no two rests certainly draw different pictures (same actors, anchors and "
+               "drawings)"))
+    elif frozen == 0:
         print(f"{name}: the switch probe is undecided: the picture at {now:.2f} s (shown again) "
-              f"draws the same as at {hidden_at or 0:.2f} s (hidden), so a frozen picture would "
-              "pass; the probe's times must be inside rests of keys that differ")
+              f"draws the same as at {hidden_at or 0:.2f} s (hidden), although their rests "
+              "differ, so a frozen picture would pass")
     sctx.close()
     # it plays: no seeking, two moments of the running clock inside different moves (from the
     # expectations' timeline: samples of the first and the last turn or slide, else the first and
@@ -623,7 +655,7 @@ def main():
     engine = "chromium"
     if "--engine" in args:
         i = args.index("--engine")
-        engine = args[i + 1]
+        engine = args[i + 1] if i + 1 < len(args) else ""
         del args[i:i + 2]
     if len(args) != 1 or engine not in ("chromium", "firefox", "webkit"):
         print("usage: python3 tools/motion-browser-check.py DIR [--engine chromium|firefox|webkit] "

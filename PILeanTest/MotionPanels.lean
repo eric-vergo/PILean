@@ -644,8 +644,11 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
     let seg := r.timeline.segments.find? (·.kind = .rest k)
     let lo := Exact.toFloat ((seg.map (·.start)).getD 0)
     let hi := Exact.toFloat ((seg.map fun s => s.start + s.dur).getD 0)
+    let shapes := r.panels.toList.flatMap fun pr =>
+      MotionChecks.actorShapes pr.env (pr.keys.figure k) pr.idPrefix
     s!"\{\"key\": {k}, \"t\": {num t}, \"from\": {num lo}, \"until\": {num hi}, \
-      \"actors\": [{", ".intercalate actors}], \"uprights\": [{", ".intercalate ups}]}"
+      \"actors\": [{", ".intercalate actors}], \"uprights\": [{", ".intercalate ups}], \
+      \"shapes\": \{{", ".intercalate shapes}}}"
   let segs := r.timeline.segments
   let turns := r.panels.toList.flatMap fun pr =>
     let still := pr.plan.layers.filter (·.geoms.isNone)
@@ -695,11 +698,14 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
       s!"[\"{(n.drop 6).toString}\", {pt q}]"
     s!"\{\"t\": {num t}, \"actors\": [{", ".intercalate actors}]}"
   let marks := r.figure.panels.any fun p => MotionChecks.turningMarks p.motion
-  s!"\{\"name\": \"{name}\", \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
+  s!"\{\"format\": {MotionChecks.expectationsFormat}, \"name\": \"{name}\", \
+    \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
+    \"declared\": {MotionChecks.declaredMoves (r.figure.panels.map (·.motion))}, \
     \"cycle\": {num (Exact.toFloat r.timeline.cycle)}, \"uprights\": {ups}, \
     \"turning_marks\": {marks}, \"band\": {num r.layout.band}, \
     \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}], \
-    \"slides\": [{", ".intercalate slides}], \"panels\": [{", ".intercalate panels}], \"phase\": [{", ".intercalate phase}]}\n"
+    \"slides\": [{", ".intercalate slides}], \"panels\": [{", ".intercalate panels}], \
+    \"phase\": [{", ".intercalate phase}]}\n"
 
 /-- Writes the golden pictures and their narrow renditions, and `farPanels`, into `dir` for
 `tools/motion-browser-check.py`: each picture's SVG, the SVG of each key of the picture, the

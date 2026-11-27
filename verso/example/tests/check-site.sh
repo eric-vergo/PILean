@@ -110,8 +110,8 @@ check bash -c "grep -qF '$fold' '$two' && test \"\$(grep -o 'pilean-page-motion\
 desc="a page with less code shows it unfolded"
 check bash -c "! grep -q '<details class=\"pilean-page-code-fold\"' '$cubic' && grep -q 'class=\"pilean-page-codes\"' '$cubic'"
 desc="the stills of a motion's page are sized from the stills' widths"
-check bash -c "grep -q 'class=\"pilean-page-motion-keys pilean-stills-c540 pilean-stills-n280\"' '$two' &&
-  grep -q 'class=\"pilean-page-motion-keys pilean-stills-c240\"' '$pages/Example.quarterTurn/index.html'"
+check bash -c "grep -q 'class=\"pilean-page-motion-keys\" style=\"--pilean-still-w:540px;--pilean-still-n:270px;\"' '$two' &&
+  grep -q 'class=\"pilean-page-motion-keys\" style=\"--pilean-still-w:240px;\"' '$pages/Example.quarterTurn/index.html'"
 sketch="$pages/Example.sketch/index.html"
 desc="an illustration's page says so and never names a linked theorem"
 check bash -c "grep -q 'Illustration: no theorem is linked to it' '$sketch' && ! grep -q 'Linked theorem' '$sketch'"

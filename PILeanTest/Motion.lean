@@ -124,10 +124,6 @@ than the cycle shows in the check's duration. Written for the browser check only
 def longCycleMotion : Motion :=
   { turnMotion with pacing := { turn := 12, firstHold := 6, hold := 4, idle := 4, lastHold := 4 } }
 
-/-- The motions written for the browser check besides the golden ones. -/
-def browserOnly : Array (String × Motion) :=
-  #[("motion-long-hold", longHoldMotion), ("motion-long-cycle", longCycleMotion)]
-
 /-! ### Small motions for the rules -/
 
 /-- `turnMotion` with other steps. -/
@@ -798,13 +794,36 @@ def turningMarks (m : Motion) : Bool :=
     | .turn .., some it => it.leaves.any (·.geom.upright)
     | _, _ => false
 
-/-- What `tools/motion-browser-check.py` expects of the motion's SVG, as JSON: the cycle; at the
-middle of each key's rest (and the rest's start and end), every actor's anchor in the key's still
-and every upright group's anchor where the plan draws it (which the rest check holds to the still); and for every turn, its
-centre, the actor's anchor where the turn starts, its angle in SVG's degrees, and the times at a
-quarter, a half and three quarters of the turn with the eased fraction of the turn done then; and
-for every slide (of an actor that does nothing else in its step), the actor's anchors in the two
-keys and the same times and fractions. -/
+/-- The version of the expectations' format (`expectations`, `MotionPanelsChecks.expectations`),
+which the browser checks require: 2 has the rests' ends, the slides, the declared moves and the
+actors' drawings. -/
+def expectationsFormat : Nat := 2
+
+/-- How many turns and slides the motion's steps declare, as JSON. -/
+def declaredMoves (ms : Array Motion) : String :=
+  let count := fun (p : Move → Bool) => ms.foldl (init := 0) fun n m =>
+    m.steps.foldl (init := n) fun n s => n + (s.moves.filter (p ·.2)).size
+  let turns := count fun | .turn .. => true | _ => false
+  let slides := count fun | .slide _ => true | _ => false
+  s!"\{\"turns\": {turns}, \"slides\": {slides}}"
+
+/-- Each actor of `fig` with a fingerprint of its drawing in `e` (the first 16 digits of the
+SHA-256 of its SVG text), as JSON members, its id prefixed by `pfx`: two rests whose fingerprints
+differ draw that actor otherwise, even where its anchor is the same (a morph). -/
+def actorShapes (e : Env) (fig : Figure) (pfx : String := "") : List String :=
+  fig.items.toList.filterMap fun it => it.actorId?.map fun id =>
+    let h := (PILean.Sha256.hex (PILean.Sha256.hash (itemText e fig.svgMode it).toUTF8)).take 16
+    s!"\"{pfx}{Canvas.safeToken id}\": \"{h}\""
+
+/-- What `tools/motion-browser-check.py` expects of the motion's SVG, as JSON (format
+`expectationsFormat`): the cycle; the turns and slides the steps declare; at the middle of each
+key's rest (and the rest's start and end), every actor's anchor in the key's still, every actor's
+drawing as a fingerprint (`actorShapes`), and every upright group's anchor where the plan draws it
+(which the rest check holds to the still); for every turn, its centre, the actor's anchor where
+the turn starts, its angle in SVG's degrees, and the times at a quarter, a half and three quarters
+of the turn with the eased fraction of the turn done then; and for every slide (of an actor that
+does nothing else in its step), the actor's anchors in the two keys and the same times and
+fractions. -/
 def expectations (name : String) (m : Motion) : String :=
   let K := m.keysOf
   let p := m.planIn K K.env
@@ -824,7 +843,8 @@ def expectations (name : String) (m : Motion) : String :=
     let lo := Exact.toFloat ((seg.map (·.start)).getD 0)
     let hi := Exact.toFloat ((seg.map fun s => s.start + s.dur).getD 0)
     s!"\{\"key\": {k}, \"t\": {num t}, \"from\": {num lo}, \"until\": {num hi}, \
-      \"actors\": [{", ".intercalate actors}], \"uprights\": [{", ".intercalate ups}]}"
+      \"actors\": [{", ".intercalate actors}], \"uprights\": [{", ".intercalate ups}], \
+      \"shapes\": \{{", ".intercalate (actorShapes K.env fig)}}}"
   let segs := p.timeline.segments
   let turns := still.toList.flatMap fun L => match L.version.actor with
     | none => []
@@ -857,11 +877,18 @@ def expectations (name : String) (m : Motion) : String :=
           \"to\": {pt b}, \"samples\": [{", ".intercalate samples}]}"
       | .turn .. => none
   let ups := (p.layers.map (·.uprights.size)).foldl (· + ·) 0
-  s!"\{\"name\": \"{name}\", \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
+  s!"\{\"format\": {expectationsFormat}, \"name\": \"{name}\", \"svg\": \"{name}.svg\", \
+    \"poster_png\": \"{name}-poster.png\", \"declared\": {declaredMoves #[m]}, \
     \"cycle\": {num (Exact.toFloat p.timeline.cycle)}, \"uprights\": {ups}, \
     \"turning_marks\": {turningMarks m}, \
     \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}], \
     \"slides\": [{", ".intercalate slides}]}\n"
+
+/-- The motions written for the browser check besides the golden ones: a long first hold, a long
+cycle, and a morph alone (a disk whose radius grows, its anchor unchanged). -/
+def browserOnly : Array (String × Motion) :=
+  #[("motion-long-hold", longHoldMotion), ("motion-long-cycle", longCycleMotion),
+    ("motion-morph", morphMotion true)]
 
 /-- Writes the golden motions and `browserOnly` into `dir` for `tools/motion-browser-check.py`:
 each motion's SVG, the SVG of each key's still, the poster still's PNG and the expectations
