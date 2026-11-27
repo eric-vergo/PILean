@@ -1071,30 +1071,40 @@ def restSpan (tl : Timeline) (k : Nat) : Option (Float × Float) := do
   let b ← segs.back?
   return (Exact.toFloat a.start, Exact.toFloat (b.start + b.dur))
 
-/-- The eased fraction of step `j` of the timeline `base` (undivided) at the fraction `x` of its
-time, with the step's easing as written (its control values to six decimals). -/
-def stepEased (base : Timeline) (j : Nat) (x : Float) : Float :=
-  match base.segments.find? (·.kind = .move j) with
-  | some s =>
-    let (a, b, c, d) := s.easing.controls
-    (Easing.spline (quant 6 a) (quant 6 b) (quant 6 c) (quant 6 d)).eval x
-  | none => x
-
-/-- Samples of step `j` of the timeline `tl` (undivided, `base`), with the eased fraction of the
-step done at each, as JSON: at a quarter, a half and three quarters of its time, and, when the step
-is divided into parts (for the windows of its fades or for a sampled morph), also at every boundary
-between two parts and in the middle of every part, so that a turn is checked inside each part and
-where one part ends and the next begins. -/
-def stepSamplesJson (tl base : Timeline) (j : Nat) : Option String := do
+/-- Samples of step `j` of the timeline `tl` (with `phases` at its boundaries), with
+the fraction of the step's change done at each as written, as JSON: at a quarter, a half and three
+quarters of the whole step's time, and, when the step is divided into parts (for the windows of
+its fades or for a sampled morph), also at every boundary between two parts and in the middle of
+every part, so that a turn or a slide is checked inside each part and where one part ends and the
+next begins. The fraction is the part's: its value at the part's start and end
+(`MotionPhase.progress`) interpolated with the part's easing as written (six decimals), which is
+the step's eased fraction for an undivided step or one cut at windows (`Easing.part`), and the
+piecewise linear one of a step sampled for a morph. -/
+def stepSamplesJson (tl : Timeline) (phases : Array MotionPhase) (j : Nat) :
+    Option String := do
   let (a, b) ← stepSpan tl j
-  let parts := tl.segments.filter (·.kind = .move j)
-  let inner : List Float := if parts.size ≤ 1 then [] else
-    (parts.toList.drop 1).map (fun s => (Exact.toFloat s.start - a) / (b - a)) ++
-      parts.toList.map fun s =>
-        (Exact.toFloat (s.start + s.dur / 2) - a) / (b - a)
+  let idx := (List.range tl.segments.size).filter fun i =>
+    (tl.segments[i]?.map (·.kind)) == some (.move j)
+  let parts := idx.filterMap fun i => tl.segments[i]?.map (i, ·)
+  let inner : List Float := if parts.length ≤ 1 then [] else
+    (parts.drop 1).map (fun (_, s) => (Exact.toFloat s.start - a) / (b - a)) ++
+      parts.map fun (_, s) => (Exact.toFloat (s.start + s.dur / 2) - a) / (b - a)
   let xs := [0.25, 0.5, 0.75] ++ inner
+  let fracAt := fun (t : Float) =>
+    -- the last part that starts no later than `t`
+    match (parts.filter fun (_, s) => Exact.toFloat s.start ≤ t + 1e-12).getLast? with
+    | none => 0
+    | some (i, s) =>
+      let fa := Exact.toFloat ((phases.getD i default).progress j)
+      let fb := Exact.toFloat ((phases.getD (i + 1) default).progress j)
+      let d := Exact.toFloat s.dur
+      let u := if d > 0 then (t - Exact.toFloat s.start) / d else 1
+      let (c₁, c₂, c₃, c₄) := s.easing.controls
+      let e := Easing.spline (quant 6 c₁) (quant 6 c₂) (quant 6 c₃) (quant 6 c₄)
+      fa + (fb - fa) * e.eval (min 1 (max 0 u))
   let samples := xs.map fun (x : Float) =>
-    s!"\{\"t\": {num (a + x * (b - a))}, \"f\": {num (stepEased base j x)}}"
+    let t := a + x * (b - a)
+    s!"\{\"t\": {num t}, \"f\": {num (fracAt t)}}"
   return s!"[{", ".intercalate samples}]"
 
 /-- The fades of a motion as the expectations list them, from its plan `p` on the timeline `tl`
@@ -1205,7 +1215,7 @@ def expectations (name : String) (m : Motion) : String :=
     | some id => L.links.toList.filterMap fun
       | .turn j c deg => do
         let start ← anchorOf (K.figure j) id
-        let samples ← stepSamplesJson tl base j
+        let samples ← stepSamplesJson tl p.phases j
         return s!"\{\"id\": \"{Canvas.safeToken id}\", \"step\": {j}, \"centre\": {pt c}, \
           \"start\": {pt start}, \"sweep\": {num deg}, \"samples\": {samples}}"
       | .slide .. => none
@@ -1218,7 +1228,7 @@ def expectations (name : String) (m : Motion) : String :=
         guard ((L.links.filter (·.step == j)).size == 1)
         let a ← anchorOf (K.figure j) id
         let b ← anchorOf (K.figure (j + 1)) id
-        let samples ← stepSamplesJson tl base j
+        let samples ← stepSamplesJson tl p.phases j
         return s!"\{\"id\": \"{Canvas.safeToken id}\", \"step\": {j}, \"from\": {pt a}, \
           \"to\": {pt b}, \"samples\": {samples}}"
       | .turn .. => none
@@ -1269,12 +1279,25 @@ def crowdMotion : Motion where
   info := testInfo
   checks := .warn
 
+/-- A disk that grows through exact figures between its keys, sampled in twelve intervals, while a
+point slides across in the same step: the slide follows the step's eased motion piecewise linearly
+through the samples, and its expectations sample the whole step, not its first interval. -/
+def morphSlideMotion : Motion :=
+  let fig := fun (q : Rat) =>
+    let items := corners ++ #[Plane.disk ⟨0, 0⟩ (1 + Exact.toFloat q) |>.actor "D",
+      Plane.Exact.point ((-3 + 6 * q, (5 / 2 : Rat)) : Q) |>.accent 1 |>.actor "S"]
+    ({ items } : Figure)
+  { keys := #[fig 0, fig 1], captions := #["Start.", "End."], info := testInfo,
+    steps := #[{ moves := #[("D", .morph),
+      ("S", Plane.Exact.slideFromTo ((-3, 5 / 2) : Q) (3, 5 / 2))], duration := some (6 / 5) }],
+    morphSamples := 12, between := fun j q => if j == 0 then some (fig q) else none }
+
 /-- The motions written for the browser check besides the golden ones: a long first hold, a long
 cycle, and a morph alone (a disk whose radius grows, its anchor unchanged). -/
 def browserOnly : Array (String × Motion) :=
   #[("motion-long-hold", longHoldMotion), ("motion-long-cycle", longCycleMotion),
     ("motion-morph", morphMotion true), ("motion-crowd", crowdMotion),
-    ("motion-steep", steepMotion)]
+    ("motion-steep", steepMotion), ("motion-morph-slide", morphSlideMotion)]
 
 /-- Writes the golden motions and `browserOnly` into `dir` for `tools/motion-browser-check.py`:
 each motion's SVG, the SVG of each key's still, the poster still's PNG and the expectations

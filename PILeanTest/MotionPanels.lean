@@ -730,7 +730,7 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
       | some id => L.links.toList.filterMap fun
         | .turn j c deg => do
           let start ← anchorOf pr (pr.keys.figure j) id
-          let samples ← MotionChecks.stepSamplesJson r.timeline base j
+          let samples ← MotionChecks.stepSamplesJson r.timeline r.phases j
           return s!"\{\"id\": \"{pr.idPrefix}{Canvas.safeToken id}\", \"step\": {j}, \
             \"centre\": {pt c}, \"start\": {pt start}, \"sweep\": {num deg}, \
             \"samples\": {samples}}"
@@ -744,7 +744,7 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
           guard ((L.links.filter (·.step == j)).size == 1)
           let a ← anchorOf pr (pr.keys.figure j) id
           let b ← anchorOf pr (pr.keys.figure (j + 1)) id
-          let samples ← MotionChecks.stepSamplesJson r.timeline base j
+          let samples ← MotionChecks.stepSamplesJson r.timeline r.phases j
           return s!"\{\"id\": \"{pr.idPrefix}{Canvas.safeToken id}\", \"step\": {j}, \
             \"from\": {pt a}, \"to\": {pt b}, \"samples\": {samples}}"
         | .turn .. => none

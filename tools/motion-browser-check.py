@@ -390,6 +390,20 @@ RATIO = """async ([a, b, c, d]) => {
 }"""
 
 
+def settled_shot(page, clip, tries=6):
+    """A screenshot of `clip` once the picture has settled: taken again, 50 ms apart, until two in
+    a row are the same (at most `tries`). A paused document sought to a time, or whose animations
+    were just changed, can be screenshot before it is painted anew."""
+    shot = page.screenshot(clip=clip)
+    for _ in range(tries):
+        page.wait_for_timeout(50)
+        again = page.screenshot(clip=clip)
+        if again == shot:
+            return shot
+        shot = again
+    return shot
+
+
 def drawn_opacity(page, clip, t, ident, nth, expected=None):
     """The opacity of the nth layer of the actor `ident` as drawn at time `t`, measured from the
     pixels (`RATIO`) of four pictures: as shown; without the layer; with every opacity animation
@@ -403,16 +417,16 @@ def drawn_opacity(page, clip, t, ident, nth, expected=None):
     is missing."""
     if page.evaluate(OPACITY, [t, ident, nth]) is None:
         return None, -1
-    shown = page.screenshot(clip=clip)
+    shown = settled_shot(page, clip)
     page.evaluate(LAYER, [ident, nth, "hide"])
     page.evaluate(OPACITY, [t, ident, nth])
-    hidden = page.screenshot(clip=clip)
+    hidden = settled_shot(page, clip)
     page.evaluate(LAYER, [ident, nth, "opaque"])
     page.evaluate(OPACITY, [t, ident, nth])
-    opaque = page.screenshot(clip=clip)
+    opaque = settled_shot(page, clip)
     page.evaluate(LAYER, [ident, nth, "hide"])
     page.evaluate(OPACITY, [t, ident, nth])
-    opaque_hidden = page.screenshot(clip=clip)
+    opaque_hidden = settled_shot(page, clip)
     page.evaluate(LAYER, [ident, nth, "restore"])
     o, pixels, apart = page.evaluate(RATIO, [uri(shown), uri(hidden), uri(opaque),
                                              uri(opaque_hidden)])
@@ -680,13 +694,19 @@ def check(browser, root, name):
     opacity_err, opacity_read, opacity_off, opacity_missing = opacity_errors(page, spec)
     drawn_err, drawn_read, drawn_na = 0.0, 0, 0
     for e in spec["opacities"]:
+        # a page of its own for each fade: animations whose values were held and put back leave
+        # Chromium drawing some later sample of the same document as it was held
+        dpage = browser.new_page(viewport=VIEWPORT)
+        dpage.goto("file://" + path)
+        dpage.evaluate("document.documentElement.pauseAnimations()")
         for s in e["samples"]:
-            o, pixels = drawn_opacity(page, clip, s["t"], e["id"], e["nth"], s["o"])
+            o, pixels = drawn_opacity(dpage, clip, s["t"], e["id"], e["nth"], s["o"])
             if o is not None:
                 drawn_read += 1
                 drawn_err = max(drawn_err, abs(o - s["o"]))
             elif pixels == 0:
                 drawn_na += 1
+        dpage.close()
     if opacity_missing:
         ok = False
         print(f"{name}: no element for the fading {sorted(set(opacity_missing))}")
