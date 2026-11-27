@@ -1076,7 +1076,9 @@ the fraction of the step's change done at each as written, as JSON: at a quarter
 quarters of the whole step's time, and, when the step is divided into parts (for the windows of
 its fades or for a sampled morph), also at every boundary between two parts and in the middle of
 every part, so that a turn or a slide is checked inside each part and where one part ends and the
-next begins. The fraction is the part's: its value at the part's start and end
+next begins, each time a whole number of milliseconds (Firefox seeks a paused document to the
+millisecond: a slide fast through a sampled step was read 0.23 px off at times between). The
+fraction is the part's: its value at the part's start and end
 (`MotionPhase.progress`) interpolated with the part's easing as written (six decimals), which is
 the step's eased fraction for an undivided step or one cut at windows (`Easing.part`), and the
 piecewise linear one of a step sampled for a morph. -/
@@ -1102,8 +1104,9 @@ def stepSamplesJson (tl : Timeline) (phases : Array MotionPhase) (j : Nat) :
       let (c₁, c₂, c₃, c₄) := s.easing.controls
       let e := Easing.spline (quant 6 c₁) (quant 6 c₂) (quant 6 c₃) (quant 6 c₄)
       fa + (fb - fa) * e.eval (min 1 (max 0 u))
+  -- whole milliseconds: Firefox seeks a paused document to the millisecond
   let samples := xs.map fun (x : Float) =>
-    let t := a + x * (b - a)
+    let t := ((a + x * (b - a)) * 1000).round / 1000
     s!"\{\"t\": {num t}, \"f\": {num (fracAt t)}}"
   return s!"[{", ".intercalate samples}]"
 
@@ -1128,7 +1131,8 @@ def opacitiesJson (m : Motion) (p : MotionPlan) (F : MotionFades) (base : Timeli
     let ms := (p.markersAt tt).filter (·.1 == s!"actor {Canvas.safeToken id}")
     ((ms[n]?).map (·.2.2.1)).getD 0
   let one := fun (id kind : String) (n : Nat) (t0 t1 : Float) =>
-    let ts := [t0 - 0.05, (t0 + t1) / 2, t1 + 0.05]
+    -- whole milliseconds: Firefox seeks a paused document to the millisecond
+    let ts := [t0 - 0.05, (t0 + t1) / 2, t1 + 0.05].map fun t => (t * 1000).round / 1000
     let samples := ts.map fun t =>
       let tt := t - cycle * (t / cycle).floor
       s!"\{\"t\": {num tt}, \"o\": {num (markerAt id n t)}}"
