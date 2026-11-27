@@ -288,8 +288,9 @@ that end in `Unchecked`.
   are not reported. In both, a move that misses its key is drawn as a crossfade, and the files
   are written. Whatever the level, a motion is stopped when it is not well formed (a caption per
   key, one step fewer than keys, the poster among the keys), when its written picture has an id
-  twice (actor ids that differ but are written alike, such as `a b` and `a_b`), and, for a
-  picture of panels, when its panels use different text engines. A stopped motion renders no
+  twice (actor ids that differ but are written alike, such as `a b` and `a_b`), when its poster
+  is a key that is not a still (`MotionKey.still`), and, for a picture of panels, when its panels
+  use different text engines. A stopped motion renders no
   file: every output fails with the messages of what stops it and has no inline picture, theme or
   page data, and `pilean-build` exits with status 1 having written nothing. A narrow rendition is
   also stopped by its own errors under `fail`.
@@ -300,10 +301,14 @@ that end in `Unchecked`.
   (`fail`, `warn`, `ignore`), the number of problems that the strict level (`fail`) treats as
   errors and that did not stop it (`errorsLeft`; the motion is checked as at `fail` to count them,
   whatever level it was built at, so a problem `warn` turns into a note still counts; the errors
-  of a rendition that is stopped are not left), and whether it has a narrow rendition (`narrow`).
+  of a rendition that is stopped are not left), whether it has a narrow rendition (`narrow`), and,
+  when some key is not a still, the keys that are (`stills`: `;stills=0,1,3` at the end of the
+  source record's value, `"stills": [0, 1, 3]` in the manifest; written for no other motion).
   Reading the manifest also requires that the files of a motion list exactly the animated SVG and
-  the key stills it counts, at each width the record says it has (`motionKeyProblem?`), so a
-  folder without the narrow rendition its motion records is refused. Its standing is recorded as
+  the stills it counts (the SVG and PNG of every key, or of exactly the keys `stills` lists, each
+  named by its key), at each width the record says it has (`motionKeyProblem?`), so a folder
+  without the narrow rendition its motion records, or with a still of a key the record does not
+  count as one, is refused. Its standing is recorded as
   for any figure.
 * **Strict by default.** `renderOutput`, which `pilean-build` and the Verso adapters' site builds
   both use, refuses every output of a motion that was not checked strictly (built at a level
@@ -315,16 +320,20 @@ that end in `Unchecked`.
   record; the moving picture without the file's `title`, `desc`, reduced-motion `style` element
   and poster group (`live`, with the theme's colour pairs, which the manifest records as for any
   inline picture), so that a page's own rules decide what is shown under reduced motion; the
-  stills with their captions and the poster (`stills`, a `FrameSet` whose picture `k` is the file
-  `-key-k`'s picture); and the table of the steps (`MotionStepRow`: per step its duration, whether
-  it is idle, and each move with its panel, actor, kind, centre and exact fraction of a turn or
-  vector, and what the animation draws for it: the move, or `crossfade` when it does not land).
+  stills with their captions and the poster's position among them (`stills`, a `FrameSet` whose
+  picture `i` is the file `-key-k`'s picture, `k` the key `stillKeys` gives for it); the table of
+  the steps (`MotionStepRow`: per step its duration, whether it is idle, and each move with its
+  panel, actor, kind, centre and exact fraction of a turn or vector, the window of a fade in part
+  of its step, and what the animation draws for it: the move, or `crossfade` when it does not
+  land); and every rest (`MotionRestRow`: its key, its duration, whether the key is a still, and
+  the fades during it with their windows).
   The file's root holds, in order, the title and description, that `style` element, the nodes of
   `live`, and the poster group, so a site check can rebuild the file from what the page shows; the
   tests check this for every golden motion.
 * **What a page may say.** The standing ("Illustration." or the linked theorem), then
   `MotionData.words`: "An animation drawn from N key frames; the stills are the key figures as
-  drawn.", then what the browser does between key frames, built from the moves the animation
+  drawn." (with ", S of them shown as stills" after "key frames" when some key is not a still),
+  then what the browser does between key frames, built from the moves the animation
   draws (`MotionData.betweenWords`: it turns drawn items about the stated centres, slides them
   along the stated vectors, fades items in or out, changes the outlines of drawn items,
   crossfades items whose declared move does not land, crossfades items that change without a
@@ -343,25 +352,41 @@ that end in `Unchecked`.
   picture's key `MotionPanelsReport.keyStillSvg k` and `keyStillPng k`), and the record says the
   level and whether errors were left. At `fail` with no error left: each declared turn or slide
   carries its actor onto the next key (within 0.01 px), the whole baked drawing is within 0.05 px
-  of the still at every rest, and the written SVG read back agrees with the baked drawing
-  (`Motion.problems`; for panels, the same for every panel and for the composed picture). At
+  of the still at every rest (in the part of the rest after its fades), and the written SVG read
+  back agrees with the baked drawing in every actor's position and opacity at the middle of every
+  segment of the timeline, the parts of a divided step or rest included (`Motion.problems`; for
+  panels, the same for every panel and for the composed picture). A key that is not a still is
+  checked as every key is (its arrival, its rest, the writer at its rest); only its still is not
+  written, and nothing of it is recorded but its place in the record's count of keys. Every fade
+  declared in a rest or in part of a step is checked against its keys (an appearance's actor in
+  its key and not in the one before, a disappearance's the other way round, the actor not moving
+  in the step before a rest it fades in, one fade per actor, its window inside its rest or step,
+  the rest going on after its last fade, the windows of one rest apart or the same), and every
+  step cut at the ends of windows keeps its easing exactly (`Easing.part`) or the motion has an
+  error. At
   `warn` or `ignore`, none of that holds for the steps the strict level's errors name: the record
   says the level and the number of such errors (`errorsLeft`), the step table marks each move
   drawn as a crossfade, and the page must say so; by default no build writes such a motion. The browser's drawing between the keys is not part of the build at any level:
-  `tools/motion-browser-check.py` measures it in Chromium, outside `lake test`. An illustration
+  `tools/motion-browser-check.py` measures it in Chromium and Firefox (and
+  `tools/webkit/webkit_check.py` the positions and opacities in WebKit), outside `lake test`:
+  positions at every rest and through every turn and slide, and the opacity of every appearance
+  and disappearance before, in and after its window. An illustration
   carries no theorem, and a linked theorem says what its statement says.
 * **What a page that shows a motion must do.** A page adapter:
   1. reads `Output.motionPage` only from an output whose `renderOutput` succeeded (a stopped or
      refused motion gives no file and must give no page);
   2. shows `MotionData.words`, which includes `MotionData.checkWords` whenever
      `MotionData.unchecked` holds;
-  3. renders the step table with `MotionMoveRow.words`;
+  3. renders the step table with `MotionMoveRow.words` (which name a fade's window), and the rests
+     with fades or of keys that are not stills (`MotionData.rests`);
   4. escapes every string from the rows, the panel names and the captions (`MotionMoveRow.actor`
      is the author's string as written);
   5. extends its site check of inline pictures to motions: skip the motion's own `title` and
      `desc`, then the source record; require the `style` element to be the fixed
      `Animation.reducedMotionStyle`; check the poster group against key `poster`'s still with the
-     `poster-` id prefix; compare `live` with the file element for element;
+     `poster-` id prefix; compare `live` with the file element for element; name each still's
+     files by its key (`MotionData.stillKeys`) and count the stills, not the keys, in its
+     captions;
   6. asserts the manifest's `checks` and `errorsLeft` (`fail`, `0`) for every motion it shows.
 
   The Verso adapters do so (`docs/DESIGN.md`, "A motion shown in a page"). (1) The site's build

@@ -101,12 +101,12 @@ def cycleOfText? (t : String) : Option Rat := do
 
 /-- What every file of a motion records about it, in its source record (the key `motion`,
 `MotionSummary.text`) and in the manifest (the keys `kind`, `keys`, `cycle`, `captions`, `checks`,
-`errorsLeft` and `narrow`): the number of its key frames, the length of its cycle in seconds,
-exactly, the number of its captions, the level its checks were applied at (`fail`, `warn` or
-`ignore`), the number of problems that the strict level (`fail`) treats as errors and that did not
-stop it (`errorsLeft`: always `0` at `fail`, where an error stops it), and whether it has a narrow
-rendition. Only a motion recorded with `checks` `fail` was stopped by every error its checks
-find. -/
+`errorsLeft`, `narrow` and, when some key is not a still, `stills`): the number of its key frames,
+the length of its cycle in seconds, exactly, the number of its captions, the level its checks were
+applied at (`fail`, `warn` or `ignore`), the number of problems that the strict level (`fail`)
+treats as errors and that did not stop it (`errorsLeft`: always `0` at `fail`, where an error stops
+it), whether it has a narrow rendition, and the keys that are stills when some key is not one. Only
+a motion recorded with `checks` `fail` was stopped by every error its checks find. -/
 structure MotionSummary where
   /-- The number of key frames. -/
   keys : Nat

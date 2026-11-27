@@ -251,7 +251,7 @@ def motionStepTable (rows : Array MotionStepRow) (rests : Array MotionRestRow :=
           .element "td" #[] (txt (secondsText r.duration)),
           .element "td" #[] (if r.fades.isEmpty then txt "Nothing moves."
             else .element "ul" #[("class", "pilean-motion-moves")] (.seq (r.fades.map move)))])]
-    | none => #[]
+    | Option.none => #[]
   let body := rows.flatMap fun row =>
     let what : Html :=
       if row.moves.isEmpty then

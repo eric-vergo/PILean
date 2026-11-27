@@ -14,9 +14,10 @@ A timeline built from `n` steps (`Timeline.build`) has `n + 1` key frames, and:
   the fade out last under a crossfade; so there are `2 (n + 1) - 1` segments under a cut and
   `2 (n + 1) + 1` under a crossfade (`build_size_cut`, `build_size_crossfade`).
 * `build_segment_spec`, `build_move_spec`, `build_rest_spec`, `build_seam_spec`: the move of step
-  `j` lasts as long as step `j` and has its easing; the rest on key `0` lasts `firstHold`, the rest
-  on the last key `lastHold`, any other rest `hold`; the fades, which exist only under a crossfade
-  `d`, last `d / 2` each; rests and fades are not eased (a negative duration counting as zero).
+  `j` lasts as long as step `j` and has its easing; the rest on key `k` lasts `Pacing.restOf k`
+  (`restOf_own`, `restOf_default`: a key's own rest, else `firstHold` on key `0`, `lastHold` on the
+  last key, any other rest `hold`); the fades, which exist only under a crossfade `d`, last `d / 2`
+  each; rests and fades are not eased (a negative duration counting as zero).
 * `build_start_zero`, `build_start_succ`, `build_stop_last`, `build_dur_nonneg`: the segments tile
   the cycle: the first starts at `0`, each starts where the one before it ends, the last ends at
   the end of the cycle, and none has a negative duration.
@@ -25,6 +26,9 @@ A timeline built from `n` steps (`Timeline.build`) has `n + 1` key frames, and:
   is longer than zero, `build_cycle_pos`) and never decrease.
 * `wrap_mem`, `segmentAt_mem`, `progress_mem`: any time, brought into the cycle, lies in the
   segment `segmentAt` names, and the progress through that segment is in `[0, 1)`.
+* `divide_tiles`, `divide_dur_nonneg`: divided into parts each list of which ends at `1`
+  (`Timeline.divide`), the segments still tile the cycle (`Tiles`), and no part lasts less than
+  zero when the parts' ends do not decrease from `0`.
 
 All of these are equalities and inequalities of rational numbers. For one key frame (no steps) the
 timeline is the rest on key `0` (with the fade in and out under a crossfade): one segment under a
@@ -33,7 +37,8 @@ frames cannot be asked for: `build` always has key `0`. A cycle of length zero (
 zero) is allowed: then every key time is `0`, and the statements that need a cycle longer than
 zero say so.
 
-Not proved: anything about `Easing.eval` (floating point; tested against known values).
+Not proved: anything about `Easing.eval` and `Easing.part` (floating point; tested against known
+values and against each other).
 -/
 
 namespace PILean.Anim
@@ -556,7 +561,8 @@ tile its cycle: the first starts at `0`, each starts where the one before it end
 ends at the end of the cycle. -/
 theorem divide_tiles (parts : Segment → List (Rat × Easing))
     (hp : ∀ s, parts s = [] ∨ (parts s).getLast?.map (·.1) = some 1) :
-    Tiles 0 ((build steps p).divide parts).segments.toList ((build steps p).divide parts).cycle := by
+    Tiles 0 ((build steps p).divide parts).segments.toList
+      ((build steps p).divide parts).cycle := by
   simp only [divide, List.toList_toArray]
   have h := tiles_layout 0 (pieces steps p)
   rw [Rat.zero_add, ← build_cycle, ← build_segments] at h

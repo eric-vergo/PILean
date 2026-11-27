@@ -913,7 +913,8 @@ def featureChecks : Array (String × Bool) := Id.run do
   r := r.push ("motion stills: a poster that is not a still is an error and stops the motion at \
       every level (mutation)",
     hasError { m with poster := 2 } "which is not a still" &&
-      (PILean.Trust.ToCheckedMotion.checked ({ m with poster := 2, checks := .warn } : Motion)).stopped)
+      (PILean.Trust.ToCheckedMotion.checked
+        ({ m with poster := 2, checks := .warn } : Motion)).stopped)
   r := r.push ("motion stills: a caption of a key that is not a still is a note",
     hasNote { m with captions := m.captions.set! 2 "Passed through." } "is not a still")
   -- the timeline: the rest on key 1 and the turn about B divided at the windows' ends
@@ -1163,7 +1164,8 @@ def expectations (name : String) (m : Motion) : String :=
     let hi := Exact.toFloat ((seg.map fun s => s.start + s.dur).getD 0)
     s!"\{\"key\": {k}, \"still\": {m.isStill k}, \"t\": {num t}, \"from\": {num lo}, \
       \"until\": {num hi}, \"actors\": [{", ".intercalate actors}], \
-      \"uprights\": [{", ".intercalate ups}], \"shapes\": \{{", ".intercalate (actorShapes K.env fig)}}}"
+      \"uprights\": [{", ".intercalate ups}], \
+      \"shapes\": \{{", ".intercalate (actorShapes K.env fig)}}}"
   let tl := p.timeline
   let turns := still.toList.flatMap fun L => match L.version.actor with
     | none => []

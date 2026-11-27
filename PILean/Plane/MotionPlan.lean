@@ -42,6 +42,13 @@ slide in its layer (a later one starts a new layer, which crossfades). A morph w
 between its keys (`Motion.between`) is sampled at `morphSamples` steps of equal time, during
 which every animation of the picture runs at constant speed.
 
+**Fades in part of a step or of a rest** (`Motion.fadesOn`) cut their step or rest at the ends of
+their windows (`divideSegments`): a part of a step is eased as that part of the step is
+(`Easing.part`), so every animation of the step keeps its eased motion; a part of a rest that is a
+fade's window is eased with the pacing's easing. A layer's opacity is given at every boundary from
+the phase there (`MotionPhase`, with the fraction of the rest or of the step's time done) and its
+fades (`LayerFades`).
+
 **The internal form for several motions on one clock.** Every animated value is a function of
 a `MotionPhase` (a key, or a fraction of a step), evaluated at the boundaries of the timeline; the
 plan is computed in a drawing environment on a given timeline (`Motion.planOn`; `Motion.planIn`
@@ -52,8 +59,9 @@ motion out in a frame of its own (its origin shifted) on the timeline they share
 
 * `MotionPhase`, `MotionClock`, `MotionLink`, `MotionLayer`, `MotionUpright`,
   `MotionPlan`, `Motion.planLayers`, `Motion.planOn`, `Motion.planIn`, `Motion.plan`.
-* `sampledSegments`, `Motion.segments`, `Motion.timelineOf`, `Motion.phasesOf`,
-  `Motion.timeline`, `seamOf`.
+* `MotionDivision`, `cutsOf`, `divideSegments`, `sampledSegments`, `MotionFades`, `LayerFades`,
+  `Motion.baseTimeline`, `Motion.fadesOn`, `Motion.divisionOn`, `Motion.segments`,
+  `Motion.inexactSteps`, `Motion.timelineOf`, `Motion.phasesOf`, `Motion.timeline`, `seamOf`.
 * `MotionPlan.toNodesUnchecked`, `MotionPlan.contentNodes`, `MotionPlan.figureAtUnchecked`,
   `MotionPlan.contentAt`, `MotionPlan.markersAt`.
 
@@ -187,7 +195,8 @@ def divideSegments (base : Timeline) (d : MotionDivision) :
           let at_ := fun (τ : Rat) => (
             if τ ≥ 1 then after else if τ == 0 then { key := j, frac := 0 }
             else { key := j, frac := easedFrac s.easing τ, time := τ } : MotionPhase)
-          let segs := s.divide ((ends.zip eased).map fun (b, (e : Option Easing)) => (b, e.getD .linear))
+          let segs := s.divide ((ends.zip eased).map fun (b, (e : Option Easing)) =>
+            (b, e.getD .linear))
           ((segs.zip (starts.zip ends)).toArray.map fun (seg, a, b) => (seg, at_ a, at_ b),
             if eased.all (·.isSome) then none else some j)
   (parts.flatMap (·.1), parts.filterMap (·.2))
@@ -446,7 +455,8 @@ changes it in its window, with the step's progress through the window (from the 
 window's start to that of its end among `phases`). -/
 def opacityAt (F : LayerFades) (phases : Array MotionPhase) (φ : MotionPhase) : Float :=
   let vis := fun (k : Nat) => if v.visible k then (1 : Rat) else 0
-  let ramp := fun (x a b : Rat) => if x ≤ a then (0 : Rat) else if x ≥ b then 1 else (x - a) / (b - a)
+  let ramp := fun (x a b : Rat) =>
+    if x ≤ a then (0 : Rat) else if x ≥ b then 1 else (x - a) / (b - a)
   -- the level in the rest on key `k`, at the fraction `r` of the rest
   let level := fun (k : Nat) (r : Rat) =>
     match (if k == v.first then F.restIn else none), (if k == v.last + 1 then F.restOut else none)

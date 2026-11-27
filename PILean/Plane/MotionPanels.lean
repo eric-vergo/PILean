@@ -19,7 +19,11 @@ description are the picture's.
   picture's own duration for the step (`MotionPanels.timing`); a panel's step does not set a
   duration or an easing of its own. A morph sampled in one panel (`Motion.between`) divides the
   step for every panel at the same times (`sampledSegments`), so the other panels' turns follow
-  their eased motion piecewise linearly there, as in a single motion. Panels that sample one step
+  their eased motion piecewise linearly there, as in a single motion. The fades of every panel in
+  part of a step or of a rest cut it for every panel at the ends of their windows
+  (`divideSegments`), each part of a step eased as that part of the step is; a key's rest and
+  whether it is a still are the picture's (`MotionPanels.keyOptions`), and the fades belong to the
+  panels' keys. Panels that sample one step
   in different numbers of intervals are sampled in their least common multiple when each one's
   figures between its keys answer at its fractions (`Motion.stepSamples`); otherwise the step is
   drawn unsampled (each morph interpolated directly between its keys, or crossfaded where it
@@ -50,7 +54,10 @@ description are the picture's.
   and step checks, the layout checks of its keys, the stacking order, the rest check of its whole
   drawing against its stills, its writer against its baker and what leaves its panel while it
   moves, all on the shared timeline), labelled with the panel, then the problems of the picture:
-  unequal numbers of keys, captions that are not one per key, sampling the panels disagree on, two
+  unequal numbers of keys, captions that are not one per key, sampling the panels disagree on, a
+  rest that is not longer than zero, a poster that is not a still, fades declared by the picture's
+  keys, a panel's key that sets its own rest or still, windows of one rest that overlap across the
+  panels without being the same, a step whose easing cannot be divided exactly, two
   panels with one title, a gap below zero, a panel whose content or title does not fit its share,
   a panel's own step timing, a line or a ray in a panel (drawn to the edge of the whole page),
   panels on different backgrounds, an id twice in the document, and the composed picture's own
@@ -64,7 +71,9 @@ description are the picture's.
 * `MotionPanel`, `PanelTiming`, `PanelScale`, `PanelArrangement`, `MotionPanels`,
   `MotionPanels.WellFormed`, `MotionPanels.narrow`, `panelPrefix`.
 * `MotionPanels.stepAt`, `MotionPanels.animSteps`, `MotionPanels.baseTimeline`,
-  `MotionPanels.timelineOf`.
+  `MotionPanels.timelineOf`, `MotionPanels.timelineOn`, `MotionPanels.keyOption`,
+  `MotionPanels.isStill`, `MotionPanels.stillKeys`, `MotionPanels.stillCaptions`,
+  `MotionPanels.restPacing`.
 * `PanelPlace`, `PanelsLayout`, `titleFit`, `MotionPanels.layout`, `MotionPanels.panelMotion`.
 * `PanelReport`, `MotionPanelsReport`, `MotionPanels.report`, `MotionPanelsReport.svg?`,
   `MotionPanelsReport.animation?`, `MotionPanelsReport.svgRootUnchecked`,
@@ -74,8 +83,8 @@ description are the picture's.
 
 ## Main results
 
-* `MotionPanels.timelineOf_keys`, `MotionPanelsReport.timeline_keys`: the shared timeline has the
-  picture's number of keys.
+* `MotionPanels.timelineOf_keys`, `MotionPanels.timelineOn_keys`,
+  `MotionPanelsReport.timeline_keys`: the shared timeline has the picture's number of keys.
 * `MotionPanels.report_timeline`: every panel's plans are laid out on the shared timeline.
 * `MotionPanelsReport.panel_anim_eq`: every animation element a panel's plan builds has the timing
   of the shared timeline.

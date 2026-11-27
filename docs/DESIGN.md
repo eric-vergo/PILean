@@ -1189,7 +1189,9 @@ angle (0.5°), that labels and markers are not turned (0.01°) and are all there
 shows the still and switching it off again shows the running clock (switched on inside one key's
 rest and off again for a moment inside a later key's rest that certainly draws another picture, from
 the rests' ends in the expectations; the check fails when the two moments draw the same picture,
-since a frozen picture would then pass), and that the picture plays. A golden fixture with a first
+since a frozen picture would then pass), that every appearance and disappearance has, before, in
+and after its window, the opacity the plan has then (so a mark that never fades in fails), and
+that the picture plays. A golden fixture with a first
 hold of 2 seconds (`motion-long-hold`, written for the browser check only) is the case where fixed
 moments would both fall in the first rest.
 
@@ -1387,8 +1389,8 @@ motion declared as `d` with `n` keys the files are:
 |---|---|---|
 | (none) | SVG | the animated SVG; for a page also its body without the file's own reduced-motion `style` and poster group (`MotionData.live`), the stills with their captions and the step table (`Output.motionPage`) |
 | `-poster` | PNG, PDF | the poster key's still |
-| `-keys` | SVG, PNG, PDF | the contact sheet: the title, then every key's still at its own size in a grid with its caption wrapped below it (`sheetOf`, one drawing, written like a frame of an explorer; its SVG with a `title` and a `desc` listing the captions); for print, PDF and the LeAnTeX path |
-| `-key-k` | SVG, PNG | the still of key `k` (from 0): for a motion, byte for byte the files of `Motion.keyFigure k` (through `ExplorerFrame.ofPlane` and `stillOutputs`); for a picture of panels, `keyStillSvg k` and `keyStillPng k` |
+| `-keys` | SVG, PNG, PDF | the contact sheet: the title, then every still at its own size in a grid with its caption wrapped below it (`sheetOf`, one drawing, written like a frame of an explorer; its SVG with a `title` and a `desc` listing the captions); for print, PDF and the LeAnTeX path |
+| `-key-k` | SVG, PNG | the still of key `k`, for every key `k` that is a still (every key, from 0, unless some key is not one): for a motion, byte for byte the files of `Motion.keyFigure k` (through `ExplorerFrame.ofPlane` and `stillOutputs`); for a picture of panels, `keyStillSvg k` and `keyStillPng k` |
 | `-narrow`, `-narrow-key-k` | SVG; SVG, PNG | the narrow rendition and its stills: a picture of panels with a `narrowWidth` (stacked panels); a single motion has none |
 | (none) | APNG, GIF | the baked frames, only with `MotionFigure.rasters` |
 
@@ -1419,8 +1421,13 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   still (`span.pilean-motion-still`, hidden from assistive technology): the poster key's files,
   light and dark, the narrow rendition's as the source for small screens. After the stage comes
   the ordered list of stills `ol.pilean-motion-keys`, named "The key frames of Figure N": each
-  key's still as a picture of its files (`-key-k`, `-narrow-key-k`, the `-dark` twins that follow
-  the page's theme), loaded lazily, with its caption "Step k of N: …". Assistive technology reads
+  still as a picture of its files (`-key-k`, `-narrow-key-k`, the `-dark` twins that follow the
+  page's theme; `k` its key, `MotionData.stillKeys`), loaded lazily, with its caption "Step k of
+  N: …", where `k` counts the stills and `N` is their number (a key that is not a still has no
+  step here). Each picture's `img` carries the wide file's `width` and `height`, and its
+  `source` for small screens the narrow file's own, so a lazy still reserves the box it is drawn
+  in at every width (a `source` without them would leave the wide file's box until the narrow
+  file loads: measured, a box 203 pixels tall becoming 668). Assistive technology reads
   the picture's text alternative, then the list once while motion is on; with motion off the
   stage is hidden from it and only the list is read. The moving picture gets no declaration
   links: hovering or focusing it shows the still instead, so they could not be reached.
@@ -1453,6 +1460,22 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   grid with their captions. Without JavaScript the same, by the stylesheet alone. Small screens
   (560 pixels or less, the plane figures' breakpoint): the narrow rendition, and the narrow
   stills.
+* **Why the poster under hover and focus.** Pointing at the picture, focusing it or clicking it is
+  the reader's way to stop the motion in the page without a script (moving content that starts
+  by itself and lasts more than five seconds needs a way to pause, stop or hide it, WCAG 2.2,
+  2.2.2), beside turning motion off. The still shown is the poster key's, which makes the picture
+  jump to another state when the pointer arrives in the middle of the cycle. The alternatives
+  weighed: freezing the picture where its clock is needs `SVGSVGElement.pauseAnimations()`, a
+  script, since no style rule pauses SMIL (`animation-play-state` reaches CSS animations only);
+  dimming it, or laying something over it, leaves it moving, so it stops nothing; and the still
+  of the key nearest the moment cannot be chosen by a style rule, which cannot read the SMIL
+  clock: a CSS animation stepping through the stills beside it would be a second clock, started
+  when its style applies rather than when the picture's timeline starts, drifting from it, and
+  in the middle of a move no key is the moment's either. The poster stays: one chosen state, the
+  same each time (the still that reduced motion and print show too), so the jump is to a known
+  picture, and moving the pointer away shows the picture where its clock has got to. The
+  caption's note says that a still replaces the picture, which is true of the poster, and names
+  no step.
 * **The grid of stills.** Its columns are sized from the stills' own width `w` (the poster key's
   still; the narrow rendition's on small screens), which the adapter knows from the files: each
   column is at least `3/4 · w` wide, rounded up to a pixel (`PILeanVerso.stillColumnMin`,
@@ -1483,17 +1506,17 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   the standing (for a linked motion, what a theorem about a motion can state, `motionLinkedWords`),
   `MotionData.words` (with `MotionData.checkWords` for a motion not checked strictly), the table of
   the steps (each step's keys, its duration exactly, and each move with its panel, actor and
-  `MotionMoveRow.words`, a crossfade marked) and the key stills with their captions, in a grid
-  sized as above; the files (the animated SVGs, the stills, the contact sheet with its PDF) are
+  `MotionMoveRow.words`, a crossfade marked, a fade's window given; before a step, a row for the
+  rest on its first key when that rest has fades or the key is not a still, and one for the last
+  key's rest likewise) and the stills with their captions, in a grid sized as above; the files (the animated SVGs, the stills, the contact sheet with its PDF) are
   listed with the others, and the contact sheet is among them only. The code comes after all of
   this, and on every figure's page code longer than 60 lines (`codeFoldAbove`, counted over the
   declarations' source lines) is folded in a `details` element, closed, whose summary says how
   many declarations and lines it holds; the summary is a tab stop with a 3-pixel focus ring.
 * **Files.** A site writes a motion's outputs (`motionOutputs`) and, of the dark motion, only
-  what its pages show: the SVG of each key's still at each width (`-key-k-dark`,
-  `-narrow-key-k-dark`). So `7 + 6 n` files for `n` keys with a narrow rendition, `6 + 3 n`
-  without (`7 + 4 n` and `6 + 2 n` without a dark twin; `tools/site/page_check.py`,
-  `motion_files`). The pages reference the animated SVGs (`data-pilean-file`, the moving
+  what its pages show: the SVG of each still at each width (`-key-k-dark`, `-narrow-key-k-dark`).
+  So `7 + 6 s` files for `s` stills with a narrow rendition, `6 + 3 s` without (`7 + 4 s` and
+  `6 + 2 s` without a dark twin; `tools/site/page_check.py`, `motion_files`). The pages reference the animated SVGs (`data-pilean-file`, the moving
   picture being their body) and the key stills' SVGs; the PNGs of the stills, the poster's PNG
   and PDF and the contact sheet (SVG, PNG, PDF) are offered on the figure's page for download,
   for print and for TeX, and the manifest requires the SVG and PNG of each key at each width.

@@ -89,7 +89,8 @@ A point turned a quarter about the origin.
 ```
 
 The motion's own captions (`Motion.captions`, one per key) are the captions of its stills
-("Step 2 of 3: …"); write them without a counter. Give the motion an `alt` (the doc string, without
+("Step 2 of 3: …", counting the stills: a key that is not a still, `MotionKey.still := false`,
+has none, and its caption may be empty); write them without a counter. Give the motion an `alt` (the doc string, without
 its code marks, stands in otherwise). `width` sets the picture's width; `inline` is implied;
 `format` does not apply. The caption ends with a note on what pointing and clicking do
 (`PILeanVerso.motionHintText`) and the Blueprint's link to its motion switch, "Animations can be
@@ -144,7 +145,10 @@ A link is never put inside another.
   which assistive technology reads after the picture's text alternative; the grid has as many
   columns as fit with every still at three quarters of its own width or more (one column for a
   wide picture, several for a small one), or a still as wide as the column, and never larger than
-  its own width. On small screens it shows its narrow rendition, when it has one. None of this
+  its own width. A still keeps its box while it loads, at every width: its picture's `source` for
+  small screens carries the narrow file's own `width` and `height`. The poster is the still shown
+  under the pointer and the focus because no style rule can pause the picture's clock or know
+  where it is ([`docs/DESIGN.md`](../docs/DESIGN.md), "Why the poster under hover and focus"). On small screens it shows its narrow rendition, when it has one. None of this
   needs a script ([`docs/DESIGN.md`](../docs/DESIGN.md), "A motion shown in a page").
 * With `inline := true`, the picture is an `svg` element of the page (its narrow rendition on
   screens up to 560 px wide, when it has one): the titles of its elements show on hover, the
@@ -379,7 +383,11 @@ stills and the poster's PNG beside it, as PILean's tests write them
 `writeMotion` and `writePanels`, is a writer to copy): a site needs only its own writer. A motion
 shown without expectations fails. The expectations list, besides the rests (with their start and
 end) and the turns, the slides with three samples each, which the checks hold to the straight
-segment between the actor's keys; a motion with no turn or no slide is checked for what it has. A
+segment between the actor's keys; a motion with no turn or no slide is checked for what it has;
+and the opacity of every appearance and disappearance before, in and after its window (in a rest,
+or in part of its step), so that a mark that never fades in fails. The rests' `from` and `until`
+are the part of each rest in which its key is shown still (after the rest's fades), and each rest
+says whether its key is a still (only stills have files). A
 site's writer that calls the library's `expectations` gets them by rebuilding. `--workers N` checks
 N pages at a time, each in a process with its own browser; a motion shown without its stills on
 its figure's page and with them on another page gets on the figure's page the checks that differ

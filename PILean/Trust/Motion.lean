@@ -34,14 +34,14 @@ For a motion `m` declared as `d`, with `n` keys, the files are (`docs/DESIGN.md`
 * only when asked (`MotionFigure.rasters`): the APNG `d.png` and the GIF `d.gif` of the baked
   frames.
 
-A motion that is stopped renders none of them: every output fails with the messages of what
-stops it, and has no inline picture, no theme and no page data. It is stopped by an error under
+A motion that is stopped renders none of them: every output fails with the messages of what stops
+it, and has no inline picture, no theme and no page data. It is stopped by an error under
 `CheckLevel.fail` (the default), and at every level when it is not well formed, when its written
-picture has an id twice (actor ids that differ but are written alike), or, for a picture of
-panels, when its panels use different text engines. Every output records the motion
-(`Output.motion`: keys, cycle, captions, check level, and whether errors were left), in its
-source record and in the manifest; the animated SVG also carries what a page needs to show it
-inline (`Output.motionPage`).
+picture has an id twice (actor ids that differ but are written alike), when its poster is not a
+still, or, for a picture of panels, when its panels use different text engines. Every output records
+the motion (`Output.motion`: keys, cycle, captions, check level, whether errors were left, and the
+stills when some key is not one), in its source record and in the manifest; the animated SVG also
+carries what a page needs to show it inline (`Output.motionPage`).
 
 ## Main definitions
 
@@ -51,7 +51,8 @@ inline (`Output.motionPage`).
   `CheckedMotion.sheetSvg`: the contact sheet.
 * `stillOutputs`, `MotionFigure`, `motionOutputs`, and the instances for `Plane.Motion`,
   `Plane.MotionPanels` and `MotionFigure`.
-* `Plane.moveRows`, `Plane.Motion.stepRows`, `Plane.Motion.checked`,
+* `Plane.moveRows`, `Plane.Motion.stepRows`, `Plane.Motion.restRows`,
+  `Plane.Motion.stepWindowSeconds`, `Plane.Motion.restFadeRows`, `Plane.Motion.checked`,
   `Plane.MotionPanels.checked`, `Plane.Motion.withStyle`, `Plane.MotionPanels.withStyle`.
 -/
 
@@ -532,9 +533,11 @@ def Motion.strictErrors (m : Motion) (r : MotionReport) : Nat :=
 
 /-- The checked motion of one motion, its report (`Motion.report`) computed here: the animated
 SVG of the checked route (`MotionReport.svg?`), the body of its root for a page (`liveNodes`), the
-stills (the keys as drawn, `Motion.keyFigure`, through `ExplorerFrame.ofPlane`), the step table,
+stills (the keys that are stills as drawn, `Motion.keyFigure`, through `ExplorerFrame.ofPlane`),
+the step table and the rests,
 the warnings, what stops it (its errors under `fail`, and at every level the errors of a motion
-that is not well formed, `Motion.WellFormed`, and an id written twice, `idStops`), and the errors
+that is not well formed, `Motion.WellFormed`, an id written twice, `idStops`, and a poster that is
+not a still), and the errors
 the strict level finds that did not stop it (`Motion.strictErrors`). It takes the motion, not a
 report, so that what it says of the checks is the checks' own. A single motion has no narrow
 rendition. -/

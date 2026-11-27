@@ -14,16 +14,16 @@ stop it (`CheckLevel.fail`, the default). The routes that write whatever the pro
 `Unchecked` (`Motion.svgRootUnchecked`, `toSvgUnchecked`, `figureAtUnchecked`,
 `toAnimationUnchecked`), for tests and tools.
 
-**The stills pin the animation.** `Motion.restProblems` compares, at the middle of every key's
-rest, the whole baked drawing (every path and every text, in order: `Drawn`, `drawnOf`) with the
-key's still, within `restTolerance` (0.05 px, plus `5.5e-4 r` for a path of half-width `r`, for
-the cubic approximations of turned circles, `drawingDiff`). **The writer against the baker.**
-`Motion.writerProblems` reads the written moving picture with `Smil.valueAt` at the middle of every
-segment of the timeline and requires what the baker draws (`writerDiff`). **Nothing leaves the
-picture.** `boundsProblems` draws every layer at eight times through every move and requires every
-point of it in the page (0.5 px). `Motion.problems` is the problems of the keys and steps
-(`Motion.keyProblems`) with these. A motion's own prefix (`Motion.idPrefix`) goes on every id of
-its SVG, for several pictures in one page.
+**The stills pin the animation.** `Motion.restProblems` compares, at the middle of every key's rest
+(of its last part, after its fades), the whole baked drawing (every path and every text, in order:
+`Drawn`, `drawnOf`) with the key's still, within `restTolerance` (0.05 px, plus `5.5e-4 r` for a
+path of half-width `r`, for the cubic approximations of turned circles, `drawingDiff`). **The writer
+against the baker.** `Motion.writerProblems` reads the written moving picture with `Smil.valueAt` at
+the middle of every segment of the timeline and requires what the baker draws (`writerDiff`).
+**Nothing leaves the picture.** `boundsProblems` draws every layer at eight times through every move
+and requires every point of it in the page (0.5 px). `Motion.problems` is the problems of the keys
+and steps (`Motion.keyProblems`) with these. A motion's own prefix (`Motion.idPrefix`) goes on every
+id of its SVG, for several pictures in one page.
 
 ## Main definitions
 
@@ -31,7 +31,7 @@ its SVG, for several pictures in one page.
   `Motion.checkMessages`, `Motion.problemsFail`.
 * `Motion.svgRootUnchecked`, `Motion.toSvgUnchecked`, `Motion.figureAtUnchecked`,
   `Motion.toAnimationUnchecked`.
-* `Drawn`, `drawnOf`, `drawingDiff`, `restTolerance`, `Motion.restProblems`.
+* `Drawn`, `drawnOf`, `drawingDiff`, `restTolerance`, `Motion.restProblems`, `inexactProblems`.
 * `writtenMarkers`, `markersDiff`, `writerDiff`, `Motion.writerProblems`.
 * `shapePoints`, `boundsTolerance`, `boundsProblems`.
 -/
@@ -356,7 +356,8 @@ namespace Motion
 variable (m : Motion)
 
 /-- The motion checked: the problems of its keys and steps (`keyProblems`) and, for a well-formed
-motion, those of its plan against the stills (`restProblems`), of its writer against its baker
+motion, a step whose easing its windows cannot divide exactly (`inexactProblems`), and the
+problems of its plan against the stills (`restProblems`), of its writer against its baker
 (`writerProblems`) and of what leaves the picture while it moves (`boundsProblems`). -/
 def report : MotionReport :=
   let K := m.keysOf

@@ -113,8 +113,8 @@ structure ManifestEntry where
   /-- The theorems of a linked figure recorded in the file, by full name, in order. -/
   theorems : Option (Array String) := none
   /-- For a file of a motion: its record (`Output.motion`, the same as the file's source record
-  holds), written as the keys `kind` (`motion`), `keys`, `cycle`, `captions`, `checks` and
-  `errorsLeft` and `narrow`. -/
+  holds), written as the keys `kind` (`motion`), `keys`, `cycle`, `captions`, `checks`,
+  `errorsLeft` and `narrow`, and `stills` when some key is not a still. -/
   motion : Option MotionSummary := none
 deriving BEq, Repr, Inhabited
 
@@ -190,14 +190,15 @@ def Manifest.render (es : Array ManifestEntry) : String :=
 pairs, `standing` and `theorems` (or `proves`, read as `theorems`) and the keys of a motion must be
 there with a string or a number as its kind, the hashes in the form of `isFingerprint`, the format
 one of `svg`, `png`, `apng`, `gif`, `pdf`, the path `safePath`, and the standing with its theorems
-well formed (`standingOk`; a standing `proved` reads as `linked`, `readStanding`). The theorems
-are an array of strings when `spaced` is false (`manifestFormat` and `previousManifestFormat`),
-and one string of names separated by single spaces when it is true (the earlier formats,
-`theoremsOfSpaced`). With `current` (`manifestFormat`), a key outside `manifestKeys` is refused,
-and the keys of a motion are read: `kind` is absent or `motion`, and with `motion` the number of
-keys (at least one) and of captions, the cycle (`cycleOfText?`), the check level (`fail`, `warn`
-or `ignore`), `errorsLeft` (a number, `0` at the level `fail`) and `narrow` (a boolean) must be there, and without it none of them; the earlier
-formats have no motion, and their other keys are ignored. -/
+well formed (`standingOk`; a standing `proved` reads as `linked`, `readStanding`). The theorems are
+an array of strings when `spaced` is false (`manifestFormat` and `previousManifestFormat`), and one
+string of names separated by single spaces when it is true (the earlier formats,
+`theoremsOfSpaced`). With `current` (`manifestFormat`), a key outside `manifestKeys` is refused, and
+the keys of a motion are read: `kind` is absent or `motion`, and with `motion` the number of keys
+(at least one) and of captions, the cycle (`cycleOfText?`), the check level (`fail`, `warn` or
+`ignore`), `errorsLeft` (a number, `0` at the level `fail`) and `narrow` (a boolean) must be there,
+and `stills` (a list of keys that `stillsOk` accepts) may be, and without it none of them; the
+earlier formats have no motion, and their other keys are ignored. -/
 def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) (current : Bool := false) :
     Except String ManifestEntry := do
   if current then
@@ -302,8 +303,9 @@ def keyStillOf? (path : String) : Option (String × Nat) := do
 
 /-- Why the entries `es` of one declaration, whose files record the motion `mo`, do not list its
 files as the record says, if they do not: the key stills of one stem `X` (the SVG and the PNG of
-each key `0` to `keys - 1`, and of no other) with the animated SVG `X.svg`, and, exactly when the
-record says the motion has a narrow rendition, the same for the stem `X-narrow`. -/
+each key `0` to `keys - 1`, or of each key the record's `stills` lists, and of no other) with the
+animated SVG `X.svg`, and, exactly when the record says the motion has a narrow rendition, the same
+for the stem `X-narrow`. -/
 def motionKeyProblem? (decl : String) (mo : MotionSummary) (es : Array ManifestEntry) :
     Option String :=
   let stills := es.filterMap fun m => (keyStillOf? m.path).map fun (s, k) => (s, k, m.format)

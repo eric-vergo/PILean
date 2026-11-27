@@ -16,6 +16,9 @@ A timeline of `n + 1` key frames, from `n` steps, is the sequence of segments
 * for each step `i < n`, a move from key `i` to key `i + 1` (the step's duration), then a rest on
   key `i + 1` (`Pacing.hold`, or `Pacing.lastHold` after the last step);
 
+a key with a rest of its own (`Pacing.holds`) rests that long instead (`Pacing.restOf`), the
+first and the last key too;
+
 closed by the seam (`Seam`): under `Seam.cut` nothing is added and the picture jumps from the last
 key back to key `0` when the cycle repeats; under `Seam.crossfade d` the cycle starts with a fade
 in (`SegKind.seamIn`, `d / 2`) and ends with a fade out (`SegKind.seamOut`, `d / 2`), so that the
@@ -24,17 +27,22 @@ jump from the last key back to key `0` happens where the cycle repeats, while no
 Durations are exact rational numbers of seconds (`Rat`), so the start of every segment, the length
 of the cycle and the segment boundaries as fractions of the cycle (`Timeline.keyTimes`) are exact,
 and the statements about them (`PILean/Anim/TimelineProofs.lean`) are theorems about rationals.
+A segment can be divided into parts (`Timeline.divide`), which tile the cycle as the segments did;
+a part of an eased segment is eased by the part of its curve (`Easing.part`), so the parts follow
+the segment's eased progress exactly.
 A negative duration counts as zero. Floating point begins with the eased progress through a
 segment (`Easing.eval`, `Timeline.locate`).
 
 ## Main definitions
 
-* `Easing`, `Easing.eval`: the cubic Bézier timing functions of SMIL's `keySplines` and CSS.
-* `Pacing`, `Step`, `Seam`: the durations of a motion and how its loop closes.
+* `Easing`, `Easing.eval`, `Easing.part`: the cubic Bézier timing functions of SMIL's
+  `keySplines` and CSS, and their parts.
+* `Pacing`, `Pacing.restOf`, `Step`, `Seam`: the durations of a motion and how its loop closes.
 * `Segment`, `Timeline`, `Timeline.build`: the segments of a cycle, their kinds
   (`Timeline.kinds`) and their durations and easings (`Timeline.spec`).
 * `Timeline.segmentAt`, `Timeline.locate`: the segment at a time and the eased progress through it.
-* `Timeline.restTime`, `Timeline.keyTimes`.
+* `Timeline.restTime`, `Timeline.stillPart?`, `Timeline.keyTimes`.
+* `Segment.partsFrom`, `Segment.divide`, `Timeline.divide`: dividing segments into parts.
 
 ## References
 

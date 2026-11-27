@@ -41,10 +41,20 @@ This module holds the model and its checks.
   determined. A polygon whose vertex list is the same after a symmetry turn is refused: the next
   key must list the turned vertices in the turned order. A move that misses its key is an error,
   and is not animated as that move.
-* **The stills pin the animation.** At the middle of every key's rest, the whole baked drawing
-  (every path and every text, in order) must be the key's still within the rest tolerance
-  (`restProblems`, 0.05 px); this bounds what the per-step tolerance can add up to along a chain,
-  and catches a wrong counter-rotation or stacking order.
+* **The stills pin the animation.** At the middle of every key's rest (of its last part, after
+  its fades), the whole baked drawing (every path and every text, in order) must be the key's
+  still within the rest tolerance (`restProblems`, 0.05 px); this bounds what the per-step
+  tolerance can add up to along a chain, and catches a wrong counter-rotation or stacking order.
+* **What a key says of itself.** A key may rest as long as it says, fade actors in or out during
+  its rest, each in a window of it, and be a key the motion passes through that is not a still
+  (`MotionKey`, `Motion.keyOptions`); an appearance or a disappearance may run in a window of its
+  step (`MotionStep.windows`). A key's figure is the picture at the end of its rest. The rules are
+  checked by `Motion.keyRestProblems` and `Motion.stepProblems`: a rest longer than zero; an
+  actor that appears during the rest on key `k` is in key `k` and not in key `k - 1`, one that
+  vanishes the other way round, neither moving in the step before the rest; one fade or window
+  per actor; windows inside their rest or step, ending after they start; the rest going on after
+  its last fade; the windows of one rest apart or the same; a window only on an appearance or a
+  disappearance, in a step not sampled for a morph; and the poster a still.
 * **Labels and markers stay upright.** Their point rides the turns; they are not turned
   themselves (the anchors of a label and of a point are their points, and their look is compared
   unchanged).
@@ -58,13 +68,16 @@ This module holds the model and its checks.
 
 * `Move`, `MotionStep`, `MotionStep.idle`, `Motion`, `Item.actor`, `Plane.Exact.turnAbout`,
   `Plane.Exact.slideFromTo`.
+* `Window`, `WindowEdge`, `Fade`, `MotionKey`, `Motion.keyOption`, `Motion.isStill`,
+  `Motion.stillKeys`, `Motion.restPacing`, `Motion.restFadeOf`: what a key says of itself.
 * `Motion.WellFormed` (decidable), `Motion.animSteps`, `MotionKeys`, `Motion.keysOf`,
   `Motion.resolved`, `Motion.keyFigure`.
 * `Geom.turnAbout`, `Item.turnAbout`, `sweepAngles`, `Motion.sweptItems`: what a turn sweeps.
 * `MotionVersion`, `Motion.continuation`, `Motion.versions`: the layers of a motion (an actor for
   as long as its steps carry it, an item without an id for as long as the keys draw it alike).
 * `mergeOrder`, `inOrder`: one drawing order for the layers of all keys.
-* `anchors`, `leafKey`, `Move.pageAffine`, `arrival`, `Motion.stepProblems`, `Motion.keyProblems`
+* `anchors`, `leafKey`, `Move.pageAffine`, `arrival`, `Motion.stepProblems`,
+  `Motion.keyRestProblems`, `Motion.keyProblemsOn`, `Motion.keyProblems`
   (`Motion.problems`, with the rest check, `Motion.checkMessages` and `Motion.problemsFail` are
   in `PILean.Plane.MotionOutput`).
 * `Motion.turnsOf`, `Motion.turnSum`, `Motion.keyAngle`.

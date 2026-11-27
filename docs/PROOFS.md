@@ -231,9 +231,11 @@ not rational-valued.
   and the fade out last under a crossfade; `build_size_cut`, `build_size_crossfade`: so there are
   `2 n - 1` segments for `n` key frames under a cut and `2 n + 1` under a crossfade.
 * `build_segment_spec`, `build_move_spec`, `build_rest_spec`, `build_seam_spec`: the move of step
-  `j` lasts as long as step `j` and has its easing; the rest on key `0` lasts `firstHold`, the rest
-  on the last key `lastHold`, any other rest `hold`; the fades exist only under a crossfade `d` and
-  last `d / 2` each; rests and fades are not eased (a negative duration counts as zero).
+  `j` lasts as long as step `j` and has its easing; the rest on key `k` lasts `Pacing.restOf k`
+  (`restOf_own`: a key's own rest in `Pacing.holds`, for the first and the last key too;
+  `restOf_default`: otherwise `firstHold` on key `0`, `lastHold` on the last key, any other rest
+  `hold`); the fades exist only under a crossfade `d` and last `d / 2` each; rests and fades are
+  not eased (a negative duration counts as zero).
 * `build_start_zero`, `build_start_succ`, `build_stop_last`, `build_dur_nonneg`: the segments
   tile the cycle: the first starts at `0`, each starts where the one before it ends, the last ends
   at the end of the cycle, and no duration is negative (a negative one given counts as zero).
@@ -241,6 +243,12 @@ not rational-valued.
   boundaries as fractions of the cycle) are one more than the segments, start at `0`, never
   decrease, and end at `1` when the cycle is longer than zero, which it is when the first rest is
   (`build_cycle_pos`).
+* `divide_tiles`, `divide_dur_nonneg`: divided into parts (`Timeline.divide`, for a step sampled
+  for a morph and for a step or a rest cut at the ends of its fades' windows), each list of parts
+  ending at `1`, the segments still tile the cycle (`Tiles`: the first starts at `0`, each starts
+  where the one before it ends, the last ends at the end of the cycle), and when the parts' ends do
+  not decrease from `0`, no part lasts less than zero (`tiles_layout`, `tiles_partsFrom`,
+  `tiles_divide`, `tiles_flatMap`, `partsFrom_dur_nonneg` are the steps).
 * `wrap_mem`, `segmentAt_mem`, `progress_mem`, `locate_fst`: any rational time, brought into a
   cycle longer than zero, lies in `[0, cycle)` and in the segment `segmentAt` names (from its
   start, inclusive, to its end, exclusive), and the progress through that segment is in `[0, 1)`.
