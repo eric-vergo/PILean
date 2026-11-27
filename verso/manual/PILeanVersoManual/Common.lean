@@ -767,7 +767,8 @@ carries `data-bp-motion` (what the Verso Blueprint motion switch looks for), hol
 * unless `stills` is false (the figure's page, which shows them below): the key stills, in order,
   as pictures of their files (`-key-k`, the narrow rendition's `-narrow-key-k`, and their dark
   twins), each with its caption (`motionStepText`), read once by assistive technology after the
-  picture, the list's columns sized from the stills' widths (`stillColumnStyle`). Without them
+  picture, the list's columns sized from the stills' widths (`stillColumnClasses`, with their
+  rules in a `style` element after the list). Without them
   the motion has the class `pilean-motion-bare`, and turning motion off shows the poster's still
   in the stage instead (`motionOffRules`).
 
@@ -811,11 +812,14 @@ def motionHtml (base : String) (name alt : String) (main : MotionData)
       | some n => live "mn" "narrow" n
       | none => .empty,
       .element "span" #[("class", "pilean-motion-still"), ("aria-hidden", "true")] posterPics]),
-    let columns := stillColumnStyle (stillWidth? files s!"-key-{poster}")
-      (narrow.bind fun _ => stillWidth? files s!"-narrow-key-{poster}")
-    if stills then .element "ol" (#[("class", "pilean-motion-keys"), ("id", keysId),
-      ("aria-label", s!"The key frames of {name}")] ++
-      (if columns.isEmpty then #[] else #[("style", columns)])) (.seq keys) else .empty])
+    let wide := stillWidth? files s!"-key-{poster}"
+    let small := narrow.bind fun _ => stillWidth? files s!"-narrow-key-{poster}"
+    let rules := stillColumnRules wide small
+    if stills then .seq #[
+      .element "ol" #[("class", s!"pilean-motion-keys {stillColumnClasses wide small}".trimAscii
+          |>.toString), ("id", keysId), ("aria-label", s!"The key frames of {name}")] (.seq keys),
+      if rules.isEmpty then .empty
+      else .element "style" #[("class", "pilean-stills-css")] (.text rules)] else .empty])
 
 /-- The inline markup of a figure (`inline := true`, explorers and motions), from the site's
 render: the picture (and its narrow rendition, shown on small screens) as `svg` elements, an

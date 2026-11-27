@@ -467,6 +467,25 @@ def prepare(page, state, stage):
     return reached
 
 
+def enter_checked(c, label, page, state, stage, sid, prepared=False):
+    """`enter`, as a check: a stage that cannot be pointed at, clicked or tapped (it lost its box,
+    or keeps moving under the pointer: a picture hidden by `display: none` collapses it) fails as
+    such, with the stage's box before and after, instead of stopping the section."""
+    box = page.evaluate("(sid) => { const r = document.getElementById(sid).parentElement"
+                        ".getBoundingClientRect(); return [r.width, r.height]; }", sid)
+    try:
+        enter(page, state, stage, sid, prepared)
+        return True
+    except Exception as e:  # noqa: BLE001 - Playwright's timeout, which is the finding here
+        after = page.evaluate("(sid) => { const r = document.getElementById(sid).parentElement"
+                              ".getBoundingClientRect(); return [r.width, r.height]; }", sid)
+        c.check(f"{label}: {state} reaches the stage, which keeps its box", False,
+                f"the stage could not be {state if state != 'hover' else 'pointed at'} "
+                f"({type(e).__name__}); its box {box} -> {after}: the picture or the stage "
+                "collapsed or moved (a moving picture hidden by display: none?)")
+        return False
+
+
 def enter(page, state, stage, sid, prepared=False):
     if state == "reduced motion":
         page.emulate_media(reduced_motion="reduce")
@@ -480,7 +499,7 @@ def enter(page, state, stage, sid, prepared=False):
     elif state == "pdf":
         page.pdf(path=os.devnull)
     elif state == "hover":
-        stage.hover()
+        stage.hover(timeout=3000)
     elif state == "keyboard focus":
         # the stage is a tab stop: Tab from the elements before it reaches it (with `prepared`,
         # `prepare` has walked there and stepped back once, so one Tab focuses it)
@@ -491,10 +510,10 @@ def enter(page, state, stage, sid, prepared=False):
     elif state == "click":
         # the still stays after the pointer has left: the click's focus holds it, as the
         # caption's note says
-        stage.click()
+        stage.click(timeout=3000)
         page.mouse.move(2, 2)
     elif state == "tap":
-        stage.tap()
+        stage.tap(timeout=3000)
 
 
 def leave(page, state):
@@ -597,7 +616,7 @@ def state_checks(c, browser, base, url, sid, label, helpers, blueprint, spec=Non
                 _, (lo, hi), _, at = times
                 wait_clock(page, sid, lo, spec["cycle"], 0.0, hi - lo)
             hidden_at = page.evaluate(clock, sid)
-            enter(page, state, stage, sid, prepared)
+            enter_checked(c, label, page, state, stage, sid, prepared)
             if state in OFF:
                 # the stills are pictures loaded lazily: bring the list into view, as a reader who
                 # turned motion off sees it (Firefox loads a lazy picture only near the view)
@@ -758,7 +777,9 @@ def still_checks(c, browser, base, url, sids, label, helpers, shots=None):
                 stage = page.locator(f"[id='{shown}']").locator("xpath=ancestor::div[1]")
                 stage.scroll_into_view_if_needed()
                 for state in ["hover", "keyboard focus"]:
-                    enter(page, state, stage, shown)
+                    if not enter_checked(c, f"{label} {scheme} {width} px", page, state, stage,
+                                         shown):
+                        continue
                     page.wait_for_timeout(250)
                     during = page.evaluate(STATE, shown)
                     why = still_problem(page, shown, during, scheme == "dark")
@@ -785,7 +806,9 @@ def free_running(page, sids, specs, timeout=None):
     rests that certainly draw different pictures (`rest_pair`), every actor's anchor read there
     must be where its key's still has it, and the clock must have advanced between the two. All
     the motions of the page are watched at once, so the wait is that of the slowest. Returns, per
-    motion, `(problem, largest distance in px)`, the problem `None` when it holds."""
+    motion, `(problem, largest distance in px)`, the problem `None` when it holds; for a motion
+    with no anchored actor (a morph alone) the second member says that positions were not read,
+    only the clock (`tools/motion-browser-check.py` holds such a motion to its stills by pixels)."""
     clock = "(ids) => ids.map(i => document.getElementById(i).getCurrentTime())"
     todo, out = {}, {}
     for sid in sids:
@@ -818,6 +841,10 @@ def free_running(page, sids, specs, timeout=None):
                         why = f"the clock did not advance ({t1:.2f} s, then {t2:.2f} s)"
                     elif e > REST_TOL:
                         why = f"an actor is {e:.3g} px from its key at a rest, not sought"
+                    if why is None and not any(r["actors"] for r, _, _ in d["targets"]):
+                        why = None
+                        e = "its clock advanced; positions not read: no anchored actor (a morph " \
+                            "is held to its stills by motion-browser-check.py)"
                     out[sid] = (why, e)
                     del todo[sid]
         page.wait_for_timeout(15)
@@ -882,7 +909,8 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
         c.check(f"{label}: every moving picture plays on its own clock and, not sought, is where "
                 "its keys have it at two of its rests",
                 all(r[0] is None for r in runs.values()),
-                str({k: v[0] or f"{v[1]:.3g} px, clock advanced" for k, v in runs.items()}))
+                str({k: v[0] or (v[1] if isinstance(v[1], str) else
+                                 f"{v[1]:.3g} px, clock advanced") for k, v in runs.items()}))
     else:
         seen = {sid: [] for sid in sids}
         cycle = max([sp["cycle"] for sp in specs.values()] + [0.0])

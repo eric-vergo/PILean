@@ -318,14 +318,18 @@ def main (args : List String) : IO UInt32 := do
         runs on) while it is pointed at or focused, or after a click or tap until a click \
         elsewhere"
     check (stillColumnMin 320 == 240 && stillColumnMin 300 == 225 && stillColumnMin 721 == 541 &&
-        stillColumnStyle (some 720) (some 300) ==
-          "--pilean-still-w:540px;--pilean-still-n:225px;" &&
-        stillColumnStyle none none == "" && stillColumnCss.length < 400)
+        stillColumnClasses (some 720) (some 300) == "pilean-stills-w540 pilean-stills-n225" &&
+        stillColumnRules (some 720) (some 300) == ".pilean-stills-w540{--pilean-still-w:540px}\
+          .pilean-stills-n225{--pilean-still-n:225px}" &&
+        stillColumnClasses none none == "" && stillColumnCss.length < 400)
       "a grid of stills has columns of at least three quarters of a still's width, in one small \
         rule"
-    check (has motion "class=\"pilean-motion-keys\" id=\"quarter-motion-keys\" \
-          aria-label=\"The key frames of Figure 6\" style=\"--pilean-still-w:240px;\"" &&
-        has motion "style=\"--pilean-still-w:540px;--pilean-still-n:225px;\"")
+    check (has motion
+          "class=\"pilean-motion-keys pilean-stills-w240\" id=\"quarter-motion-keys\"" &&
+        has motion "class=\"pilean-motion-keys pilean-stills-w540 pilean-stills-n225\"" &&
+        has motion "<style class=\"pilean-stills-css\">.pilean-stills-w240{--pilean-still-w:240px}\
+          </style>" &&
+        !has motion "style=\"--pilean-still")
       "the lists of stills are sized from the stills' widths, the narrow ones' on small screens"
     -- each motion's wrapper: up to the end of its list of stills
     let motionParts := (motion.splitOn "data-bp-motion").drop 1 |>.map fun p =>

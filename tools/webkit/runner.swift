@@ -10,10 +10,11 @@
 // What the page may do. URL must be a `file:` URL of a file below the folder ROOT. Every
 // navigation (of the page or of a frame: a link, a redirect, a script setting `location`) to
 // anything but a file below ROOT is refused, and a content rule list blocks every load whose URL
-// is not a `file:` URL (scripts, images, styles, frames, `fetch`, XHR, beacons, WebSockets), so the
-// page reaches no network. Files are readable below ROOT only. There is no bridge from the page to
-// this program: no message handler, nothing the page can call; the program only reads the value
-// the script returns.
+// is not that of a file below ROOT (scripts, images, styles, frames, `fetch`, XHR, beacons,
+// WebSockets; a file outside ROOT by an absolute path, `..`, `%2e%2e` or a `localhost` host), so
+// the page reaches no network and loads nothing outside ROOT (`runner_test.py` tries each). There
+// is no bridge from the page to this program: no message handler, nothing the page can call; the
+// program only reads the value the script returns.
 //
 // What the desktop sees. The page lives in a window, because WebKit does not run the clock of an
 // SVG animation in a view that is in no window, or in a window outside every screen (the clock
@@ -29,18 +30,58 @@
 //     (120 by default).
 //
 // The program never moves the pointer and never sends events. Its website data are not kept
-// (`WKWebsiteDataStore.nonPersistent`), its compiled content rules go to the temporary directory,
-// and `webkit_check.py` runs it with `CFFIXED_USER_HOME` set to a temporary folder, so that what
-// WebKit keeps for any program (caches, a data folder) is written there and removed, never into
-// the user's Library.
+// (`WKWebsiteDataStore.nonPersistent`), its compiled content rules go to a folder of the temporary
+// directory named after its process (`pilean-runner-rules-PID`), and `webkit_check.py` runs it with
+// `CFFIXED_USER_HOME` set to a temporary folder (`pilean-webkit-home-PID-…`, PID the check's), so
+// that what WebKit keeps for any program (caches, a data folder) is written there, never into the
+// user's Library. The program removes its folder when it exits, is ended (`SIGTERM`, `SIGINT`,
+// `SIGHUP`) or loses its parent (it checks every second), and at its start removes the folders of
+// both names whose process is gone (a run that was killed).
 import AppKit
 import WebKit
 
-/// Every load whose URL is not a `file:` URL is blocked.
-let rules = """
-  [{"trigger": {"url-filter": ".*"}, "action": {"type": "block"}},
-   {"trigger": {"url-filter": "^file:"}, "action": {"type": "ignore-previous-rules"}}]
-  """
+/// `s` with every character that a content rule's regular expression reads specially escaped.
+func regexEscaped(_ s: String) -> String {
+  var out = ""
+  for c in s {
+    if "\\^$.|?*+()[]{}".contains(c) { out.append("\\") }
+    out.append(c)
+  }
+  return out
+}
+
+/// The content rules: every load is blocked but a load of a file below `root` (its URL as WebKit
+/// writes it once it has resolved `..`, percent-encoded dots and a `localhost` host: `file:///`,
+/// the folder's path percent-encoded, then `/`), under the folder's path as given and as its
+/// links resolve (`/var` is `/private/var`).
+func rules(for root: URL) -> String {
+  // the folder's path as given, as its links resolve, and with or without the `/private` that
+  // macOS puts before `/tmp`, `/var` and `/etc` (Foundation drops it, WebKit keeps it)
+  var paths: Set<String> = [root.standardizedFileURL.path]
+  if let real = realpath(root.path, nil) {
+    paths.insert(String(cString: real))
+    free(real)
+  }
+  for p in paths {
+    if p.hasPrefix("/private/") { paths.insert(String(p.dropFirst(8))) }
+    else if ["/tmp/", "/var/", "/etc/"].contains(where: { p.hasPrefix($0) }) {
+      paths.insert("/private" + p)
+    }
+  }
+  let prefixes = Set(paths.map { path -> String in
+    let s = URL(fileURLWithPath: path, isDirectory: true).absoluteString
+    return s.hasSuffix("/") ? s : s + "/"
+  })
+  var list: [[String: Any]] = [["trigger": ["url-filter": ".*"], "action": ["type": "block"]]]
+  for p in prefixes.sorted() {
+    // case-sensitive: the pattern holds the folder's path as it is written
+    let trigger: [String: Any] = ["url-filter": "^" + regexEscaped(p),
+                                  "url-filter-is-case-sensitive": true]
+    list.append(["trigger": trigger, "action": ["type": "ignore-previous-rules"]])
+  }
+  let data = try! JSONSerialization.data(withJSONObject: list)
+  return String(data: data, encoding: .utf8)!
+}
 
 /// Whether `url` is a `file:` URL of a file below the folder `root`.
 func isBelow(_ url: URL, _ root: URL) -> Bool {
@@ -130,16 +171,49 @@ let height = args.count == 6 ? Double(args[5]) ?? 800 : 800
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 var runner: Runner? = nil
+let temp = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+
+/// Removes the folders of the temporary directory that a run of this program or of
+/// `webkit_check.py` left when it was killed: `pilean-runner-rules-PID` and
+/// `pilean-webkit-home-PID-…` whose process PID no longer exists.
+func removeStale() {
+  let names = (try? FileManager.default.contentsOfDirectory(atPath: temp.path)) ?? []
+  for name in names {
+    var rest: Substring
+    if name.hasPrefix("pilean-runner-rules-") { rest = name.dropFirst(20) }
+    else if name.hasPrefix("pilean-webkit-home-") { rest = name.dropFirst(19) }
+    else { continue }
+    guard let pid = Int32(rest.prefix { $0.isNumber }), pid > 0, pid != getpid() else { continue }
+    if kill(pid, 0) == -1 && errno == ESRCH {
+      try? FileManager.default.removeItem(at: temp.appendingPathComponent(name))
+    }
+  }
+}
+removeStale()
+
 // The compiled rule list goes to a folder of the temporary directory, not to the user's Library.
-let ruleStore = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-  .appendingPathComponent("pilean-runner-rules-\(getpid())", isDirectory: true)
+let ruleStore = temp.appendingPathComponent("pilean-runner-rules-\(getpid())", isDirectory: true)
 guard let store = WKContentRuleListStore(url: ruleStore) else {
   warn("runner: no store for the content rules")
   exit(1)
 }
 atexit { try? FileManager.default.removeItem(at: ruleStore) }
+// ended by a signal, or left by its parent: remove the folder and exit
+var signals: [DispatchSourceSignal] = []
+for sig in [SIGTERM, SIGINT, SIGHUP] {
+  signal(sig, SIG_IGN)
+  let source = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+  source.setEventHandler { exit(128 + sig) }
+  source.resume()
+  signals.append(source)
+}
+let parent = getppid()
+Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+  if getppid() != parent { exit(4) }
+}
 store.compileContentRuleList(
-  forIdentifier: "pilean-runner-local-only", encodedContentRuleList: rules) { list, error in
+  forIdentifier: "pilean-runner-local-only", encodedContentRuleList: rules(for: root)) { list,
+    error in
   guard let list = list else {
     print("ERROR rules: \(String(describing: error))")
     exit(1)

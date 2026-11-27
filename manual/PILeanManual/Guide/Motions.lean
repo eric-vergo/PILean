@@ -475,7 +475,9 @@ first), where the freeze control (a freeze of Chromium's) and the PDF print (whi
 makes in Chromium only) are reported as not applicable. On macOS, `tools/webkit/webkit_check.py
 DIR` checks the positions in the system's WebKit, the engine of Safari, from a transparent window
 that lets every click through and never takes the focus; it fails when the clock does not run,
-and is for a local run, not a Linux gate.
+and is for a local run, not a Linux gate. A motion with no anchored actor, a morph alone, has no
+position to read there or in the site check's free-running reading, which say so; the browser
+check below holds it to its stills pixel by pixel.
 
 # The Browser Check
 %%%

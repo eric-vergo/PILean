@@ -874,6 +874,29 @@ def grid_column_checks(c, layouts):
                 a.get(390) == 1 and b.get(390) == 1, f"{a.get(390)} and {b.get(390)}")
 
 
+def strict_grid_checks(c, browser, site):
+    """Under a policy that allows the page's style elements by hash and no style attribute at all
+    (`style-src-attr 'none'`), the grids of stills keep their widths: with motion off at 1440 px
+    the two-panel picture's stills are one column and the small motion's more than one."""
+    server, base = serve(site, styles="strict")
+    ctx, page = new_page(browser, viewport={"width": 1440, "height": 900})
+    goto(page, base + "Pictures-with-proofs/Motion/")
+    page.evaluate("document.documentElement.setAttribute('data-motion', 'reduce')")
+    page.wait_for_timeout(300)
+    cols = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll(
+      '.pilean-motion-keys')].map(ol => [ol.closest('.pilean-motion').querySelector(
+        'svg.pilean-motion-wide').getAttribute('data-pilean-file').split('/').pop(),
+        new Set([...ol.children].map(li => Math.round(li.getBoundingClientRect().left))).size]))""")
+    blocked = [r for r in figure_reports(page)
+               if r["directive"].startswith("style") and r["inFigure"]]
+    two, small = cols.get("Example.twoFrames.svg"), cols.get("Example.quarterTurn.svg")
+    c.check("without style-src-attr the grids keep their widths: the two-panel picture's stills "
+            "one column at 1440 px, the small motion's more", two == 1 and (small or 0) > 1 and
+            not blocked, f"{cols} {blocked[:2]}")
+    ctx.close()
+    server.shutdown()
+
+
 def code_fold_checks(c, browser, base, shots):
     """A figure's page with more than 60 lines of code (the two-panel motion's) folds it in a
     closed `details` after its animation's section: the page is shorter than with it open, the
@@ -1027,6 +1050,7 @@ def main(argv):
                      noscript_checks, touch_checks, long_word_checks, figure_page_checks]:
             c.section(part.__name__, part, c, browser, base, shots)
         c.section("strict styles", strict_style_checks, c, browser, site)
+        c.section("grid without style attributes", strict_grid_checks, c, browser, site)
         c.section("centring", centring_checks, c, browser, base, "stacked", [1100, 360],
                   FIGURE_PAGES)
         if sites["side-by-side"]:

@@ -66,7 +66,8 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
 
 * `domSafe`, `prefixNode`, `inlineSvgText`, `themeCss`, `explorerHtml`, `explorerJs`, `explorerCss`.
 * `motionCss`, `motionOffRules`, `motionHiddenRendition`: the stylesheet of motions shown in a page.
-* `stillFraction`, `stillColumnMin`, `stillColumnStyle`, `stillColumnCss`, `stillColumns`: the
+* `stillFraction`, `stillColumnMin`, `stillColumnClasses`, `stillColumnRules`, `stillColumnCss`,
+  `stillColumns`: the
   columns of grids of stills.
 -/
 
@@ -556,13 +557,24 @@ def stillColumnMin (w : Nat) : Nat :=
   let q := stillFraction * w
   (q.num.toNat + q.den - 1) / q.den
 
-/-- The `style` attribute of a grid of stills whose stills are `wide` pixels wide, and `narrow`
-pixels for the narrow rendition's (shown on small screens): the custom properties
-`--pilean-still-w` and `--pilean-still-n`, each `stillColumnMin` of the width, which
-`stillColumnCss` reads. Empty when the widths are not known. -/
-def stillColumnStyle (wide narrow : Option Nat) : String :=
-  String.join ((wide.map fun w => s!"--pilean-still-w:{stillColumnMin w}px;").toList ++
-    (narrow.map fun w => s!"--pilean-still-n:{stillColumnMin w}px;").toList)
+/-- The classes of a grid of stills whose stills are `wide` pixels wide, and `narrow` pixels for
+the narrow rendition's (shown on small screens): `pilean-stills-wN` and `pilean-stills-nM`, with
+`N` and `M` the `stillColumnMin` of the widths, whose rules (`stillColumnRules`) set the custom
+properties `--pilean-still-w` and `--pilean-still-n` that `stillColumnCss` reads. Empty when the
+widths are not known. -/
+def stillColumnClasses (wide narrow : Option Nat) : String :=
+  " ".intercalate ((wide.map fun w => s!"pilean-stills-w{stillColumnMin w}").toList ++
+    (narrow.map fun w => s!"pilean-stills-n{stillColumnMin w}").toList)
+
+/-- The rules of the classes `stillColumnClasses` gives, for a `style` element beside the grid:
+only the classes a page uses are defined, and no `style` attribute is needed, so that a content
+policy without `style-src-attr` keeps the columns' widths (it must allow the pictures' `style`
+elements anyway). Empty when the widths are not known. -/
+def stillColumnRules (wide narrow : Option Nat) : String :=
+  String.join ((wide.map fun w =>
+      s!".pilean-stills-w{stillColumnMin w}\{--pilean-still-w:{stillColumnMin w}px}").toList ++
+    (narrow.map fun w =>
+      s!".pilean-stills-n{stillColumnMin w}\{--pilean-still-n:{stillColumnMin w}px}").toList)
 
 /-- The rule that sizes the columns of the grids of stills (inline and on a figure's page): each
 column is at least `--pilean-still-w` wide (`--pilean-still-n` on small screens, 560 pixels or

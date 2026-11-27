@@ -183,7 +183,7 @@ html[data-lean-links] .pilean-lean-text { display: none; }
 
 /-- The stylesheet of a figure's page (`PILeanVersoManual.Page`). The columns of a motion's grid of
 stills take their least width from `--pilean-still-col`, which `PILeanVerso.stillColumnCss` sets
-from the list's `style` attribute (`PILeanVerso.stillColumnStyle`). -/
+from the list's classes (`PILeanVerso.stillColumnClasses`). -/
 def pageCss : String := r##"
 .pilean-figure-page { max-width: 100%; overflow-wrap: anywhere; }
 .pilean-figure-page-anchor, .pilean-figure-page-anchor:target {

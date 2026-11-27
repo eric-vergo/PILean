@@ -1017,8 +1017,9 @@ the rendering (`display:none`): in Chromium, a picture whose `transform` is anim
 hidden with `display:none` and shown again stays frozen until its animation repeats, although its
 clock runs (seen on the motions of plane figures, below; an animation of `opacity` mostly was not
 frozen). The rule is kept here as a precaution for the same reason. Hiding by `visibility` showed
-no freeze in Chromium or WebKit; `display:none` was tested in Chromium only. The transparency
-hides the frames of a
+no freeze in Chromium or WebKit. Hidden with `display:none` and shown again, the fixture
+`tools/site/fixtures/freeze.html` (one rotation) freezes in Chromium (3 runs of 3) and follows its
+clock in Firefox (3 of 3); WebKit was not tested for it. The transparency hides the frames of a
 frame-switching animation, which animate their own `visibility`. `tools/anim-browser-check.py` loads
 the wave and the graph-build animations in headless Chromium (through Playwright): the pictures at
 0 s and 1.3 s differ, and with `prefers-reduced-motion: reduce` the motion is hidden, the picture
@@ -1352,10 +1353,11 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   less than three quarters of its width (text drawn at 14 pixels at 10.5 pixels or more) unless
   it fills the grid's width alone; and no still is drawn larger than its own width (`width:
   auto`, so a narrow rendition's still keeps its width on a screen of 400 to 560 pixels). The
-  list carries the widths in a `style` attribute, `--pilean-still-w` and, with a narrow
-  rendition, `--pilean-still-n` (`stillColumnStyle`); one rule (`stillColumnCss`) makes the
-  columns `minmax(min(var(--pilean-still-col), 100%), 1fr)`, as many as fit. A content policy
-  that refuses `style` attributes (`style-src-attr`) leaves the columns at `14rem`, as before.
+  list carries classes for the widths, `pilean-stills-wN` and, with a narrow rendition,
+  `pilean-stills-nM` (`stillColumnClasses`), defined by a `style` element after the list
+  (`stillColumnRules`), so a page defines only the widths it uses and needs no `style` attribute
+  (a content policy without `style-src-attr` keeps the columns); one rule (`stillColumnCss`)
+  makes the columns `minmax(min(var(--pilean-still-col), 100%), 1fr)`, as many as fit.
   So a picture of two panels 720 pixels wide gets one column in a page column of 800 pixels and
   a picture of 320 pixels three; on a phone, two stills share a row only when each still keeps
   three quarters of its width.

@@ -257,7 +257,7 @@ def motionStepTable (rows : Array MotionStepRow) : Html :=
 /-- The section of a figure's page about a motion (`m`, with its narrow rendition `n`): what the
 animation is (`MotionData.words`, with `MotionData.checkWords` when it was not checked strictly),
 the table of its steps (`motionStepTable`) and its key stills with their captions, as a grid
-whose columns follow the stills' widths (`stillColumnStyle`), always shown here (the motion at
+whose columns follow the stills' widths (`stillColumnClasses`), always shown here (the motion at
 the top of the page is shown without them, `pilean-motion-bare`, so nothing is shown twice; the
 contact sheet is offered among the files). -/
 def motionSection (idBase : String) (m : MotionData) (n : Option MotionData)
@@ -268,16 +268,19 @@ def motionSection (idBase : String) (m : MotionData) (n : Option MotionData)
     Html.element "li" #[("class", "pilean-page-motion-key")] (.seq #[
       themedPictures files s!"-key-{k}" (narrowOf k) (lazy := true),
       el "p" "pilean-motion-key-caption" (txt (motionStepText captions k))])
-  let columns := stillColumnStyle (stillWidth? files s!"-key-{m.stills.poster}")
-    (n.bind fun _ => stillWidth? files s!"-narrow-key-{m.stills.poster}")
+  let wide := stillWidth? files s!"-key-{m.stills.poster}"
+  let small := n.bind fun _ => stillWidth? files s!"-narrow-key-{m.stills.poster}"
+  let rules := stillColumnRules wide small
   el "section" "pilean-page-motion" (.seq #[
     el "h2" "pilean-page-h" (txt "Animation"),
     el "p" (if m.unchecked then "pilean-motion-words pilean-motion-unchecked"
       else "pilean-motion-words") (txt m.words),
     motionStepTable m.steps,
     el "h3" "pilean-page-decl-title" (txt "Key frames"),
-    el "ol" "pilean-page-motion-keys" (.seq stills)
-      (if columns.isEmpty then #[] else #[("style", columns)]),
+    el "ol" (s!"pilean-page-motion-keys {stillColumnClasses wide small}".trimAscii.toString)
+      (.seq stills),
+    if rules.isEmpty then .empty
+    else .element "style" #[("class", "pilean-stills-css")] (.text rules),
     el "p" "pilean-page-note" (txt "The contact sheet of these stills, for print, is among the \
       files.")]) #[("id", s!"{idBase}-animation")]
 

@@ -154,10 +154,9 @@ A link is never put inside another.
   writes the CSS of its extensions), and each inline picture has its own `style` element; a
   policy must allow all of them, with `style-src 'unsafe-inline'` or the hash of each `<style>`
   element of the page (the example's browser check serves the pages so). A `width :=` is a
-  `style` attribute (`style-src-attr`), and so are the widths of a motion's grid of stills (a
-  policy without `style-src-attr` leaves its columns at `14rem`); Verso's own math markup has some
-  too. Scripts come from
-  the site's files only.
+  `style` attribute (`style-src-attr`); Verso's own math markup has some too. A motion's grid of
+  stills needs none: its widths are classes defined by a `style` element beside it. Scripts come
+  from the site's files only.
 * An explorer: every frame is in the page. The site's script `pilean-explorer.js` (a file of the
   site, loaded deferred; no network, no `eval`, no `innerHTML`) shows one frame at a time with a
   slider for the parameter (named "Value of <axis> in Figure <n>", its value said by the slider
@@ -412,6 +411,11 @@ them in Chromium, and Firefox and WebKit are run locally:
   never takes the focus (`tools/webkit/runner.swift` says exactly what it does to the desktop;
   `tools/webkit/runner_test.py` shows its limits hold); it needs a logged-in session and is no
   part of a Linux gate. The pages of a site are not checked in WebKit, only the motions' files.
+
+A motion with no anchored actor (a morph alone) has no position to read: `webkit_check.py`
+reports it as "positions not checked" (its clock is still checked), and the site check's
+free-running reading says the same; `motion-browser-check.py` gives it its real check, its
+pixels against its stills at every rest and a switch probe decided by its drawings.
 
 A site with motions under its own Content-Security-Policy must allow the `style` element of every
 inline picture, a motion's moving picture included (`style-src 'unsafe-inline'`, or the hash of

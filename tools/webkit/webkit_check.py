@@ -27,7 +27,11 @@ the user's Library. `runner_test.py` shows the runner's limits hold. Checked, fo
   circle or its segment; each kind of reading must have been made in both loops, so none passes
   for want of readings.
 
-Exit status 0 when every motion holds, 1 otherwise, 2 when it cannot run (not macOS, no `swiftc`).
+A motion with no anchored actor (a morph alone) has no position to check here: it is reported as
+"positions not checked" (`clock only`), not as holding; `tools/motion-browser-check.py` checks
+such a motion by its pixels against its stills and by its decided switch probe.
+
+Exit status 0 when no motion fails, 1 otherwise, 2 when it cannot run (not macOS, no `swiftc`).
 """
 
 import json
@@ -130,7 +134,8 @@ def run_page(runner, root, path, script, width, height, timeout):
     `ERROR` line. The runner's home is a temporary folder (`CFFIXED_USER_HOME`), removed after,
     so that nothing is written into the user's Library."""
     import shutil
-    home = tempfile.mkdtemp(prefix="pilean-webkit-home-")
+    # named after this process, so that a later runner can remove it if this run is killed
+    home = tempfile.mkdtemp(prefix=f"pilean-webkit-home-{os.getpid()}-")
     env = dict(os.environ, WEBKIT_TIMEOUT=str(int(timeout)), CFFIXED_USER_HOME=home)
     try:
         url = "file://" + os.path.abspath(path)
@@ -278,6 +283,8 @@ def check(runner, root, name):
           and seek["slide"] <= REST_TOL and seek["phase"] <= REST_TOL
           and seek["upright"] <= UPRIGHT_TOL and free["rest"] <= REST_TOL
           and free["turn"] <= RADIUS_TOL and free["slide"] <= REST_TOL)
+    # a motion with no anchored actor (a morph alone) has nothing here to hold to a position
+    anchored = any(rest["actors"] for rest in spec["rests"])
     print(f"{name}: clock {r['t0']:.2f} -> {r['t1']:.2f} s and on to "
           f"{(r['free'][-1]['t'] if r['free'] else 0):.2f} s (cycle {spec['cycle']} s); paused, "
           f"both loops: rests {seek['rest']:.2e} px, arcs {seek['radius']:.2e} px and "
@@ -288,8 +295,10 @@ def check(runner, root, name):
           + (f"; missing {sorted(set(missing))[:3]}" if missing else "")
           + (f"; no readings of {', '.join(vacuous)}" if vacuous else "")
           + ("" if runs else "; THE CLOCK DID NOT RUN")
-          + f" -> {'ok' if ok else 'FAILED'}")
-    return ok
+          + ("" if anchored or not ok else "; positions not checked: no anchored actor (a "
+             "morph is checked by motion-browser-check.py, its pixels and its probe)")
+          + f" -> {'FAILED' if not ok else 'ok' if anchored else 'clock only'}")
+    return "ok" if ok and anchored else "clock only" if ok else "FAILED"
 
 
 def main(argv):
@@ -315,8 +324,12 @@ def main(argv):
     if not names:
         print(f"webkit_check: no motions in {root}")
         return 1
-    failures = sum(0 if check(runner, root, n) else 1 for n in names)
-    print(f"webkit: {len(names) - failures} of {len(names)} motions hold")
+    verdicts = [check(runner, root, n) for n in names]
+    failures = verdicts.count("FAILED")
+    only = verdicts.count("clock only")
+    print(f"webkit: {len(names) - failures - only} of {len(names)} motions hold"
+          + (f", {only} with positions not checked (no anchored actor; their clock runs)"
+             if only else "") + (f", {failures} failed" if failures else ""))
     return 1 if failures else 0
 
 

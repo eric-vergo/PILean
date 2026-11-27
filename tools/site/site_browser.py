@@ -28,9 +28,11 @@ def policy(page: bytes, styles: str) -> str:
     head = page.split(b"</head>", 1)[0]
     hashes = [b64sha(m) for m in HEAD_SCRIPT.findall(head)]
     scripts = " ".join(["'self'", "'wasm-unsafe-eval'"] + hashes)
-    if styles == "hashes":
+    if styles in ("hashes", "strict"):
+        # the page's style elements by hash; with "strict", no style attribute either
+        attrs = "'none'" if styles == "strict" else "'unsafe-inline'"
         style = "style-src 'self' " + " ".join(b64sha(m) for m in STYLE_ELEMENT.findall(page)) + \
-            "; style-src-attr 'unsafe-inline'"
+            f"; style-src-attr {attrs}"
     else:
         style = "style-src 'self' 'unsafe-inline'"
     return (
