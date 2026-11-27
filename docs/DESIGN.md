@@ -1167,7 +1167,12 @@ of the other picture's pixels at most one pixel away, widened by 40; this sees a
 about 2 px or more) and at its positions (every actor and every label's anchor within 0.05 px), that
 a quarter, a half and three quarters of each turn lie on the turn's circle (0.05 px) at the eased
 angle (0.5°), that labels and markers are not turned (0.01°) and are all there, that reduced motion
-shows the still and switching it off again shows the running clock, and that the picture plays.
+shows the still and switching it off again shows the running clock (switched on inside one key's
+rest and off again for a moment inside a later key's rest that certainly draws another picture,
+from the rests' ends in the expectations; the check fails when the two moments draw the same picture, since a frozen picture would
+then pass), and that the picture plays. A golden fixture with a first hold of 2 seconds
+(`motion-long-hold`, written for the browser check only) is the case where fixed moments would
+both fall in the first rest.
 
 A morph is interpolated in the page's coordinates, so it must come before any turn or slide of its
 layer (a later one starts a new layer, crossfaded). With figures between its keys (`Motion.between`)
@@ -1311,9 +1316,11 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   the picture's text alternative, then the list once while motion is on; with motion off the
   stage is hidden from it and only the list is read. The moving picture gets no declaration
   links: hovering or focusing it shows the still instead, so they could not be reached.
-* **Caption.** A motion's caption ends with a quiet note: "Animation; it pauses on a still while
-  you point at it or focus it." (`PILeanVerso.motionHintText`, both adapters; hidden while motion
-  is off and in print), and on a Blueprint site the switch's link, "Animations can be turned off in
+* **Caption.** A motion's caption ends with a quiet note: "Animation; a still replaces it while
+  you point at it, or after a click or tap until you click elsewhere."
+  (`PILeanVerso.motionHintText`, both adapters; hidden while motion is off and in print). The
+  still covers the picture; it does not stop the clock, so when the still goes the picture is where its clock has got to. On a
+  Blueprint site the note is followed by the switch's link, "Animations can be turned off in
   the page menu." (`PILeanVerso.motionLinkText`), which the Blueprint shows only when its script
   runs.
 * **Text alternative.** The directive's `alt`; where the Blueprint adapter takes the doc string
@@ -1331,12 +1338,24 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   click or a tap; the stage then has a 3-pixel ring in `--pilean-focus`, more than 3:1 against the
   light and the dark page): the poster key's still in the picture's own box, so nothing around it
   moves; the moving picture is only made transparent, so its text alternative stays in the
-  accessibility tree. A click holds the still until the focus leaves, as the caption's note says;
-  a tap stops the motion the same way. Motion off (the root's `data-motion="reduce"`, which the
-  Blueprint's switch sets, or the reader's `prefers-reduced-motion: reduce`) and print: the stage
-  is hidden and the stills are a grid with their captions. Without JavaScript the same, by the
-  stylesheet alone. Small screens (560 pixels or less, the plane figures' breakpoint): the narrow
-  rendition, and the narrow stills.
+  accessibility tree, and its clock runs on underneath. After a click or a tap the still stays,
+  through the focus, until a click elsewhere moves the focus away, as the caption's note says.
+  Motion off (the root's `data-motion="reduce"`, which the Blueprint's switch sets, or the
+  reader's `prefers-reduced-motion: reduce`) and print: the stage is hidden and the stills are a
+  grid with their captions. Without JavaScript the same, by the stylesheet alone. Small screens
+  (560 pixels or less, the plane figures' breakpoint): the narrow rendition, and the narrow
+  stills.
+* **The grid of stills.** Its columns are sized from the stills' own width `w` (the poster key's
+  still; the narrow rendition's on small screens), which the adapter knows from the files: each
+  column is at least `3/4 · w` wide, rounded up to a multiple of 20 pixels
+  (`PILeanVerso.stillColumnMin`, `stillFraction`), or as wide as the grid when the grid is
+  narrower, so no still is shown at less than three quarters of its width (text drawn at 14
+  pixels at 10.5 pixels or more) unless it fills the grid's width alone. The rule is CSS only: the
+  list carries the classes `pilean-stills-cN` and, with a narrow rendition, `pilean-stills-nN`,
+  whose rules (`stillColumnCss`) set `--pilean-still-min`, and the grid's columns are
+  `minmax(min(var(--pilean-still-min), 100%), 1fr)`, as many as fit. So a picture of two panels
+  720 pixels wide gets one column in a page column of 800 pixels and a picture of 320 pixels three;
+  on a phone, two stills share a row only when each still keeps three quarters of its width.
 * **Hiding.** A moving picture is never hidden with `display: none`, in print too: Chromium
   freezes a picture whose `transform` is animated when it is hidden with `display: none` and
   shown again, until the animation repeats, although its clock runs. Emulating print media
@@ -1352,9 +1371,12 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   the standing (for a linked motion, what a theorem about a motion can state, `motionLinkedWords`),
   `MotionData.words` (with `MotionData.checkWords` for a motion not checked strictly), the table of
   the steps (each step's keys, its duration exactly, and each move with its panel, actor and
-  `MotionMoveRow.words`, a crossfade marked) and the key stills with their captions; the files
-  (the animated SVGs, the stills, the contact sheet with its PDF) are listed with the others, and
-  the contact sheet is among them only.
+  `MotionMoveRow.words`, a crossfade marked) and the key stills with their captions, in a grid
+  sized as above; the files (the animated SVGs, the stills, the contact sheet with its PDF) are
+  listed with the others, and the contact sheet is among them only. The code comes after all of
+  this, and on every figure's page code longer than 60 lines (`codeFoldAbove`, counted over the
+  declarations' source lines) is folded in a `details` element, closed, whose summary says how
+  many declarations and lines it holds; the summary is a tab stop with a 3-pixel focus ring.
 * **Files.** A site writes a motion's outputs (`motionOutputs`) and, of the dark motion, only
   what its pages show: the SVG of each key's still at each width (`-key-k-dark`,
   `-narrow-key-k-dark`). So `7 + 6 n` files for `n` keys with a narrow rendition, `6 + 3 n`

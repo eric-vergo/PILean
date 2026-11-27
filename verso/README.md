@@ -91,7 +91,7 @@ A point turned a quarter about the origin.
 The motion's own captions (`Motion.captions`, one per key) are the captions of its stills
 ("Step 2 of 3: …"); write them without a counter. Give the motion an `alt` (the doc string, without
 its code marks, stands in otherwise). `width` sets the picture's width; `inline` is implied;
-`format` does not apply. The caption ends with the hint that the animation pauses
+`format` does not apply. The caption ends with a note on what pointing and clicking do
 (`PILeanVerso.motionHintText`) and the Blueprint's link to its motion switch, "Animations can be
 turned off in the page menu.", shown only when scripts run. A motion that was
 not checked strictly (built at the check level `warn` or `ignore`, or with errors left) fails the
@@ -135,13 +135,16 @@ A link is never put inside another.
   figure shown as a file is an `<img>` of the site and needs no script; the stylesheet switches
   the light and dark files.
 * A motion moves inline, in the theme of the page, on its own clock, its caption saying
-  "Animation; it pauses on a still while you point at it or focus it." Hovering it (with a mouse)
-  or focusing it (with the keyboard, a click or a tap, until the focus leaves) shows its poster
-  key's still in the same place; with animations turned off (the Blueprint's switch beside the
-  theme control), with the system's reduced motion, and in print, it shows its key frames as stills
-  in a grid with their captions, which assistive technology reads after the picture's text
-  alternative. On small screens it shows its narrow rendition, when it has one. None of this needs
-  a script ([`docs/DESIGN.md`](../docs/DESIGN.md), "A motion shown in a page").
+  "Animation; a still replaces it while you point at it, or after a click or tap until you click
+  elsewhere." Hovering it (with a mouse) or focusing it (with the keyboard, a click or a tap,
+  until the focus leaves) covers it with its poster key's still in the same place; the clock runs
+  on under the still, so the picture is further on in its cycle when the still goes. With
+  animations turned off (the Blueprint's switch beside the theme control), with the system's
+  reduced motion, and in print, it shows its key frames as stills in a grid with their captions,
+  which assistive technology reads after the picture's text alternative; the grid has as many
+  columns as fit with every still at three quarters of its own width or more (one column for a
+  wide picture, several for a small one), or a still as wide as the column. On small screens it
+  shows its narrow rendition, when it has one. None of this needs a script ([`docs/DESIGN.md`](../docs/DESIGN.md), "A motion shown in a page").
 * With `inline := true`, the picture is an `svg` element of the page (its narrow rendition on
   screens up to 560 px wide, when it has one): the titles of its elements show on hover, the
   elements that name a declaration link to it (see "Links to Lean"), and one picture serves both
@@ -209,7 +212,8 @@ target, which on a figure's page leaves the title in view as well). The page's o
    and does not cover; or "Illustration: no theorem is linked to it", with whether the
    declaration marks it as one
    (`@[figure illustration]`).
-4. **Code**: the figure's declaration in full; then the declarations of the project that its value
+4. **Code**, after everything about the picture (for a motion, after its animation's section):
+   the figure's declaration in full; then the declarations of the project that its value
    and its theorems' statements use, and those that these use, to depth 2, nearest first, at
    most 16 in full (each at most 200 lines) and up to 200 more by name; a declaration is of the
    project when its module's first component is the figure module's, a theorem is followed by
@@ -218,7 +222,10 @@ target, which on a figure's page leaves the title in view as well). The page's o
    by name (at most 60; instances and Lean's `Init` left out), linked to the Lean and Mathlib
    documentation for `Init`, `Std`, `Lean`, `Lake`, `Mathlib` and `Batteries`. Each declaration is
    highlighted with the hovers of the genre's Lean code and linked to its source at the build's
-   commit (`--figure-repo`, `--figure-commit`, `--figure-source-prefix`), over its lines.
+   commit (`--figure-repo`, `--figure-commit`, `--figure-source-prefix`), over its lines. Code of
+   more than 60 lines in all (the declarations' source lines) is folded in a closed `details`
+   element, `details.pilean-page-code-fold`, whose summary ("Show the code: N declarations, L
+   lines") opens it.
 5. **Provenance**: for each file its fingerprint, SHA-256, renderer and text engine, and what
    `pilean-verify` says of it against the site's manifest, with the standing the file records;
    the Lean version, PILean's version, the revisions of `pilean` and `leantex` in the
@@ -358,7 +365,8 @@ python3 -I tools/site/inline_check.py SITE      # each inline picture and moving
 python3 -I tools/site/markup_check.py SITE      # no script, handler or active markup in a figure
 python3 -I tools/site/page_check.py SITE        # each figure's page agrees with the manifest
 lake exe pilean-site-links SITE [--all]         # (verso/manual) every link reaches its target
-python3 -I tools/site/motion_browser.py SITE --expect DIR [--shots DIR]   # motions in Chromium
+python3 -I tools/site/motion_browser.py SITE --expect DIR [--shots DIR] [--workers N] \
+    [--engine chromium|firefox]                                           # motions in a browser
 ```
 
 `motion_browser.py` checks every page with a motion; DIR holds, for each motion the site shows,
@@ -367,8 +375,29 @@ stills and the poster's PNG beside it, as PILean's tests write them
 (`PILeanTest.MotionChecks.expectations` for a `Plane.Motion`,
 `PILeanTest.MotionPanelsChecks.expectations` for a `Plane.MotionPanels`; `example/ExampleTest.lean`,
 `writeMotion` and `writePanels`, is a writer to copy): a site needs only its own writer. A motion
-shown without expectations fails. `tools/motion-browser-check.py` checks the same files on their
-own, pixel by pixel against the stills.
+shown without expectations fails. The expectations list, besides the rests (with their start and
+end) and the turns, the slides with three samples each, which the checks hold to the straight
+segment between the actor's keys; a motion with no turn or no slide is checked for what it has. A
+site's writer that calls the library's `expectations` gets them by rebuilding. `--workers N` checks
+N pages at a time, each in a process with its own browser; a motion shown without its stills on
+its figure's page and with them on another page gets on the figure's page only the checks that
+differ there (the ways of turning motion off, print, positions, the grids), since hover, focus, a
+click and a tap use the same stage and rules. Each section prints its duration (`time: …`).
+`tools/motion-browser-check.py` checks the same files on their own, pixel by pixel against the
+stills.
+
+Engines. The checks are measured on Chromium, and a continuous-integration gate runs them there.
+`--engine firefox` (on `motion_browser.py`, `browser_check.py` and `motion-browser-check.py`)
+runs them in Playwright's Firefox, which must be installed for Playwright first; the freeze control
+(a Chromium observation) and the PDF print (Playwright's are Chromium's) are reported there as not
+applicable, and the pixel rule's tolerances, measured on Chromium, are not measured on Firefox.
+WebKit, the engine of Safari, is checked on macOS only, locally, by
+`python3 tools/webkit/webkit_check.py DIR` (or `motion-browser-check.py DIR --engine webkit`) on the
+files of the expectations: the positions at rests, turns, slides and the panels' phase, paused in
+the first and the second loop and free-running over both, failing when the clock does not run. It
+compiles a small runner with the system's `swiftc` and shows the page in a transparent window that
+lets every click through and never takes the focus (`tools/webkit/runner.swift` says exactly what
+it does to the desktop); it needs a logged-in session and is no part of a Linux gate.
 
 A site with motions under its own Content-Security-Policy must allow the `style` element of every
 inline picture, a motion's moving picture included (`style-src 'unsafe-inline'`, or the hash of

@@ -66,8 +66,8 @@ desc="the page names the theorem"; check grep -q 'lean:decl/Example.cubicPlot_sp
 desc="the page has a dark picture"; check grep -q 'Example.cubicPlot-dark.svg' "$page"
 desc="the animation has its still frame for reduced motion"
 check grep -q 'prefers-reduced-motion: reduce' "$scratch/a/html-multi/Pictures-with-proofs/Motion/index.html"
-desc="the figures page lists nineteen figures"
-check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 19
+desc="the figures page lists twenty figures"
+check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 20
 desc="no inline event handler and no script in the figures' markup"
 check python3 -I "$site_checks"/markup_check.py "$scratch/a/html-multi" --min 5
 desc="every inline picture is the body of a file the manifest lists"
@@ -76,14 +76,14 @@ check python3 -I "$site_checks"/inline_check.py "$scratch/a/html-multi"
 # The figures' pages.
 pages="$scratch/a/html-multi/Figures"
 desc="every figure has a page"
-check test "$(grep -l 'data-pilean-page=' "$pages"/*/index.html | wc -l | tr -d ' ')" = 19
+check test "$(grep -l 'data-pilean-page=' "$pages"/*/index.html | wc -l | tr -d ' ')" = 20
 desc="every figure's page agrees with the manifest (page_check.py)"
 check python3 -I "$site_checks"/page_check.py "$scratch/a/html-multi"
 cubic="$pages/Example.cubicPlot/index.html"
 desc="a figure's source line links its page"
 check grep -q 'class="pilean-page-link" href="Figures/Example.cubicPlot/' "$page"
 desc="the figures page links each figure's page"
-check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 19
+check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 20
 desc="every link PILean writes reaches its file and element (pilean-site-links)"
 check "$links" "$scratch/a/html-multi"
 desc="every link of the site reaches its file and element (pilean-site-links --all)"
@@ -102,6 +102,16 @@ desc="the page links each declaration's source at the commit, over its lines"
 check grep -q "$repo/blob/$commit/verso/example/PictureExample/Figures.lean#L[0-9]*-L[0-9]*" "$cubic"
 desc="the page says how to reproduce the files"
 check grep -q 'lake exe example-blueprint --check-figures _out/html-multi/-verso-data/pilean-figures --figure-repo' "$cubic"
+two="$pages/Example.twoFrames/index.html"
+desc="a page with more than 60 lines of code folds it, closed, after the animation"
+fold='<details class="pilean-page-code-fold"><summary>Show the code: 12 declarations, '
+check bash -c "grep -qF '$fold' '$two' && test \"\$(grep -o 'pilean-page-motion\"\|$fold' '$two' |
+  head -n 1)\" = 'pilean-page-motion\"'"
+desc="a page with less code shows it unfolded"
+check bash -c "! grep -q '<details class=\"pilean-page-code-fold\"' '$cubic' && grep -q 'class=\"pilean-page-codes\"' '$cubic'"
+desc="the stills of a motion's page are sized from the stills' widths"
+check bash -c "grep -q 'class=\"pilean-page-motion-keys pilean-stills-c540 pilean-stills-n280\"' '$two' &&
+  grep -q 'class=\"pilean-page-motion-keys pilean-stills-c240\"' '$pages/Example.quarterTurn/index.html'"
 sketch="$pages/Example.sketch/index.html"
 desc="an illustration's page says so and never names a linked theorem"
 check bash -c "grep -q 'Illustration: no theorem is linked to it' '$sketch' && ! grep -q 'Linked theorem' '$sketch'"
@@ -234,7 +244,7 @@ elif how == "still":
     j = s.index("Example.quarterTurn-key-0.svg", i)
     s = s[:j] + "Example.quarterTurn-key-1.svg" + s[j + len("Example.quarterTurn-key-0.svg"):]
 elif how == "dark-stills":
-    i = s.index('<ol class="pilean-motion-keys" id="quarter-motion-keys"')
+    i = s.index('id="quarter-motion-keys"')
     j = s.index("</ol>", i)
     s = s[:i] + re.sub(r'<picture class="pilean-figure-dark">.*?</picture>', "", s[i:j]) + s[j:]
 elif how == "errors-left":
