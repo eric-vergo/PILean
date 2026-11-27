@@ -129,7 +129,7 @@ const fades = async () => {
 };
 const opacities = await fades();
 // the mutation: the opacity animation of the group nearest the first entry's layer held at 0
-let mutated = null;
+let mutated = null, shifted = null;
 if (MUTATE && SPEC.opacities.length) {
   const e = SPEC.opacities[0];
   let fade = null;
@@ -137,11 +137,17 @@ if (MUTATE && SPEC.opacities.length) {
     fade = [...g.children].find(c =>
       c.localName === 'animate' && c.getAttribute('attributeName') === 'opacity');
   if (fade) {
-    fade.setAttribute('values', fade.getAttribute('values').split(';').map(() => '0').join(';'));
+    const kept = fade.getAttribute('values');
+    fade.setAttribute('values', kept.split(';').map(() => '0').join(';'));
     mutated = await fades();
+    // the same fade one boundary late: the mark shows at the wrong time
+    const v = kept.split(';');
+    fade.setAttribute('values', [v[0], ...v.slice(0, -1)].join(';'));
+    shifted = await fades();
+    fade.setAttribute('values', kept);
   }
 }
-return JSON.stringify({ua: navigator.userAgent, t0, t1, free, seek, opacities, mutated});
+return JSON.stringify({ua: navigator.userAgent, t0, t1, free, seek, opacities, mutated, shifted});
 """
 
 
@@ -374,10 +380,15 @@ def check(runner, root, name, mutate=False):
     caught = None
     if mutate:
         _, m_read, m_off = opacity_errors(spec, r["mutated"])
-        caught = m_off > 0
-        print(f"opacity mutation: in {name} the fade of {spec['opacities'][0]['id']} never starts "
-              f"(its group's opacity animation held at 0): {m_off} of {m_read} samples off -> "
-              f"{'caught' if caught else 'NOT CAUGHT, FAILED'}")
+        _, s_read, s_off = opacity_errors(spec, r["shifted"] or [])
+        caught = m_off > 0 and s_off > 0
+        print(f"opacity mutation (fade-never-starts): in {name} the fade of "
+              f"{spec['opacities'][0]['id']} never starts (its group's opacity animation held at "
+              f"0): {m_off} of {m_read} samples off -> "
+              f"{'caught' if m_off > 0 else 'NOT CAUGHT, FAILED'}")
+        print(f"opacity mutation (window-shifted): its values one boundary later, the mark shown "
+              f"at the wrong time: {s_off} of {s_read} samples off -> "
+              f"{'caught' if s_off > 0 else 'NOT CAUGHT, FAILED'}")
     ok = (runs and not missing and not vacuous and o_read == listed and o_off == 0
           and o_err <= OPACITY_TOL and seek["rest"] <= REST_TOL
           and seek["radius"] <= RADIUS_TOL and seek["angle"] <= ANGLE_TOL

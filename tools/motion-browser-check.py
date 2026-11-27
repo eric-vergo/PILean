@@ -331,6 +331,12 @@ LAYER = """([id, nth, what]) => {
   if (what === 'hide') el.style.visibility = 'hidden';
   else if (what === 'opaque') { el.style.visibility = ''; fades.forEach(held('1')); }
   else if (what === 'fade-never-starts') { if (!fades.length) return false; held('0')(fades[0]); }
+  else if (what === 'window-shifted') {
+    // every value one boundary later: the fade runs one interval of the clock after its window
+    if (!fades.length) return false;
+    const v = fades[0].getAttribute('values').split(';');
+    fades[0].setAttribute('values', [v[0], ...v.slice(0, -1)].join(';'));
+  }
   else {
     el.style.visibility = '';
     for (const a of fades) if (a.hasAttribute('data-kept')) {
@@ -800,10 +806,11 @@ def check(browser, root, name):
 
 
 def opacity_mutation(browser, root, names):
-    """The opacity check must catch a mark whose fade never starts: in the first motion whose
-    expectations list opacities, the opacity animation of the group nearest the first entry's
-    layer is held at 0 in the page (`LAYER`, before seeking), and `opacity_errors` must find
-    samples off. Returns whether it did."""
+    """The opacity check must catch a mark whose fade never starts and one whose fade runs at the
+    wrong time: in the first motion whose expectations list opacities, the opacity animation of
+    the group nearest the first entry's layer is held at 0 in the page, then (in a fresh page)
+    has its values shifted one boundary later (`LAYER`, before seeking), and `opacity_errors` must
+    find samples off each time. Returns whether it did both times."""
     for name in names:
         with open(os.path.join(root, name + ".json")) as f:
             spec = json.load(f)
@@ -813,17 +820,22 @@ def opacity_mutation(browser, root, names):
         print("opacity mutation: no motion lists opacities -> FAILED")
         return False
     first_fade = spec["opacities"][0]
-    page = browser.new_page(viewport=VIEWPORT)
-    page.goto("file://" + os.path.abspath(os.path.join(root, spec["svg"])))
-    page.evaluate("document.documentElement.pauseAnimations()")
-    held = page.evaluate(LAYER, [first_fade["id"], first_fade["nth"], "fade-never-starts"])
-    _, read, off, _ = opacity_errors(page, spec)
-    page.close()
-    caught = held and off > 0
-    print(f"opacity mutation: in {name} the fade of {first_fade['id']} never starts (its group's "
-          f"opacity animation held at 0): {off} of {read} samples off -> "
-          f"{'caught' if caught else 'NOT CAUGHT, FAILED'}")
-    return caught
+    caught_all = True
+    for what, words in [("fade-never-starts", "never starts (its group's opacity animation held "
+                         "at 0)"),
+                        ("window-shifted", "runs one interval of the clock late (its values "
+                         "shifted by one boundary, so the mark shows at the wrong time)")]:
+        page = browser.new_page(viewport=VIEWPORT)
+        page.goto("file://" + os.path.abspath(os.path.join(root, spec["svg"])))
+        page.evaluate("document.documentElement.pauseAnimations()")
+        held = page.evaluate(LAYER, [first_fade["id"], first_fade["nth"], what])
+        _, read, off, _ = opacity_errors(page, spec)
+        page.close()
+        caught = held and off > 0
+        caught_all = caught_all and caught
+        print(f"opacity mutation ({what}): in {name} the fade of {first_fade['id']} {words}: "
+              f"{off} of {read} samples off -> {'caught' if caught else 'NOT CAUGHT, FAILED'}")
+    return caught_all
 
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "motion-pixels")

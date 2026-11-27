@@ -1064,8 +1064,14 @@ interpolation between them give the eased value of the whole step at every momen
 scaled control values would leave `[0, 1]` is refused (and is an error of the motion), which has
 not been seen on any curve with control values in `[0, 1]` (the tests try the standard curve and
 four extreme ones, within `1e-6`, and `1e-4` where a curve is steep). The control values are
-written to six decimals: at four, a part of the standard curve would leave a turn up to `1e-4` of
-its angle off its eased angle.
+written to six decimals (`Smil.splineText`, each within `5e-7` of its value; a value with fewer
+decimals, such as the standard curve's `0.42 0 0.58 1`, is written with those). That is enough:
+over every part of at least a hundredth of a step of the standard curve and of `0.25 0.1 0.25 1`
+(the parts' ends on a grid of hundredths, 41 points in each part), the written curve is within
+`7.8e-7` of the step's change from the exact part, so a turn of less than a whole turn is within
+`2.8e-4°` of its eased angle, and a point at radius `R` pixels within `4.9e-6 R` pixels of its
+place: `0.005` px at a radius of 1000 pixels, a tenth of the browser checks' `0.05` px. At four
+decimals the same parts would be off by up to `7.5e-5` of the change, `0.47` px at that radius.
 
 `PILean/Anim/Smil.lean` writes SMIL animation elements on a timeline: `animateRotate` (values
 `θ cx cy` of an `animateTransform` of type `rotate`), `animateTranslate`, `animateOpacity`,

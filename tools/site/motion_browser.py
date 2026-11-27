@@ -138,7 +138,7 @@ OPACITY = """async ([sid, t, id, nth]) => {
 
 # The mutation of `opacity_mutation`: the opacity animation of the group nearest the nth layer of
 # an actor of the picture `sid` held at 0 (a mark whose fade never starts); whether it was found.
-FADE_NEVER_STARTS = """([sid, id, nth]) => {
+FADE_NEVER_STARTS = """([sid, id, nth, shift]) => {
   const svg = document.getElementById(sid);
   const el = [...svg.querySelectorAll('[data-pilean-actor]')]
     .filter(e => e.getAttribute('data-pilean-actor') === sid + '-' + id)[nth];
@@ -146,7 +146,10 @@ FADE_NEVER_STARTS = """([sid, id, nth]) => {
     const a = [...g.children].find(c =>
       c.localName === 'animate' && c.getAttribute('attributeName') === 'opacity');
     if (a) {
-      a.setAttribute('values', a.getAttribute('values').split(';').map(() => '0').join(';'));
+      const v = a.getAttribute('values').split(';');
+      // held at 0 (the fade never starts), or every value one boundary later (shifted: the
+      // mark shows at the wrong time)
+      a.setAttribute('values', (shift ? [v[0], ...v.slice(0, -1)] : v.map(() => '0')).join(';'));
       return true;
     }
   }
@@ -343,23 +346,27 @@ def opacity_errors(page, sid, spec):
 
 
 def opacity_mutation(c, browser, base, url, sid, spec, label, helpers):
-    """The opacity check must catch a mark whose fade never starts: in a page of its own, the
-    opacity animation of the group nearest the layer of the first entry of `opacities` is held at
-    0 (`FADE_NEVER_STARTS`) before the clock is sought, and `opacity_errors` must find samples
-    off."""
+    """The opacity check must catch a mark whose fade never starts and one whose fade runs at the
+    wrong time: in a page of its own each, the opacity animation of the group nearest the layer of
+    the first entry of `opacities` is held at 0, or has its values shifted one boundary later
+    (`FADE_NEVER_STARTS`), before the clock is sought, and `opacity_errors` must find samples off
+    each time."""
     new_page, goto = helpers["new_page"], helpers["goto"]
-    ctx, page = new_page(browser, viewport={"width": 1440, "height": 900})
-    goto(page, base + url)
-    page.evaluate("(sid) => document.getElementById(sid).pauseAnimations()", sid)
     e = spec["opacities"][0]
-    held = page.evaluate(FADE_NEVER_STARTS, [sid, e["id"], e["nth"]])
-    _, read, off, _ = opacity_errors(page, sid, spec)
-    ctx.close()
-    c.check(f"{label}: the opacity check catches a mark whose fade never starts (the fade of "
-            f"{e['id']} held at 0 in the page)", held and off > 0,
-            f"{off} of {read} samples off, the animation found: {held}")
-    if held and off > 0:
-        c.say(f"{label}: opacity mutation caught: {off} of {read} samples off")
+    for shift, words in [(False, "whose fade never starts (the fade of {} held at 0 in the page)"),
+                         (True, "whose fade runs at the wrong time (the values of the fade of {} "
+                          "shifted one boundary later)")]:
+        ctx, page = new_page(browser, viewport={"width": 1440, "height": 900})
+        goto(page, base + url)
+        page.evaluate("(sid) => document.getElementById(sid).pauseAnimations()", sid)
+        held = page.evaluate(FADE_NEVER_STARTS, [sid, e["id"], e["nth"], shift])
+        _, read, off, _ = opacity_errors(page, sid, spec)
+        ctx.close()
+        c.check(f"{label}: the opacity check catches a mark " + words.format(e["id"]),
+                held and off > 0, f"{off} of {read} samples off, the animation found: {held}")
+        if held and off > 0:
+            c.say(f"{label}: opacity mutation ({'shifted' if shift else 'held at 0'}) caught: "
+                  f"{off} of {read} samples off")
 
 
 def shot(page, sid):

@@ -1056,11 +1056,20 @@ def stepEased (base : Timeline) (j : Nat) (x : Float) : Float :=
     (Easing.spline (quant 6 a) (quant 6 b) (quant 6 c) (quant 6 d)).eval x
   | none => x
 
-/-- Three samples of step `j` of the timeline `tl` (undivided, `base`), at a quarter, a half and
-three quarters of its time, with the eased fraction of the step done then, as JSON. -/
+/-- Samples of step `j` of the timeline `tl` (undivided, `base`), with the eased fraction of the
+step done at each, as JSON: at a quarter, a half and three quarters of its time, and, when the step
+is divided into parts (for the windows of its fades or for a sampled morph), also at every boundary
+between two parts and in the middle of every part, so that a turn is checked inside each part and
+where one part ends and the next begins. -/
 def stepSamplesJson (tl base : Timeline) (j : Nat) : Option String := do
   let (a, b) ← stepSpan tl j
-  let samples := [0.25, 0.5, 0.75].map fun (x : Float) =>
+  let parts := tl.segments.filter (·.kind = .move j)
+  let inner : List Float := if parts.size ≤ 1 then [] else
+    (parts.toList.drop 1).map (fun s => (Exact.toFloat s.start - a) / (b - a)) ++
+      parts.toList.map fun s =>
+        (Exact.toFloat (s.start + s.dur / 2) - a) / (b - a)
+  let xs := [0.25, 0.5, 0.75] ++ inner
+  let samples := xs.map fun (x : Float) =>
     s!"\{\"t\": {num (a + x * (b - a))}, \"f\": {num (stepEased base j x)}}"
   return s!"[{", ".intercalate samples}]"
 
