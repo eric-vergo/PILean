@@ -54,10 +54,18 @@
 #       read is the product of the computed opacity of the layer and of each ancestor up to the
 #       root, the seam's group included (`OPACITY`). Chromium, Firefox and WebKit all put the value
 #       of a SMIL animation of the `opacity` attribute in the computed style; that it is what is
-#       drawn is measured from the pixels in the first loop (`drawn_opacity`: the picture, the
-#       picture without the layer and with it opaque, the median of (shown - without) / (opaque -
-#       without) over the pixels where the last two differ by 64 levels or more), within 0.03
-#       (`DRAWN_TOL`: 8-bit channels over 64 levels move in steps of 1/64). Measured on the golden
+#       drawn is measured from the pixels in the first loop (`drawn_opacity`: four pictures, as
+#       shown, without the layer, with every opacity animation above the layer held at 1, and so
+#       held without the layer; the median of (shown - without) / (held - held without) over the
+#       pixels the layer owns: those where the last two differ by 64 levels or more and where the
+#       picture without the layer does not change when the animations are held, so that a layer
+#       sharing its opacity animation with others, something drawn over it, or a sibling's pixel
+#       is never measured as the layer's), within 0.03 (`DRAWN_TOL`: 8-bit channels over 64
+#       levels move in steps of 1/64). A sample whose layer owns no pixel is not measured from
+#       the pixels and is counted on the line ("the pixel cross-check not applicable for N"),
+#       except at an expected opacity of 0, where the layer's absence is measured: the picture
+#       as shown is the picture without it within 2 levels. A failing line names the sub-checks
+#       that failed. Measured on the golden
 #       motions (108 samples, 54 measured from the pixels): read against expected at most 8e-6 in
 #       Chromium, 0 in Firefox and 3e-6 in WebKit (the writer rounds opacities to 4 decimals and
 #       splines to 6); drawn against expected at most 0.006 in Chromium and Firefox and 0.002 in
@@ -374,19 +382,25 @@ RATIO = """async ([a, b, c, d]) => {
     if (best >= 64 && other <= 2) r.push((s[k + ch] - hh[k + ch]) / (f[k + ch] - fh[k + ch]));
   }
   r.sort((x, y) => x - y);
-  return [r.length ? r[r.length >> 1] : null, r.length];
+  // how far the picture as shown is from the picture without the layer, anywhere
+  let apart = 0;
+  for (let k = 0; k < s.length; k += 4)
+    for (let q = 0; q < 3; q++) apart = Math.max(apart, Math.abs(s[k + q] - hh[k + q]));
+  return [r.length ? r[r.length >> 1] : null, r.length, apart];
 }"""
 
 
-def drawn_opacity(page, clip, t, ident, nth):
+def drawn_opacity(page, clip, t, ident, nth, expected=None):
     """The opacity of the nth layer of the actor `ident` as drawn at time `t`, measured from the
     pixels (`RATIO`) of four pictures: as shown; without the layer; with every opacity animation
     of the layer and of its ancestors held at 1; and so held without the layer. It is measured on
     the pixels the layer owns (`RATIO`), and is `None` with 0 pixels when it owns none (every
     pixel of it shared with a layer of the same opacity animation, covered, or of too little
     contrast): then the pixel cross-check does not apply to the sample, which is reported, and
-    the opacity read from the computed style still holds it. `None` with -1 when the layer is
-    missing."""
+    the opacity read from the computed style still holds it; but when the `expected` opacity is
+    0, the layer's absence is measured instead: the picture as shown must be the picture without
+    the layer within 2 levels everywhere, and is then measured as 0. `None` with -1 when the layer
+    is missing."""
     if page.evaluate(OPACITY, [t, ident, nth]) is None:
         return None, -1
     shown = page.screenshot(clip=clip)
@@ -400,7 +414,11 @@ def drawn_opacity(page, clip, t, ident, nth):
     page.evaluate(OPACITY, [t, ident, nth])
     opaque_hidden = page.screenshot(clip=clip)
     page.evaluate(LAYER, [ident, nth, "restore"])
-    return page.evaluate(RATIO, [uri(shown), uri(hidden), uri(opaque), uri(opaque_hidden)])
+    o, pixels, apart = page.evaluate(RATIO, [uri(shown), uri(hidden), uri(opaque),
+                                             uri(opaque_hidden)])
+    if o is None and expected is not None and expected <= 1e-6:
+        return (0.0, 0) if apart <= 2 else (1.0, 0)
+    return o, pixels
 
 
 def opacity_errors(page, spec):
@@ -663,7 +681,7 @@ def check(browser, root, name):
     drawn_err, drawn_read, drawn_na = 0.0, 0, 0
     for e in spec["opacities"]:
         for s in e["samples"]:
-            o, pixels = drawn_opacity(page, clip, s["t"], e["id"], e["nth"])
+            o, pixels = drawn_opacity(page, clip, s["t"], e["id"], e["nth"], s["o"])
             if o is not None:
                 drawn_read += 1
                 drawn_err = max(drawn_err, abs(o - s["o"]))

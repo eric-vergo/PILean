@@ -98,6 +98,9 @@ REST_TOL = 0.05
 RADIUS_TOL = 0.05
 ANGLE_TOL = 0.5
 UPRIGHT_TOL = 0.01
+# Half the window about the middle of a rest of 0.3 s or less in which a probe may read or switch,
+# when no two longer rests differ (`rest_window`, seconds).
+NEAR_REST = 0.1
 # the opacity of a layer (`tools/motion-browser-check.py` says why, with its measured errors)
 OPACITY_TOL = 0.02
 
@@ -441,19 +444,19 @@ def undecided(spec):
     """Why no probe on the timeline can be chosen (`rest_pair` gave none)."""
     if len(spec["rests"]) < 2:
         return "the probe could not run: the motion has a single rest"
-    if sum(1 for r in spec["rests"] if rest_window(r)) < 2:
-        return ("the probe could not run: fewer than two rests show their key still for more "
-                "than 0.3 s")
     return ("the probe could not run: no two rests of the motion certainly draw different "
             "pictures (same actors, anchors and drawings)")
 
 
-def rest_window(rest):
+def rest_window(rest, short=False):
     """The part of a rest (seconds of the clock) where a probe may read or switch: the part in
     which the key is shown still (`from` to `until`, after the rest's fades) less 0.1 s at each
-    end; `None` for a part of 0.3 s or less, which no probe uses."""
+    end; for a part of 0.3 s or less, `None`, or with `short` `NEAR_REST` about its middle (a
+    probe used only when fewer than two longer rests differ, `rest_pair`)."""
     if rest["until"] - rest["from"] > 0.3:
         return rest["from"] + 0.1, rest["until"] - 0.1
+    if short:
+        return rest["t"] - NEAR_REST, rest["t"] + NEAR_REST
     return None
 
 
@@ -466,9 +469,13 @@ def rest_pair(spec, start, least):
     `None` when no two rests certainly differ."""
     cycle = spec["cycle"]
     best = None
-    rests = [r for r in spec["rests"] if rest_window(r)]
+    # the rests whose key is shown still for more than 0.3 s; when no two of them differ, every
+    # rest, the short ones by their middle
+    short = not any(rests_differ(a, b) for a in spec["rests"] for b in spec["rests"]
+                    if rest_window(a) and rest_window(b))
+    rests = [r for r in spec["rests"] if rest_window(r, short)]
     for a in rests:
-        lo_a, hi_a = rest_window(a)
+        lo_a, hi_a = rest_window(a, short)
         if (start - lo_a) % cycle <= hi_a - lo_a:
             wait, begin = 0.0, start
         else:
@@ -476,7 +483,7 @@ def rest_pair(spec, start, least):
         for b in rests:
             if not rests_differ(a, b):
                 continue
-            lo_b, hi_b = rest_window(b)
+            lo_b, hi_b = rest_window(b, short)
             hi_b = max(lo_b, hi_b - 0.2)
             d = (lo_b - begin) % cycle
             if d >= least:
@@ -840,9 +847,14 @@ OVERFLOW = """() => {
     if (r.width === 0 || r.right <= w + 0.5) continue;
     if ([...e.children].some(k => k.getBoundingClientRect().right > w + 0.5)) continue;
     const name = e.localName + (e.id ? '#' + e.id : '') +
-      (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\\s+/)
+      (e.getAttribute('class') ? '.' + e.getAttribute('class').trim().split(/\\s+/)
         .join('.') : '');
-    out.push([name, !!e.closest('figure, .pilean-motion, .pilean-figure, .pilean-figure-page')]);
+    // where it is: in a figure's picture (2), in a figure but not its picture, its caption say (1),
+    // or outside any figure (0)
+    const picture = e.closest('svg, img, picture, .pilean-motion, .pilean-inline-svg, ' +
+      '.pilean-page-motion-keys');
+    const figure = e.closest('figure, .pilean-figure, .pilean-figure-page');
+    out.push([name, picture && figure ? 2 : figure ? 1 : 0]);
     if (out.length === 5) break;
   }
   return out;
@@ -850,19 +862,22 @@ OVERFLOW = """() => {
 
 
 def overflow_words(page, px):
-    """Why the page scrolls sideways by `px` pixels: the elements that reach past the window,
-    said apart for those outside any figure (the page's own prose, which the figures do not
-    cause) and those inside one."""
+    """Why the page scrolls sideways by `px` pixels: the elements that reach past the window, said
+    apart for those in a figure's picture, those in a figure but not its picture (its caption, its
+    math), and those outside any figure (the page's own prose), which the figures' pictures do not
+    cause."""
     found = page.evaluate(OVERFLOW)
-    outside = [n for n, inside in found if not inside]
-    inside = [n for n, inside in found if inside]
-    if outside and not inside:
-        return (f"{px} px: the page scrolls sideways because of an element outside any figure "
-                f"({', '.join(outside)}); the figures are not the cause")
-    if inside:
-        return f"{px} px: a figure makes the page scroll sideways ({', '.join(inside)})" + \
-            (f"; also outside any figure: {', '.join(outside)}" if outside else "")
-    return f"{px} px"
+    where = {k: [n for n, w in found if w == k] for k in (0, 1, 2)}
+    if where[2]:
+        words = f"{px} px: a figure's picture makes the page scroll sideways ({', '.join(where[2])})"
+    else:
+        words = (f"{px} px: the page scrolls sideways because of an element outside any figure's "
+                 "picture; the pictures are not the cause")
+    if where[1]:
+        words += f"; in a figure's caption or text: {', '.join(where[1])}"
+    if where[0]:
+        words += f"; outside any figure: {', '.join(where[0])}"
+    return words
 
 
 def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None):
@@ -1040,21 +1055,29 @@ def intrinsic_checks(c, browser, base, url, label, helpers):
 
 
 def overflow_control(c, browser):
-    """The sideways-scrolling message must tell the page's own prose from a figure: on a page at
-    360 px whose prose holds an element 500 px wide it names that element as outside any figure,
-    and on one whose figure holds it, the figure."""
+    """The sideways-scrolling message must tell the page's own prose and a figure's caption from a
+    figure's picture: on pages at 360 px whose prose, whose figure's picture and whose figure's
+    caption hold an element 500 px wide, it names each where it is."""
     page = browser.new_page(viewport={"width": 360, "height": 800})
     page.set_content('<body style="margin:0"><p><span class="math" style="display:inline-block;'
                      'width:500px">x</span></p><figure><div>f</div></figure></body>')
     prose = overflow_words(page, 140)
-    page.set_content('<body style="margin:0"><figure class="pilean-figure"><div class="wide" '
-                     'style="width:500px">f</div></figure></body>')
+    page.set_content('<body style="margin:0"><figure class="pilean-figure"><svg class="wide" '
+                     'width="500" height="10"></svg></figure></body>')
     figure = overflow_words(page, 140)
     page.close()
+    page = browser.new_page(viewport={"width": 360, "height": 800})
+    page.set_content('<body style="margin:0"><figure class="pilean-figure"><svg width="10" '
+                     'height="10"></svg><figcaption><span class="cap" style="display:'
+                     'inline-block;width:500px">x</span></figcaption></figure></body>')
+    caption = overflow_words(page, 140)
+    page.close()
     c.check("the sideways-scrolling message names prose outside any figure as the cause",
-            "outside any figure (span.math)" in prose and "not the cause" in prose, prose)
-    c.check("the sideways-scrolling message names a figure that overflows",
-            "a figure makes the page scroll sideways (div.wide)" in figure, figure)
+            "outside any figure: span.math" in prose and "not the cause" in prose, prose)
+    c.check("the sideways-scrolling message names a figure's picture that overflows",
+            "a figure's picture makes the page scroll sideways (svg.wide)" in figure, figure)
+    c.check("the sideways-scrolling message names a figure's caption, not its picture",
+            "not the cause" in caption and "caption or text: span.cap" in caption, caption)
 
 
 def intrinsic_control(c, browser, base, pages, site, helpers):
