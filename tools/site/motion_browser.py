@@ -1064,7 +1064,8 @@ def intrinsic_control(c, browser, base, pages, site, helpers):
     for url in pages:
         with open(os.path.join(site, url, "index.html"), encoding="utf-8") as f:
             text = f.read()
-        if "pilean-motion-has-narrow" in text and re.search(
+        # a still of a narrow rendition (the class name alone may be in the page's stylesheet)
+        if re.search(r'<source\b[^>]*-narrow-key-\d+', text) and re.search(
                 r'class="pilean-(page-)?motion-keys', text):
             break
     else:
