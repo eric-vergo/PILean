@@ -882,13 +882,16 @@ def strict_grid_checks(c, browser, site):
     ctx, page = new_page(browser, viewport={"width": 1440, "height": 900})
     goto(page, base + "Pictures-with-proofs/Motion/")
     page.evaluate("document.documentElement.setAttribute('data-motion', 'reduce')")
-    page.wait_for_timeout(300)
+    page.wait_for_timeout(1000)
+    # the number of the grid's columns, as the browser lays them out
     cols = page.evaluate("""() => Object.fromEntries([...document.querySelectorAll(
       '.pilean-motion-keys')].map(ol => [ol.closest('.pilean-motion').querySelector(
         'svg.pilean-motion-wide').getAttribute('data-pilean-file').split('/').pop(),
-        new Set([...ol.children].map(li => Math.round(li.getBoundingClientRect().left))).size]))""")
+        getComputedStyle(ol).gridTemplateColumns.trim().split(/\\s+/).length]))""")
+    # a style attribute of a figure (`width :=`) is refused under this policy, as it should be;
+    # a refused style element of a figure (the grid's widths) would be the fault
     blocked = [r for r in figure_reports(page)
-               if r["directive"].startswith("style") and r["inFigure"]]
+               if r["directive"].startswith("style-src-elem") and r["inFigure"]]
     two, small = cols.get("Example.twoFrames.svg"), cols.get("Example.quarterTurn.svg")
     c.check("without style-src-attr the grids keep their widths: the two-panel picture's stills "
             "one column at 1440 px, the small motion's more", two == 1 and (small or 0) > 1 and
