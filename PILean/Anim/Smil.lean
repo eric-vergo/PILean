@@ -122,9 +122,9 @@ uses the same text. -/
 def durText (cycle : Rat) : String := fmtNum (Exact.toFloat cycle) 6 ++ "s"
 
 /-- An easing as the text of one `keySplines` entry, `x₁ y₁ x₂ y₂`, each to six decimals (the part
-of an easing in a divided step, `Easing.part`, needs them: at six its turn stays within `7.8e-7` of
-the turn's change from its eased angle, at four it would be off by up to `7.5e-5`; `docs/DESIGN.md`,
-"Timelines and SMIL motions"). -/
+of an easing in a divided step, `Easing.part`, needs them: measured on the curves of the tests, at
+six a turn stays within `1.53e-6` of its change from its eased angle, at four it would be off by up
+to about `7.5e-5`; `docs/DESIGN.md`, "Timelines and SMIL motions"). -/
 def splineText (e : Easing) : String :=
   let (x₁, y₁, x₂, y₂) := e.controls
   s!"{fmtNum x₁ 6} {fmtNum y₁ 6} {fmtNum x₂ 6} {fmtNum y₂ 6}"

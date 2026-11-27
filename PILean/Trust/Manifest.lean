@@ -328,8 +328,15 @@ def motionKeyProblem? (decl : String) (mo : MotionSummary) (es : Array ManifestE
     let have_ := (stills.filter (·.1 == stem)).toList.map fun (_, k, f) => (k, f)
     if want.all have_.contains && have_.all want.contains && have_.length == want.length then
       none
-    else some s!"the files of {decl} record a motion of {mo.keys} keys but list the key stills \
-      {(have_.map (·.1)).eraseDups} of {stem}"
+    else
+      let name := fun (kf : Nat × String) => s!"{stem}-key-{kf.1}.{kf.2}"
+      let missing := (want.filter (!have_.contains ·)).map name
+      let extra := (have_.filter (!want.contains ·)).map name
+      let stillsWords := match mo.stills with
+        | some ks => s!", the stills {ks.toList}"
+        | none => ", every key a still"
+      some s!"the files of {decl} record a motion of {mo.keys} keys{stillsWords}, but its key \
+        stills of {stem} are not those: missing {missing}, extra {extra}"
 
 /-- Reads a manifest: its text must be JSON as `Json.parse` reads it, an object with a known
 `format` (`manifestFormat`; or `previousManifestFormat`, or one of the earlier

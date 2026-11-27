@@ -819,6 +819,19 @@ def outputChecks : Array (String × Bool) := Id.run do
 
 /-! ### Rests of their own, fades in part of a step or a rest, and keys that are not stills -/
 
+/-- `turnMotion` with its turn on a steep curve (`0.83 0 0.17 1`) and a mark that vanishes in
+the first 0.6 of that step: the part of the curve over `[0, 0.6]` is no timing curve, so it is
+halved (`easedParts`), and the turn is checked inside each part and at every boundary. -/
+def steepMotion : Motion :=
+  let mark := Plane.Exact.point ((-1, -1) : Q) |>.accent 2 |>.actor "X"
+  { turnMotion with
+    keys := turnMotion.keys.mapIdx fun k f => if k == 0 then { f with items := f.items.push mark }
+      else f
+    steps := #[
+      { moves := #[("P", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4)), ("X", .vanish)],
+        windows := #[("X", .fractions 0 (3 / 5))], easing := some (.spline 0.83 0 0.17 1) },
+      MotionStep.idle] }
+
 /-- `announceMotion` with other key options. -/
 def announceWith (f : Array MotionKey → Array MotionKey) : Motion :=
   { announceMotion with keyOptions := f announceMotion.keyOptions }
@@ -901,6 +914,9 @@ def featureChecks : Array (String × Bool) := Id.run do
     hasError (announceWith (·.modify 1 fun o => { o with fades := #[("mA", .vanish,
       .seconds 0 (1 / 5)), ("mB", .appear, .last (1 / 5))] })) "never shown still" &&
       hasError (announceWith (·.modify 1 fun o => { o with fades := #[("mA", .vanish,
+        .seconds 0 (1 / 5)), ("mB", .appear, .seconds (1 / 5) (17 / 20))] }))
+        "less than 1/10 s" &&
+      hasError (announceWith (·.modify 1 fun o => { o with fades := #[("mA", .vanish,
         .seconds 0 (3 / 10)), ("mB", .appear, .seconds (1 / 5) (2 / 5))] })) "overlap" &&
       hasError (announceWith (·.modify 1 fun o => { o with fades := #[("mA", .appear,
         .seconds 0 (1 / 5)), ("mB", .appear, .seconds (1 / 5) (2 / 5))] }))
@@ -974,6 +990,14 @@ def featureChecks : Array (String × Bool) := Id.run do
         -- the chain carries the vertex (1, 0) of key 0 by the turn about A, done, and the turn
         -- about B, in progress
         (M.apply (f.toScreen ⟨1, 0⟩)).dist want < 0.05)
+  r := r.push ("motion windows: a step on a steep curve whose part is no timing curve is halved \
+      there, every part exact, and the turn follows its eased angle across every boundary",
+    let sm := steepMotion
+    let p := sm.plan
+    let parts := p.timeline.segments.filter (·.kind = .move 0)
+    sm.problems.isEmpty && parts.size == 3 && sm.inexactSteps sm.keysOf == #[] &&
+      modelAgrees sm &&
+      (Easing.spline 0.83 0 0.17 1).part 0 0.6 == none)
   -- the outputs of a motion with a key that is not a still
   let c := PILean.Trust.ToCheckedMotion.checked m
   let names := (PILean.Trust.motionOutputs c).map fun o => s!"{o.name}.{o.format.name}"
@@ -1207,11 +1231,50 @@ def expectations (name : String) (m : Motion) : String :=
     \"slides\": [{", ".intercalate slides}], \
     \"opacities\": [{", ".intercalate (opacitiesJson m p F base)}]}\n"
 
+/-- A motion with what real motions have and the golden ones lack, for the browser checks: five
+points that appear together in one step (one opacity animation for five layers), a faint thin
+segment that appears over a disk that slides under it (overlapping actors), a translucent
+triangle that vanishes during a rest, a point that slides next to where another fades in, an
+item without an id that changes between two keys (crossfaded, a note), and many fades in a long
+cycle. -/
+def crowdMotion : Motion where
+  keys :=
+    let pts := (List.range 5).toArray.map fun (i : Nat) =>
+      Plane.Exact.point (((i : Rat), (2 : Rat)) : Q) |>.accent 1 |>.actor s!"B{i}"
+    let disk := fun (x : Rat) => Plane.Exact.disk ((x, (0 : Rat)) : Q) (1 / 2 : Rat) |>.accent 0
+      |>.actor "D"
+    let seg := Plane.Exact.segment ((0, 0) : Q) ((4, 0) : Q) |>.faint |>.actor "S"
+    let tri := Plane.Exact.polygon [((1, -1) : Q), (3, -1), (2, -2)] |>.filled |>.fillOpacity 0.3
+      |>.accent 2 |>.actor "T"
+    let mover := fun (x : Rat) => Plane.Exact.point ((x, (13 / 5 : Rat)) : Q) |>.accent 3
+      |>.actor "M"
+    let target := Plane.Exact.point ((3, 3) : Q) |>.accent 1 |>.actor "G"
+    let mark := fun (y : Rat) => Plane.Exact.point (((-1 : Rat), y) : Q) |>.faint
+    let corners := #[Plane.Exact.point ((-2, -3) : Q) |>.faint, Plane.Exact.point ((5, 4) : Q)
+      |>.faint]
+    #[{ items := corners ++ #[mark 0, disk 0, tri, mover 0] },
+      { items := corners ++ #[mark 0, disk 0, tri, mover 0] ++ pts },
+      { items := corners ++ #[mark 1, disk 2, tri, mover 0, seg] ++ pts },
+      { items := corners ++ #[mark 1, disk 2, mover 3, seg, target] ++ pts },
+      { items := corners ++ #[mark 1, disk 4, mover 3, target] ++ pts }]
+  captions := #["Start.", "Five points appear.", "A segment appears over the sliding disk.",
+    "The triangle fades; a point slides next to where another appears.", "The segment vanishes."]
+  steps := #[{ moves := (List.range 5).toArray.map fun i => (s!"B{i}", .appear) },
+    { moves := #[("D", Plane.Exact.slideFromTo ((0, 0) : Q) (2, 0)), ("S", .appear)],
+      windows := #[("S", .fractions (1 / 4) (3 / 4))] },
+    { moves := #[("M", Plane.Exact.slideFromTo ((0, 13 / 5) : Q) (3, 13 / 5)), ("G", .appear)] },
+    { moves := #[("D", Plane.Exact.slideFromTo ((2, 0) : Q) (4, 0)), ("S", .vanish)] }]
+  keyOptions := #[{}, {}, {}, { rest := some (6 / 5), fades := #[("T", .vanish, .first (1 / 2))] },
+    {}]
+  info := testInfo
+  checks := .warn
+
 /-- The motions written for the browser check besides the golden ones: a long first hold, a long
 cycle, and a morph alone (a disk whose radius grows, its anchor unchanged). -/
 def browserOnly : Array (String × Motion) :=
   #[("motion-long-hold", longHoldMotion), ("motion-long-cycle", longCycleMotion),
-    ("motion-morph", morphMotion true)]
+    ("motion-morph", morphMotion true), ("motion-crowd", crowdMotion),
+    ("motion-steep", steepMotion)]
 
 /-- Writes the golden motions and `browserOnly` into `dir` for `tools/motion-browser-check.py`:
 each motion's SVG, the SVG of each key's still, the poster still's PNG and the expectations

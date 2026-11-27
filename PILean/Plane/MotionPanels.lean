@@ -582,14 +582,23 @@ namespace MotionPanels
 
 variable (P : MotionPanels)
 
+/-- The fades of a panel's motion `m` (its keys `K`) in part of a step or of a rest on the shared
+timeline (`Motion.fadesOn`), without those in a step the picture samples for a morph (`samples`,
+in any panel): such a step's parts are the samples', not eased parts, so a fade in it runs
+through the whole step, and `figureProblems` makes its window an error. -/
+def panelFades (samples : Array Nat) (m : Motion) (K : MotionKeys) : MotionFades :=
+  let F := m.fadesOn K P.baseTimeline
+  { F with steps := F.steps.mapIdx fun j xs => if samples.getD j 1 > 1 then #[] else xs }
+
 /-- Panel `i` with its motion `mK.1` and keys `mK.2`, placed as the layout `L` has it and laid
-out on the timeline `tl` whose boundaries have the phases `phases`. -/
-private def panelReport (L : PanelsLayout) (tl : Timeline) (phases : Array MotionPhase) (i : Nat)
-    (mK : Motion × MotionKeys) : PanelReport :=
+out on the timeline `tl` whose boundaries have the phases `phases`, with its fades as
+`panelFades` keeps them. -/
+private def panelReport (L : PanelsLayout) (tl : Timeline) (phases : Array MotionPhase)
+    (samples : Array Nat) (i : Nat) (mK : Motion × MotionKeys) : PanelReport :=
   let (m, K) := mK
   let place := L.places.getD i default
   let e := shiftEnv K.env place.x place.y
-  let F := m.fadesOn K P.baseTimeline
+  let F := P.panelFades samples m K
   { motion := m, keys := K, idPrefix := panelPrefix i, env := e,
     ownPlan := m.planOn K K.env F tl phases, plan := m.planOn K e F tl phases }
 
@@ -629,7 +638,7 @@ private def laidOut : MotionPanelsReport :=
     ({ m with stepSamples := fun j =>
         if m.samplesOf K j > 1 then some (samples.getD j 1) else m.stepSamples j }, K)
   let base := P.baseTimeline
-  let fs := mks.map fun (m, K) => m.fadesOn K base
+  let fs := mks.map fun (m, K) => P.panelFades samples m K
   let union := fun (xs : Array (Array (Array (String × Fade × Rat × Rat)))) (i : Nat) =>
     (xs.flatMap fun x => (x.getD i #[]).map fun (_, _, a, b) => (a, b)).toList
   let division : MotionDivision :=
@@ -640,7 +649,7 @@ private def laidOut : MotionPanelsReport :=
   let phases := Motion.phasesOf segs
   { figure := P, layout := L, samples, conflicts := shared.filterMap (·.2),
     timeline := tl, phases, problems := #[], inexact,
-    panels := mks.mapIdx (P.panelReport L tl phases) }
+    panels := mks.mapIdx (P.panelReport L tl phases samples) }
 
 end MotionPanels
 
@@ -917,6 +926,10 @@ private def figureProblems : Array MotionProblem := Id.run do
     let p := P.panels.getD i default
     let place := r.layout.places.getD i default
     for (s, j) in p.motion.steps.zipIdx do
+      if !s.windows.isEmpty && r.samples.getD j 1 > 1 then
+        out := out.push (err s!"panel {P.name i}: step {j + 1} has a fade in part of the step, \
+          but the picture samples the step for a morph (`Motion.between`), whose parts are not \
+          eased; a fade in part of a step cannot share it with a sampled morph in any panel")
       if s.duration.isSome || s.easing.isSome then
         out := out.push (err s!"panel {P.name i}: step {j + 1} sets its own duration or easing; \
           the timing of a step is the picture's (`MotionPanels.timing`)")
@@ -1034,6 +1047,23 @@ def toAnimationUnchecked (fps : Nat := 30) : Animation :=
 it. -/
 def animation? (fps : Nat := 30) : Except (Array String) Animation :=
   if r.problemsFail then .error r.errors else .ok (r.toAnimationUnchecked fps)
+
+/-- The shared timeline is the picture's base timeline divided (`Timeline.divide`), as its
+panels' fades and sampled morphs divide it. -/
+theorem timeline_divide (P : MotionPanels) :
+    ∃ f, P.report.timeline = P.baseTimeline.divide f := by
+  simp only [MotionPanels.report, MotionPanels.laidOut, MotionPanels.timelineOn,
+    divideSegments_fst]
+  exact ⟨_, rfl⟩
+
+/-- The segments of the shared timeline, whatever the panels' fades and sampled morphs, tile its
+cycle, and none lasts less than zero. -/
+theorem timeline_tiles (P : MotionPanels) :
+    Timeline.Tiles 0 P.report.timeline.segments.toList P.report.timeline.cycle ∧
+      ∀ s ∈ P.report.timeline.segments.toList, 0 ≤ s.dur := by
+  obtain ⟨f, hf⟩ := timeline_divide P
+  rw [hf]
+  exact ⟨Timeline.divide_tiles _ _ _, Timeline.divide_dur_nonneg _ _ _⟩
 
 /-- The shared timeline has one key more than the picture has steps. -/
 theorem timeline_keys (P : MotionPanels) : P.report.timeline.keys = P.stepCount + 1 :=

@@ -196,7 +196,8 @@ def main(site, figs=None):
                                 f"{what}")
             frames = "key frame" if n == 1 else "key frames"
             if stills is not None:
-                frames += f", {shown} of them shown as stills"
+                frames += (", 1 of them shown as a still" if shown == 1 else
+                           f", {shown} of them shown as stills")
             said = (f"An animation drawn from {n} {frames}; the stills are the key figures as "
                     "drawn.")
             if said not in text:

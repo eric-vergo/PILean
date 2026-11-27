@@ -349,24 +349,29 @@ LAYER = """([id, nth, what]) => {
 # the layer `h` and with the layer opaque `f`. Where some channel of `f` and `h` differs by 64
 # levels or more (the layer's own pixels, away from antialiased edges), (s - h) / (f - h) in that
 # channel is the layer's opacity; the median over those pixels, and how many there were.
-RATIO = """async ([a, b, c]) => {
+RATIO = """async ([a, b, c, d]) => {
   const load = src => new Promise((ok, bad) => {
     const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
-  const imgs = await Promise.all([load(a), load(b), load(c)]);
+  const imgs = await Promise.all([load(a), load(b), load(c), load(d)]);
   const w = imgs[0].width, h = imgs[0].height;
-  const [s, hh, f] = imgs.map(i => {
+  const [s, hh, f, fh] = imgs.map(i => {
     const cv = document.createElementNS('http://www.w3.org/1999/xhtml', 'canvas');
     cv.width = w; cv.height = h;
     const g = cv.getContext('2d'); g.drawImage(i, 0, 0, w, h);
     return g.getImageData(0, 0, w, h).data; });
+  // a pixel the layer owns: it differs by 64 levels or more between the layer opaque and the layer
+  // hidden with everything else held as when opaque, and it is the same (within 2 levels) without
+  // the layer whether the opacity animations above it are held or not (no other layer that shares
+  // them, and nothing else that changes with them, is drawn there)
   const r = [];
   for (let k = 0; k < s.length; k += 4) {
-    let best = 0, ch = 0;
+    let best = 0, ch = 0, other = 0;
     for (let q = 0; q < 3; q++) {
-      const d = Math.abs(f[k + q] - hh[k + q]);
+      const d = Math.abs(f[k + q] - fh[k + q]);
       if (d > best) { best = d; ch = q; }
+      other = Math.max(other, Math.abs(hh[k + q] - fh[k + q]));
     }
-    if (best >= 64) r.push((s[k + ch] - hh[k + ch]) / (f[k + ch] - hh[k + ch]));
+    if (best >= 64 && other <= 2) r.push((s[k + ch] - hh[k + ch]) / (f[k + ch] - fh[k + ch]));
   }
   r.sort((x, y) => x - y);
   return [r.length ? r[r.length >> 1] : null, r.length];
@@ -375,9 +380,15 @@ RATIO = """async ([a, b, c]) => {
 
 def drawn_opacity(page, clip, t, ident, nth):
     """The opacity of the nth layer of the actor `ident` as drawn at time `t`, measured from the
-    pixels (`RATIO`), and how many pixels it was measured on; `None` when the layer is missing."""
+    pixels (`RATIO`) of four pictures: as shown; without the layer; with every opacity animation
+    of the layer and of its ancestors held at 1; and so held without the layer. It is measured on
+    the pixels the layer owns (`RATIO`), and is `None` with 0 pixels when it owns none (every
+    pixel of it shared with a layer of the same opacity animation, covered, or of too little
+    contrast): then the pixel cross-check does not apply to the sample, which is reported, and
+    the opacity read from the computed style still holds it. `None` with -1 when the layer is
+    missing."""
     if page.evaluate(OPACITY, [t, ident, nth]) is None:
-        return None, 0
+        return None, -1
     shown = page.screenshot(clip=clip)
     page.evaluate(LAYER, [ident, nth, "hide"])
     page.evaluate(OPACITY, [t, ident, nth])
@@ -385,8 +396,11 @@ def drawn_opacity(page, clip, t, ident, nth):
     page.evaluate(LAYER, [ident, nth, "opaque"])
     page.evaluate(OPACITY, [t, ident, nth])
     opaque = page.screenshot(clip=clip)
+    page.evaluate(LAYER, [ident, nth, "hide"])
+    page.evaluate(OPACITY, [t, ident, nth])
+    opaque_hidden = page.screenshot(clip=clip)
     page.evaluate(LAYER, [ident, nth, "restore"])
-    return page.evaluate(RATIO, [uri(shown), uri(hidden), uri(opaque)])
+    return page.evaluate(RATIO, [uri(shown), uri(hidden), uri(opaque), uri(opaque_hidden)])
 
 
 def opacity_errors(page, spec):
@@ -471,12 +485,15 @@ def spec_problem(spec):
     return None
 
 
-def rest_window(rest):
+def rest_window(rest, short=False):
     """The part of a rest where the probe may switch: the part in which the key is shown still
-    (`from` to `until`, after the rest's fades) less 0.1 s at each end; `None` for a part of 0.3 s
-    or less, which the probe does not use."""
+    (`from` to `until`, after the rest's fades) less 0.1 s at each end; for a part of 0.3 s or
+    less, `None`, or with `short` 0.1 s about its middle (which may reach into the moves around
+    it: the probe compares the pictures drawn at the moments it reads, wherever they fall)."""
     if rest["until"] - rest["from"] > 0.3:
         return rest["from"] + 0.1, rest["until"] - 0.1
+    if short:
+        return rest["t"] - 0.1, rest["t"] + 0.1
     return None
 
 
@@ -488,9 +505,14 @@ def switch_times(spec, start=0.3):
     `None` when no two rests certainly differ."""
     cycle = spec["cycle"]
     best = None
-    rests = [r for r in spec["rests"] if rest_window(r)]
+    # the rests whose key is shown still for more than 0.3 s; when fewer than two of them differ,
+    # every rest, the short ones by their middle (`rest_window`)
+    short = sum(1 for r in spec["rests"] if rest_window(r)) < 2 or not any(
+        rests_differ(a, b) for a in spec["rests"] for b in spec["rests"]
+        if rest_window(a) and rest_window(b))
+    rests = [r for r in spec["rests"] if rest_window(r, short)]
     for a in rests:
-        lo_a, hi_a = rest_window(a)
+        lo_a, hi_a = rest_window(a, short)
         if (start - lo_a) % cycle <= hi_a - lo_a:
             wait, begin = 0.0, start
         else:
@@ -498,7 +520,7 @@ def switch_times(spec, start=0.3):
         for b in rests:
             if not rests_differ(a, b):
                 continue
-            lo_b, hi_b = rest_window(b)
+            lo_b, hi_b = rest_window(b, short)
             hi_b = max(lo_b, hi_b - 0.2)
             d = (lo_b - begin) % cycle
             if d >= MIN_HIDDEN:
@@ -638,18 +660,18 @@ def check(browser, root, name):
     # computed style, and in the first loop also measured from the pixels (`drawn_opacity`)
     listed = 2 * sum(len(e["samples"]) for e in spec["opacities"])
     opacity_err, opacity_read, opacity_off, opacity_missing = opacity_errors(page, spec)
-    drawn_err, drawn_read = 0.0, 0
+    drawn_err, drawn_read, drawn_na = 0.0, 0, 0
     for e in spec["opacities"]:
         for s in e["samples"]:
             o, pixels = drawn_opacity(page, clip, s["t"], e["id"], e["nth"])
             if o is not None:
                 drawn_read += 1
                 drawn_err = max(drawn_err, abs(o - s["o"]))
+            elif pixels == 0:
+                drawn_na += 1
     if opacity_missing:
         ok = False
         print(f"{name}: no element for the fading {sorted(set(opacity_missing))}")
-    opacities_ok = (opacity_read == listed and opacity_off == 0 and opacity_err <= OPACITY_TOL
-                    and drawn_read == listed // 2 and drawn_err <= DRAWN_TOL)
     # panels in phase: every actor of every panel where the composed baker has it, at one time
     phase_err = {}
     for off, sample in [(o, sm) for o in loops for sm in spec.get("phase", [])]:
@@ -743,8 +765,6 @@ def check(browser, root, name):
     if not times:
         print(f"{name}: the switch probe could not run: " +
               ("the motion has a single rest" if len(spec["rests"]) < 2 else
-               "fewer than two rests show their key still for more than 0.3 s"
-               if sum(1 for r in spec["rests"] if rest_window(r)) < 2 else
                "no two rests certainly draw different pictures (same actors, anchors and "
                "drawings)"))
     elif frozen == 0:
@@ -778,17 +798,29 @@ def check(browser, root, name):
                  and len(panel_pixels) == len(spec.get("panels", []))
                  and all(e <= PHASE_TOL for e in phase_err.values()) and outside == 0
                  and (not spec.get("phase") or len(phase_err) == len(spec.get("panels", []))))
-    ok = (ok and rest_err <= REST_TOL and radius_err <= RADIUS_TOL and angle_err <= ANGLE_TOL
-          and slide_err <= REST_TOL
-          and upright <= UPRIGHT_TOL and uprights_ok and all(n == 0 for n in rest_pixels)
-          and display == ["hidden 0", "inline"] and diff < 8 and switch_ok and not errors
-          and plays and panels_ok and opacities_ok)
+    # every sub-check by name, so that a failing line says which failed
+    subs = [("elements", ok),
+            ("rest positions", rest_err <= REST_TOL),
+            ("arcs", radius_err <= RADIUS_TOL and angle_err <= ANGLE_TOL),
+            ("slides", slide_err <= REST_TOL),
+            ("uprights", upright <= UPRIGHT_TOL and uprights_ok),
+            ("rest pixels", all(n == 0 for n in rest_pixels)),
+            ("reduced motion", display == ["hidden 0", "inline"] and diff < 8),
+            ("switch probe", switch_ok), ("console", not errors), ("plays", plays),
+            ("panels", panels_ok),
+            ("opacities read", opacity_read == listed and opacity_off == 0
+             and opacity_err <= OPACITY_TOL),
+            ("opacities drawn", drawn_read + drawn_na == listed // 2
+             and drawn_err <= DRAWN_TOL)]
+    failed = [n for n, good in subs if not good]
+    ok = not failed
     print(f"{name}: rests {rest_err:.2e} px and {rest_pixels} pixels off the stills (worst "
           f"blurred difference {worst_ratio:.3f} of the local contrast), "
           f"arcs {radius_err:.2e} px and {angle_err:.2e} deg over {len(spec['turns'])} turns, "
           f"slides {slide_err:.2e} px over {len(spec.get('slides', []))}, "
           f"opacities {opacity_err:.2e} over {opacity_read} of {listed} samples (drawn "
-          f"{drawn_err:.3f} over {drawn_read}), "
+          f"{drawn_err:.3f} over {drawn_read}, the pixel cross-check not applicable for "
+          f"{drawn_na}: no pixel owned by the layer alone), "
           f"uprights {sorted(uprights_found)} "
           f"of {spec['uprights']} found, turned {upright:.2e} deg; reduced motion: live "
           f"{display[0]}, poster {display[1]}, {diff:.2f} of 255 from the poster PNG, switched "
@@ -799,7 +831,7 @@ def check(browser, root, name):
              f"{ {k: float(f'{v:.2e}') for k, v in phase_err.items()} } px over "
              f"{len(spec.get('phase', []))} times, {outside} pixels outside the panels at 60 "
              f"times" if spec.get("panels") else "")
-          + f" -> {'ok' if ok else 'FAILED'}")
+          + f" -> {'ok' if ok else 'FAILED: ' + ', '.join(failed)}")
     for e in errors:
         print(f"  console: {e}")
     return ok, opacity_read

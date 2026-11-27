@@ -533,17 +533,73 @@ theorem tiles_partsFrom (s : Segment) (a : Rat) (ps : List (Rat × Easing)) :
       rw [List.getLast?_eq_some_getLast (by simp)] at this ⊢
       simpa using this
 
-/-- A segment divided into parts the last of which ends at `1` is tiled by its parts. -/
-theorem tiles_divide (s : Segment) (ps : List (Rat × Easing))
-    (h : ps = [] ∨ ps.getLast?.map (·.1) = some 1) : Tiles s.start (s.divide ps) s.stop := by
+/-- Made sound, parts end at `1`. -/
+theorem monoFrom_last (a : Rat) (ps : List (Rat × Easing)) (h : ps ≠ []) :
+    (Segment.monoFrom a ps).getLast?.map (·.1) = some 1 := by
+  induction ps generalizing a with
+  | nil => exact absurd rfl h
+  | cons x ps ih =>
+    obtain ⟨b, e⟩ := x
+    cases ps with
+    | nil => simp [Segment.monoFrom]
+    | cons y ps =>
+      simp only [Segment.monoFrom]
+      have := ih (min 1 (max a b)) (by simp)
+      obtain ⟨z, zs, hz⟩ : ∃ z zs, Segment.monoFrom (min 1 (max a b)) (y :: ps) = z :: zs := by
+        cases ps <;> simp [Segment.monoFrom]
+      rw [hz] at this ⊢
+      rw [List.getLast?_cons_cons]
+      exact this
+
+/-- Made sound from `a ≤ 1`, the ends of parts never decrease from `a`. -/
+theorem monoFrom_mono (a : Rat) (ha : a ≤ 1) (ps : List (Rat × Easing)) :
+    (a :: (Segment.monoFrom a ps).map (·.1)).Pairwise (· ≤ ·) := by
+  induction ps generalizing a with
+  | nil => simp [Segment.monoFrom]
+  | cons x ps ih =>
+    obtain ⟨b, e⟩ := x
+    cases ps with
+    | nil => simp [Segment.monoFrom, ha]
+    | cons y ps =>
+      simp only [Segment.monoFrom, List.map_cons]
+      have hb₁ : a ≤ min 1 (max a b) := by grind
+      have hb₂ : min 1 (max a b) ≤ 1 := by grind
+      have hr := ih (min 1 (max a b)) hb₂
+      refine List.Pairwise.cons ?_ hr
+      intro z hz
+      rcases List.mem_cons.mp hz with hz | hz
+      · rw [hz]; exact hb₁
+      · exact Rat.le_trans hb₁ ((List.pairwise_cons.mp hr).1 z hz)
+
+/-- Making parts sound keeps their number. -/
+theorem length_monoFrom (a : Rat) (ps : List (Rat × Easing)) :
+    (Segment.monoFrom a ps).length = ps.length := by
+  induction ps generalizing a with
+  | nil => rfl
+  | cons x ps ih =>
+    cases ps with
+    | nil => rfl
+    | cons y ps => simp only [Segment.monoFrom, List.length_cons, ih]
+
+/-- Parts of a segment number as many as they are given. -/
+theorem length_partsFrom (s : Segment) (a : Rat) (ps : List (Rat × Easing)) :
+    (s.partsFrom a ps).length = ps.length := by
+  induction ps generalizing a with
+  | nil => rfl
+  | cons x ps ih => obtain ⟨b, e⟩ := x; simp [Segment.partsFrom, ih]
+
+/-- A segment divided into any parts is tiled by them (they are made sound first,
+`Segment.normalize`). -/
+theorem tiles_divide (s : Segment) (ps : List (Rat × Easing)) :
+    Tiles s.start (s.divide ps) s.stop := by
   unfold Segment.divide
-  rcases h with h | h
-  · subst h; exact ⟨rfl, rfl⟩
+  by_cases hp : ps = []
+  · subst hp; exact ⟨rfl, rfl⟩
   · have hne : ps.isEmpty = false := by cases ps <;> simp_all
     simp only [hne, Bool.false_eq_true, ite_false]
-    have := tiles_partsFrom s 0 ps
-    rw [h] at this
-    simpa [Segment.stop, Rat.mul_zero, Rat.add_zero, Rat.mul_one] using this
+    have := tiles_partsFrom s 0 (Segment.normalize ps)
+    rw [Segment.normalize, monoFrom_last 0 ps hp] at this
+    simpa [Segment.normalize, Segment.stop, Rat.mul_zero, Rat.add_zero, Rat.mul_one] using this
 
 /-- Tiles each divided into parts that tile it are a tiling. -/
 theorem tiles_flatMap {a b : Rat} {l : List Segment} (f : Segment → List Segment)
@@ -556,17 +612,15 @@ theorem tiles_flatMap {a b : Rat} {l : List Segment} (f : Segment → List Segme
     rw [hl.1] at h₁
     exact tiles_append h₁ (ih hl.2 fun x hx => hf x (by simp [hx]))
 
-/-- Divided as `parts` says, each list of parts ending at `1`, the segments of a timeline still
-tile its cycle: the first starts at `0`, each starts where the one before it ends, and the last
-ends at the end of the cycle. -/
-theorem divide_tiles (parts : Segment → List (Rat × Easing))
-    (hp : ∀ s, parts s = [] ∨ (parts s).getLast?.map (·.1) = some 1) :
+/-- Divided into any parts, the segments of a timeline still tile its cycle: the first starts at
+`0`, each starts where the one before it ends, and the last ends at the end of the cycle. -/
+theorem divide_tiles (parts : Segment → List (Rat × Easing)) :
     Tiles 0 ((build steps p).divide parts).segments.toList
       ((build steps p).divide parts).cycle := by
   simp only [divide, List.toList_toArray]
   have h := tiles_layout 0 (pieces steps p)
   rw [Rat.zero_add, ← build_cycle, ← build_segments] at h
-  exact tiles_flatMap _ h fun s _ => tiles_divide s (parts s) (hp s)
+  exact tiles_flatMap _ h fun s _ => tiles_divide s (parts s)
 
 /-- The parts of a segment that lasts no less than zero, from the fraction `a`, last no less than
 zero when their ends do not decrease from `a`. -/
@@ -584,10 +638,8 @@ theorem partsFrom_dur_nonneg (s : Segment) (hs : 0 ≤ s.dur) (a : Rat) (ps : Li
       exact Rat.mul_nonneg hs (by have := h.1 b (Or.inl rfl); grind)
     · exact ih b (by simpa using h.2) x hx
 
-/-- Divided into parts whose ends do not decrease from `0`, no part of a timeline lasts less than
-zero. -/
-theorem divide_dur_nonneg (parts : Segment → List (Rat × Easing))
-    (hp : ∀ s, (0 :: (parts s).map (·.1)).Pairwise (· ≤ ·)) :
+/-- Divided into any parts, no part of a timeline lasts less than zero. -/
+theorem divide_dur_nonneg (parts : Segment → List (Rat × Easing)) :
     ∀ x ∈ ((build steps p).divide parts).segments.toList, 0 ≤ x.dur := by
   simp only [divide, List.toList_toArray, List.mem_flatMap]
   rintro x ⟨s, hs, hx⟩
@@ -597,7 +649,8 @@ theorem divide_dur_nonneg (parts : Segment → List (Rat × Easing))
   unfold Segment.divide at hx
   split at hx
   · simp only [List.mem_singleton] at hx; subst hx; exact hd
-  · exact partsFrom_dur_nonneg s hd 0 _ (hp s) x hx
+  · exact partsFrom_dur_nonneg s hd 0 _ (by
+      simpa [Segment.normalize] using monoFrom_mono 0 (by decide) (parts s)) x hx
 
 /-- The hypotheses can be met: with the default pacing, two turns give a cycle of
 `0.2 + 1.2 + 1 + 0.6 + 1 + 1.8 + 0.2 = 6` seconds in seven segments. -/

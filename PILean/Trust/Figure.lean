@@ -328,7 +328,8 @@ figure's own description), what the browser does between them (`betweenWords`), 
 def MotionData.words (d : MotionData) : String :=
   let n := d.summary.keys
   let shown := match d.summary.stills with
-    | some ks => s!", {ks.size} of them shown as stills"
+    | some ks => if ks.size == 1 then ", 1 of them shown as a still"
+      else s!", {ks.size} of them shown as stills"
     | none => ""
   " ".intercalate ([s!"An animation drawn from {n} key frame{if n == 1 then "" else "s"}{shown}; \
     the stills are the key figures as drawn.", d.betweenWords] ++ d.checkWords.toList)

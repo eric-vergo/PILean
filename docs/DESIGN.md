@@ -1054,24 +1054,41 @@ into `[0, 1]`, so it never overshoots.
 
 A segment can be divided into parts (`Timeline.divide`, `Segment.divide`), each given by the
 fraction of the segment's time where it ends and its easing: a step sampled for a morph, and a
-step or a rest cut at the ends of the windows of its fades (below). The parts tile the cycle as
-the segments did, and none lasts less than zero when their ends do not decrease from `0` and the
-last is `1` (`Timeline.divide_tiles`, `Timeline.divide_dur_nonneg`). A part of a step keeps the
-step's eased motion exactly: its easing is the part of the step's curve between the parameters
-where its first coordinate is the part's ends (`Easing.part`, de Casteljau's construction on the
-curve's blossom), scaled into the unit square, so the values written at the part's ends and SMIL's
-interpolation between them give the eased value of the whole step at every moment; a part whose
-scaled control values would leave `[0, 1]` is refused (and is an error of the motion), which has
-not been seen on any curve with control values in `[0, 1]` (the tests try the standard curve and
-four extreme ones, within `1e-6`, and `1e-4` where a curve is steep). The control values are
-written to six decimals (`Smil.splineText`, each within `5e-7` of its value; a value with fewer
-decimals, such as the standard curve's `0.42 0 0.58 1`, is written with those). That is enough:
-over every part of at least a hundredth of a step of the standard curve and of `0.25 0.1 0.25 1`
-(the parts' ends on a grid of hundredths, 41 points in each part), the written curve is within
-`7.8e-7` of the step's change from the exact part, so a turn of less than a whole turn is within
-`2.8e-4°` of its eased angle, and a point at radius `R` pixels within `4.9e-6 R` pixels of its
-place: `0.005` px at a radius of 1000 pixels, a tenth of the browser checks' `0.05` px. At four
-decimals the same parts would be off by up to `7.5e-5` of the change, `0.47` px at that radius.
+step or a rest cut at the ends of the windows of its fades (below). The ends are made sound first
+(`Segment.normalize`: each raised to the one before it, kept in `[0, 1]`, the last `1`; this
+changes nothing on the ends the motions give, which already are), so for any parts the divided
+segments tile the cycle as the segments did and none lasts less than zero
+(`Timeline.divide_tiles`, `Timeline.divide_dur_nonneg`). The timeline a motion's SVG is written
+on is such a divided timeline (`Motion.timeline_eq`, through `divideSegments_fst`; for a picture of
+panels `MotionPanelsReport.timeline_divide`), so its segments tile its cycle
+(`Motion.timeline_tiles`, `MotionPanelsReport.timeline_tiles`).
+
+A part of a step keeps the step's eased motion exactly: its easing is the part of the step's
+curve between the parameters where its first coordinate is the part's ends (`Easing.part`, de
+Casteljau's construction on the curve's blossom), scaled into the unit square, so the values
+written at the part's ends and SMIL's interpolation between them give the eased value of the whole
+step at every moment. Steep curves have parts whose scaled control values leave `[0, 1]`, which
+SMIL would clamp into another curve: on a grid of twentieths of a step, `0.83 0 0.17 1` refuses 6
+of the 210 parts, `0.87 0 0.13 1` 30 and `0.85 0 0.15 1` 16 (`[0, 0.6]` of the first, for one).
+A refused part is halved, and each half divided so in turn (`easedParts`), at most
+`maxEasedDepth` (16) halvings deep: a smaller part of a curve is nearer a straight line, whose
+scaled control values lie inside `[0, 1]`. On every part of that grid of the curves the tests try
+(those three, `0.76 0 0.24 1`, the standard curve and `0.25 0.1 0.25 1`) one halving is the most
+needed; a part still refused at the last depth is drawn without easing and is an error of the
+motion. The value at every boundary the halving adds is the step's eased value there, as at
+every other boundary.
+
+The control values are written to six decimals (`Smil.splineText`, each within `5e-7` of its
+value; a value with fewer decimals, such as the standard curve's `0.42 0 0.58 1`, is written with
+those). The error this leaves is measured, not proved: over every part of a step on the grid of
+twentieths (halved where refused, 21 points in each part) of the twelve curves of the tests'
+probe (the six above, CSS's `ease-in` and `ease-out`, and the in-and-out curves `0.37 0 0.63 1`,
+`0.45 0 0.55 1`, `0.65 0 0.35 1`, `0.68 0 0.32 1`), the written pieces are within `1.53e-6` of the
+step's change (the steep curves; `7.3e-7` at most for the others). So a turn of less than a whole
+turn is within `5.5e-4°` of its eased angle, and a point at radius `R` pixels within `9.6e-6 R`
+pixels of its place: `0.01` px at a radius of 1000 pixels, a fifth of the browser checks'
+`0.05` px. The tests require `1.6e-6` on six of those curves. At four decimals the same parts
+would be off by up to about `7.5e-5` of the change.
 
 `PILean/Anim/Smil.lean` writes SMIL animation elements on a timeline: `animateRotate` (values
 `θ cx cy` of an `animateTransform` of type `rotate`), `animateTranslate`, `animateOpacity`,
@@ -1237,7 +1254,9 @@ features of a motion give this, all declared per key and per step (`MotionKey` i
   an error: an actor fades at most once in a rest; it does not move in the step before the rest
   (it is drawn as key `k - 1` draws it until it has gone, and no key would show where a move took
   it); its window lies in the rest, its end after its start; the rest goes on after the last fade
-  ends, so that the key is shown still there; and windows in one rest are apart or the same, across
+  ends, for at least `minStillPart` (0.1 s: the browser checks read a key there, in WebKit
+  free-running only when that part is longer than twice the readings' jitter, measured at 36 ms,
+  plus 20 ms), so that the key is shown still there; and windows in one rest are apart or the same, across
   the panels of a picture too, because each part of the rest between two ends of windows is one
   interval of the shared clock, a fade's part eased with the pacing's easing and any other part not
   eased. The key is shown still in the last part of its rest (`Timeline.stillPart?`): the rest

@@ -592,6 +592,36 @@ def divisionChecks : Array (String × Bool) := Id.run do
     Easing.standard.part 0.5 0.5 == none &&
       [Easing.spline 1 0 0 1, .spline 0 1 1 0, .spline 1 1 0 0, .spline 0 1 0 1].all fun e =>
         [(0, 0.3), (0.3, 0.7), (0.7, 1), (0.45, 0.55)].all fun (a, b) => partWithin 1e-4 e a b)
+  -- steep named curves refuse some parts; halved, every piece is a timing curve, and the pieces
+  -- as written (six decimals) keep the step's eased progress within 1.6e-6 of its change
+  let named : List Easing := [.spline 0.83 0 0.17 1, .spline 0.87 0 0.13 1, .spline 0.85 0 0.15 1,
+    .spline 0.76 0 0.24 1, .standard, .spline 0.25 0.1 0.25 1]
+  let worst := fun (e : Easing) => Id.run do
+    let mut w : Float := 0
+    let mut exact := true
+    for i in [0:20] do
+      for j in [i + 1:21] do
+        let a : Rat := (i : Rat) / 20
+        let mut lo := a
+        for (c, q?) in PILean.Plane.easedParts e PILean.Plane.maxEasedDepth a ((j : Rat) / 20) do
+          match q? with
+          | none => exact := false
+          | some q =>
+            let (x₁, y₁, x₂, y₂) := q.controls
+            let w6 := fun (x : Float) => PILean.Plane.quant 6 x
+            let pq := Easing.spline (w6 x₁) (w6 y₁) (w6 x₂) (w6 y₂)
+            let fa := Exact.toFloat lo
+            let fb := Exact.toFloat c
+            for k in [0:21] do
+              let x := k.toFloat / 20
+              let got := e.eval fa + (e.eval fb - e.eval fa) * pq.eval x
+              w := max w (got - e.eval (fa + x * (fb - fa))).abs
+          lo := c
+    return (exact, w)
+  r := r.push ("easing: parts refused by steep curves are halved into timing curves, within \
+      1.6e-6 of the step's change as written",
+    (Easing.spline 0.83 0 0.17 1).part 0 0.6 == none &&
+      named.all fun e => let (ok, w) := worst e; ok && w < 1.6e-6)
   return r
 
 /-- All checks. -/

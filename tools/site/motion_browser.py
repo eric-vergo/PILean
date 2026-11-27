@@ -40,11 +40,12 @@ Blueprint site (a caption with the switch's link) also the switch and the link. 
 * switching the theme while the picture moves recolours it, and it keeps moving;
 * each way of turning motion off (the system's reduced motion, `data-motion="reduce"` on the root,
   the Blueprint's switch, print media, a printed PDF) hides the moving picture and shows the stills
-  with their captions, every still loaded (each is brought into view in turn and waited for, at
-  most `STILL_WAIT_MS`, as a reader scrolling through a grid taller than the window loads it: the
-  example's two-panel motion with marks has a grid taller than the window at 1440 px); hovering, keyboard focus, a click and a tap show the poster key's still
-  (exactly one picture, the poster key's file in the page's theme, filling the picture's own box,
-  nothing around it moving) while the moving picture's text alternative stays in the
+  with their captions, every still loaded (each is brought into view in turn and waited for, at most
+  `STILL_WAIT_MS`, as a reader scrolling through a grid taller than the window loads it: the
+  example's two-panel motion with marks has a grid taller than the window at 1440 px); hovering,
+  keyboard focus, a click and a tap show the poster key's still (exactly one picture, the poster
+  key's file in the page's theme, filling the picture's own box, nothing around it moving) while the
+  moving picture's text alternative stays in the
   accessibility tree, in both themes, and the focused picture has a ring of at least 3:1 against
   the page, and a click holds the still after the pointer has left; after each of them ends the
   moving picture follows its clock again without being sought (the regression test for a picture

@@ -389,16 +389,31 @@ def Segment.partsFrom (s : Segment) : Rat → List (Rat × Easing) → List Segm
   | _, [] => []
   | a, (b, e) :: rest => ⟨s.kind, s.start + s.dur * a, s.dur * (b - a), e⟩ :: s.partsFrom b rest
 
+/-- The ends of parts made to never decrease and to lie in `[0, 1]`, from `a`: each end raised
+to the one before it (to `a` for the first) and lowered to `1`, and the last end `1`. On ends that
+already do so and end at `1` it changes nothing. -/
+def Segment.monoFrom : Rat → List (Rat × Easing) → List (Rat × Easing)
+  | _, [] => []
+  | _, [(_, e)] => [(1, e)]
+  | a, (b, e) :: p :: rest =>
+    let b' := min 1 (max a b)
+    (b', e) :: monoFrom b' (p :: rest)
+
+/-- The parts of a segment made sound (`monoFrom 0`): their ends never decrease from `0`, lie in
+`[0, 1]`, and the last is `1` (`PILean/Anim/TimelineProofs.lean`, `Timeline.normalize_last`,
+`Timeline.normalize_mono`). -/
+def Segment.normalize (ps : List (Rat × Easing)) : List (Rat × Easing) := Segment.monoFrom 0 ps
+
 /-- The segment `s` divided into parts, each given by the fraction of the segment's time at which
-it ends and its easing (`partsFrom 0`; the last should end at `1`); the segment itself when the
-list is empty. -/
+it ends and its easing, made sound (`normalize`, which changes nothing on ends that never decrease
+in `[0, 1]` and end at `1`); the segment itself when the list is empty. -/
 def Segment.divide (s : Segment) (ps : List (Rat × Easing)) : List Segment :=
-  if ps.isEmpty then [s] else s.partsFrom 0 ps
+  if ps.isEmpty then [s] else s.partsFrom 0 (Segment.normalize ps)
 
 /-- The timeline with each segment `s` divided into the parts `parts s` (`Segment.divide`): the
-same keys and cycle. When every list of parts ends at `1` and its ends do not decrease from `0`,
-the parts tile the cycle as the segments did (`PILean/Anim/TimelineProofs.lean`,
-`Timeline.divide_tiles`). -/
+same keys and cycle. The parts tile the cycle as the segments did, and none lasts less than zero,
+for any `parts` (`PILean/Anim/TimelineProofs.lean`, `Timeline.divide_tiles`,
+`Timeline.divide_dur_nonneg`). -/
 def Timeline.divide (tl : Timeline) (parts : Segment → List (Rat × Easing)) : Timeline :=
   { tl with segments := (tl.segments.toList.flatMap fun s => s.divide (parts s)).toArray }
 

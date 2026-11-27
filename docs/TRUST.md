@@ -303,7 +303,9 @@ that end in `Unchecked`.
   whatever level it was built at, so a problem `warn` turns into a note still counts; the errors
   of a rendition that is stopped are not left), whether it has a narrow rendition (`narrow`), and,
   when some key is not a still, the keys that are (`stills`: `;stills=0,1,3` at the end of the
-  source record's value, `"stills": [0, 1, 3]` in the manifest; written for no other motion).
+  source record's value, `"stills": [0, 1, 3]` in the manifest; written for no other motion). A
+  `pilean-verify` older than this key refuses such a manifest and such a record (an unknown key,
+  a record of seven fields): it fails safe.
   Reading the manifest also requires that the files of a motion list exactly the animated SVG and
   the stills it counts (the SVG and PNG of every key, or of exactly the keys `stills` lists, each
   named by its key), at each width the record says it has (`motionKeyProblem?`), so a folder
@@ -361,9 +363,11 @@ that end in `Unchecked`.
   declared in a rest or in part of a step is checked against its keys (an appearance's actor in
   its key and not in the one before, a disappearance's the other way round, the actor not moving
   in the step before a rest it fades in, one fade per actor, its window inside its rest or step,
-  the rest going on after its last fade, the windows of one rest apart or the same), and every
-  step cut at the ends of windows keeps its easing exactly (`Easing.part`) or the motion has an
-  error. At
+  the rest going on after its last fade, the windows of one rest apart or the same, no window in
+  a step sampled for a morph, in a picture of panels by any panel), and every step cut at the ends
+  of windows keeps its easing exactly at every boundary (`Easing.part`, a refused part halved,
+  `easedParts`) or the motion has an error. The segments of the timeline written tile its cycle
+  (`Motion.timeline_tiles`, `MotionPanelsReport.timeline_tiles`, theorems). At
   `warn` or `ignore`, none of that holds for the steps the strict level's errors name: the record
   says the level and the number of such errors (`errorsLeft`), the step table marks each move
   drawn as a crossfade, and the page must say so; by default no build writes such a motion. The browser's drawing between the keys is not part of the build at any level:

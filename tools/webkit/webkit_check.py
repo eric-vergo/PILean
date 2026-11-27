@@ -12,7 +12,8 @@ with the system's `swiftc` into a folder of the temporary directory named after 
 hash, unless `--runner` names a built one), which loads files below DIR only and reaches no
 network, in a transparent click-through window (see `runner.swift` for exactly what it does to the
 desktop; it needs a logged-in session with a screen, and is not for a Linux CI); its home is a
-temporary folder, so nothing is written into the user's Library. `runner_test.py` shows the runner's limits hold. Checked, for every motion:
+temporary folder, so nothing is written into the user's Library. `runner_test.py` shows the runner's
+limits hold. Checked, for every motion:
 
 * the clock runs: read twice 0.3 s apart it has advanced, and it gets past two cycles; otherwise
   the motion fails (WebKit stops the clock of a picture in no window, which would make every
@@ -29,13 +30,14 @@ temporary folder, so nothing is written into the user's Library. `runner_test.py
   with a snapshot of the `WKWebView` (which this runner does not take), the drawn opacity is
   within 0.002 of the expected one, the computed one within 3e-6. Every listed sample must be
   read, and each line says how many were;
-* free-running over the first two loops, read every 30 ms or so: near the middle of every rest
-  long enough to be read so (within 0.1 s of its middle and at least the readings' jitter inside
-  the part of the rest in which the key is shown still: a reading's clock and the frame it reads
-  can be one interval between readings apart, so a rest whose still part is not longer than twice
-  that jitter plus 0.02 s is not read free-running; the paused readings hold every rest) every
-  actor where its key's still has it, and inside every turn and every slide the actor on its
-  circle or its segment; the line names the jitter and the rests read; each kind of reading must
+* free-running over the first two loops, read every 30 ms or so: near the middle of every rest long
+  enough to be read so (within 0.1 s of its middle and at least the readings' jitter, the 95th
+  percentile of the times between readings (36 ms measured, the longest gap reported too), inside
+  the part of the rest in which the key is shown still: a reading's clock and the frame it reads can
+  be one interval between readings apart, so a rest whose still part is not longer than twice that
+  jitter plus 0.02 s is not read free-running; the paused readings hold every rest) every actor
+  where its key's still has it, and inside every turn and every slide the actor on its circle or its
+  segment; the line names the jitter and the rests read; each kind of reading must
   have been made in both loops, so none passes for want of readings, and a motion with no rest
   long enough fails as undecided.
 
@@ -303,12 +305,17 @@ def on_segment(p, a, b):
 
 
 def jitter(reads):
-    """The readings' jitter (seconds): the longest time between two consecutive free-running
-    readings. A reading's clock and the drawing it reads may be a whole interval apart (the
-    drawing is of the last frame painted), so a reading is trusted to show a rest only that far
-    inside it."""
+    """The readings' jitter (seconds), and the longest gap: the 95th percentile and the largest of
+    the times between two consecutive free-running readings. A reading's clock and the drawing it
+    reads may be a whole interval apart (the drawing is of the last frame painted), so a reading
+    is trusted to show a rest only that far inside it; the percentile, so that one stall does not
+    make every rest too short to read (a reading in a stall that lands outside its rest's still
+    part shows as an error, not as a pass)."""
     ts = [r["t"] for r in reads]
-    return max((b - a for a, b in zip(ts, ts[1:])), default=0.0)
+    gaps = sorted(b - a for a, b in zip(ts, ts[1:]))
+    if not gaps:
+        return 0.0, 0.0
+    return gaps[min(len(gaps) - 1, int(0.95 * len(gaps)))], gaps[-1]
 
 
 def readable_rests(spec, j):
@@ -329,7 +336,7 @@ def free_errors(spec, reads):
     cycle = spec["cycle"]
     err = {"rest": 0.0, "turn": 0.0, "slide": 0.0}
     counts = {(k, loop): 0 for k in err for loop in (0, 1)}
-    j = jitter(reads)
+    j, longest = jitter(reads)
     rests = readable_rests(spec, j)
     for r in reads:
         loop = int(r["t"] // cycle)
@@ -359,7 +366,7 @@ def free_errors(spec, reads):
                 xy = first(r["actors"], sl["id"])
                 err["slide"] = max(err["slide"], math.inf if xy is None else
                                    on_segment(xy, sl["from"], sl["to"]))
-    return err, counts, j, [rest["key"] for rest, _ in rests]
+    return err, counts, (j, longest), [rest["key"] for rest, _ in rests]
 
 
 def opacity_errors(spec, reads):
@@ -432,12 +439,13 @@ def check(runner, root, name, mutate=False):
           f"both loops: rests {seek['rest']:.2e} px, arcs {seek['radius']:.2e} px and "
           f"{seek['angle']:.2e} deg, slides {seek['slide']:.2e} px, phase {seek['phase']:.2e} px, "
           f"uprights {seek['upright']:.2e} deg, opacities {o_err:.2e} over {o_read} of {listed} "
-          f"samples; free-running, {len(r['free'])} readings (jitter {jit * 1000:.0f} ms, rests "
+          f"samples; free-running, {len(r['free'])} readings (jitter {jit[0] * 1000:.0f} ms, the "
+          f"95th percentile of the gaps, the longest {jit[1] * 1000:.0f} ms; rests "
           f"read: keys {read_keys}): rests "
           f"{free['rest']:.2e} px, on the circle {free['turn']:.2e} px, on the segment "
           f"{free['slide']:.2e} px"
           + ("" if read_keys else "; UNDECIDED: no rest is long enough to be read free-running "
-             f"(its still part must be longer than {2 * (jit + REST_MARGIN):.3f} s)")
+             f"(its still part must be longer than {2 * (jit[0] + REST_MARGIN):.3f} s)")
           + (f"; missing {sorted(set(missing))[:3]}" if missing else "")
           + (f"; no readings of {', '.join(vacuous)}" if vacuous else "")
           + ("" if runs else "; THE CLOCK DID NOT RUN")

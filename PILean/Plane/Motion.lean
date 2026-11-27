@@ -1091,12 +1091,19 @@ def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (base : Anim.Timeli
     out := out.push (note s!"{name}: {gone} items without an id fade out and {come} fade in")
   return out
 
+/-- The least time a key whose rest has fades is shown still after its last fade (seconds): long
+enough for the browser checks to read it, also free-running (in WebKit the readings' jitter was
+measured at 36 ms, and a rest is read free-running only when its still part is longer than twice
+that plus 20 ms, `tools/webkit/webkit_check.py`). -/
+def _root_.PILean.Plane.minStillPart : Rat := 1 / 10
+
 /-- The problems of the rest on key `k`, its windows resolved on the timeline `base`: a rest of its
 own that is not longer than zero; an actor that fades more than once in it, that appears but is
 not in key `k` or is already in key `k - 1`, that vanishes but is not in key `k - 1` or is still in
 key `k` (or vanishes on key `0`, which no key comes before), or that also moves in the step before
 the rest; a window outside the rest; fades that run to the end of the rest, so that the key is
-never shown still; windows that overlap without being the same. -/
+never shown still, or shown still for less than `minStillPart`; windows that overlap without
+being the same. -/
 def keyRestProblems (base : Anim.Timeline) (k : Nat) : Array MotionProblem := Id.run do
   let err := fun (s : String) => ({ severity := .error, message := s } : MotionProblem)
   let o := m.keyOption k
@@ -1141,6 +1148,11 @@ def keyRestProblems (base : Anim.Timeline) (k : Nat) : Array MotionProblem := Id
   if spans.any (fun (_, _, b) => b ≥ 1) then
     out := out.push (err s!"{name}: its fades run to its end, so key {k} is never shown still; \
       end them before the rest ends")
+  else if !spans.isEmpty then
+    let still := dur * (1 - spans.foldl (fun m (_, _, b) => max m b) 0)
+    if still < minStillPart then
+      out := out.push (err s!"{name}: after its last fade key {k} is shown still for {still} s, \
+        less than {minStillPart} s; end the fades earlier or make the rest longer")
   for (x, a, b) in spans do
     for (y, c, d) in spans do
       if x < y && a < d && c < b && !(a == c && b == d) then

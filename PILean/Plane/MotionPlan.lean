@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Plane.Motion
+import PILean.Anim.TimelineProofs
 
 /-!
 # Motions of plane figures: the plan, the animated SVG and the baked frames
@@ -145,61 +146,97 @@ a step or a rest is cut. -/
 def cutsOf (ws : List (Rat × Rat)) : List Rat :=
   (((ws.flatMap fun (a, b) => [a, b]).filter fun x => 0 < x && x < 1).mergeSort (· ≤ ·)).eraseDups
 
-/-- The segments of the timeline `base` divided as `d` says (`Timeline.divide`), with the phases
-at their start and end, and the steps whose easing could not be divided exactly at the ends of
-their windows (their parts are then not eased). A rest is cut at the ends of the windows of its
-fades, a part that is one of them eased with `d.restEasing` and any other not eased; the move of a
-step `j` sampled in `n = d.samples j > 1` intervals is divided at the times where its easing has
-done `(i + 1) / n` of it (`easedTime`), its values the exact fractions `i / n` and its parts not
-eased, so every animation of the step follows its eased motion piecewise linearly, within `1 / n`
-of its change; the move of any other step is cut at the ends of the windows of its fades, each part
-eased as that part of the step is (`Easing.part`), so every animation of the step follows its eased
-motion exactly. -/
-def divideSegments (base : Timeline) (d : MotionDivision) :
-    Array (Segment × MotionPhase × MotionPhase) × Array Nat :=
-  let last := base.keys - 1
-  let one := fun (s : Segment) (a b : MotionPhase) => (#[(s, a, b)], (none : Option Nat))
-  let parts := base.segments.map fun s => match s.kind with
-    | .rest k =>
-      let ws := d.restWindows k
-      let cuts := cutsOf ws
-      if cuts.isEmpty then one s { key := k, frac := 0, rest := 0 } { key := k, frac := 0 }
+/-- The most halvings `easedParts` makes of a part of a step whose easing's part is refused. -/
+def maxEasedDepth : Nat := 16
+
+/-- The part of a step from the fraction `a` to `b` of its time, with the parts of the easing `e`
+it is divided into (`Easing.part`), each ending at its fraction: the part itself when its easing's
+part is a timing curve; otherwise its two halves, each so, at most `fuel` halvings deep, and at
+the last depth the part with `none` (no exact easing). Halving a part of a cubic Bézier curve
+brings its scaled control values towards those of a straight line, inside `[0, 1]`; the tests
+show the curves that refuse a part divided within a few halvings. -/
+def easedParts (e : Easing) : Nat → Rat → Rat → List (Rat × Option Easing)
+  | 0, a, b => [(b, e.part (Exact.toFloat a) (Exact.toFloat b))]
+  | fuel + 1, a, b =>
+    match e.part (Exact.toFloat a) (Exact.toFloat b) with
+    | some q => [(b, some q)]
+    | none =>
+      let m := (a + b) / 2
+      easedParts e fuel a m ++ easedParts e fuel m b
+
+/-- How the division `d` divides the segment `s` of a timeline whose last key is `last`: its parts
+(each ending at its fraction of the segment's time, with its easing; none when it is not
+divided), the phases at the start and end of each part (one pair when it is not divided), and
+the step whose easing could not be divided exactly, if so. A rest is cut at the ends of the
+windows of its fades, a part that is one of them eased with `d.restEasing` and any other not
+eased; the move of a step `j` sampled in `n = d.samples j > 1` intervals is divided at the times
+where its easing has done `(i + 1) / n` of it (`easedTime`), its values the exact fractions
+`i / n` and its parts not eased; the move of any other step is cut at the ends of the windows of
+its fades, each part eased as that part of the step is (`Easing.part`, halved further where a
+part is refused, `easedParts`). -/
+def divisionOf (d : MotionDivision) (last : Nat) (s : Segment) :
+    List (Rat × Easing) × List (MotionPhase × MotionPhase) × Option Nat :=
+  match s.kind with
+  | .rest k =>
+    let ws := d.restWindows k
+    let cuts := cutsOf ws
+    if cuts.isEmpty then ([], [({ key := k, frac := 0, rest := 0 }, { key := k, frac := 0 })], none)
+    else
+      let ends := cuts ++ [1]
+      let starts := 0 :: cuts
+      ((starts.zip ends).map fun (a, b) =>
+          (b, if ws.contains (a, b) then d.restEasing else .linear),
+        (starts.zip ends).map fun (a, b) =>
+          ({ key := k, frac := 0, rest := a }, { key := k, frac := 0, rest := b }), none)
+  | .seamIn => ([], [({ key := 0, frac := 0, rest := 0 }, { key := 0, frac := 0, rest := 0 })], none)
+  | .seamOut => ([], [({ key := last, frac := 0 }, { key := last, frac := 0 })], none)
+  | .move j =>
+    let n := d.samples j
+    let after : MotionPhase := { key := j + 1, frac := 0, rest := 0 }
+    if n > 1 then
+      let τ := fun (i : Nat) => if i == 0 then (0 : Rat) else if i ≥ n then 1
+        else easedTime s.easing (Exact.toFloat ((i : Rat) / n))
+      let at_ := fun (i : Nat) =>
+        if i ≥ n then after else { key := j, frac := (i : Rat) / n, time := τ i }
+      ((List.range n).map fun i => (τ (i + 1), .linear),
+        (List.range n).map fun i => (at_ i, at_ (i + 1)), none)
+    else
+      let cuts := cutsOf (d.stepWindows j)
+      if cuts.isEmpty then ([], [({ key := j, frac := 0 }, after)], none)
       else
         let ends := cuts ++ [1]
         let starts := 0 :: cuts
-        let ps := (starts.zip ends).map fun (a, b) =>
-          (b, if ws.contains (a, b) then d.restEasing else .linear)
-        let segs := s.divide ps
-        ((segs.zip (starts.zip ends)).toArray.map fun (seg, a, b) =>
-          (seg, { key := k, frac := 0, rest := a }, { key := k, frac := 0, rest := b }), none)
-    | .seamIn => one s { key := 0, frac := 0, rest := 0 } { key := 0, frac := 0, rest := 0 }
-    | .seamOut => one s { key := last, frac := 0 } { key := last, frac := 0 }
-    | .move j =>
-      let n := d.samples j
-      let after : MotionPhase := { key := j + 1, frac := 0, rest := 0 }
-      if n > 1 then
-        let τ := fun (i : Nat) => if i == 0 then (0 : Rat) else if i ≥ n then 1
-          else easedTime s.easing (Exact.toFloat ((i : Rat) / n))
-        let at_ := fun (i : Nat) =>
-          if i ≥ n then after else { key := j, frac := (i : Rat) / n, time := τ i }
-        let segs := s.divide ((List.range n).map fun i => (τ (i + 1), .linear))
-        ((segs.zipIdx.toArray.map fun (seg, i) => (seg, at_ i, at_ (i + 1))), none)
-      else
-        let cuts := cutsOf (d.stepWindows j)
-        if cuts.isEmpty then one s { key := j, frac := 0 } after
-        else
-          let ends := cuts ++ [1]
-          let starts := 0 :: cuts
-          let eased := (starts.zip ends).map fun (a, b) =>
-            s.easing.part (Exact.toFloat a) (Exact.toFloat b)
-          let at_ := fun (τ : Rat) => (
-            if τ ≥ 1 then after else if τ == 0 then { key := j, frac := 0 }
-            else { key := j, frac := easedFrac s.easing τ, time := τ } : MotionPhase)
-          let segs := s.divide ((ends.zip eased).map fun (b, (e : Option Easing)) =>
-            (b, e.getD .linear))
-          ((segs.zip (starts.zip ends)).toArray.map fun (seg, a, b) => (seg, at_ a, at_ b),
-            if eased.all (·.isSome) then none else some j)
-  (parts.flatMap (·.1), parts.filterMap (·.2))
+        let pieces := (starts.zip ends).flatMap fun (a, b) =>
+          (easedParts s.easing maxEasedDepth a b).map fun (c, e) => (a, c, e)
+        -- each piece from where the one before it ends
+        let froms := 0 :: (pieces.map (·.2.1)).dropLast
+        let at_ := fun (τ : Rat) => (
+          if τ ≥ 1 then after else if τ == 0 then { key := j, frac := 0 }
+          else { key := j, frac := easedFrac s.easing τ, time := τ } : MotionPhase)
+        (pieces.map fun (_, c, e) => (c, e.getD .linear),
+          (froms.zip pieces).map fun (a, _, c, _) => (at_ a, at_ c),
+          if pieces.all (·.2.2.isSome) then none else some j)
+
+/-- The parts the division `d` divides each segment into (`divisionOf`), for `Timeline.divide`. -/
+def MotionDivision.parts (d : MotionDivision) (last : Nat) (s : Segment) :
+    List (Rat × Easing) :=
+  (divisionOf d last s).1
+
+/-- The segments of the timeline `base` divided as `d` says (`base.divide (d.parts …)`,
+`divideSegments_fst`), each with the phases at its start and end (`divisionOf`), and the steps
+whose easing could not be divided exactly (their refused parts are then not eased). -/
+def divideSegments (base : Timeline) (d : MotionDivision) :
+    Array (Segment × MotionPhase × MotionPhase) × Array Nat :=
+  let last := base.keys - 1
+  let phases := base.segments.toList.flatMap fun s => (divisionOf d last s).2.1
+  ((base.divide (d.parts last)).segments.mapIdx fun i seg => (seg, phases.getD i default),
+    base.segments.filterMap fun s => (divisionOf d last s).2.2)
+
+/-- The segments `divideSegments` gives are those of `Timeline.divide` with the division's parts:
+the writer's timeline is a divided timeline, which tiles the cycle (`Timeline.divide_tiles`). -/
+theorem divideSegments_fst (base : Timeline) (d : MotionDivision) :
+    (divideSegments base d).1.map (·.1) = (base.divide (d.parts (base.keys - 1))).segments := by
+  apply Array.ext <;> simp [divideSegments]
 
 /-- The segments of the timeline `base` with the phases at their start and end, the move of each
 step `j` divided into `samples j` segments when that is more than one (`divideSegments`). -/
@@ -295,6 +332,21 @@ def phasesOf (segs : Array (Segment × MotionPhase × MotionPhase)) : Array Moti
 
 /-- The timeline of the motion (see `segments`). -/
 def timeline : Timeline := m.timelineOf (m.segments m.keysOf)
+
+/-- The timeline the motion's SVG is written on is its base timeline divided as its division says
+(`Timeline.divide`). -/
+theorem timeline_eq : m.timeline = m.baseTimeline.divide
+    ((m.divisionOn m.keysOf m.baseTimeline).parts (m.baseTimeline.keys - 1)) := by
+  simp only [timeline, timelineOf, segments, divideSegments_fst, Timeline.divide]
+
+/-- The segments of the motion's timeline, whatever its fades and sampled morphs, tile its
+cycle: the first starts at `0`, each starts where the one before it ends, and the last ends at
+the end of the cycle; and none lasts less than zero. -/
+theorem timeline_tiles :
+    Timeline.Tiles 0 m.timeline.segments.toList m.timeline.cycle ∧
+      ∀ s ∈ m.timeline.segments.toList, 0 ≤ s.dur := by
+  rw [timeline_eq]
+  exact ⟨Timeline.divide_tiles _ _ _, Timeline.divide_dur_nonneg _ _ _⟩
 
 end Motion
 

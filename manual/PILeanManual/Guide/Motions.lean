@@ -271,11 +271,29 @@ its fades: the rest check, the poster's time and the browser check use its middl
 
 The rules, each an error: an actor fades at most once in a rest, and does not move in the step
 before a rest it fades in (it is drawn as the key before draws it until it has gone); a window
-lies inside its rest or step and ends after it starts; the rest goes on after its last fade ends,
-so that the key is shown still; the windows of one rest are apart or the same (across the panels
-of a picture too); and only an appearance or a disappearance runs in part of a step, never in a
-step sampled for a morph. A turn, a slide or a morph runs through its whole step: one interval of
-the clock has one easing for every animation in it.
+lies inside its rest or step and ends after it starts; the rest goes on after its last fade ends
+for at least 0.1 s ({name}`PILean.Plane.minStillPart`), so that the key is shown still long
+enough to be checked in a browser; the windows of one rest are apart or the same (across the
+panels of a picture too); and only an appearance or a disappearance runs in part of a step, never
+in a step sampled for a morph (in a picture of panels, by any panel). A turn, a slide or a morph
+runs through its whole step: one interval of the clock has one easing for every animation in it.
+
+Two cases need writing one way:
+
+* *A fade across the end of a step and the start of a rest* cannot be one window: a window lies
+  in one step or one rest. Write it as two fades of two actors, or choose one side: a mark that
+  should start fading in during a turn and finish in the rest after it fades in in the last part
+  of the turn (`MotionStep.windows`, `Window.last`), and is then simply there during the rest.
+* *An actor that fades during a rest cannot move in the step before it.* A mark that turns with
+  the figure and then fades out does so in the next step, or in a window of that step, not
+  during the rest; a mark that fades in during a rest may move in the steps after it, like any
+  actor of its key.
+
+The stills follow from the rule that a key's figure is the picture at the end of its rest: when
+marks announce the next move, every still shows the mark of the move that comes after it (the
+still of key 1 shows the triangle turned about `A` and the arrow about `B`). Write each caption
+for that state: what has happened, and what the mark says comes next, as `announce`'s captions
+do.
 
 A key that the motion only passes through can say so (`still := false`): it takes part in the
 motion and in every check, but it has no still files, is not in the grid of stills or the contact

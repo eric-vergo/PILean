@@ -510,6 +510,29 @@ def problemChecks : Array (String × Bool) := Id.run do
       nothing is wrong",
     P.checks == .fail && (match P.svg? with | .ok s => s == P.toSvgUnchecked | .error _ => false) &&
       (match P.animation? with | .ok a => a.problems () == #[] | .error _ => false))
+  -- a fade in part of a step that another panel samples for a morph is an error; in a step no
+  -- panel samples it is drawn in its window
+  let fader : Motion :=
+    { keys := #[{ items := #[Plane.Exact.point ((-3, -3) : Q) |>.faint,
+          Plane.Exact.point ((3, 3) : Q) |>.faint, Plane.Exact.point ((0, 0) : Q) |>.actor "X"] },
+        { items := #[Plane.Exact.point ((-3, -3) : Q) |>.faint,
+          Plane.Exact.point ((3, 3) : Q) |>.faint] }]
+      captions := #["a", "b"]
+      steps := #[{ moves := #[("X", .vanish)], windows := #[("X", .fractions (7 / 10) 1)] }]
+      info := testInfo }
+  let both := (pair quarters fader).report
+  let apart := (pair fader fader).report
+  let s0 := timeIn apart (.move 0) 0
+  let live := ((elements "g" 256 apart.svgRootUnchecked).find?
+    (attrOf · "class" == Animation.liveClass)).getD (.text "")
+  let d := Exact.toFloat (kindDur (pair fader fader).baseTimeline (.move 0))
+  out := out.push ("panels: a fade in part of a step that another panel samples for a morph is an \
+      error; in a step no panel samples, the fade waits for its window",
+    both.problems.any (fun p => p.severity == .error &&
+      (p.message.splitOn "cannot share it with a sampled morph").length > 1) &&
+      apart.problems.isEmpty &&
+      (MotionChecks.writtenOpacity live "p2-X" 0 (s0 + 0.6 * d)).any (fun o => (o - 1).abs < 1e-6) &&
+      (MotionChecks.writtenOpacity live "p2-X" 0 (s0 + 1.05 * d)).any (fun o => o.abs < 1e-6))
   return out
 
 /-- The checks of the outputs of the pictures. -/

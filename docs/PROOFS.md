@@ -243,15 +243,18 @@ not rational-valued.
   boundaries as fractions of the cycle) are one more than the segments, start at `0`, never
   decrease, and end at `1` when the cycle is longer than zero, which it is when the first rest is
   (`build_cycle_pos`).
-* `divide_tiles`, `divide_dur_nonneg`: divided into parts (`Timeline.divide`, for a step sampled
-  for a morph and for a step or a rest cut at the ends of its fades' windows), each list of parts
-  ending at `1`, the segments still tile the cycle (`Tiles`: the first starts at `0`, each starts
-  where the one before it ends, the last ends at the end of the cycle), and when the parts' ends do
-  not decrease from `0`, no part lasts less than zero (`tiles_layout`, `tiles_partsFrom`,
-  `tiles_divide`, `tiles_flatMap`, `partsFrom_dur_nonneg` are the steps).
-* `wrap_mem`, `segmentAt_mem`, `progress_mem`, `locate_fst`: any rational time, brought into a
-  cycle longer than zero, lies in `[0, cycle)` and in the segment `segmentAt` names (from its
-  start, inclusive, to its end, exclusive), and the progress through that segment is in `[0, 1)`.
+* `divide_tiles`, `divide_dur_nonneg`: divided into any parts (`Timeline.divide`, which makes the
+  parts' ends sound first, `Segment.normalize`: `monoFrom_mono`, `monoFrom_last`), the segments
+  still tile the cycle (`Tiles`: the first starts at `0`, each starts where the one before it
+  ends, the last ends at the end of the cycle) and no part lasts less than zero
+  (`tiles_layout`, `tiles_partsFrom`, `tiles_divide`, `tiles_flatMap`, `partsFrom_dur_nonneg` are
+  the steps). The timeline a motion's SVG is written on is such a timeline
+  (`MotionPlan.divideSegments_fst`, `Motion.timeline_eq`; `MotionPanelsReport.timeline_divide`), so
+  `Motion.timeline_tiles` and `MotionPanelsReport.timeline_tiles` state it of every motion and
+  picture of panels: their segments tile their cycle and none lasts less than zero. Not proved:
+  that the ends a motion gives already are sound (so that `normalize` changes nothing on them;
+  the golden files, unchanged, show it for theirs), and anything about the easing of the parts
+  (floating point, `Easing.part`, `easedParts`; tested).
 
 What the SMIL builders write (`PILean/Anim/SmilProofs.lean`), for the same timelines:
 
