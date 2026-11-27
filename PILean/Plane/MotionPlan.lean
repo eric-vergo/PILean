@@ -146,6 +146,14 @@ a step or a rest is cut. -/
 def cutsOf (ws : List (Rat × Rat)) : List Rat :=
   (((ws.flatMap fun (a, b) => [a, b]).filter fun x => 0 < x && x < 1).mergeSort (· ≤ ·)).eraseDups
 
+/-- The identity as a cubic Bézier curve whose first coordinate is the curve's parameter, `1/3 1/3
+2/3 2/3`, written for the parts of a step sampled for a morph, along which the values change: the
+identity's own control values `0 0 1 1` give a curve that is a straight line too, but whose first
+coordinate has no slope at its ends, which Firefox's solver of a curve's parameter evaluates up to
+`6e-3` of the part off (a slide measured 0.23 px off its segment's place); with these it has
+nothing to solve. -/
+def straightEasing : Easing := .spline (1 / 3) (1 / 3) (2 / 3) (2 / 3)
+
 /-- The most halvings `easedParts` makes of a part of a step whose easing's part is refused. -/
 def maxEasedDepth : Nat := 16
 
@@ -165,15 +173,15 @@ def easedParts (e : Easing) : Nat → Rat → Rat → List (Rat × Option Easing
       easedParts e fuel a m ++ easedParts e fuel m b
 
 /-- How the division `d` divides the segment `s` of a timeline whose last key is `last`: its parts
-(each ending at its fraction of the segment's time, with its easing; none when it is not
-divided), the phases at the start and end of each part (one pair when it is not divided), and
-the step whose easing could not be divided exactly, if so. A rest is cut at the ends of the
-windows of its fades, a part that is one of them eased with `d.restEasing` and any other not
-eased; the move of a step `j` sampled in `n = d.samples j > 1` intervals is divided at the times
-where its easing has done `(i + 1) / n` of it (`easedTime`), its values the exact fractions
-`i / n` and its parts not eased; the move of any other step is cut at the ends of the windows of
-its fades, each part eased as that part of the step is (`Easing.part`, halved further where a
-part is refused, `easedParts`). -/
+(each ending at its fraction of the segment's time, with its easing; none when it is not divided),
+the phases at the start and end of each part (one pair when it is not divided), and the step whose
+easing could not be divided exactly, if so. A rest is cut at the ends of the windows of its fades, a
+part that is one of them eased with `d.restEasing` and any other not eased; the move of a step `j`
+sampled in `n = d.samples j > 1` intervals is divided at the times where its easing has done `(i +
+1) / n` of it (`easedTime`), its values the exact fractions `i / n` and its parts not eased
+(`straightEasing`); the move of any other step is cut at the ends of the windows of its fades, each
+part eased as that part of the step is (`Easing.part`, halved further where a part is refused,
+`easedParts`). -/
 def divisionOf (d : MotionDivision) (last : Nat) (s : Segment) :
     List (Rat × Easing) × List (MotionPhase × MotionPhase) × Option Nat :=
   match s.kind with
@@ -198,7 +206,7 @@ def divisionOf (d : MotionDivision) (last : Nat) (s : Segment) :
         else easedTime s.easing (Exact.toFloat ((i : Rat) / n))
       let at_ := fun (i : Nat) =>
         if i ≥ n then after else { key := j, frac := (i : Rat) / n, time := τ i }
-      ((List.range n).map fun i => (τ (i + 1), .linear),
+      ((List.range n).map fun i => (τ (i + 1), straightEasing),
         (List.range n).map fun i => (at_ i, at_ (i + 1)), none)
     else
       let cuts := cutsOf (d.stepWindows j)

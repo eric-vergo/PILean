@@ -845,6 +845,9 @@ OVERFLOW = """() => {
   for (const e of document.body.querySelectorAll('*')) {
     const r = e.getBoundingClientRect();
     if (r.width === 0 || r.right <= w + 0.5) continue;
+    // a shape of an SVG picture reaches no further than its picture, which clips it
+    const own = e.ownerSVGElement;
+    if (own && own.getBoundingClientRect().right <= w + 0.5) continue;
     if ([...e.children].some(k => k.getBoundingClientRect().right > w + 0.5)) continue;
     const name = e.localName + (e.id ? '#' + e.id : '') +
       (e.getAttribute('class') ? '.' + e.getAttribute('class').trim().split(/\\s+/)

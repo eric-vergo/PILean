@@ -1223,7 +1223,11 @@ layer (a later one starts a new layer, crossfaded). With figures between its key
 a morph is sampled at `morphSamples` intervals: interval `i` ends at the time where the step's
 easing has done `(i + 1) / n` of the step (`easedTime`), and every animation's value there is the
 exact fraction `(i + 1) / n` of its change, so every animation of the step, turns included, follows
-the eased motion piecewise linearly, within `1 / n` of its change, on one clock. For a turn the
+the eased motion piecewise linearly, within `1 / n` of its change, on one clock. Each interval is
+written with the identity as the curve `1/3 1/3 2/3 2/3` (`straightEasing`), whose first coordinate
+is its parameter, not as `0 0 1 1`, which is the same straight line but whose first coordinate has
+no slope at its ends: Firefox solves that curve's parameter only to about `6e-3` of the interval
+(a slide across a sampled step measured 0.23 px off its place). For a turn the
 deviation is a gap in timing along the arc, not off it: the item stays on its circle and is ahead or
 behind the eased angle by at most `1 / n` of the turn; measured, a quarter turn is within 5.79° of
 the eased angle with 4 samples, 2.92° with 8 and 1.45° with 16, and a fifth of a turn within 1.16°
