@@ -49,8 +49,10 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
   or Alt held, keys are left to the browser).
 * **Motions** (`motionCss`; the markup is `PILeanVerso.motionHtml`). A motion's moving picture
   is an inline picture of its own, shown on its clock from the page's load; hovering or focusing
-  it shows its poster's still in its box, and the page's `data-motion="reduce"`, the reader's
-  `prefers-reduced-motion: reduce` and print show its stills with their captions instead. The
+  it shows its poster's still in its box (its clock runs on under the still), and the page's
+  `data-motion="reduce"`, the reader's `prefers-reduced-motion: reduce` and print show its stills
+  with their captions instead, in a grid whose columns keep every still at `stillFraction` of its
+  width or more, or as wide as the grid (`stillColumnCss`). The
   moving picture is hidden by `visibility` or `opacity` (out of the flow where it must take no
   space), never by `display: none`, in print too, so that it follows its clock when it is shown
   again.
@@ -64,6 +66,8 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
 
 * `domSafe`, `prefixNode`, `inlineSvgText`, `themeCss`, `explorerHtml`, `explorerJs`, `explorerCss`.
 * `motionCss`, `motionOffRules`, `motionHiddenRendition`: the stylesheet of motions shown in a page.
+* `stillFraction`, `stillColumnMin`, `stillColumnCss`, `stillColumns`: the columns of grids of
+  stills.
 -/
 
 namespace PILeanVerso
@@ -541,12 +545,49 @@ a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
 }
 "##
 
+/-- The least fraction of its own width a motion's still is shown at in a grid of stills, unless
+it fills the grid's width alone: three quarters, so that text drawn at 14 pixels is shown at 10.5
+pixels or more. -/
+def stillFraction : Rat := 3 / 4
+
+/-- The step of the column widths of grids of stills (`stillColumnMin`), in pixels. -/
+def stillColumnStep : Nat := 20
+
+/-- The largest column width of a grid of stills (`stillColumnMin`), in pixels. -/
+def stillColumnMax : Nat := 960
+
+/-- The least width of a column of a grid of stills of width `w` (pixels): `stillFraction` of
+`w`, rounded up to a multiple of `stillColumnStep` and at most `stillColumnMax`, which no column
+of a page reaches. -/
+def stillColumnMin (w : Nat) : Nat :=
+  let q := stillFraction * w / stillColumnStep
+  let n := (q.num.toNat + q.den - 1) / q.den
+  min stillColumnMax (max 1 n * stillColumnStep)
+
+/-- The rules of the classes that size the columns of a grid of stills: `pilean-stills-cN` sets
+`--pilean-still-min` to `N` pixels, and `pilean-stills-nN` does on small screens (560 pixels or
+less, where the narrow rendition's stills are shown), for every `N` that `stillColumnMin` gives.
+A grid of stills makes each column at least that wide, or as wide as the grid when it is
+narrower (`minmax(min(var(--pilean-still-min), 100%), 1fr)`), so a still is shown at
+`stillFraction` of its width or more, or fills the grid's width alone. -/
+def stillColumnCss : String :=
+  let ns := (List.range (stillColumnMax / stillColumnStep)).map fun i => (i + 1) * stillColumnStep
+  String.join (ns.map fun n => s!".pilean-stills-c{n}\{--pilean-still-min:{n}px}") ++
+    "@media (max-width: 560px){" ++
+    String.join (ns.map fun n => s!".pilean-stills-n{n}\{--pilean-still-min:{n}px}") ++ "}"
+
+/-- The columns of a grid of stills (`stillColumnCss`); `14rem` where the stills' widths are not
+known. -/
+def stillColumns : String :=
+  "repeat(auto-fit,minmax(min(var(--pilean-still-min,14rem),100%),1fr))"
+
 /-- The rules that turn a motion's animation off, below the selector prefix `pre`
 (`html[data-motion="reduce"] ` for the motion switch, empty inside a media query): the stage is
 hidden and taken out of the flow and the stills are shown as a grid with their captions; a motion
 shown without its stills (`pilean-motion-bare`, on the figure's page, whose stills are shown
 below it) keeps its stage and shows the poster's still over the moving picture; the caption's
-hint about pausing is hidden. The moving picture is hidden by `visibility` or `opacity`, never by
+note about the still is hidden. The grid's columns are sized from the stills' widths
+(`stillColumns`). The moving picture is hidden by `visibility` or `opacity`, never by
 `display: none`, also in print: in Chromium, an inline SVG picture whose `transform` is animated
 can stay frozen when it is shown again after `display: none`, although its clock runs. -/
 def motionOffRules (pre : String) : String :=
@@ -556,7 +597,7 @@ def motionOffRules (pre : String) : String :=
     {pre}.pilean-motion-bare .pilean-motion-still \{opacity:1}\
     {pre}.pilean-motion-keys \{position:static;width:auto;height:auto;margin:0;overflow:visible;\
     clip:auto;clip-path:none;white-space:normal;display:grid;\
-    grid-template-columns:repeat(auto-fit,minmax(min(14rem,100%),1fr));gap:0.75rem;\
+    grid-template-columns:{stillColumns};gap:0.75rem;\
     justify-items:center;align-items:start}\
     {pre}.pilean-motion-key-pic \{display:block}\
     {pre}.pilean-motion-hint \{display:none}"
@@ -575,7 +616,8 @@ poster key's still in the picture's own box instead, so nothing around it moves;
 picture is then only made transparent, so its text alternative stays in the accessibility tree,
 and the focused stage has a ring in `--pilean-focus`. Motion is off under the page's
 `data-motion="reduce"` (the Verso Blueprint motion switch), under the reader's
-`prefers-reduced-motion: reduce`, and in print (`motionOffRules`). The narrow rendition is shown
+`prefers-reduced-motion: reduce`, and in print (`motionOffRules`), when the stills are shown as a
+grid whose columns follow the stills' widths (`stillColumnCss`). The narrow rendition is shown
 on small screens (the plane figures' breakpoint, 560 pixels), the wide one elsewhere
 (`motionHiddenRendition`). No rule needs a script, and none depends on the Blueprint's own
 classes. -/
@@ -606,6 +648,7 @@ def motionCss : String :=
     border-radius:4px}\
   .pilean-motion-key-caption{margin:0.2rem 0 0;font-size:0.85em;overflow-wrap:anywhere}\
   .pilean-motion-note{display:block;font-size:0.85em;color:var(--pilean-muted, inherit)}" ++
+  stillColumnCss ++
   motionOffRules "html[data-motion=\"reduce\"] " ++
   "@media (prefers-reduced-motion: reduce){" ++ motionOffRules "" ++ "}" ++
   "@media print{" ++ motionOffRules "" ++ "}"

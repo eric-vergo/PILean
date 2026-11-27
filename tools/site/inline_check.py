@@ -277,7 +277,7 @@ def motion_problem(svg, data, figs, path, entry, manifest):
     return same(page_body(svg), live)
 
 
-KEYS = re.compile(r'</div><ol class="pilean-motion-keys"[^>]*>(.*?)</ol>', re.S)
+KEYS = re.compile(r'</div><ol class="pilean-motion-keys(?: [^"]*)?"[^>]*>(.*?)</ol>', re.S)
 WRAPPER = re.compile(r'<div class="(pilean-motion(?: [^"]*)?)" data-bp-motion')
 
 

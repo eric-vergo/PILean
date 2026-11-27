@@ -310,7 +310,19 @@ def main (args : List String) : IO UInt32 := do
         has motion "ManualExample.quarterTurn-key-2-dark.svg" &&
         has motion motionHintText && !has motion "bp_motion_link")
       "the motions are shown inline, with their narrow renditions, their captioned stills and \
-        the hint that they pause, and without the Blueprint's link to its switch"
+        the caption's note, and without the Blueprint's link to its switch"
+    check (motionHintText == "Animation; a still replaces it while you point at it, or after a \
+        click or tap until you click elsewhere." && !has motion "pauses on a still")
+      "the caption's note says that a still covers the picture (whose clock runs on), not that \
+        it pauses"
+    check (stillColumnMin 320 == 240 && stillColumnMin 300 == 240 && stillColumnMin 720 == 540 &&
+        stillColumnMin 0 == 20 && stillColumnMin 5000 == 960 &&
+        has stillColumnCss ".pilean-stills-c540{--pilean-still-min:540px}" &&
+        has stillColumnCss "@media (max-width: 560px){.pilean-stills-n20{--pilean-still-min:20px}")
+      "a grid of stills has columns of at least three quarters of a still's width"
+    check (has motion "class=\"pilean-motion-keys pilean-stills-c240\"" &&
+        has motion "class=\"pilean-motion-keys pilean-stills-c540 pilean-stills-n240\"")
+      "the lists of stills are sized from the stills' widths, the narrow ones' on small screens"
     -- each motion's wrapper: up to the end of its list of stills
     let motionParts := (motion.splitOn "data-bp-motion").drop 1 |>.map fun p =>
       (p.splitOn "</ol>").headD ""

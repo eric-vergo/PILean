@@ -24,11 +24,12 @@ link to it. From top to bottom it shows:
    and does not cover (`theoremScopeText`, `theoremLinkText`; all three sentences of
    `docs/TRUST.md`); or "Illustration: no theorem is linked to it";
 4. for a motion (`motionSection`): what the animation is, the table of its steps and its key
-   stills with their captions;
+   stills with their captions, in a grid whose columns follow the stills' widths;
 5. the code: the figure's declaration in full, then the declarations of the project that its
    value and its theorems' statements use (`figurePageData`, with its caps), each highlighted with
    the hovers of the genre's Lean code and linked to its source at the build's commit, then the
-   declarations of other packages they name;
+   declarations of other packages they name; folded in a `details` element, closed, when it is
+   longer than `codeFoldAbove` lines;
 6. provenance: each file's fingerprint, renderer and text engine, what `pilean-verify` says of
    the file against the site's manifest, the toolchain and the packages that draw the picture,
    the build's commit and the continuous-integration run;
@@ -206,6 +207,17 @@ stills at each width and in each theme) has its lists of files and of their prov
 `details` element. -/
 def foldFilesAbove : Nat := 12
 
+/-- The most lines of code (`shownLines`, over the declarations of the section) a figure's page
+shows unfolded; longer code is in a `details` element, closed, after everything about the picture
+(its caption, standing and animation). -/
+def codeFoldAbove : Nat := 60
+
+/-- The lines a page shows of a declaration's code: its source's lines, at most `codeLineCap`,
+or, when its place is not known, the lines of its signature. -/
+def shownLines (d : CodeDecl) : Nat :=
+  if d.line > 0 && d.endLine ≥ d.line then min codeLineCap (d.endLine - d.line + 1)
+  else (d.signature.splitOn "\n").length
+
 /-! ### A motion -/
 
 /-- A duration in seconds, exactly: `1 s`, `3/2 s`. -/
@@ -244,9 +256,10 @@ def motionStepTable (rows : Array MotionStepRow) : Html :=
 
 /-- The section of a figure's page about a motion (`m`, with its narrow rendition `n`): what the
 animation is (`MotionData.words`, with `MotionData.checkWords` when it was not checked strictly),
-the table of its steps (`motionStepTable`) and its key stills with their captions, as a grid,
-always shown here (the motion at the top of the page is shown without them, `pilean-motion-bare`,
-so nothing is shown twice; the contact sheet is offered among the files). -/
+the table of its steps (`motionStepTable`) and its key stills with their captions, as a grid
+whose columns follow the stills' widths (`stillColumnClasses`), always shown here (the motion at
+the top of the page is shown without them, `pilean-motion-bare`, so nothing is shown twice; the
+contact sheet is offered among the files). -/
 def motionSection (idBase : String) (m : MotionData) (n : Option MotionData)
     (files : Array FileInfo) : Html :=
   let captions := m.stills.stepCaptions
@@ -261,7 +274,10 @@ def motionSection (idBase : String) (m : MotionData) (n : Option MotionData)
       else "pilean-motion-words") (txt m.words),
     motionStepTable m.steps,
     el "h3" "pilean-page-decl-title" (txt "Key frames"),
-    el "ol" "pilean-page-motion-keys" (.seq stills),
+    el "ol" (s!"pilean-page-motion-keys " ++ stillColumnClasses
+      (stillWidth? files s!"-key-{m.stills.poster}")
+      (n.bind fun _ => stillWidth? files s!"-narrow-key-{m.stills.poster}")).trimAscii.toString
+      (.seq stills),
     el "p" "pilean-page-note" (txt "The contact sheet of these stills, for print, is among the \
       files.")]) #[("id", s!"{idBase}-animation")]
 
@@ -388,12 +404,20 @@ def figurePageHtmlWith {m : Type → Type} [Monad m] [MonadLiftT IO m] (s : Decl
               (txt s!"({e.module})")]))),
           if d.externalOmitted > 0 then el "p" "pilean-page-note"
             (txt s!"and {d.externalOmitted} more (at most {externalCap} are listed).") else .empty])
-      pure <| el "section" "pilean-page-codes" (.seq #[
-        el "h2" "pilean-page-h" (txt "Code"),
+      let body : Html := .seq #[
         el "p" "pilean-page-note" (txt "The declaration that draws the figure:"), own,
         if rel.isEmpty && d.more.isEmpty then .empty else
           el "p" "pilean-page-note" (txt relatedIntroText),
-        .seq rel, more, ext]) #[("id", s!"{idBase}-code")]
+        .seq rel, more, ext]
+      -- long code is folded, so that it does not push the rest of the page down
+      let shown := #[d.figure] ++ d.related
+      let lines := shown.foldl (fun n r => n + shownLines r) 0
+      let body := if lines ≤ codeFoldAbove then body
+        else .element "details" #[("class", "pilean-page-code-fold")] (.seq #[
+          .element "summary" #[] (txt s!"Show the code: {shown.size} \
+            {if shown.size == 1 then "declaration" else "declarations"}, {lines} lines"), body])
+      pure <| el "section" "pilean-page-codes" (.seq #[
+        el "h2" "pilean-page-h" (txt "Code"), body]) #[("id", s!"{idBase}-code")]
   -- provenance
   let pr := site.provenance
   let row (k : String) (v : Html) : Html := .seq #[.element "dt" #[] (txt k), .element "dd" #[] v]
