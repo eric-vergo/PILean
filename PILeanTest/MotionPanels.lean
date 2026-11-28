@@ -113,8 +113,54 @@ def framesPanels : MotionPanels where
               active centre while the point stays." }
   narrowWidth := some 360
 
+/-- The left panel of `announcePanels`: `MotionChecks.announceMotion`, its keys' fades without the
+rests and stills, which are the picture's. -/
+def announceLeft : Motion :=
+  let m := MotionChecks.announceMotion
+  { m with keyOptions := m.keyOptions.map fun o => { fades := o.fades } }
+
+/-- A key of `announceRight`: the backdrop of `announceMotion`, the point `P` at `p` and the
+marks `marks`; with `q`, the point `Q`. -/
+def announceRightKey (p : Q) (marks : Array Item) (q : Bool) : Figure :=
+  { items := MotionChecks.announceBackdrop ++
+      #[(group #[Plane.Exact.point p |>.accent 2, Plane.Exact.label "P" p .right |>.accent 2]).actor
+        "P"] ++ marks ++
+      (if q then #[Plane.Exact.point ((-1, 2) : Q) |>.accent 3 |>.actor "Q"] else #[]) }
+
+/-- The right panel of `announcePanels`: the point `P` turned as the triangle is, its rings fading
+as the triangle's do, and a point `Q` that appears in the first 0.3 s of the first turn. -/
+def announceRight : Motion where
+  keys := #[announceRightKey (1, 0) #[MotionChecks.announceMark "rA" (0, 0)] false,
+    announceRightKey (0, 1) #[MotionChecks.announceMark "rB" (0, 2)] true,
+    announceRightKey (1, 2) #[] true, announceRightKey (1, 0) #[] true]
+  steps := #[
+    { moves := #[("P", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4)), ("Q", .appear)],
+      windows := #[("Q", .first (3 / 10))] },
+    { moves := #[("P", Plane.Exact.turnAbout ((0, 2) : Q) (1 / 4)), ("rB", .vanish)],
+      windows := #[("rB", .last (3 / 10))] },
+    { moves := #[("P", Plane.Exact.slideFromTo ((1, 2) : Q) (1, 0))] }]
+  keyOptions := #[{},
+    { fades := #[("rA", .vanish, .seconds 0 (1 / 5)), ("rB", .appear, .seconds (1 / 5) (2 / 5))] },
+    {}, {}]
+
+/-- The golden picture with marks that announce the next turn: `announceMotion` beside a point
+turned alike, the rest on key 1 its own (0.9 s, the rings handed over in it), key 2 not a still,
+with a narrow rendition. -/
+def announcePanels : MotionPanels where
+  panels := #[{ title := "The triangle", motion := announceLeft },
+    { title := "A point", motion := announceRight }]
+  captions := #["The start; the rings at A mark a turn about A.",
+    "A quarter about A; the rings at B mark a turn about B.", "",
+    "A quarter about B, then down by 2."]
+  keyOptions := #[{}, { rest := some (9 / 10) }, { still := false, rest := some (3 / 10) }, {}]
+  info := { title := "Marks that announce the next turn",
+            description := "Left: a triangle turns about A, then about B, then slides down. \
+              Right: a point moves alike. Rings mark the centre of each turn before it." }
+  narrowWidth := some 360
+
 /-- The golden pictures, by file name. -/
-def golden : Array (String × MotionPanels) := #[("motion-panels", framesPanels)]
+def golden : Array (String × MotionPanels) :=
+  #[("motion-panels", framesPanels), ("motion-panels-announce", announcePanels)]
 
 /-! ### Small pictures for the rules -/
 
@@ -464,6 +510,29 @@ def problemChecks : Array (String × Bool) := Id.run do
       nothing is wrong",
     P.checks == .fail && (match P.svg? with | .ok s => s == P.toSvgUnchecked | .error _ => false) &&
       (match P.animation? with | .ok a => a.problems () == #[] | .error _ => false))
+  -- a fade in part of a step that another panel samples for a morph is an error; in a step no
+  -- panel samples it is drawn in its window
+  let fader : Motion :=
+    { keys := #[{ items := #[Plane.Exact.point ((-3, -3) : Q) |>.faint,
+          Plane.Exact.point ((3, 3) : Q) |>.faint, Plane.Exact.point ((0, 0) : Q) |>.actor "X"] },
+        { items := #[Plane.Exact.point ((-3, -3) : Q) |>.faint,
+          Plane.Exact.point ((3, 3) : Q) |>.faint] }]
+      captions := #["a", "b"]
+      steps := #[{ moves := #[("X", .vanish)], windows := #[("X", .fractions (7 / 10) 1)] }]
+      info := testInfo }
+  let both := (pair quarters fader).report
+  let apart := (pair fader fader).report
+  let s0 := timeIn apart (.move 0) 0
+  let live := ((elements "g" 256 apart.svgRootUnchecked).find?
+    (attrOf · "class" == Animation.liveClass)).getD (.text "")
+  let d := Exact.toFloat (kindDur (pair fader fader).baseTimeline (.move 0))
+  out := out.push ("panels: a fade in part of a step that another panel samples for a morph is an \
+      error; in a step no panel samples, the fade waits for its window",
+    both.problems.any (fun p => p.severity == .error &&
+      (p.message.splitOn "cannot share it with a sampled morph").length > 1) &&
+      apart.problems.isEmpty &&
+      (MotionChecks.writtenOpacity live "p2-X" 0 (s0 + 0.6 * d)).any (fun o => (o - 1).abs < 1e-6) &&
+      (MotionChecks.writtenOpacity live "p2-X" 0 (s0 + 1.05 * d)).any (fun o => o.abs < 1e-6))
   return out
 
 /-- The checks of the outputs of the pictures. -/
@@ -621,12 +690,14 @@ open PILeanTest.MotionChecks (num pt)
 
 /-- What `tools/motion-browser-check.py` expects of a picture of panels, as JSON, in the shape of
 `MotionChecks.expectations` (ids with their panel's prefix, points on the picture's page): the
-cycle; at the middle of each key's rest (with the rest's start and end) every actor's anchor in
-the composed still and every upright group's anchor where the plan draws it; every turn with its
-centre, start, angle and three samples; every slide with its two anchors and three samples; and
-also each panel's box on the page, and the marked points of every actor of
-every panel at every rest and at a quarter, a half and three quarters of every move (`phase`), to
-show that the panels are in phase. -/
+cycle; for each key whether it is a still and, at the middle of the part of its rest in which it
+is shown still (with that part's start and end), every actor's anchor in the composed still and
+every upright group's anchor where the plan draws it; every turn with its centre, start, angle and
+three samples of its step; every slide with its two anchors and three samples; the opacity of
+every panel's appearances and disappearances before, in and after their windows
+(`MotionChecks.opacitiesJson`); and also each panel's box on the page, and the marked points of
+every actor of every panel at every rest and at a quarter, a half and three quarters of every move
+(`phase`), to show that the panels are in phase. -/
 def expectations (name : String) (r : MotionPanelsReport) : String :=
   let st := r.style
   let anchorOf := fun (pr : PanelReport) (fig : Figure) (id : String) =>
@@ -641,30 +712,28 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
         s!"\{\"id\": \"{pr.idPrefix}{Canvas.safeToken id}\", \"at\": {pt a}}"
     let t := Exact.toFloat (r.timeline.restTime k)
     let ups := ((r.markersAt t).filter (·.1 == "upright")).toList.map fun (_, q, _) => pt q
-    let seg := r.timeline.segments.find? (·.kind = .rest k)
+    let seg := r.timeline.stillPart? k
     let lo := Exact.toFloat ((seg.map (·.start)).getD 0)
     let hi := Exact.toFloat ((seg.map fun s => s.start + s.dur).getD 0)
     let shapes := r.panels.toList.flatMap fun pr =>
       MotionChecks.actorShapes pr.env (pr.keys.figure k) pr.idPrefix
-    s!"\{\"key\": {k}, \"t\": {num t}, \"from\": {num lo}, \"until\": {num hi}, \
+    s!"\{\"key\": {k}, \"still\": {r.figure.isStill k}, \"t\": {num t}, \"from\": {num lo}, \
+      \"until\": {num hi}, \
       \"actors\": [{", ".intercalate actors}], \"uprights\": [{", ".intercalate ups}], \
       \"shapes\": \{{", ".intercalate shapes}}}"
   let segs := r.timeline.segments
+  let base := r.figure.baseTimeline
   let turns := r.panels.toList.flatMap fun pr =>
     let still := pr.plan.layers.filter (·.geoms.isNone)
     still.toList.flatMap fun L => match L.version.actor with
       | none => []
       | some id => L.links.toList.filterMap fun
         | .turn j c deg => do
-          let i ← (List.range segs.size).find? fun i => (segs[i]?.map (·.kind)) == some (.move j)
-          let s ← segs[i]?
           let start ← anchorOf pr (pr.keys.figure j) id
-          let samples := [0.25, 0.5, 0.75].map fun (x : Float) =>
-            let t := Exact.toFloat s.start + x * Exact.toFloat s.dur
-            s!"\{\"t\": {num t}, \"f\": {num ((pr.plan.clock.splines.getD i .linear).eval x)}}"
+          let samples ← MotionChecks.stepSamplesJson r.timeline r.phases j
           return s!"\{\"id\": \"{pr.idPrefix}{Canvas.safeToken id}\", \"step\": {j}, \
             \"centre\": {pt c}, \"start\": {pt start}, \"sweep\": {num deg}, \
-            \"samples\": [{", ".intercalate samples}]}"
+            \"samples\": {samples}}"
         | .slide .. => none
   let slides := r.panels.toList.flatMap fun pr =>
     let still := pr.plan.layers.filter (·.geoms.isNone)
@@ -673,15 +742,11 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
       | some id => L.links.toList.filterMap fun
         | .slide j _ => do
           guard ((L.links.filter (·.step == j)).size == 1)
-          let i ← (List.range segs.size).find? fun i => (segs[i]?.map (·.kind)) == some (.move j)
-          let s ← segs[i]?
           let a ← anchorOf pr (pr.keys.figure j) id
           let b ← anchorOf pr (pr.keys.figure (j + 1)) id
-          let samples := [0.25, 0.5, 0.75].map fun (x : Float) =>
-            let t := Exact.toFloat s.start + x * Exact.toFloat s.dur
-            s!"\{\"t\": {num t}, \"f\": {num ((pr.plan.clock.splines.getD i .linear).eval x)}}"
+          let samples ← MotionChecks.stepSamplesJson r.timeline r.phases j
           return s!"\{\"id\": \"{pr.idPrefix}{Canvas.safeToken id}\", \"step\": {j}, \
-            \"from\": {pt a}, \"to\": {pt b}, \"samples\": [{", ".intercalate samples}]}"
+            \"from\": {pt a}, \"to\": {pt b}, \"samples\": {samples}}"
         | .turn .. => none
   let ups := (markerCounts r).2
   let panels := (r.panels.zip r.layout.places).toList.map fun (pr, place) =>
@@ -698,6 +763,8 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
       s!"[\"{(n.drop 6).toString}\", {pt q}]"
     s!"\{\"t\": {num t}, \"actors\": [{", ".intercalate actors}]}"
   let marks := r.figure.panels.any fun p => MotionChecks.turningMarks p.motion
+  let opacities := r.panels.toList.flatMap fun pr =>
+    MotionChecks.opacitiesJson pr.motion pr.plan (pr.motion.fadesOn pr.keys base) base pr.idPrefix
   s!"\{\"format\": {MotionChecks.expectationsFormat}, \"name\": \"{name}\", \
     \"svg\": \"{name}.svg\", \"poster_png\": \"{name}-poster.png\", \
     \"declared\": {MotionChecks.declaredMoves (r.figure.panels.map (·.motion))}, \
@@ -705,7 +772,7 @@ def expectations (name : String) (r : MotionPanelsReport) : String :=
     \"turning_marks\": {marks}, \"band\": {num r.layout.band}, \
     \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}], \
     \"slides\": [{", ".intercalate slides}], \"panels\": [{", ".intercalate panels}], \
-    \"phase\": [{", ".intercalate phase}]}\n"
+    \"phase\": [{", ".intercalate phase}], \"opacities\": [{", ".intercalate opacities}]}\n"
 
 /-- Writes the golden pictures and their narrow renditions, and `farPanels`, into `dir` for
 `tools/motion-browser-check.py`: each picture's SVG, the SVG of each key of the picture, the

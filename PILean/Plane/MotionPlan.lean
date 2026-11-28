@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import PILean.Plane.Motion
+import PILean.Anim.TimelineProofs
 
 /-!
 # Motions of plane figures: the plan, the animated SVG and the baked frames
@@ -42,6 +43,13 @@ slide in its layer (a later one starts a new layer, which crossfades). A morph w
 between its keys (`Motion.between`) is sampled at `morphSamples` steps of equal time, during
 which every animation of the picture runs at constant speed.
 
+**Fades in part of a step or of a rest** (`Motion.fadesOn`) cut their step or rest at the ends of
+their windows (`divideSegments`): a part of a step is eased as that part of the step is
+(`Easing.part`), so every animation of the step keeps its eased motion; a part of a rest that is a
+fade's window is eased with the pacing's easing. A layer's opacity is given at every boundary from
+the phase there (`MotionPhase`, with the fraction of the rest or of the step's time done) and its
+fades (`LayerFades`).
+
 **The internal form for several motions on one clock.** Every animated value is a function of
 a `MotionPhase` (a key, or a fraction of a step), evaluated at the boundaries of the timeline; the
 plan is computed in a drawing environment on a given timeline (`Motion.planOn`; `Motion.planIn`
@@ -52,8 +60,9 @@ motion out in a frame of its own (its origin shifted) on the timeline they share
 
 * `MotionPhase`, `MotionClock`, `MotionLink`, `MotionLayer`, `MotionUpright`,
   `MotionPlan`, `Motion.planLayers`, `Motion.planOn`, `Motion.planIn`, `Motion.plan`.
-* `sampledSegments`, `Motion.segments`, `Motion.timelineOf`, `Motion.phasesOf`,
-  `Motion.timeline`, `seamOf`.
+* `MotionDivision`, `cutsOf`, `divideSegments`, `sampledSegments`, `MotionFades`, `LayerFades`,
+  `Motion.baseTimeline`, `Motion.fadesOn`, `Motion.divisionOn`, `Motion.segments`,
+  `Motion.inexactSteps`, `Motion.timelineOf`, `Motion.phasesOf`, `Motion.timeline`, `seamOf`.
 * `MotionPlan.toNodesUnchecked`, `MotionPlan.contentNodes`, `MotionPlan.figureAtUnchecked`,
   `MotionPlan.contentAt`, `MotionPlan.markersAt`.
 
@@ -73,18 +82,21 @@ open Canvas Anim Svg
 
 /-! ### Phases and the timeline -/
 
-/-- A moment of a motion: key `key` when `frac = 0`, otherwise the fraction `frac` of the step from
-key `key` to key `key + 1`. -/
+/-- A moment of a motion: in step `key` (from key `key` to key `key + 1`) when `time > 0`, the
+fraction `time` of its time done and the fraction `frac` of its change (its eased progress);
+otherwise in the rest on key `key`, the fraction `rest` of the rest done (`frac` and `time` are
+`0`). The end of a step is the start of the next rest (`rest = 0`), and the end of a rest
+(`rest = 1`) is the start of the next step. -/
 structure MotionPhase where
   /-- The key, or the step's first key. -/
   key : Nat
-  /-- The fraction of the step done, in `[0, 1)`. -/
+  /-- The fraction of the step's change done, in `[0, 1)`; `0` in a rest. -/
   frac : Rat
+  /-- The fraction of the step's time done, in `[0, 1)`; `0` in a rest. -/
+  time : Rat := 0
+  /-- In a rest, the fraction of the rest done, in `[0, 1]`; `1` in a step. -/
+  rest : Rat := 1
   deriving Inhabited, Repr, DecidableEq
-
-/-- The phase at the fraction `q` of step `j` (key `j + 1` for `q ≥ 1`). -/
-def MotionPhase.ofStep (j : Nat) (q : Rat) : MotionPhase :=
-  if q ≥ 1 then ⟨j + 1, 0⟩ else ⟨j, q⟩
 
 /-- The fraction of step `j` done at the phase: `0` before the step, `1` after it. -/
 def MotionPhase.progress (φ : MotionPhase) (j : Nat) : Rat :=
@@ -95,6 +107,9 @@ def quant (d : Nat) (x : Float) : Float := (Raster.parseNumber? (fmtNum x d)).ge
 
 /-- A page point rounded to 4 decimals. -/
 def quantPoint (p : Point) : Point := ⟨quant 4 p.x, quant 4 p.y⟩
+
+/-- A number between `0` and `1` as a rational to nine decimals. -/
+def ratNine (x : Float) : Rat := ((x * 1000000000).round.toInt64.toInt : Rat) / 1000000000
 
 /-- The fraction of a step's time at which its easing `e` has done the fraction `y` of the step:
 the `x ∈ [0, 1]` with `e.eval x = y`, found by 64 halvings (`Easing.eval` does not decrease), as a
@@ -107,46 +122,233 @@ def easedTime (e : Easing) (y : Float) : Rat :=
       let mid := (lo + hi) / 2
       if e.eval mid < y then lo := mid else hi := mid
     return (lo + hi) / 2
-  ((x * 1000000000).round.toInt64.toInt : Rat) / 1000000000
+  ratNine x
+
+/-- The fraction of a step's change its easing `e` has done at the fraction `τ` of its time, as a
+rational to nine decimals. -/
+def easedFrac (e : Easing) (τ : Rat) : Rat := ratNine (e.eval (Exact.toFloat τ))
+
+/-- How the segments of a timeline are divided for the motions laid out on it: the number of
+intervals a sampled morph divides each step into, the windows of the fades that run in part of
+each step and of each rest (fractions of its time), and the easing of a fade in a rest. -/
+structure MotionDivision where
+  /-- The number of intervals step `j` is sampled in (`1`: not sampled). -/
+  samples : Nat → Nat := fun _ => 1
+  /-- The windows of the fades in part of step `j`. -/
+  stepWindows : Nat → List (Rat × Rat) := fun _ => []
+  /-- The windows of the fades in part of the rest on key `k`. -/
+  restWindows : Nat → List (Rat × Rat) := fun _ => []
+  /-- The easing of a part of a rest in which fades run. -/
+  restEasing : Easing := .linear
+
+/-- The ends of the windows `ws` strictly between `0` and `1`, in increasing order, each once: where
+a step or a rest is cut. -/
+def cutsOf (ws : List (Rat × Rat)) : List Rat :=
+  (((ws.flatMap fun (a, b) => [a, b]).filter fun x => 0 < x && x < 1).mergeSort (· ≤ ·)).eraseDups
+
+/-- The identity as a cubic Bézier curve whose first coordinate is the curve's parameter, `1/3 1/3
+2/3 2/3`, written for the parts of a step sampled for a morph, along which the values change: the
+identity's own control values `0 0 1 1` give a curve that is a straight line too, but whose first
+coordinate has no slope at its ends, which Firefox's solver of a curve's parameter evaluates up to
+`6e-3` of the part off (a slide measured 0.23 px off its segment's place); with these it has
+nothing to solve. -/
+def straightEasing : Easing := .spline (1 / 3) (1 / 3) (2 / 3) (2 / 3)
+
+/-- The most halvings `easedParts` makes of a part of a step whose easing's part is refused. -/
+def maxEasedDepth : Nat := 16
+
+/-- The part of a step from the fraction `a` to `b` of its time, with the parts of the easing `e`
+it is divided into (`Easing.part`), each ending at its fraction: the part itself when its easing's
+part is a timing curve; otherwise its two halves, each so, at most `fuel` halvings deep, and at
+the last depth the part with `none` (no exact easing). Halving a part of a cubic Bézier curve
+brings its scaled control values towards those of a straight line, inside `[0, 1]`; the tests
+show the curves that refuse a part divided within a few halvings. -/
+def easedParts (e : Easing) : Nat → Rat → Rat → List (Rat × Option Easing)
+  | 0, a, b => [(b, e.part (Exact.toFloat a) (Exact.toFloat b))]
+  | fuel + 1, a, b =>
+    match e.part (Exact.toFloat a) (Exact.toFloat b) with
+    | some q => [(b, some q)]
+    | none =>
+      let m := (a + b) / 2
+      easedParts e fuel a m ++ easedParts e fuel m b
+
+/-- How the division `d` divides the segment `s` of a timeline whose last key is `last`: its parts
+(each ending at its fraction of the segment's time, with its easing; none when it is not divided),
+the phases at the start and end of each part (one pair when it is not divided), and the step whose
+easing could not be divided exactly, if so. A rest is cut at the ends of the windows of its fades, a
+part that is one of them eased with `d.restEasing` and any other not eased; the move of a step `j`
+sampled in `n = d.samples j > 1` intervals is divided at the times where its easing has done `(i +
+1) / n` of it (`easedTime`), its values the exact fractions `i / n` and its parts not eased
+(`straightEasing`); the move of any other step is cut at the ends of the windows of its fades, each
+part eased as that part of the step is (`Easing.part`, halved further where a part is refused,
+`easedParts`). -/
+def divisionOf (d : MotionDivision) (last : Nat) (s : Segment) :
+    List (Rat × Easing) × List (MotionPhase × MotionPhase) × Option Nat :=
+  match s.kind with
+  | .rest k =>
+    let ws := d.restWindows k
+    let cuts := cutsOf ws
+    if cuts.isEmpty then ([], [({ key := k, frac := 0, rest := 0 }, { key := k, frac := 0 })], none)
+    else
+      let ends := cuts ++ [1]
+      let starts := 0 :: cuts
+      ((starts.zip ends).map fun (a, b) =>
+          (b, if ws.contains (a, b) then d.restEasing else .linear),
+        (starts.zip ends).map fun (a, b) =>
+          ({ key := k, frac := 0, rest := a }, { key := k, frac := 0, rest := b }), none)
+  | .seamIn => ([], [({ key := 0, frac := 0, rest := 0 }, { key := 0, frac := 0, rest := 0 })], none)
+  | .seamOut => ([], [({ key := last, frac := 0 }, { key := last, frac := 0 })], none)
+  | .move j =>
+    let n := d.samples j
+    let after : MotionPhase := { key := j + 1, frac := 0, rest := 0 }
+    if n > 1 then
+      let τ := fun (i : Nat) => if i == 0 then (0 : Rat) else if i ≥ n then 1
+        else easedTime s.easing (Exact.toFloat ((i : Rat) / n))
+      let at_ := fun (i : Nat) =>
+        if i ≥ n then after else { key := j, frac := (i : Rat) / n, time := τ i }
+      ((List.range n).map fun i => (τ (i + 1), straightEasing),
+        (List.range n).map fun i => (at_ i, at_ (i + 1)), none)
+    else
+      let cuts := cutsOf (d.stepWindows j)
+      if cuts.isEmpty then ([], [({ key := j, frac := 0 }, after)], none)
+      else
+        let ends := cuts ++ [1]
+        let starts := 0 :: cuts
+        let pieces := (starts.zip ends).flatMap fun (a, b) =>
+          (easedParts s.easing maxEasedDepth a b).map fun (c, e) => (a, c, e)
+        -- each piece from where the one before it ends
+        let froms := 0 :: (pieces.map (·.2.1)).dropLast
+        let at_ := fun (τ : Rat) => (
+          if τ ≥ 1 then after else if τ == 0 then { key := j, frac := 0 }
+          else { key := j, frac := easedFrac s.easing τ, time := τ } : MotionPhase)
+        (pieces.map fun (_, c, e) => (c, e.getD .linear),
+          (froms.zip pieces).map fun (a, _, c, _) => (at_ a, at_ c),
+          if pieces.all (·.2.2.isSome) then none else some j)
+
+/-- The parts the division `d` divides each segment into (`divisionOf`), for `Timeline.divide`. -/
+def MotionDivision.parts (d : MotionDivision) (last : Nat) (s : Segment) :
+    List (Rat × Easing) :=
+  (divisionOf d last s).1
+
+/-- The segments of the timeline `base` divided as `d` says (`base.divide (d.parts …)`,
+`divideSegments_fst`), each with the phases at its start and end (`divisionOf`), and the steps
+whose easing could not be divided exactly (their refused parts are then not eased). -/
+def divideSegments (base : Timeline) (d : MotionDivision) :
+    Array (Segment × MotionPhase × MotionPhase) × Array Nat :=
+  let last := base.keys - 1
+  let phases := base.segments.toList.flatMap fun s => (divisionOf d last s).2.1
+  ((base.divide (d.parts last)).segments.mapIdx fun i seg => (seg, phases.getD i default),
+    base.segments.filterMap fun s => (divisionOf d last s).2.2)
+
+/-- The segments of the timeline `base` whose parts the division `d` gives unsound (not ending at
+`1`, or with ends that decrease or leave `[0, 1]`, `Segment.sound`): a fault of the writer, which
+`Timeline.divide` would repair into another division; the motion reports each as an error
+(`unsoundProblems`). With none, the timeline written is divided into exactly the division's parts
+(`Timeline.divide_of_sound`). -/
+def unsoundSegments (base : Timeline) (d : MotionDivision) : Array SegKind :=
+  (base.segments.filter fun s => !Segment.sound (d.parts (base.keys - 1) s)).map (·.kind)
+
+/-- The segments divided unsoundly (`unsoundSegments`), as errors. -/
+def unsoundProblems (kinds : Array SegKind) : Array MotionProblem :=
+  kinds.map fun k =>
+    { severity := .error, message := s!"the segment {reprStr k} is divided into parts whose ends \
+        are not sound (they must not decrease, lie in [0, 1] and end at 1); this is a fault of \
+        the writer, not of the motion" }
+
+/-- The segments `divideSegments` gives are those of `Timeline.divide` with the division's parts:
+the writer's timeline is a divided timeline, which tiles the cycle (`Timeline.divide_tiles`). -/
+theorem divideSegments_fst (base : Timeline) (d : MotionDivision) :
+    (divideSegments base d).1.map (·.1) = (base.divide (d.parts (base.keys - 1))).segments := by
+  apply Array.ext <;> simp [divideSegments]
 
 /-- The segments of the timeline `base` with the phases at their start and end, the move of each
-step `j` divided into `samples j` segments when that is more than one, the `i`-th ending where the
-step's easing has done `(i + 1) / n` of the step (`easedTime`). The values at those boundaries are
-the exact fractions `i / n` of the step and the segments are not eased, so every animation of the
-step follows its eased motion piecewise linearly, within `1 / n` of the step's change. -/
+step `j` divided into `samples j` segments when that is more than one (`divideSegments`). -/
 def sampledSegments (base : Timeline) (samples : Nat → Nat) :
     Array (Segment × MotionPhase × MotionPhase) :=
-  let last := base.keys - 1
-  base.segments.flatMap fun s => match s.kind with
-    | .rest k => #[(s, ⟨k, 0⟩, ⟨k, 0⟩)]
-    | .seamIn => #[(s, ⟨0, 0⟩, ⟨0, 0⟩)]
-    | .seamOut => #[(s, ⟨last, 0⟩, ⟨last, 0⟩)]
-    | .move j =>
-      let n := samples j
-      if n ≤ 1 then #[(s, ⟨j, 0⟩, ⟨j + 1, 0⟩)]
-      else
-        let τ := fun (i : Nat) => if i == 0 then (0 : Rat) else if i ≥ n then 1
-          else easedTime s.easing (Exact.toFloat ((i : Rat) / n))
-        (Array.range n).map fun (i : Nat) =>
-          let q : Rat := i
-          let start := s.start + s.dur * τ i
-          let dur := s.dur * (τ (i + 1) - τ i)
-          let seg : Segment := { s with start, dur, easing := .linear }
-          (seg, MotionPhase.ofStep j (q / n), MotionPhase.ofStep j ((q + 1) / n))
+  (divideSegments base { samples }).1
+
+/-- The fades of a motion that run in part of a step or of a rest, as the plan draws them
+(`Motion.fadesOn`): for each step and for each rest, the actors with their fade and its window, as
+fractions of the step's or the rest's time. -/
+structure MotionFades where
+  /-- The fades in part of each step. -/
+  steps : Array (Array (String × Fade × Rat × Rat)) := #[]
+  /-- The fades in each rest. -/
+  rests : Array (Array (String × Fade × Rat × Rat)) := #[]
+  deriving Inhabited
 
 namespace Motion
 
 variable (m : Motion)
 
+/-- The motion's timeline before any segment is divided: `Timeline.build` on `animSteps` with
+`restPacing`. -/
+def baseTimeline : Timeline := Timeline.build m.animSteps m.restPacing
+
+/-- The fades of the motion that run in part of a step or of a rest, as the plan draws them, their
+windows resolved as fractions of the step's or the rest's time on the timeline `base`: each step's
+appearances and disappearances that have a window (`MotionStep.windows`), and each rest's fades
+(`MotionKey.fades`). A window that is not a part of its time, a second fade of one actor, a window
+on another move, and the windows of a step sampled for a morph (`samplesOf`) are left out, and
+are errors of `keyProblemsOn`; such a fade in a step runs through the whole step. -/
+def fadesOn (K : MotionKeys) (base : Timeline) : MotionFades where
+  steps := (Array.range m.steps.size).map fun j => Id.run do
+    let s := m.steps.getD j {}
+    if m.samplesOf K j > 1 then return #[]
+    let dur := kindDur base (.move j)
+    let mut out : Array (String × Fade × Rat × Rat) := #[]
+    let mut seen : Array String := #[]
+    for (id, w) in s.windows do
+      if seen.contains id then continue
+      seen := seen.push id
+      let kind : Option Fade := match (s.moves.find? (·.1 == id)).map (·.2) with
+        | some Move.appear => some Fade.appear
+        | some Move.vanish => some Fade.vanish
+        | _ => none
+      if let some f := kind then
+        if (w.problem? dur "").isNone then
+          let (a, b) := w.fracs dur
+          out := out.push (id, f, a, b)
+    return out
+  rests := (Array.range m.keys.size).map fun k => Id.run do
+    let dur := kindDur base (.rest k)
+    let mut out : Array (String × Fade × Rat × Rat) := #[]
+    let mut seen : Array String := #[]
+    for (id, f, w) in (m.keyOption k).fades do
+      if seen.contains id then continue
+      seen := seen.push id
+      if (w.problem? dur "").isNone then
+        let (a, b) := w.fracs dur
+        out := out.push (id, f, a, b)
+    return out
+
+/-- How the motion divides its own timeline `base` (`MotionDivision`): its sampled morphs, the
+windows of its fades (`fadesOn`), and the pacing's easing for the fades in its rests. -/
+def divisionOn (K : MotionKeys) (base : Timeline) : MotionDivision :=
+  let F := m.fadesOn K base
+  { samples := m.samplesOf K,
+    stepWindows := fun j => (F.steps.getD j #[]).toList.map fun (_, _, a, b) => (a, b),
+    restWindows := fun k => (F.rests.getD k #[]).toList.map fun (_, _, a, b) => (a, b),
+    restEasing := m.pacing.easing }
+
 /-- The segments of the motion's timeline with the phases at their start and end: those of
-`Timeline.build` on `animSteps`, a sampled morph's move divided into `samplesOf` segments
-(`sampledSegments`). -/
+`baseTimeline`, a sampled morph's move divided into `samplesOf` segments, and steps and rests cut
+at the ends of the windows of their fades (`divideSegments`). -/
 def segments (K : MotionKeys) : Array (Segment × MotionPhase × MotionPhase) :=
-  sampledSegments (Timeline.build m.animSteps m.pacing) (m.samplesOf K)
+  (divideSegments m.baseTimeline (m.divisionOn K m.baseTimeline)).1
+
+/-- The segments of the motion's timeline divided unsoundly (`unsoundSegments`). -/
+def unsoundOf (K : MotionKeys) : Array SegKind :=
+  unsoundSegments m.baseTimeline (m.divisionOn K m.baseTimeline)
+
+/-- The steps whose easing the motion's timeline cannot divide exactly at the ends of the windows
+of their fades (`divideSegments`). -/
+def inexactSteps (K : MotionKeys) : Array Nat :=
+  (divideSegments m.baseTimeline (m.divisionOn K m.baseTimeline)).2
 
 /-- The timeline of segments `segs` (see `segments`). -/
 def timelineOf (segs : Array (Segment × MotionPhase × MotionPhase)) : Timeline :=
-  { Timeline.build m.animSteps m.pacing with segments := segs.map (·.1) }
+  { m.baseTimeline with segments := segs.map (·.1) }
 
 /-- The phase at each boundary of the timeline of segments `segs`: at the start of the first
 segment, then at the end of each. -/
@@ -157,6 +359,21 @@ def phasesOf (segs : Array (Segment × MotionPhase × MotionPhase)) : Array Moti
 
 /-- The timeline of the motion (see `segments`). -/
 def timeline : Timeline := m.timelineOf (m.segments m.keysOf)
+
+/-- The timeline the motion's SVG is written on is its base timeline divided as its division says
+(`Timeline.divide`). -/
+theorem timeline_eq : m.timeline = m.baseTimeline.divide
+    ((m.divisionOn m.keysOf m.baseTimeline).parts (m.baseTimeline.keys - 1)) := by
+  simp only [timeline, timelineOf, segments, divideSegments_fst, Timeline.divide]
+
+/-- The segments of the motion's timeline, whatever its fades and sampled morphs, tile its
+cycle: the first starts at `0`, each starts where the one before it ends, and the last ends at
+the end of the cycle; and none lasts less than zero. -/
+theorem timeline_tiles :
+    Timeline.Tiles 0 m.timeline.segments.toList m.timeline.cycle ∧
+      ∀ s ∈ m.timeline.segments.toList, 0 ≤ s.dur := by
+  rw [timeline_eq]
+  exact ⟨Timeline.divide_tiles _ _ _, Timeline.divide_dur_nonneg _ _ _⟩
 
 end Motion
 
@@ -179,7 +396,7 @@ def ofTimeline (tl : Timeline) (o : Smil.Options := {}) : MotionClock where
     (Raster.parseNumber? (Smil.timeText r)).getD (Exact.toFloat r)
   splines := tl.segments.map fun s =>
     let (a, b, c, d) := s.easing.controls
-    .spline (quant 4 a) (quant 4 b) (quant 4 c) (quant 4 d)
+    .spline (quant 6 a) (quant 6 b) (quant 6 c) (quant 6 d)
   dur := quant 6 (Exact.toFloat tl.cycle)
 
 /-- The interval of key times at the time `t` (seconds, repeated every cycle) and the eased
@@ -273,16 +490,78 @@ theorem linkOf_turn (f : Frame) (j : Nat) (c : Point) (q : Rat) :
     linkOf f j (some (.turn c q)) =
       some (.turn j (quantPoint (f.toScreen c)) (Exact.toFloat (-(360 * q)))) := rfl
 
+/-- The fades of a layer that run in part of a step or of a rest (`MotionFades.forLayer`), as
+fractions of the step's or the rest's time: its appearance during the rest on its first key, its
+disappearance during the rest on the key after its last, and the windows of its appearance in the
+step before its first key and of its disappearance in the step after its last. -/
+structure LayerFades where
+  /-- The window of its appearance during the rest on its first key. -/
+  restIn : Option (Rat × Rat) := none
+  /-- The window of its disappearance during the rest on the key after its last. -/
+  restOut : Option (Rat × Rat) := none
+  /-- The window of its appearance in the step before its first key. -/
+  stepIn : Option (Rat × Rat) := none
+  /-- The window of its disappearance in the step after its last key. -/
+  stepOut : Option (Rat × Rat) := none
+  deriving Inhabited, BEq
+
+/-- Whether the layer has no fade in part of a step or of a rest. -/
+def LayerFades.isEmpty (F : LayerFades) : Bool :=
+  F.restIn.isNone && F.restOut.isNone && F.stepIn.isNone && F.stepOut.isNone
+
+/-- The fades of the layer `v` among the motion's fades `F`: those of its actor that begin or end
+it. -/
+def MotionFades.forLayer (F : MotionFades) (v : MotionVersion) : LayerFades :=
+  match v.actor with
+  | none => {}
+  | some id =>
+    let find := fun (xs : Array (String × Fade × Rat × Rat)) (f : Fade) =>
+      xs.findSome? fun (x, g, a, b) => if x == id && g == f then some (a, b) else none
+    { restIn := find (F.rests.getD v.first #[]) .appear,
+      restOut := find (F.rests.getD (v.last + 1) #[]) .vanish,
+      stepIn := if v.first == 0 then none else find (F.steps.getD (v.first - 1) #[]) .appear,
+      stepOut := find (F.steps.getD v.last #[]) .vanish }
+
 namespace MotionVersion
 
 variable (v : MotionVersion)
 
-/-- Its opacity at a phase, as written: `1` on the keys that show it, `0` on the others, changing
-linearly in the steps between. -/
-def opacityAt (φ : MotionPhase) : Float :=
-  let a : Float := if v.visible φ.key then 1 else 0
-  let b : Float := if v.visible (φ.key + 1) then 1 else 0
-  quant 4 (a + (b - a) * Exact.toFloat φ.frac)
+/-- Its opacity at a phase, as written, with its fades in part of a step or of a rest `F`, on the
+timeline whose boundaries have the phases `phases`: `1` on the keys that show it, `0` on the others,
+changing with the progress of the steps between (`frac`). A fade in a rest changes it in the
+window of the rest (`0` before the window of an appearance, `1` after it); a fade in part of a step
+changes it in its window, with the step's progress through the window (from the phase of the
+window's start to that of its end among `phases`). -/
+def opacityAt (F : LayerFades) (phases : Array MotionPhase) (φ : MotionPhase) : Float :=
+  let vis := fun (k : Nat) => if v.visible k then (1 : Rat) else 0
+  let ramp := fun (x a b : Rat) =>
+    if x ≤ a then (0 : Rat) else if x ≥ b then 1 else (x - a) / (b - a)
+  -- the level in the rest on key `k`, at the fraction `r` of the rest
+  let level := fun (k : Nat) (r : Rat) =>
+    match (if k == v.first then F.restIn else none), (if k == v.last + 1 then F.restOut else none)
+    with
+    | some (a, b), _ => ramp r a b
+    | none, some (a, b) => 1 - ramp r a b
+    | none, none => vis k
+  if φ.time == 0 then quant 4 (Exact.toFloat (level φ.key φ.rest))
+  else
+    let j := φ.key
+    let a := Exact.toFloat (level j 1)
+    let b := Exact.toFloat (level (j + 1) 0)
+    let win := if j + 1 == v.first then F.stepIn else if j == v.last then F.stepOut else none
+    let fracAt := fun (τ : Rat) =>
+      if τ ≤ 0 then some (0 : Rat) else if τ ≥ 1 then some 1
+      else (phases.find? fun ψ => ψ.key == j && ψ.time == τ).map (·.frac)
+    let p := match win with
+      | none => Exact.toFloat φ.frac
+      | some (s, e) =>
+        if φ.time ≤ s then 0 else if φ.time ≥ e then 1
+        else match fracAt s, fracAt e with
+          | some fs, some fe =>
+            if fe > fs then Exact.toFloat ((φ.frac - fs) / (fe - fs))
+            else Exact.toFloat (ramp φ.time s e)
+          | _, _ => Exact.toFloat (ramp φ.time s e)
+    quant 4 (a + (b - a) * p)
 
 /-- The item that gives its drawing at a phase, before any turn or slide: a sample of a sampled
 morph, else `itemAtKey`. -/
@@ -425,10 +704,10 @@ namespace Motion
 
 variable (m : Motion)
 
-/-- The layers of the motion laid out in the environment `e`, its keys as drawn `K`, every animated
-value given at the phases `phases` (one per boundary of a timeline), and the layers in drawing
-order as runs (see `MotionPlan.runs`). -/
-def planLayers (K : MotionKeys) (e : Env) (phases : Array MotionPhase) :
+/-- The layers of the motion laid out in the environment `e`, its keys as drawn `K`, its fades in
+part of a step or of a rest `F`, every animated value given at the phases `phases` (one per
+boundary of a timeline), and the layers in drawing order as runs (see `MotionPlan.runs`). -/
+def planLayers (K : MotionKeys) (e : Env) (F : MotionFades) (phases : Array MotionPhase) :
     Array MotionLayer × Array (Array (Array Nat)) := Id.run do
   let st := e.style
   let (vs, perKey) := m.versions K e
@@ -462,7 +741,8 @@ def planLayers (K : MotionKeys) (e : Env) (phases : Array MotionPhase) :
           let total := (links.zip linkValues).foldl (init := 0) fun acc (l, vals) =>
             if l.isTurn then acc + ((vals.getD b #[]).getD 0 0) else acc
           #[quant 6 (-total), a.x, a.y] }
-    let always := v.first == 0 && v.last + 1 == keyCount
+    let fades := F.forLayer v
+    let always := v.first == 0 && v.last + 1 == keyCount && fades.isEmpty
     let morphs := v.moves.any fun | some .morph => true | _ => false
     let anchor := v.actor.bind fun _ =>
       (base.leaves[0]?).map fun lf => quantPoint ((anchors e.frame st lf.geom).getD 0 ⟨0, 0⟩)
@@ -470,14 +750,12 @@ def planLayers (K : MotionKeys) (e : Env) (phases : Array MotionPhase) :
       | some id => if seen.contains id then s!"v{vi}-" else ""
       | none => ""
     if let some id := v.actor then seen := seen.push id
-    let opacity := if always then none else some (phases.map v.opacityAt)
+    let opacity := if always then none else some (phases.map (v.opacityAt fades phases))
     let geoms := if morphs then some (phases.map v.geomAt) else none
     layers := layers.push
       { version := v, links, linkValues, uprights, anchor, idPrefix, opacity, geoms }
-  let visKey := fun (i : Nat) =>
-    let v := (layers.getD i default).version
-    if v.first == 0 && v.last + 1 == keyCount then (0, 0) else (v.first + 1, v.last + 1)
-  let runs := (runsBy visKey order).map fun run =>
+  -- consecutive layers with the same opacity at every boundary share one opacity animation
+  let runs := (runsBy (fun i => (layers.getD i default).opacity) order).map fun run =>
     runsBy (fun i => (layers.getD i default).links) run
   return (layers, runs)
 
@@ -487,25 +765,26 @@ def _root_.PILean.Plane.seamOf (tl : Timeline) : Option (Array Float) :=
   if tl.segments.any (fun s => s.kind == .seamIn || s.kind == .seamOut) then
     some (Smil.seamLevels tl) else none
 
-/-- The motion laid out in the environment `e` (its frame and style), its keys as drawn `K`, on
-the timeline `tl` whose boundaries have the phases `phases`. A picture of several motions lays
-each out on one timeline they share (`PILean.Plane.MotionPanels`). -/
-def planOn (K : MotionKeys) (e : Env) (tl : Timeline) (phases : Array MotionPhase) :
-    MotionPlan :=
-  let lr := m.planLayers K e phases
+/-- The motion laid out in the environment `e` (its frame and style), its keys as drawn `K`, its
+fades in part of a step or of a rest `F`, on the timeline `tl` whose boundaries have the phases
+`phases`. A picture of several motions lays each out on one timeline they share
+(`PILean.Plane.MotionPanels`). -/
+def planOn (K : MotionKeys) (e : Env) (F : MotionFades) (tl : Timeline)
+    (phases : Array MotionPhase) : MotionPlan :=
+  let lr := m.planLayers K e F phases
   { env := e, mode := K.mode, timeline := tl, phases, clock := MotionClock.ofTimeline tl,
     layers := lr.1, runs := lr.2, seam := seamOf tl, background := (K.figure 0).background,
     keys := m.keys.size }
 
 /-- A plan laid out on a timeline has that timeline. -/
-theorem planOn_timeline (K : MotionKeys) (e : Env) (tl : Timeline) (phases : Array MotionPhase) :
-    (m.planOn K e tl phases).timeline = tl := rfl
+theorem planOn_timeline (K : MotionKeys) (e : Env) (F : MotionFades) (tl : Timeline)
+    (phases : Array MotionPhase) : (m.planOn K e F tl phases).timeline = tl := rfl
 
 /-- The motion laid out in the environment `e` (its frame and style), its keys as drawn `K`, on
 its own timeline (`segments`). -/
 def planIn (K : MotionKeys) (e : Env) : MotionPlan :=
   let segs := m.segments K
-  m.planOn K e (m.timelineOf segs) (phasesOf segs)
+  m.planOn K e (m.fadesOn K m.baseTimeline) (m.timelineOf segs) (phasesOf segs)
 
 /-- The motion laid out in its own environment (`Motion.env`). -/
 def plan : MotionPlan := let K := m.keysOf; m.planIn K K.env

@@ -14,16 +14,16 @@ stop it (`CheckLevel.fail`, the default). The routes that write whatever the pro
 `Unchecked` (`Motion.svgRootUnchecked`, `toSvgUnchecked`, `figureAtUnchecked`,
 `toAnimationUnchecked`), for tests and tools.
 
-**The stills pin the animation.** `Motion.restProblems` compares, at the middle of every key's
-rest, the whole baked drawing (every path and every text, in order: `Drawn`, `drawnOf`) with the
-key's still, within `restTolerance` (0.05 px, plus `5.5e-4 r` for a path of half-width `r`, for
-the cubic approximations of turned circles, `drawingDiff`). **The writer against the baker.**
-`Motion.writerProblems` reads the written moving picture with `Smil.valueAt` at the middle of every
-segment of the timeline and requires what the baker draws (`writerDiff`). **Nothing leaves the
-picture.** `boundsProblems` draws every layer at eight times through every move and requires every
-point of it in the page (0.5 px). `Motion.problems` is the problems of the keys and steps
-(`Motion.keyProblems`) with these. A motion's own prefix (`Motion.idPrefix`) goes on every id of
-its SVG, for several pictures in one page.
+**The stills pin the animation.** `Motion.restProblems` compares, at the middle of every key's rest
+(of its last part, after its fades), the whole baked drawing (every path and every text, in order:
+`Drawn`, `drawnOf`) with the key's still, within `restTolerance` (0.05 px, plus `5.5e-4 r` for a
+path of half-width `r`, for the cubic approximations of turned circles, `drawingDiff`). **The writer
+against the baker.** `Motion.writerProblems` reads the written moving picture with `Smil.valueAt` at
+the middle of every segment of the timeline and requires what the baker draws (`writerDiff`).
+**Nothing leaves the picture.** `boundsProblems` draws every layer at eight times through every move
+and requires every point of it in the page (0.5 px). `Motion.problems` is the problems of the keys
+and steps (`Motion.keyProblems`) with these. A motion's own prefix (`Motion.idPrefix`) goes on every
+id of its SVG, for several pictures in one page.
 
 ## Main definitions
 
@@ -31,7 +31,7 @@ its SVG, for several pictures in one page.
   `Motion.checkMessages`, `Motion.problemsFail`.
 * `Motion.svgRootUnchecked`, `Motion.toSvgUnchecked`, `Motion.figureAtUnchecked`,
   `Motion.toAnimationUnchecked`.
-* `Drawn`, `drawnOf`, `drawingDiff`, `restTolerance`, `Motion.restProblems`.
+* `Drawn`, `drawnOf`, `drawingDiff`, `restTolerance`, `Motion.restProblems`, `inexactProblems`.
 * `writtenMarkers`, `markersDiff`, `writerDiff`, `Motion.writerProblems`.
 * `shapePoints`, `boundsTolerance`, `boundsProblems`.
 -/
@@ -46,10 +46,13 @@ namespace Motion
 
 variable (m : Motion)
 
-/-- The text alternative of the motion: its description and the captions of its keys. -/
+/-- The captions of the stills (`Motion.stillKeys`), in order. -/
+def stillCaptions : Array String := m.stillKeys.map (m.captions.getD · "")
+
+/-- The text alternative of the motion: its description and the captions of its stills. -/
 def description : String :=
   " ".intercalate ((if m.info.description.isEmpty then [] else [m.info.description]) ++
-    m.captions.toList)
+    m.stillCaptions.toList)
 
 /-- The root element of the motion's animated SVG from its keys as drawn `K` and its plan `p`,
 whatever its problems: the background; the moving picture (`MotionPlan.toNodesUnchecked`) in a
@@ -264,7 +267,16 @@ namespace Motion
 
 variable (m : Motion)
 
-/-- The baker against the stills: at the middle of each key's rest, the whole baked drawing
+/-- The steps whose easing cannot be divided exactly at the ends of the windows of their fades
+(`divideSegments`), as errors: their parts are drawn without easing. -/
+def _root_.PILean.Plane.inexactProblems (steps : Array Nat) : Array MotionProblem :=
+  steps.map fun j =>
+    { severity := .error, message := s!"step {j + 1}: its easing cannot be divided exactly at the \
+        ends of the windows of its fades (a part of its curve is not a timing curve), so its parts \
+        would be drawn without easing; move the windows, or give the step another easing" }
+
+/-- The baker against the stills: at the middle of each key's rest (of its last part, after its
+fades, `Timeline.restTime`), the whole baked drawing
 (`MotionPlan.figureAtUnchecked`: every path and every text, in order) must be the still of that
 key (the drawing of `keyFigure k`) within the rest tolerance (`drawingDiff`). This pins the
 animation to the exact keys for every motion: a turn carried through many steps (each landing
@@ -344,7 +356,8 @@ namespace Motion
 variable (m : Motion)
 
 /-- The motion checked: the problems of its keys and steps (`keyProblems`) and, for a well-formed
-motion, those of its plan against the stills (`restProblems`), of its writer against its baker
+motion, a step whose easing its windows cannot divide exactly (`inexactProblems`), and the
+problems of its plan against the stills (`restProblems`), of its writer against its baker
 (`writerProblems`) and of what leaves the picture while it moves (`boundsProblems`). -/
 def report : MotionReport :=
   let K := m.keysOf
@@ -352,7 +365,8 @@ def report : MotionReport :=
   let base := m.keyProblems
   let f := p.env.frame
   let problems := if !decide m.WellFormed then base
-    else base ++ m.restProblems K p ++ writerProblems p ++
+    else base ++ unsoundProblems (m.unsoundOf K) ++ inexactProblems (m.inexactSteps K) ++
+      m.restProblems K p ++ writerProblems p ++
       boundsProblems p ⟨0, 0, f.width, f.height⟩ "the picture"
   { motion := m, keys := K, plan := p, problems }
 

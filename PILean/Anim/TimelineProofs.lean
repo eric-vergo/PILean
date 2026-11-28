@@ -14,9 +14,10 @@ A timeline built from `n` steps (`Timeline.build`) has `n + 1` key frames, and:
   the fade out last under a crossfade; so there are `2 (n + 1) - 1` segments under a cut and
   `2 (n + 1) + 1` under a crossfade (`build_size_cut`, `build_size_crossfade`).
 * `build_segment_spec`, `build_move_spec`, `build_rest_spec`, `build_seam_spec`: the move of step
-  `j` lasts as long as step `j` and has its easing; the rest on key `0` lasts `firstHold`, the rest
-  on the last key `lastHold`, any other rest `hold`; the fades, which exist only under a crossfade
-  `d`, last `d / 2` each; rests and fades are not eased (a negative duration counting as zero).
+  `j` lasts as long as step `j` and has its easing; the rest on key `k` lasts `Pacing.restOf k`
+  (`restOf_own`, `restOf_default`: a key's own rest, else `firstHold` on key `0`, `lastHold` on the
+  last key, any other rest `hold`); the fades, which exist only under a crossfade `d`, last `d / 2`
+  each; rests and fades are not eased (a negative duration counting as zero).
 * `build_start_zero`, `build_start_succ`, `build_stop_last`, `build_dur_nonneg`: the segments tile
   the cycle: the first starts at `0`, each starts where the one before it ends, the last ends at
   the end of the cycle, and none has a negative duration.
@@ -25,6 +26,9 @@ A timeline built from `n` steps (`Timeline.build`) has `n + 1` key frames, and:
   is longer than zero, `build_cycle_pos`) and never decrease.
 * `wrap_mem`, `segmentAt_mem`, `progress_mem`: any time, brought into the cycle, lies in the
   segment `segmentAt` names, and the progress through that segment is in `[0, 1)`.
+* `divide_tiles`, `divide_dur_nonneg`: divided into parts each list of which ends at `1`
+  (`Timeline.divide`), the segments still tile the cycle (`Tiles`), and no part lasts less than
+  zero when the parts' ends do not decrease from `0`.
 
 All of these are equalities and inequalities of rational numbers. For one key frame (no steps) the
 timeline is the rest on key `0` (with the fade in and out under a crossfade): one segment under a
@@ -33,7 +37,8 @@ frames cannot be asked for: `build` always has key `0`. A cycle of length zero (
 zero) is allowed: then every key time is `0`, and the statements that need a cycle longer than
 zero say so.
 
-Not proved: anything about `Easing.eval` (floating point; tested against known values).
+Not proved: anything about `Easing.eval` and `Easing.part` (floating point; tested against known
+values and against each other).
 -/
 
 namespace PILean.Anim
@@ -269,15 +274,28 @@ theorem build_move_spec (i j : Nat) (h : i < (build steps p).segments.size)
   obtain ⟨hd, he⟩ := build_segment_spec steps p i h
   refine ⟨hj, ?_, ?_⟩ <;> simp [hd, he, hk, spec, hj]
 
-/-- The rest on key `k` lasts `firstHold` for `k = 0`, `lastHold` for the last key and `hold`
-otherwise (at least zero), and is not eased. -/
+/-- The rest on key `k` lasts as `Pacing.restOf` says (at least zero), and is not eased. -/
 theorem build_rest_spec (i k : Nat) (h : i < (build steps p).segments.size)
     (hk : (build steps p).segments[i].kind = .rest k) :
-    (build steps p).segments[i].dur =
-        max (if k = 0 then p.firstHold else if k = steps.size then p.lastHold else p.hold) 0 ∧
+    (build steps p).segments[i].dur = max (p.restOf k steps.size) 0 ∧
       (build steps p).segments[i].easing = .linear := by
   obtain ⟨hd, he⟩ := build_segment_spec steps p i h
   simp [hd, he, hk, spec]
+
+/-- A key with a rest of its own (`Pacing.holds`) rests that long, the first and the last key
+too. -/
+theorem restOf_own (k last : Nat) (d : Rat) (h : p.holds[k]? = some (some d)) :
+    p.restOf k last = d := by
+  simp [Pacing.restOf, h]
+
+/-- A key without a rest of its own rests `firstHold` on key `0`, `lastHold` on the last key and
+`hold` on any other. -/
+theorem restOf_default (k last : Nat) (h : p.holds[k]?.join = none) :
+    p.restOf k last = if k = 0 then p.firstHold else if k = last then p.lastHold else p.hold := by
+  unfold Pacing.restOf
+  split
+  · rename_i d hd; simp [hd] at h
+  · rfl
 
 /-- The fades exist only under a crossfade `d`; each lasts `d / 2` (at least zero) and is not
 eased. -/
@@ -330,12 +348,12 @@ theorem build_dur_nonneg (i : Nat) (h : i < (build steps p).segments.size) :
 theorem build_cycle_nonneg : 0 ≤ (build steps p).cycle := total_nonneg _
 
 /-- The cycle is longer than zero when the rest on the first key is. -/
-theorem build_cycle_pos (h : 0 < p.firstHold) : 0 < (build steps p).cycle := by
+theorem build_cycle_pos (h : 0 < p.restOf 0 steps.size) : 0 < (build steps p).cycle := by
   have hm : (SegKind.rest 0, spec steps p (.rest 0)) ∈ pieces steps p := by
     refine List.mem_map.mpr ⟨.rest 0, ?_, rfl⟩
     simp only [kinds]; split <;> simp
   have := le_total_of_mem hm
-  simp only [spec, ite_true] at this
+  simp only [spec] at this
   rw [build_cycle]
   grind
 
@@ -469,6 +487,208 @@ theorem locate_fst (h : 0 < (build steps p).cycle) (t : Rat) :
         (build steps p).segments[(build steps p).segmentAt t].kind := by
   obtain ⟨hi, -⟩ := segmentAt_mem steps p h t
   exact ⟨hi, by simp [locate, Array.getElem?_eq_getElem hi]⟩
+
+/-! ### Divided timelines -/
+
+/-- The segments `l` tile the time from `a` to `b`: the first starts at `a`, each starts where the
+one before it ends, and the last ends at `b` (`a = b` when there is none). -/
+def Tiles : Rat → List Segment → Rat → Prop
+  | a, [], b => a = b
+  | a, s :: rest, b => s.start = a ∧ Tiles s.stop rest b
+
+/-- Pieces laid end to end from `s` tile the time from `s` to `s` plus their total. -/
+theorem tiles_layout (s : Rat) (l : List Piece) : Tiles s (layout s l) (s + total l) := by
+  induction l generalizing s with
+  | nil => simp [layout, total, Tiles, Rat.add_zero]
+  | cons a l ih =>
+    obtain ⟨k, d, e⟩ := a
+    refine ⟨rfl, ?_⟩
+    have := ih (s + max d 0)
+    simp only [Segment.stop, total]
+    rwa [Rat.add_assoc] at this
+
+/-- Two tilings end to end are one. -/
+theorem tiles_append {a b c : Rat} {l m : List Segment} (hl : Tiles a l b) (hm : Tiles b m c) :
+    Tiles a (l ++ m) c := by
+  induction l generalizing a with
+  | nil => simp only [Tiles] at hl; subst hl; exact hm
+  | cons s l ih => exact ⟨hl.1, ih hl.2⟩
+
+/-- The parts of a segment from the fraction `a` tile its time from that fraction to the end of
+its last part. -/
+theorem tiles_partsFrom (s : Segment) (a : Rat) (ps : List (Rat × Easing)) :
+    Tiles (s.start + s.dur * a) (s.partsFrom a ps)
+      (s.start + s.dur * ((ps.getLast?.map (·.1)).getD a)) := by
+  induction ps generalizing a with
+  | nil => simp [Segment.partsFrom, Tiles]
+  | cons x ps ih =>
+    obtain ⟨b, e⟩ := x
+    refine ⟨rfl, ?_⟩
+    have hs : s.start + s.dur * a + s.dur * (b - a) = s.start + s.dur * b := by grind
+    have := ih b
+    simp only [Segment.stop, hs]
+    cases ps with
+    | nil => simpa using this
+    | cons y ps =>
+      rw [List.getLast?_eq_some_getLast (by simp)] at this ⊢
+      simpa using this
+
+/-- Made sound, parts end at `1`. -/
+theorem monoFrom_last (a : Rat) (ps : List (Rat × Easing)) (h : ps ≠ []) :
+    (Segment.monoFrom a ps).getLast?.map (·.1) = some 1 := by
+  induction ps generalizing a with
+  | nil => exact absurd rfl h
+  | cons x ps ih =>
+    obtain ⟨b, e⟩ := x
+    cases ps with
+    | nil => simp [Segment.monoFrom]
+    | cons y ps =>
+      simp only [Segment.monoFrom]
+      have := ih (min 1 (max a b)) (by simp)
+      obtain ⟨z, zs, hz⟩ : ∃ z zs, Segment.monoFrom (min 1 (max a b)) (y :: ps) = z :: zs := by
+        cases ps <;> simp [Segment.monoFrom]
+      rw [hz] at this ⊢
+      rw [List.getLast?_cons_cons]
+      exact this
+
+/-- Made sound from `a ≤ 1`, the ends of parts never decrease from `a`. -/
+theorem monoFrom_mono (a : Rat) (ha : a ≤ 1) (ps : List (Rat × Easing)) :
+    (a :: (Segment.monoFrom a ps).map (·.1)).Pairwise (· ≤ ·) := by
+  induction ps generalizing a with
+  | nil => simp [Segment.monoFrom]
+  | cons x ps ih =>
+    obtain ⟨b, e⟩ := x
+    cases ps with
+    | nil => simp [Segment.monoFrom, ha]
+    | cons y ps =>
+      simp only [Segment.monoFrom, List.map_cons]
+      have hb₁ : a ≤ min 1 (max a b) := by grind
+      have hb₂ : min 1 (max a b) ≤ 1 := by grind
+      have hr := ih (min 1 (max a b)) hb₂
+      refine List.Pairwise.cons ?_ hr
+      intro z hz
+      rcases List.mem_cons.mp hz with hz | hz
+      · rw [hz]; exact hb₁
+      · exact Rat.le_trans hb₁ ((List.pairwise_cons.mp hr).1 z hz)
+
+/-- Parts that are sound from `a` are kept as they are when made sound from `a`. -/
+theorem monoFrom_of_soundFrom (a : Rat) (ps : List (Rat × Easing))
+    (h : Segment.soundFrom a ps = true) : Segment.monoFrom a ps = ps := by
+  induction ps generalizing a with
+  | nil => rfl
+  | cons x ps ih =>
+    obtain ⟨b, e⟩ := x
+    cases ps with
+    | nil =>
+      simp only [Segment.soundFrom, Bool.and_eq_true, decide_eq_true_eq] at h
+      simp [Segment.monoFrom, h.2]
+    | cons y ps =>
+      simp only [Segment.soundFrom, Bool.and_eq_true, decide_eq_true_eq] at h
+      obtain ⟨⟨hab, hb⟩, hr⟩ := h
+      have hb' : min 1 (max a b) = b := by grind
+      simp only [Segment.monoFrom, hb', ih b hr]
+
+/-- Sound parts are not changed by `Segment.divide`: a segment divided into sound parts is divided
+into exactly those parts. -/
+theorem normalize_of_sound (ps : List (Rat × Easing)) (h : Segment.sound ps = true) :
+    Segment.normalize ps = ps :=
+  monoFrom_of_soundFrom 0 ps h
+
+/-- A timeline divided into sound parts (`Segment.sound`) is divided into exactly those parts:
+`Segment.normalize` repairs nothing. -/
+theorem divide_of_sound (tl : Timeline) (parts : Segment → List (Rat × Easing))
+    (h : ∀ s ∈ tl.segments.toList, Segment.sound (parts s) = true) :
+    tl.divide parts = { tl with segments := (tl.segments.toList.flatMap fun s =>
+      if (parts s).isEmpty then [s] else s.partsFrom 0 (parts s)).toArray } := by
+  simp only [divide, Segment.divide]
+  congr 2
+  generalize tl.segments.toList = l at h ⊢
+  induction l with
+  | nil => rfl
+  | cons s l ih =>
+    simp only [List.flatMap_cons]
+    rw [normalize_of_sound _ (h s (by simp)), ih fun x hx => h x (by simp [hx])]
+
+/-- Making parts sound keeps their number. -/
+theorem length_monoFrom (a : Rat) (ps : List (Rat × Easing)) :
+    (Segment.monoFrom a ps).length = ps.length := by
+  induction ps generalizing a with
+  | nil => rfl
+  | cons x ps ih =>
+    cases ps with
+    | nil => rfl
+    | cons y ps => simp only [Segment.monoFrom, List.length_cons, ih]
+
+/-- Parts of a segment number as many as they are given. -/
+theorem length_partsFrom (s : Segment) (a : Rat) (ps : List (Rat × Easing)) :
+    (s.partsFrom a ps).length = ps.length := by
+  induction ps generalizing a with
+  | nil => rfl
+  | cons x ps ih => obtain ⟨b, e⟩ := x; simp [Segment.partsFrom, ih]
+
+/-- A segment divided into any parts is tiled by them (they are made sound first,
+`Segment.normalize`). -/
+theorem tiles_divide (s : Segment) (ps : List (Rat × Easing)) :
+    Tiles s.start (s.divide ps) s.stop := by
+  unfold Segment.divide
+  by_cases hp : ps = []
+  · subst hp; exact ⟨rfl, rfl⟩
+  · have hne : ps.isEmpty = false := by cases ps <;> simp_all
+    simp only [hne, Bool.false_eq_true, ite_false]
+    have := tiles_partsFrom s 0 (Segment.normalize ps)
+    rw [Segment.normalize, monoFrom_last 0 ps hp] at this
+    simpa [Segment.normalize, Segment.stop, Rat.mul_zero, Rat.add_zero, Rat.mul_one] using this
+
+/-- Tiles each divided into parts that tile it are a tiling. -/
+theorem tiles_flatMap {a b : Rat} {l : List Segment} (f : Segment → List Segment)
+    (hl : Tiles a l b) (hf : ∀ s ∈ l, Tiles s.start (f s) s.stop) : Tiles a (l.flatMap f) b := by
+  induction l generalizing a with
+  | nil => exact hl
+  | cons s l ih =>
+    rw [List.flatMap_cons]
+    have h₁ := hf s (by simp)
+    rw [hl.1] at h₁
+    exact tiles_append h₁ (ih hl.2 fun x hx => hf x (by simp [hx]))
+
+/-- Divided into any parts, the segments of a timeline still tile its cycle: the first starts at
+`0`, each starts where the one before it ends, and the last ends at the end of the cycle. -/
+theorem divide_tiles (parts : Segment → List (Rat × Easing)) :
+    Tiles 0 ((build steps p).divide parts).segments.toList
+      ((build steps p).divide parts).cycle := by
+  simp only [divide, List.toList_toArray]
+  have h := tiles_layout 0 (pieces steps p)
+  rw [Rat.zero_add, ← build_cycle, ← build_segments] at h
+  exact tiles_flatMap _ h fun s _ => tiles_divide s (parts s)
+
+/-- The parts of a segment that lasts no less than zero, from the fraction `a`, last no less than
+zero when their ends do not decrease from `a`. -/
+theorem partsFrom_dur_nonneg (s : Segment) (hs : 0 ≤ s.dur) (a : Rat) (ps : List (Rat × Easing))
+    (h : (a :: ps.map (·.1)).Pairwise (· ≤ ·)) : ∀ x ∈ s.partsFrom a ps, 0 ≤ x.dur := by
+  induction ps generalizing a with
+  | nil => simp [Segment.partsFrom]
+  | cons y ps ih =>
+    obtain ⟨b, e⟩ := y
+    intro x hx
+    simp only [Segment.partsFrom, List.mem_cons] at hx
+    simp only [List.map_cons, List.pairwise_cons, List.mem_cons] at h
+    rcases hx with hx | hx
+    · subst hx
+      exact Rat.mul_nonneg hs (by have := h.1 b (Or.inl rfl); grind)
+    · exact ih b (by simpa using h.2) x hx
+
+/-- Divided into any parts, no part of a timeline lasts less than zero. -/
+theorem divide_dur_nonneg (parts : Segment → List (Rat × Easing)) :
+    ∀ x ∈ ((build steps p).divide parts).segments.toList, 0 ≤ x.dur := by
+  simp only [divide, List.toList_toArray, List.mem_flatMap]
+  rintro x ⟨s, hs, hx⟩
+  have hd : 0 ≤ s.dur := by
+    obtain ⟨i, hi, rfl⟩ := List.getElem_of_mem hs
+    exact build_dur_nonneg steps p i (by simpa using hi)
+  unfold Segment.divide at hx
+  split at hx
+  · simp only [List.mem_singleton] at hx; subst hx; exact hd
+  · exact partsFrom_dur_nonneg s hd 0 _ (by
+      simpa [Segment.normalize] using monoFrom_mono 0 (by decide) (parts s)) x hx
 
 /-- The hypotheses can be met: with the default pacing, two turns give a cycle of
 `0.2 + 1.2 + 1 + 0.6 + 1 + 1.8 + 0.2 = 6` seconds in seven segments. -/

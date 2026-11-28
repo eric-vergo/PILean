@@ -120,8 +120,10 @@ def outputChecks (name : String) (m : Motion) : Array (String × Bool) :=
   let svg := match r.svg? with | .ok s => s | .error _ => ""
   let main := find os "" .svg
   let page := pageOf os
-  let summary := strict n r.plan.timeline.cycle
-  let keyNames := (List.range n).flatMap fun k => [s!"svg-key-{k}", s!"png-key-{k}"]
+  let ks := m.stillKeys
+  let summary := { strict n r.plan.timeline.cycle with
+    stills := if ks.size == n then none else some ks }
+  let keyNames := ks.toList.flatMap fun k => [s!"svg-key-{k}", s!"png-key-{k}"]
   #[(s!"motion outputs {name}: the files, in order",
       os.toList.map (fun o => o.format.name ++ o.name) ==
         ["svg", "png-poster", "pdf-poster", "svg-keys", "png-keys", "pdf-keys"] ++ keyNames),
@@ -130,7 +132,7 @@ def outputChecks (name : String) (m : Motion) : Array (String × Bool) :=
     (s!"motion outputs {name}: the animated SVG is the checked route's, and its specification",
       main.all fun o => bytesOf o == svg.toUTF8 && o.spec == svg.toUTF8 && !svg.isEmpty),
     (s!"motion outputs {name}: each key still is the key figure's SVG and PNG, byte for byte",
-      (List.range n).all fun k =>
+      ks.all fun k =>
         (find os s!"-key-{k}" .svg).all (bytesOf · == (m.keyFigure k).toSvg.toUTF8) &&
         (find os s!"-key-{k}" .png).all (bytesOf · == ((m.keyFigure k).toPng).getD .empty)),
     (s!"motion outputs {name}: the poster is the poster key's PNG and PDF",
@@ -152,17 +154,18 @@ def outputChecks (name : String) (m : Motion) : Array (String × Bool) :=
       | some o, some d => d.live.darkColours == (o.theme ()).1 && !d.live.darkColours.isEmpty
       | _, _ => false),
     (s!"motion outputs {name}: the stills are the key stills' pictures, with the captions",
-      page.any fun d => d.stills.frames.size == n && d.stills.stepCaptions == m.captions &&
-        d.stills.poster == m.poster && d.stills.poster < d.stills.frames.size &&
-        (List.range n).all fun k =>
-          (d.stills.frames[k]?.map (·.document.toUTF8)) == some (m.keyFigure k).toSvg.toUTF8),
+      page.any fun d => d.stills.frames.size == ks.size &&
+        d.stills.stepCaptions == m.stillCaptions && d.stillKeys == ks &&
+        ks[d.stills.poster]? == some m.poster && d.stills.poster < d.stills.frames.size &&
+        (ks.zipIdx.all fun (k, i) =>
+          (d.stills.frames[i]?.map (·.document.toUTF8)) == some (m.keyFigure k).toSvg.toUTF8)),
     (s!"motion outputs {name}: the sheet's SVG is its inline picture, inert, with a title and a \
         description listing the captions",
       (find os "-keys" .svg).any fun o =>
         let t := String.fromUTF8! (bytesOf o)
         (o.inline ()).any (·.document.toUTF8 == bytesOf o) && Svg.isInert t &&
           has t s!"<title>{m.info.title}: key frames</title>" &&
-          has t s!"<desc>{" ".intercalate m.captions.toList}</desc>"),
+          has t s!"<desc>{" ".intercalate m.stillCaptions.toList}</desc>"),
     (s!"motion outputs {name}: the sheet's PDF passes the structural check",
       (find os "-keys" .pdf).any fun o => (Pdf.check (bytesOf o)).toOption.isSome),
     (s!"motion outputs {name}: only the animated SVG reports the warnings",

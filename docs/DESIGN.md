@@ -1041,13 +1041,67 @@ key 0, then each step's move and the rest on the key it reaches, closed by the s
 `Seam.cut` the picture jumps back to key 0 when the cycle repeats; under `Seam.crossfade d` the
 cycle starts with a fade in and ends with a fade out, `d / 2` each, so that jump happens while
 nothing is visible. One function, `Timeline.spec`, gives every segment's duration and easing
-(rests and fades are not eased). Durations are rationals (`Rat`): the start of every segment, the
+(rests and fades are not eased). A key may rest as long as it says (`Pacing.holds`, filled from a
+motion's `MotionKey.rest`): its own rest wins over `firstHold` and `lastHold` too, and a key
+without one rests `firstHold` on key 0, `lastHold` on the last key and `hold` on any other
+(`Pacing.restOf`). Durations are rationals (`Rat`): the start of every segment, the
 cycle and the key times are exact, and the order of the segments, their durations and easings,
 the tiling of the cycle, the key times from 0 to 1 and the segment found at a time are theorems
 (`PILean/Anim/TimelineProofs.lean`, [`PROOFS.md`](PROOFS.md)). Floating point begins with the
 eased progress through a segment: `Easing.eval` solves the cubic Bézier of SMIL's `keySplines`
 (and CSS's `cubic-bezier`) for its parameter by 64 halvings and has its control values clamped
 into `[0, 1]`, so it never overshoots.
+
+A segment can be divided into parts (`Timeline.divide`, `Segment.divide`), each given by the
+fraction of the segment's time where it ends and its easing: a step sampled for a morph, and a
+step or a rest cut at the ends of the windows of its fades (below). `Timeline.divide` makes the
+ends sound first (`Segment.normalize`: each raised to the one before it, kept in `[0, 1]`, the last
+`1`), so for any parts the divided segments tile the cycle as the segments did and none lasts less
+than zero (`Timeline.divide_tiles`, `Timeline.divide_dur_nonneg`). That repair would hide a writer
+that gives wrong ends, so the writer does not rely on it: the timeline a motion's SVG is written on
+is `base.divide parts` (`MotionPlan.divideSegments_fst`, `Motion.timeline_eq`;
+`MotionPanelsReport.timeline_divide`), and every segment whose parts are not already sound
+(`Segment.sound`: ends that never decrease, lie in `[0, 1]` and end at `1`) is an error of the
+motion (`unsoundSegments`, `unsoundProblems`). When there is none, which the tests check for every
+golden and test motion, the repair changes nothing (`Timeline.normalize_of_sound`,
+`Timeline.divide_of_sound`): the timeline written is divided into exactly the writer's parts, and
+it tiles the cycle (`Motion.timeline_tiles`, `MotionPanelsReport.timeline_tiles`). Proved: the
+tiling, the durations, and that sound parts are kept as they are. Checked at run time, not proved:
+that the parts `divisionOf` gives are sound (a change to it that reversed its ends is reported as
+an error and fails the tests), and that the phases it gives at the parts' boundaries are those of
+its parts (by construction; the writer-against-baker check and the tests of opacities and angles
+at the boundaries hold it).
+
+A part of a step keeps the step's eased motion exactly: its easing is the part of the step's
+curve between the parameters where its first coordinate is the part's ends (`Easing.part`, de
+Casteljau's construction on the curve's blossom), scaled into the unit square, so the values
+written at the part's ends and SMIL's interpolation between them give the eased value of the whole
+step at every moment. Steep curves have parts whose scaled control values leave `[0, 1]`, which
+SMIL would clamp into another curve: on a grid of twentieths of a step, `0.83 0 0.17 1` refuses 6
+of the 210 parts, `0.87 0 0.13 1` 30 and `0.85 0 0.15 1` 16 (`[0, 0.6]` of the first, for one).
+A refused part is halved, and each half divided so in turn (`easedParts`), at most
+`maxEasedDepth` (16) halvings deep: a smaller part of a curve is nearer a straight line, whose
+scaled control values lie inside `[0, 1]`. On every part of that grid of the curves the tests try
+(those three, `0.76 0 0.24 1`, the standard curve and `0.25 0.1 0.25 1`) one halving is the most
+needed, and on every part between two hundredths of a step of the thirteen curves below two (for
+`0.9 0 0.1 1`, which refuses 1164 of those 5050 parts); a part still refused at the last depth is drawn without easing and is an error of the
+motion. The value at every boundary the halving adds is the step's eased value there, as at
+every other boundary.
+
+The control values are written to six decimals (`Smil.splineText`, each within `5e-7` of its
+value; a value with fewer decimals, such as the standard curve's `0.42 0 0.58 1`, is written with
+those). The error this leaves is measured, not proved, on two grids of parts (each part halved
+where refused, 21 points in each part), over thirteen curves: the six above, CSS's `ease-in` and
+`ease-out`, the in-and-out curves `0.37 0 0.63 1`, `0.45 0 0.55 1`, `0.65 0 0.35 1`,
+`0.68 0 0.32 1` and the steepest tried, `0.9 0 0.1 1`. On the grid of hundredths of a step (every
+part between two hundredths, 5050 parts), the written pieces are within `2.85e-6` of the step's
+change (the steepest curve; `1.33e-6` at most for the curves that refuse no part, `8.2e-7` for
+`0.45 0 0.55 1`); on that grid, a turn of less than a whole turn is within `1.03e-3°` of its eased
+angle, and a point at radius `R` pixels within `1.8e-5 R` pixels of its place: `0.018` px at a
+radius of 1000 pixels, a third of the browser checks' `0.05` px. A window can end anywhere, not
+only on hundredths; nearer ends were not measured. The tests check the grid of twentieths (210
+parts) on six of the curves and require `1.6e-6` there (measured at most `1.53e-6`). At four
+decimals the same parts would be off by up to about `7.5e-5` of the change.
 
 `PILean/Anim/Smil.lean` writes SMIL animation elements on a timeline: `animateRotate` (values
 `θ cx cy` of an `animateTransform` of type `rotate`), `animateTranslate`, `animateOpacity`,
@@ -1171,7 +1225,9 @@ angle (0.5°), that labels and markers are not turned (0.01°) and are all there
 shows the still and switching it off again shows the running clock (switched on inside one key's
 rest and off again for a moment inside a later key's rest that certainly draws another picture, from
 the rests' ends in the expectations; the check fails when the two moments draw the same picture,
-since a frozen picture would then pass), and that the picture plays. A golden fixture with a first
+since a frozen picture would then pass), that every appearance and disappearance has, before, in
+and after its window, the opacity the plan has then (so a mark that never fades in fails), and
+that the picture plays. A golden fixture with a first
 hold of 2 seconds (`motion-long-hold`, written for the browser check only) is the case where fixed
 moments would both fall in the first rest.
 
@@ -1180,7 +1236,11 @@ layer (a later one starts a new layer, crossfaded). With figures between its key
 a morph is sampled at `morphSamples` intervals: interval `i` ends at the time where the step's
 easing has done `(i + 1) / n` of the step (`easedTime`), and every animation's value there is the
 exact fraction `(i + 1) / n` of its change, so every animation of the step, turns included, follows
-the eased motion piecewise linearly, within `1 / n` of its change, on one clock. For a turn the
+the eased motion piecewise linearly, within `1 / n` of its change, on one clock. Each interval is
+written with the identity as the curve `1/3 1/3 2/3 2/3` (`straightEasing`), whose first coordinate
+is its parameter, not as `0 0 1 1`, which is the same straight line but whose first coordinate has
+no slope at its ends: Firefox solves that curve's parameter only to about `6e-3` of the interval
+(a slide across a sampled step measured 0.23 px off its place). For a turn the
 deviation is a gap in timing along the arc, not off it: the item stays on its circle and is ahead or
 behind the eased angle by at most `1 / n` of the turn; measured, a quarter turn is within 5.79° of
 the eased angle with 4 samples, 2.92° with 8 and 1.45° with 16, and a fifth of a turn within 1.16°
@@ -1188,6 +1248,97 @@ with the default 16. The plan (`MotionPlan`) holds every animated value as a fun
 key, or a fraction of a step) and is computed in a drawing environment on a given timeline
 (`Motion.planOn`; `Motion.planIn` on the motion's own), so that a picture of several panels lays out
 each motion in a frame of its own on one shared timeline (below).
+
+### Rests of their own, fades in part of a step or a rest, keys that are not stills
+
+A mark that announces the next move (a ring at the centre of the next turn, an arrow of its sense)
+should appear while everything else stands still, stay through the move and go after it, without
+lengthening the loop and without stills that show a transition rather than a state. Three
+features of a motion give this, all declared per key and per step (`MotionKey` in
+`Motion.keyOptions`, empty or one per key; `MotionStep.windows`):
+
+* **A rest of its own.** `MotionKey.rest` is the length of the rest on that key, which wins over
+  the pacing's (`Pacing.restOf`: the key's own, else `firstHold` on key 0, `lastHold` on the last
+  key, `hold` on any other). It must be longer than zero (an error otherwise): every key is shown,
+  and checked, in its rest.
+* **Fades during a rest.** `MotionKey.fades` lists actors that appear or vanish during the rest on
+  the key, each in a `Window` of the rest (its edges a fraction of the rest's time, or seconds after
+  its start or before its end). A key's figure is the picture at the *end* of its rest, after its
+  fades: an actor that appears during the rest on key `k` is in key `k` and not in key `k - 1`;
+  one that vanishes is in key `k - 1` and not in key `k` (so none vanishes on key 0); the step
+  from key `k - 1` arrives with the first absent and the second still there. The still of a key is
+  therefore the state a reader studies, the mark of the next move already shown. The rules, each
+  an error: an actor fades at most once in a rest; it does not move in the step before the rest
+  (it is drawn as key `k - 1` draws it until it has gone, and no key would show where a move took
+  it); its window lies in the rest, its end after its start; the rest goes on after the last fade
+  ends, for at least `minStillPart` (0.1 s: the browser checks read a key there, in WebKit
+  free-running only when that part is longer than twice the readings' jitter, measured at 36 ms,
+  plus 20 ms), so that the key is shown still there; and windows in one rest are apart or the same, across
+  the panels of a picture too, because each part of the rest between two ends of windows is one
+  interval of the shared clock, a fade's part eased with the pacing's easing and any other part not
+  eased. The key is shown still in the last part of its rest (`Timeline.stillPart?`): the rest
+  check, the poster's time and the expectations' rests use its middle.
+* **Fades in part of a step.** `MotionStep.windows` gives the window of an actor's appearance or
+  disappearance in its step. Only fades: a turn, a slide or a morph runs through its whole step
+  on the step's easing, because one interval of the clock has one spline for every animation in
+  it, and a turn in part of a step would need an easing of its own beside a whole-step turn in the
+  same intervals. The step is cut at the ends of its windows (across the panels of a picture,
+  every panel's), each part eased as that part of the step is (`Easing.part`), so a turn in the
+  same step follows its eased angle exactly and a fade in a window is eased as that part of the
+  step is (in the first 0.3 s of an eased turn it eases in only). The rules, each an error: one
+  window per actor in a step, on its appearance or disappearance, inside the step, its end after
+  its start, and none in a step sampled for a morph (`Motion.between`), whose parts are not eased.
+* **Keys that are not stills.** `MotionKey.still := false` marks a key that the motion passes
+  through: it takes part in the timeline (it rests, as its own `rest` or the pacing says), in the
+  arrival checks, in the rest check and in the browser checks of positions, and is recorded; it is
+  not written as a still (no `-key-k` files: the other stills keep their key's number, so a
+  motion's file names do not change when one key stops being a still), not listed in the grid of
+  stills, the contact sheet or the figure page's stills, and not counted in their numbering (`Step
+  k of N` counts the stills). Its caption is not needed (one that is not empty is a note, since it
+  is not shown). The poster must be a still: an error, and the outputs stop at every level. The
+  step table still lists every step, with a row of its own for the rest on a key that is not a
+  still or that has fades (`Rest on key frame 3 (not a still)`, its duration and its fades with
+  their windows): merging the steps around such a key would hide which move happens when.
+
+The case of a mark that announces each turn: the rest on key 1 lasts 0.9 s; in it the ring at `A`
+(the centre of the turn just done) fades out in the first 0.2 s, the ring at `B` (the centre of the
+next turn) fades in over the next 0.2 s, and the triangle stands with the ring at `B` for 0.5 s;
+the ring at `B` fades out in the last 0.3 s of the turn about `B`:
+
+```lean
+keyOptions := #[{},
+  { rest := some (9 / 10),
+    fades := #[("mA", .vanish, .seconds 0 (1 / 5)), ("mB", .appear, .seconds (1 / 5) (2 / 5))] },
+  {}]
+steps := #[{ moves := #[("T", turnAbout a (1 / 4))] },
+  { moves := #[("T", turnAbout b (1 / 4)), ("mB", .vanish)],
+    windows := #[("mB", .last (3 / 10))] }]
+```
+
+The rings need no keys of their own: key 0 shows the ring at `A`, key 1 the ring at `B`, and the
+stills are one per state. The golden motions `motion-announce` and `motion-panels-announce` (the
+same in two panels, with a narrow rendition, a key passed through that is not a still, and a point
+that appears in the first 0.3 s of a turn) and the example site's `announceTurns` and
+`announcePanels` show all of it.
+
+The alternatives rejected: more keys with short rests (each fade a step between two keys), which
+makes a pause a hand-over and multiplies near-duplicate stills; fades in a step only, reaching
+back into the rest before it, which leaves the key's still without the mark that announces the
+move; and a key's figure as the picture when its rest begins, which does the same.
+
+*As written.* A layer's opacity is given at every boundary of the divided timeline from the phase
+there (`MotionPhase`: in a rest, the fraction of the rest done; in a step, the fractions of its
+time and of its change done), with its fades (`LayerFades`): in a rest, `0` before the window of an
+appearance and `1` after it; in a step, the step's progress through the window. Consecutive layers
+with the same opacity at every boundary share one opacity animation (layers shown on the same keys
+without fades of their own have it).
+Only `opacity` is animated for a fade, on the one clock; the reduced-motion rule and the stills are
+untouched.
+
+*Recorded.* A motion with a key that is not a still records its stills (`MotionSummary.stills`:
+`;stills=0,1,3` at the end of the source record's value, `"stills": [0, 1, 3]` in the manifest;
+neither is written when every key is a still), and the manifest requires the SVG and PNG of exactly those keys at each width. The page data
+gives each still's key (`MotionData.stillKeys`) and every rest (`MotionData.rests`).
 
 ### Motions as panels on one clock
 
@@ -1280,8 +1431,8 @@ motion declared as `d` with `n` keys the files are:
 |---|---|---|
 | (none) | SVG | the animated SVG; for a page also its body without the file's own reduced-motion `style` and poster group (`MotionData.live`), the stills with their captions and the step table (`Output.motionPage`) |
 | `-poster` | PNG, PDF | the poster key's still |
-| `-keys` | SVG, PNG, PDF | the contact sheet: the title, then every key's still at its own size in a grid with its caption wrapped below it (`sheetOf`, one drawing, written like a frame of an explorer; its SVG with a `title` and a `desc` listing the captions); for print, PDF and the LeAnTeX path |
-| `-key-k` | SVG, PNG | the still of key `k` (from 0): for a motion, byte for byte the files of `Motion.keyFigure k` (through `ExplorerFrame.ofPlane` and `stillOutputs`); for a picture of panels, `keyStillSvg k` and `keyStillPng k` |
+| `-keys` | SVG, PNG, PDF | the contact sheet: the title, then every still at its own size in a grid with its caption wrapped below it (`sheetOf`, one drawing, written like a frame of an explorer; its SVG with a `title` and a `desc` listing the captions); for print, PDF and the LeAnTeX path |
+| `-key-k` | SVG, PNG | the still of key `k`, for every key `k` that is a still (every key, from 0, unless some key is not one): for a motion, byte for byte the files of `Motion.keyFigure k` (through `ExplorerFrame.ofPlane` and `stillOutputs`); for a picture of panels, `keyStillSvg k` and `keyStillPng k` |
 | `-narrow`, `-narrow-key-k` | SVG; SVG, PNG | the narrow rendition and its stills: a picture of panels with a `narrowWidth` (stacked panels); a single motion has none |
 | (none) | APNG, GIF | the baked frames, only with `MotionFigure.rasters` |
 
@@ -1312,8 +1463,13 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   still (`span.pilean-motion-still`, hidden from assistive technology): the poster key's files,
   light and dark, the narrow rendition's as the source for small screens. After the stage comes
   the ordered list of stills `ol.pilean-motion-keys`, named "The key frames of Figure N": each
-  key's still as a picture of its files (`-key-k`, `-narrow-key-k`, the `-dark` twins that follow
-  the page's theme), loaded lazily, with its caption "Step k of N: …". Assistive technology reads
+  still as a picture of its files (`-key-k`, `-narrow-key-k`, the `-dark` twins that follow the
+  page's theme; `k` its key, `MotionData.stillKeys`), loaded lazily, with its caption "Step k of
+  N: …", where `k` counts the stills and `N` is their number (a key that is not a still has no
+  step here). Each picture's `img` carries the wide file's `width` and `height`, and its
+  `source` for small screens the narrow file's own, so a lazy still reserves the box it is drawn
+  in at every width (a `source` without them would leave the wide file's box until the narrow
+  file loads: measured, a box 203 pixels tall becoming 668). Assistive technology reads
   the picture's text alternative, then the list once while motion is on; with motion off the
   stage is hidden from it and only the list is read. The moving picture gets no declaration
   links: hovering or focusing it shows the still instead, so they could not be reached.
@@ -1346,13 +1502,32 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   grid with their captions. Without JavaScript the same, by the stylesheet alone. Small screens
   (560 pixels or less, the plane figures' breakpoint): the narrow rendition, and the narrow
   stills.
+* **Why the poster under hover and focus.** Pointing at the picture, focusing it or clicking it is
+  the reader's way to stop the motion in the page without a script (moving content that starts
+  by itself and lasts more than five seconds needs a way to pause, stop or hide it, WCAG 2.2,
+  2.2.2), beside turning motion off. The still shown is the poster key's, which makes the picture
+  jump to another state when the pointer arrives in the middle of the cycle. The alternatives
+  weighed: freezing the picture where its clock is needs `SVGSVGElement.pauseAnimations()`, a
+  script, since no style rule pauses SMIL (`animation-play-state` reaches CSS animations only);
+  dimming it, or laying something over it, leaves it moving, so it stops nothing; and the still
+  of the key nearest the moment cannot be chosen by a style rule, which cannot read the SMIL
+  clock: a CSS animation stepping through the stills beside it would be a second clock, started
+  when its style applies rather than when the picture's timeline starts, drifting from it, and
+  in the middle of a move no key is the moment's either. The poster stays: one chosen state, the
+  same each time (the still that reduced motion and print show too), so the jump is to a known
+  picture, and moving the pointer away shows the picture where its clock has got to. The
+  caption's note says that a still replaces the picture, which is true of the poster, and names
+  no step.
 * **The grid of stills.** Its columns are sized from the stills' own width `w` (the poster key's
   still; the narrow rendition's on small screens), which the adapter knows from the files: each
   column is at least `3/4 · w` wide, rounded up to a pixel (`PILeanVerso.stillColumnMin`,
   `stillFraction`), or as wide as the grid when the grid is narrower, so no still is shown at
   less than three quarters of its width (text drawn at 14 pixels at 10.5 pixels or more) unless
-  it fills the grid's width alone; and no still is drawn larger than its own width (`width:
-  auto`, so a narrow rendition's still keeps its width on a screen of 400 to 560 pixels). The
+  it fills the grid's width alone; and no still is drawn larger than its own width (its
+  `width` attribute, the narrow file's from its `source` on small screens, with `max-width:
+  100%` and `height: auto`, so a narrow rendition's still keeps its width on a screen of 400 to 560
+  pixels and every still's box is known before its file loads; `width: auto` would leave it
+  empty, no box at all, until then). The
   list carries classes for the widths, `pilean-stills-wN` and, with a narrow rendition,
   `pilean-stills-nM` (`stillColumnClasses`), defined by a `style` element after the list
   (`stillColumnRules`), so a page defines only the widths it uses and needs no `style` attribute
@@ -1376,17 +1551,17 @@ The Verso adapters (`verso/`, `verso/manual/`) show a motion inline wherever `::
   the standing (for a linked motion, what a theorem about a motion can state, `motionLinkedWords`),
   `MotionData.words` (with `MotionData.checkWords` for a motion not checked strictly), the table of
   the steps (each step's keys, its duration exactly, and each move with its panel, actor and
-  `MotionMoveRow.words`, a crossfade marked) and the key stills with their captions, in a grid
-  sized as above; the files (the animated SVGs, the stills, the contact sheet with its PDF) are
+  `MotionMoveRow.words`, a crossfade marked, a fade's window given; before a step, a row for the
+  rest on its first key when that rest has fades or the key is not a still, and one for the last
+  key's rest likewise) and the stills with their captions, in a grid sized as above; the files (the animated SVGs, the stills, the contact sheet with its PDF) are
   listed with the others, and the contact sheet is among them only. The code comes after all of
   this, and on every figure's page code longer than 60 lines (`codeFoldAbove`, counted over the
   declarations' source lines) is folded in a `details` element, closed, whose summary says how
   many declarations and lines it holds; the summary is a tab stop with a 3-pixel focus ring.
 * **Files.** A site writes a motion's outputs (`motionOutputs`) and, of the dark motion, only
-  what its pages show: the SVG of each key's still at each width (`-key-k-dark`,
-  `-narrow-key-k-dark`). So `7 + 6 n` files for `n` keys with a narrow rendition, `6 + 3 n`
-  without (`7 + 4 n` and `6 + 2 n` without a dark twin; `tools/site/page_check.py`,
-  `motion_files`). The pages reference the animated SVGs (`data-pilean-file`, the moving
+  what its pages show: the SVG of each still at each width (`-key-k-dark`, `-narrow-key-k-dark`).
+  So `7 + 6 s` files for `s` stills with a narrow rendition, `6 + 3 s` without (`7 + 4 s` and
+  `6 + 2 s` without a dark twin; `tools/site/page_check.py`, `motion_files`). The pages reference the animated SVGs (`data-pilean-file`, the moving
   picture being their body) and the key stills' SVGs; the PNGs of the stills, the poster's PNG
   and PDF and the contact sheet (SVG, PNG, PDF) are offered on the figure's page for download,
   for print and for TeX, and the manifest requires the SVG and PNG of each key at each width.

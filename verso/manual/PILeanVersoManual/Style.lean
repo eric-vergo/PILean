@@ -266,7 +266,7 @@ def pageCss : String := r##"
 }
 .pilean-page-motion-key { margin: 0; min-width: 0; text-align: center; }
 .pilean-page-motion-key img {
-  display: block; width: auto; max-width: 100%; height: auto; margin: 0 auto; border-radius: 4px;
+  display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 4px;
 }
 "##
 

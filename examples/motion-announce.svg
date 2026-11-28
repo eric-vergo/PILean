@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="350" viewBox="0 0 320 350" role="img">
+  <title>A mark that announces the next turn</title>
+  <desc>A triangle turns about A, then about B, then slides down; a ring marks the centre of each turn before it. The triangle; the ring at A marks the next turn, a quarter about A. Turned a quarter about A; the ring at B marks the next turn, a quarter about B. Turned a quarter about B, then slid down by 2.</desc>
+  <style>.pilean-motion-poster{display:none}@media (prefers-reduced-motion: reduce){.pilean-motion-poster{display:inline}.pilean-motion-live{visibility:hidden;opacity:0}}</style>
+  <path d="M0 0 L320 0 L320 350 L0 350 Z" fill="#ffffff"/>
+  <g class="pilean-motion-live">
+    <g>
+      <animate attributeName="opacity" values="0;1;1;1;1;1;1;1;1;1;1;1;0" dur="7.4s" keyTimes="0;0.02702703;0.18918919;0.32432432;0.35135135;0.37837838;0.44594595;0.54054054;0.58108108;0.62162162;0.72972973;0.97297297;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 1 1;0.433941 0 0.6736 0.643696;0.291445 0.591248 0.61253 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
+      <path d="M115.75 238.7 C115.75 241.32 113.62 243.45 111 243.45 C108.38 243.45 106.25 241.32 106.25 238.7 C106.25 236.08 108.38 233.95 111 233.95 C113.62 233.95 115.75 236.08 115.75 238.7 Z" fill="#ffffff"/>
+      <path d="M114.5 238.7 C114.5 240.63 112.93 242.2 111 242.2 C109.07 242.2 107.5 240.63 107.5 238.7 C107.5 236.77 109.07 235.2 111 235.2 C112.93 235.2 114.5 236.77 114.5 238.7 Z" fill="#74747e"/>
+      <path d="M96.452 252.513 L100.652 243.183 L104.852 252.513 M97.652 249.873 L103.652 249.873" fill="none" stroke="#74747e" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M115.75 42.7 C115.75 45.32 113.62 47.45 111 47.45 C108.38 47.45 106.25 45.32 106.25 42.7 C106.25 40.08 108.38 37.95 111 37.95 C113.62 37.95 115.75 40.08 115.75 42.7 Z" fill="#ffffff"/>
+      <path d="M114.5 42.7 C114.5 44.63 112.93 46.2 111 46.2 C109.07 46.2 107.5 44.63 107.5 42.7 C107.5 40.77 109.07 39.2 111 39.2 C112.93 39.2 114.5 40.77 114.5 42.7 Z" fill="#74747e"/>
+      <path d="M98.309 36.211 L98.309 26.881 L101.309 26.881 C102.551 26.881 103.559 27.922 103.559 29.206 C103.559 30.49 102.551 31.531 101.309 31.531 L98.309 31.531 M98.309 31.531 L101.534 31.531 C102.942 31.531 104.084 32.579 104.084 33.871 C104.084 35.163 102.942 36.211 101.534 36.211 L98.309 36.211" fill="none" stroke="#74747e" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+      <g>
+        <animateTransform attributeName="transform" type="translate" values="0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 0;0 196;0 196;0 196" dur="7.4s" keyTimes="0;0.02702703;0.18918919;0.32432432;0.35135135;0.37837838;0.44594595;0.54054054;0.58108108;0.62162162;0.72972973;0.97297297;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 1 1;0.433941 0 0.6736 0.643696;0.291445 0.591248 0.61253 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
+        <g>
+          <animateTransform attributeName="transform" type="rotate" values="0 111 42.7;0 111 42.7;0 111 42.7;0 111 42.7;0 111 42.7;0 111 42.7;0 111 42.7;-73.134368 111 42.7;-90 111 42.7;-90 111 42.7;-90 111 42.7;-90 111 42.7;-90 111 42.7" dur="7.4s" keyTimes="0;0.02702703;0.18918919;0.32432432;0.35135135;0.37837838;0.44594595;0.54054054;0.58108108;0.62162162;0.72972973;0.97297297;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 1 1;0.433941 0 0.6736 0.643696;0.291445 0.591248 0.61253 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
+          <g>
+            <animateTransform attributeName="transform" type="rotate" values="0 111 238.7;0 111 238.7;0 111 238.7;-90 111 238.7;-90 111 238.7;-90 111 238.7;-90 111 238.7;-90 111 238.7;-90 111 238.7;-90 111 238.7;-90 111 238.7;-90 111 238.7;-90 111 238.7" dur="7.4s" keyTimes="0;0.02702703;0.18918919;0.32432432;0.35135135;0.37837838;0.44594595;0.54054054;0.58108108;0.62162162;0.72972973;0.97297297;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 1 1;0.433941 0 0.6736 0.643696;0.291445 0.591248 0.61253 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
+            <g id="T" data-pilean-actor="T" data-pilean-anchor="209 238.7">
+              <path d="M209 238.7 L307 238.7 L209 140.7 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </g>
+        </g>
+      </g>
+      <g>
+        <animate attributeName="opacity" values="0;0;0;0;0;1;1;1;0;0;0;0;0" dur="7.4s" keyTimes="0;0.02702703;0.18918919;0.32432432;0.35135135;0.37837838;0.44594595;0.54054054;0.58108108;0.62162162;0.72972973;0.97297297;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 1 1;0.433941 0 0.6736 0.643696;0.291445 0.591248 0.61253 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
+        <g id="mB" data-pilean-actor="mB" data-pilean-anchor="111 42.7">
+          <path d="M140.4 42.7 C140.4 58.94 127.24 72.1 111 72.1 C94.76 72.1 81.6 58.94 81.6 42.7 C81.6 26.46 94.76 13.3 111 13.3 C127.24 13.3 140.4 26.46 140.4 42.7 Z" fill="none" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </g>
+      <g>
+        <animate attributeName="opacity" values="1;1;1;1;0;0;0;0;0;0;0;0;0" dur="7.4s" keyTimes="0;0.02702703;0.18918919;0.32432432;0.35135135;0.37837838;0.44594595;0.54054054;0.58108108;0.62162162;0.72972973;0.97297297;1" keySplines="0 0 1 1;0 0 1 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0 0 1 1;0.433941 0 0.6736 0.643696;0.291445 0.591248 0.61253 1;0 0 1 1;0.42 0 0.58 1;0 0 1 1;0 0 1 1" calcMode="spline" repeatCount="indefinite" begin="0s"/>
+        <g id="mA" data-pilean-actor="mA" data-pilean-anchor="111 238.7">
+          <path d="M140.4 238.7 C140.4 254.94 127.24 268.1 111 268.1 C94.76 268.1 81.6 254.94 81.6 238.7 C81.6 222.46 94.76 209.3 111 209.3 C127.24 209.3 140.4 222.46 140.4 238.7 Z" fill="none" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </g>
+    </g>
+  </g>
+  <g class="pilean-motion-poster">
+    <path d="M0 0 L320 0 L320 350 L0 350 Z" fill="#ffffff"/>
+    <path d="M115.75 238.7 C115.75 241.32 113.62 243.45 111 243.45 C108.38 243.45 106.25 241.32 106.25 238.7 C106.25 236.08 108.38 233.95 111 233.95 C113.62 233.95 115.75 236.08 115.75 238.7 Z" fill="#ffffff"/>
+    <path d="M114.5 238.7 C114.5 240.63 112.93 242.2 111 242.2 C109.07 242.2 107.5 240.63 107.5 238.7 C107.5 236.77 109.07 235.2 111 235.2 C112.93 235.2 114.5 236.77 114.5 238.7 Z" fill="#74747e"/>
+    <path d="M96.452 252.513 L100.652 243.183 L104.852 252.513 M97.652 249.873 L103.652 249.873" fill="none" stroke="#74747e" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M115.75 42.7 C115.75 45.32 113.62 47.45 111 47.45 C108.38 47.45 106.25 45.32 106.25 42.7 C106.25 40.08 108.38 37.95 111 37.95 C113.62 37.95 115.75 40.08 115.75 42.7 Z" fill="#ffffff"/>
+    <path d="M114.5 42.7 C114.5 44.63 112.93 46.2 111 46.2 C109.07 46.2 107.5 44.63 107.5 42.7 C107.5 40.77 109.07 39.2 111 39.2 C112.93 39.2 114.5 40.77 114.5 42.7 Z" fill="#74747e"/>
+    <path d="M98.309 36.211 L98.309 26.881 L101.309 26.881 C102.551 26.881 103.559 27.922 103.559 29.206 C103.559 30.49 102.551 31.531 101.309 31.531 L98.309 31.531 M98.309 31.531 L101.534 31.531 C102.942 31.531 104.084 32.579 104.084 33.871 C104.084 35.163 102.942 36.211 101.534 36.211 L98.309 36.211" fill="none" stroke="#74747e" stroke-width="1.17" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="poster-T">
+      <path d="M209 238.7 L307 238.7 L209 140.7 Z" fill="#0068a6" fill-opacity="0.122" stroke="#0068a6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="poster-mA">
+      <path d="M140.4 238.7 C140.4 254.94 127.24 268.1 111 268.1 C94.76 268.1 81.6 254.94 81.6 238.7 C81.6 222.46 94.76 209.3 111 209.3 C127.24 209.3 140.4 222.46 140.4 238.7 Z" fill="none" stroke="#b44400" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

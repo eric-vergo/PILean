@@ -19,7 +19,11 @@ description are the picture's.
   picture's own duration for the step (`MotionPanels.timing`); a panel's step does not set a
   duration or an easing of its own. A morph sampled in one panel (`Motion.between`) divides the
   step for every panel at the same times (`sampledSegments`), so the other panels' turns follow
-  their eased motion piecewise linearly there, as in a single motion. Panels that sample one step
+  their eased motion piecewise linearly there, as in a single motion. The fades of every panel in
+  part of a step or of a rest cut it for every panel at the ends of their windows
+  (`divideSegments`), each part of a step eased as that part of the step is; a key's rest and
+  whether it is a still are the picture's (`MotionPanels.keyOptions`), and the fades belong to the
+  panels' keys. Panels that sample one step
   in different numbers of intervals are sampled in their least common multiple when each one's
   figures between its keys answer at its fractions (`Motion.stepSamples`); otherwise the step is
   drawn unsampled (each morph interpolated directly between its keys, or crossfaded where it
@@ -50,7 +54,10 @@ description are the picture's.
   and step checks, the layout checks of its keys, the stacking order, the rest check of its whole
   drawing against its stills, its writer against its baker and what leaves its panel while it
   moves, all on the shared timeline), labelled with the panel, then the problems of the picture:
-  unequal numbers of keys, captions that are not one per key, sampling the panels disagree on, two
+  unequal numbers of keys, captions that are not one per key, sampling the panels disagree on, a
+  rest that is not longer than zero, a poster that is not a still, fades declared by the picture's
+  keys, a panel's key that sets its own rest or still, windows of one rest that overlap across the
+  panels without being the same, a step whose easing cannot be divided exactly, two
   panels with one title, a gap below zero, a panel whose content or title does not fit its share,
   a panel's own step timing, a line or a ray in a panel (drawn to the edge of the whole page),
   panels on different backgrounds, an id twice in the document, and the composed picture's own
@@ -64,7 +71,9 @@ description are the picture's.
 * `MotionPanel`, `PanelTiming`, `PanelScale`, `PanelArrangement`, `MotionPanels`,
   `MotionPanels.WellFormed`, `MotionPanels.narrow`, `panelPrefix`.
 * `MotionPanels.stepAt`, `MotionPanels.animSteps`, `MotionPanels.baseTimeline`,
-  `MotionPanels.timelineOf`.
+  `MotionPanels.timelineOf`, `MotionPanels.timelineOn`, `MotionPanels.keyOption`,
+  `MotionPanels.isStill`, `MotionPanels.stillKeys`, `MotionPanels.stillCaptions`,
+  `MotionPanels.restPacing`.
 * `PanelPlace`, `PanelsLayout`, `titleFit`, `MotionPanels.layout`, `MotionPanels.panelMotion`.
 * `PanelReport`, `MotionPanelsReport`, `MotionPanels.report`, `MotionPanelsReport.svg?`,
   `MotionPanelsReport.animation?`, `MotionPanelsReport.svgRootUnchecked`,
@@ -74,8 +83,8 @@ description are the picture's.
 
 ## Main results
 
-* `MotionPanels.timelineOf_keys`, `MotionPanelsReport.timeline_keys`: the shared timeline has the
-  picture's number of keys.
+* `MotionPanels.timelineOf_keys`, `MotionPanels.timelineOn_keys`,
+  `MotionPanelsReport.timeline_keys`: the shared timeline has the picture's number of keys.
 * `MotionPanels.report_timeline`: every panel's plans are laid out on the shared timeline.
 * `MotionPanelsReport.panel_anim_eq`: every animation element a panel's plan builds has the timing
   of the shared timeline.
@@ -136,8 +145,12 @@ structure MotionPanels where
   info : ShapeInfo := {}
   /-- How the problems apply when the picture is rendered: by default an error stops it. -/
   checks : CheckLevel := .fail
-  /-- The key shown as the still (under reduced motion, and as the poster). -/
+  /-- The key shown as the still (under reduced motion, and as the poster); it must be a still. -/
   poster : Nat := 0
+  /-- The rest of each key and whether it is a still (`MotionKey.rest`, `MotionKey.still`), for
+  the whole picture: empty, or one per key. The fades during a rest belong to the panels' keys
+  (their motions' `Motion.keyOptions`, which set no rest and no still of their own). -/
+  keyOptions : Array MotionKey := #[]
   /-- The room between two panels, in pixels. -/
   gap : Float := 24
   /-- How the panels are scaled. -/
@@ -211,17 +224,39 @@ def keyCount : Nat := ((P.panels[0]?).map (·.motion.keys.size)).getD 0
 /-- The number of steps of the picture: one fewer than its keys. -/
 def stepCount : Nat := P.keyCount - 1
 
-/-- The picture has a panel; every panel has the picture's number of keys and one step fewer; a
-caption per key; its poster among the keys; and the timing of no step or of every step. -/
+/-- The picture has a panel; every panel has the picture's number of keys and one step fewer, and
+the options of no key or of every key; a caption per key; its poster among the keys; the timing of
+no step or of every step; and the options of no key or of every key. -/
 def WellFormed : Prop :=
   0 < P.panels.size ∧
     (∀ p ∈ P.panels.toList, p.motion.keys.size = P.keyCount ∧
-      p.motion.steps.size + 1 = P.keyCount) ∧
+      p.motion.steps.size + 1 = P.keyCount ∧
+      (p.motion.keyOptions.size = 0 ∨ p.motion.keyOptions.size = P.keyCount)) ∧
     P.captions.size = P.keyCount ∧ P.poster < P.keyCount ∧
-    (P.timing.size = 0 ∨ P.timing.size = P.stepCount)
+    (P.timing.size = 0 ∨ P.timing.size = P.stepCount) ∧
+    (P.keyOptions.size = 0 ∨ P.keyOptions.size = P.keyCount)
 
 /-- Whether a picture of panels is well formed is decided by comparing sizes. -/
-instance : Decidable P.WellFormed := inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _))
+instance : Decidable P.WellFormed := inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _ ∧ _ ∧ _))
+
+/-- The options of key `k` of the picture (`MotionKey`; the defaults when it gives none). -/
+def keyOption (k : Nat) : MotionKey := P.keyOptions.getD k {}
+
+/-- Whether key `k` of the picture is a still. -/
+def isStill (k : Nat) : Bool := (P.keyOption k).still
+
+/-- The keys of the picture that are stills, in order. -/
+def stillKeys : Array Nat := (Array.range P.keyCount).filter P.isStill
+
+/-- The captions of the picture's stills, in order. -/
+def stillCaptions : Array String := P.stillKeys.map (P.captions.getD · "")
+
+/-- The pacing of the picture's timeline: its pacing, with the rest of every key that gives its own
+(`MotionKey.rest`) in `Pacing.holds`. -/
+def restPacing : Pacing :=
+  if P.keyOptions.all (·.rest.isNone) then P.pacing
+  else { P.pacing with holds := (Array.range P.keyCount).map fun k =>
+    ((P.keyOptions[k]?).bind (·.rest)).orElse fun _ => (P.pacing.holds[k]?).join }
 
 /-- The name of panel `i` in messages: its title, or its number from 1. -/
 def name (i : Nat) : String :=
@@ -254,8 +289,9 @@ def stepAt (j : Nat) : Step :=
 /-- The steps of the picture's timeline. -/
 def animSteps : Array Step := (Array.range P.stepCount).map P.stepAt
 
-/-- The picture's timeline before any step is divided for a sampled morph. -/
-def baseTimeline : Timeline := Timeline.build P.animSteps P.pacing
+/-- The picture's timeline before any segment is divided (for a sampled morph, or a fade in part
+of a step or of a rest). -/
+def baseTimeline : Timeline := Timeline.build P.animSteps P.restPacing
 
 /-- The picture's timeline with the move of each step `j` divided into `samples j` segments
 (`sampledSegments`). -/
@@ -273,6 +309,15 @@ theorem timelineOf_keys_panel (h : P.WellFormed) (samples : Nat → Nat) {p : Mo
   have h2 := h.2.1 p hp
   rw [timelineOf_keys, h2.1, stepCount]
   omega
+
+/-- The picture's timeline of the segments `segs` (its base timeline divided, `divideSegments`). -/
+def timelineOn (segs : Array (Segment × MotionPhase × MotionPhase)) : Timeline :=
+  { P.baseTimeline with segments := segs.map (·.1) }
+
+/-- The picture's timeline of any segments has one key more than the picture has steps. -/
+theorem timelineOn_keys (segs : Array (Segment × MotionPhase × MotionPhase)) :
+    (P.timelineOn segs).keys = P.stepCount + 1 := by
+  simp [timelineOn, baseTimeline, Timeline.build, animSteps]
 
 end MotionPanels
 
@@ -518,6 +563,11 @@ structure MotionPanelsReport where
   samples : Array Nat
   /-- The steps whose sampling the panels disagree on and that are drawn unsampled. -/
   conflicts : Array SamplingConflict
+  /-- The steps whose easing cannot be divided exactly at the ends of the windows of the panels'
+  fades (`divideSegments`). -/
+  inexact : Array Nat := #[]
+  /-- The segments of the shared timeline divided unsoundly (`unsoundSegments`). -/
+  unsound : Array SegKind := #[]
   /-- The shared timeline. -/
   timeline : Timeline
   /-- The phase at each boundary of the shared timeline. -/
@@ -534,15 +584,25 @@ namespace MotionPanels
 
 variable (P : MotionPanels)
 
+/-- The fades of a panel's motion `m` (its keys `K`) in part of a step or of a rest on the shared
+timeline (`Motion.fadesOn`), without those in a step the picture samples for a morph (`samples`,
+in any panel): such a step's parts are the samples', not eased parts, so a fade in it runs
+through the whole step, and `figureProblems` makes its window an error. -/
+def panelFades (samples : Array Nat) (m : Motion) (K : MotionKeys) : MotionFades :=
+  let F := m.fadesOn K P.baseTimeline
+  { F with steps := F.steps.mapIdx fun j xs => if samples.getD j 1 > 1 then #[] else xs }
+
 /-- Panel `i` with its motion `mK.1` and keys `mK.2`, placed as the layout `L` has it and laid
-out on the timeline `tl` whose boundaries have the phases `phases`. -/
-private def panelReport (L : PanelsLayout) (tl : Timeline) (phases : Array MotionPhase) (i : Nat)
-    (mK : Motion × MotionKeys) : PanelReport :=
+out on the timeline `tl` whose boundaries have the phases `phases`, with its fades as
+`panelFades` keeps them. -/
+private def panelReport (L : PanelsLayout) (tl : Timeline) (phases : Array MotionPhase)
+    (samples : Array Nat) (i : Nat) (mK : Motion × MotionKeys) : PanelReport :=
   let (m, K) := mK
   let place := L.places.getD i default
   let e := shiftEnv K.env place.x place.y
+  let F := P.panelFades samples m K
   { motion := m, keys := K, idPrefix := panelPrefix i, env := e,
-    ownPlan := m.planOn K K.env tl phases, plan := m.planOn K e tl phases }
+    ownPlan := m.planOn K K.env F tl phases, plan := m.planOn K e F tl phases }
 
 /-- The motion `m` with the morph of step `j` sampled in `n` intervals. -/
 private def sampledIn (m : Motion) (j n : Nat) : Motion :=
@@ -579,12 +639,20 @@ private def laidOut : MotionPanelsReport :=
   let mks := mks0.map fun (m, K) =>
     ({ m with stepSamples := fun j =>
         if m.samplesOf K j > 1 then some (samples.getD j 1) else m.stepSamples j }, K)
-  let segs := sampledSegments P.baseTimeline fun j => samples.getD j 1
-  let tl := P.timelineOf fun j => samples.getD j 1
+  let base := P.baseTimeline
+  let fs := mks.map fun (m, K) => P.panelFades samples m K
+  let union := fun (xs : Array (Array (Array (String × Fade × Rat × Rat)))) (i : Nat) =>
+    (xs.flatMap fun x => (x.getD i #[]).map fun (_, _, a, b) => (a, b)).toList
+  let division : MotionDivision :=
+    { samples := fun j => samples.getD j 1, stepWindows := union (fs.map (·.steps)),
+      restWindows := union (fs.map (·.rests)), restEasing := P.pacing.easing }
+  let (segs, inexact) := divideSegments base division
+  let tl := P.timelineOn segs
   let phases := Motion.phasesOf segs
   { figure := P, layout := L, samples, conflicts := shared.filterMap (·.2),
-    timeline := tl, phases, problems := #[],
-    panels := mks.mapIdx (panelReport L tl phases) }
+    timeline := tl, phases, problems := #[], inexact,
+    unsound := unsoundSegments base division,
+    panels := mks.mapIdx (P.panelReport L tl phases samples) }
 
 end MotionPanels
 
@@ -685,10 +753,10 @@ def stepRows : Array PanelStepRow :=
       moves := r.figure.panels.zipIdx.flatMap fun (p, i) =>
         (((p.motion.steps[j]?).map (·.moves)).getD #[]).map fun (id, mv) => (i, id, mv) }
 
-/-- The text alternative of the picture: its description and the captions. -/
+/-- The text alternative of the picture: its description and the captions of its stills. -/
 private def description : String :=
   " ".intercalate ((if r.figure.info.description.isEmpty then [] else
-    [r.figure.info.description]) ++ r.figure.captions.toList)
+    [r.figure.info.description]) ++ r.figure.stillCaptions.toList)
 
 /-- The moving picture: each panel's (`MotionPlan.contentNodes`, its ids prefixed with its prefix
 and all with the picture's) in a group marked `data-pilean-panel` with the panel's id, all inside
@@ -805,6 +873,41 @@ private def figureProblems : Array MotionProblem := Id.run do
   if P.timing.size != 0 && P.timing.size != P.stepCount then
     out := out.push (err s!"the picture gives the timing of {P.timing.size} steps; it has \
       {P.stepCount}")
+  if P.keyOptions.size != 0 && P.keyOptions.size != n then
+    out := out.push (err s!"the picture gives the options of {P.keyOptions.size} keys; it has {n}")
+  if P.poster < n && !P.isStill P.poster then
+    out := out.push (err s!"the poster is key {P.poster}, which is not a still; the poster is one \
+      of the stills")
+  for (o, k) in P.keyOptions.zipIdx do
+    if let some d := o.rest then
+      if !(d > 0) then
+        out := out.push (err s!"key {k}: its rest ({d} s) is not longer than zero; a key is shown, \
+          and checked, in the middle of its rest")
+    if !o.still && !(P.captions.getD k "").isEmpty then
+      out := out.push { severity := .note, message := s!"key {k} is not a still; its caption is \
+        not shown" }
+    if !o.fades.isEmpty then
+      out := out.push (err s!"key {k} of the picture declares fades; the fades during a rest \
+        belong to a panel's key (its motion's `keyOptions`)")
+  for (p, i) in P.panels.zipIdx do
+    if p.motion.keyOptions.size != 0 && p.motion.keyOptions.size != n then
+      out := out.push (err s!"panel {P.name i} gives the options of {p.motion.keyOptions.size} \
+        keys; the picture has {n}")
+    for (o, k) in p.motion.keyOptions.zipIdx do
+      if o.rest.isSome || !o.still then
+        out := out.push (err s!"panel {P.name i}: key {k} sets its own rest or makes itself no \
+          still; the rest of a key and whether it is a still are the picture's \
+          (`MotionPanels.keyOptions`)")
+  -- the windows of the fades in one rest, across the panels, must be apart or the same
+  let fadesOf := r.panels.map fun pr => pr.motion.fadesOn pr.keys P.baseTimeline
+  for k in [0:n] do
+    let ws := fadesOf.flatMap fun F => (F.rests.getD k #[]).map fun (_, _, a, b) => (a, b)
+    if ws.any fun (a, b) => ws.any fun (c, d) => a < d && c < b && !(a == c && b == d) then
+      out := out.push (err s!"the rest on key {k}: the windows of the panels' fades overlap \
+        without being the same; fades in one rest run one after another, or together")
+  for j in r.inexact do
+    out := out ++ inexactProblems #[j]
+  out := out ++ unsoundProblems r.unsound
   if !P.shares.isEmpty then
     if P.shares.size != P.panels.size then
       out := out.push (err s!"the picture gives {P.shares.size} shares for {P.panels.size} \
@@ -827,6 +930,10 @@ private def figureProblems : Array MotionProblem := Id.run do
     let p := P.panels.getD i default
     let place := r.layout.places.getD i default
     for (s, j) in p.motion.steps.zipIdx do
+      if !s.windows.isEmpty && r.samples.getD j 1 > 1 then
+        out := out.push (err s!"panel {P.name i}: step {j + 1} has a fade in part of the step, \
+          but the picture samples the step for a morph (`Motion.between`), whose parts are not \
+          eased; a fade in part of a step cannot share it with a sampled morph in any panel")
       if s.duration.isSome || s.easing.isSome then
         out := out.push (err s!"panel {P.name i}: step {j + 1} sets its own duration or easing; \
           the timing of a step is the picture's (`MotionPanels.timing`)")
@@ -864,7 +971,7 @@ private def panelProblems : Array MotionProblem :=
   let P := r.figure
   r.panels.zipIdx.flatMap fun (pr, i) =>
     let f := pr.keys.env.frame
-    let own := pr.motion.keyProblems ++ (if !decide P.WellFormed then #[] else
+    let own := pr.motion.keyProblemsOn P.baseTimeline ++ (if !decide P.WellFormed then #[] else
       pr.motion.restProblems pr.keys pr.ownPlan ++ Motion.writerProblems pr.ownPlan ++
         boundsProblems pr.ownPlan ⟨0, 0, f.width, f.height⟩ "its panel")
     own.map fun p => { p with message := s!"panel {P.name i}: {p.message}" }
@@ -945,9 +1052,26 @@ it. -/
 def animation? (fps : Nat := 30) : Except (Array String) Animation :=
   if r.problemsFail then .error r.errors else .ok (r.toAnimationUnchecked fps)
 
+/-- The shared timeline is the picture's base timeline divided (`Timeline.divide`), as its
+panels' fades and sampled morphs divide it. -/
+theorem timeline_divide (P : MotionPanels) :
+    ∃ f, P.report.timeline = P.baseTimeline.divide f := by
+  simp only [MotionPanels.report, MotionPanels.laidOut, MotionPanels.timelineOn,
+    divideSegments_fst]
+  exact ⟨_, rfl⟩
+
+/-- The segments of the shared timeline, whatever the panels' fades and sampled morphs, tile its
+cycle, and none lasts less than zero. -/
+theorem timeline_tiles (P : MotionPanels) :
+    Timeline.Tiles 0 P.report.timeline.segments.toList P.report.timeline.cycle ∧
+      ∀ s ∈ P.report.timeline.segments.toList, 0 ≤ s.dur := by
+  obtain ⟨f, hf⟩ := timeline_divide P
+  rw [hf]
+  exact ⟨Timeline.divide_tiles _ _ _, Timeline.divide_dur_nonneg _ _ _⟩
+
 /-- The shared timeline has one key more than the picture has steps. -/
 theorem timeline_keys (P : MotionPanels) : P.report.timeline.keys = P.stepCount + 1 :=
-  P.timelineOf_keys _
+  P.timelineOn_keys _
 
 /-- Every animation element that a panel's plan builds (`MotionPlan.anim`: the turns, slides,
 counter-rotations, opacities and morphs of every panel, and the seam) has the timing of the

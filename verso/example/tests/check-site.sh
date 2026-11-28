@@ -66,8 +66,8 @@ desc="the page names the theorem"; check grep -q 'lean:decl/Example.cubicPlot_sp
 desc="the page has a dark picture"; check grep -q 'Example.cubicPlot-dark.svg' "$page"
 desc="the animation has its still frame for reduced motion"
 check grep -q 'prefers-reduced-motion: reduce' "$scratch/a/html-multi/Pictures-with-proofs/Motion/index.html"
-desc="the figures page lists twenty figures"
-check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 20
+desc="the figures page lists twenty-two figures"
+check test "$(grep -o 'class="pilean-index-title"' "$scratch/a/html-multi/Figures/index.html" | wc -l | tr -d ' ')" = 22
 desc="no inline event handler and no script in the figures' markup"
 check python3 -I "$site_checks"/markup_check.py "$scratch/a/html-multi" --min 5
 desc="every inline picture is the body of a file the manifest lists"
@@ -76,14 +76,14 @@ check python3 -I "$site_checks"/inline_check.py "$scratch/a/html-multi"
 # The figures' pages.
 pages="$scratch/a/html-multi/Figures"
 desc="every figure has a page"
-check test "$(grep -l 'data-pilean-page=' "$pages"/*/index.html | wc -l | tr -d ' ')" = 20
+check test "$(grep -l 'data-pilean-page=' "$pages"/*/index.html | wc -l | tr -d ' ')" = 22
 desc="every figure's page agrees with the manifest (page_check.py)"
 check python3 -I "$site_checks"/page_check.py "$scratch/a/html-multi"
 cubic="$pages/Example.cubicPlot/index.html"
 desc="a figure's source line links its page"
 check grep -q 'class="pilean-page-link" href="Figures/Example.cubicPlot/' "$page"
 desc="the figures page links each figure's page"
-check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 20
+check test "$(grep -o 'class="pilean-page-link"' "$pages/index.html" | wc -l | tr -d ' ')" = 22
 desc="every link PILean writes reaches its file and element (pilean-site-links)"
 check "$links" "$scratch/a/html-multi"
 desc="every link of the site reaches its file and element (pilean-site-links --all)"
@@ -249,6 +249,14 @@ elif how == "dark-stills":
     i = s.index('id="quarter-motion-keys"')
     j = s.index("</ol>", i)
     s = s[:i] + re.sub(r'<picture class="pilean-figure-dark">.*?</picture>', "", s[i:j]) + s[j:]
+elif how == "non-still":
+    # a key that is not a still (key 2 of announceTurns) listed among the stills
+    i = s.index('id="announce-motion-keys"')
+    j = s.index("<li", i)
+    k = s.index("</li>", j) + len("</li>")
+    item = s[j:k].replace("Example.announceTurns-key-0", "Example.announceTurns-key-2")
+    assert item != s[j:k]
+    s = s[:k] + item + s[k:]
 elif how == "errors-left":
     for e in man["files"]:
         if e["decl"] == "Example.quarterTurn":
@@ -277,7 +285,7 @@ elif how == "words":
 open(page, "w", encoding="utf-8").write(s)
 PY
 }
-for how in live poster style poster-group still dark-stills errors-left; do
+for how in live poster style poster-group still dark-stills non-still errors-left; do
   tamper_motion "$how"
   desc="the inline check refuses a motion whose $how was changed"
   check bash -c "! python3 -I '$site_checks'/inline_check.py '$scratch/page' >/dev/null"

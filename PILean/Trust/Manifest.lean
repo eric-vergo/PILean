@@ -113,8 +113,8 @@ structure ManifestEntry where
   /-- The theorems of a linked figure recorded in the file, by full name, in order. -/
   theorems : Option (Array String) := none
   /-- For a file of a motion: its record (`Output.motion`, the same as the file's source record
-  holds), written as the keys `kind` (`motion`), `keys`, `cycle`, `captions`, `checks` and
-  `errorsLeft` and `narrow`. -/
+  holds), written as the keys `kind` (`motion`), `keys`, `cycle`, `captions`, `checks`,
+  `errorsLeft` and `narrow`, and `stills` when some key is not a still. -/
   motion : Option MotionSummary := none
 deriving BEq, Repr, Inhabited
 
@@ -122,7 +122,7 @@ deriving BEq, Repr, Inhabited
 def manifestKeys : Array String :=
   #["path", "format", "bytes", "sha256", "fingerprint", "module", "decl", "file", "line", "column",
     "version", "repo", "commit", "darkColours", "darkOpacities", "standing", "theorems", "kind",
-    "keys", "cycle", "captions", "checks", "errorsLeft", "narrow"]
+    "keys", "cycle", "captions", "checks", "errorsLeft", "narrow", "stills"]
 
 /-- A character a file name may have: a letter, a digit, `.`, `_`, `-`; all ASCII. -/
 def nameChar (c : Char) : Bool :=
@@ -174,7 +174,10 @@ def ManifestEntry.render (m : ManifestEntry) : String :=
     (match m.motion with
       | some mo => [s "kind" "motion", n "keys" mo.keys, s "cycle" (cycleText mo.cycle),
           n "captions" mo.captions, s "checks" mo.checks,
-          n "errorsLeft" mo.errorsLeft, s!"\"narrow\":{if mo.narrow then "true" else "false"}"]
+          n "errorsLeft" mo.errorsLeft, s!"\"narrow\":{if mo.narrow then "true" else "false"}"] ++
+          (match mo.stills with
+            | some ks => [s!"\"stills\":[{",".intercalate (ks.toList.map toString)}]"]
+            | none => [])
       | none => [])) ++ "}"
 
 /-- The manifest text of a list of entries (in the given order). -/
@@ -187,14 +190,15 @@ def Manifest.render (es : Array ManifestEntry) : String :=
 pairs, `standing` and `theorems` (or `proves`, read as `theorems`) and the keys of a motion must be
 there with a string or a number as its kind, the hashes in the form of `isFingerprint`, the format
 one of `svg`, `png`, `apng`, `gif`, `pdf`, the path `safePath`, and the standing with its theorems
-well formed (`standingOk`; a standing `proved` reads as `linked`, `readStanding`). The theorems
-are an array of strings when `spaced` is false (`manifestFormat` and `previousManifestFormat`),
-and one string of names separated by single spaces when it is true (the earlier formats,
-`theoremsOfSpaced`). With `current` (`manifestFormat`), a key outside `manifestKeys` is refused,
-and the keys of a motion are read: `kind` is absent or `motion`, and with `motion` the number of
-keys (at least one) and of captions, the cycle (`cycleOfText?`), the check level (`fail`, `warn`
-or `ignore`), `errorsLeft` (a number, `0` at the level `fail`) and `narrow` (a boolean) must be there, and without it none of them; the earlier
-formats have no motion, and their other keys are ignored. -/
+well formed (`standingOk`; a standing `proved` reads as `linked`, `readStanding`). The theorems are
+an array of strings when `spaced` is false (`manifestFormat` and `previousManifestFormat`), and one
+string of names separated by single spaces when it is true (the earlier formats,
+`theoremsOfSpaced`). With `current` (`manifestFormat`), a key outside `manifestKeys` is refused, and
+the keys of a motion are read: `kind` is absent or `motion`, and with `motion` the number of keys
+(at least one) and of captions, the cycle (`cycleOfText?`), the check level (`fail`, `warn` or
+`ignore`), `errorsLeft` (a number, `0` at the level `fail`) and `narrow` (a boolean) must be there,
+and `stills` (a list of keys that `stillsOk` accepts) may be, and without it none of them; the
+earlier formats have no motion, and their other keys are ignored. -/
 def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) (current : Bool := false) :
     Except String ManifestEntry := do
   if current then
@@ -235,7 +239,10 @@ def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) (current : Bool := 
   let motion ← if !current then pure none else
     match j.get? "kind", (j.get? "keys", j.get? "cycle", j.get? "captions"),
         (j.get? "checks", j.get? "errorsLeft", j.get? "narrow") with
-    | none, (none, none, none), (none, none, none) => pure none
+    | none, (none, none, none), (none, none, none) =>
+      if (j.get? "stills").isSome then
+        throw "the key stills belongs to a motion (kind motion)"
+      pure none
     | some (.str "motion"), (some (.num keys), some (.str c), some (.num captions)),
         (some (.str checks), some (.num errorsLeft), some (.bool narrow)) =>
       match cycleOfText? c with
@@ -245,7 +252,18 @@ def ManifestEntry.ofJson (j : Json) (spaced : Bool := false) (current : Bool := 
           throw s!"the check level {checks} is not fail, warn or ignore"
         if checks == "fail" && errorsLeft != 0 then
           throw "a motion checked at the level fail has no error left"
-        pure (some { keys, cycle, captions, checks, errorsLeft, narrow })
+        let stills ← match j.get? "stills" with
+          | none => pure none
+          | some (.arr xs) =>
+            let ks ← xs.mapM fun
+              | .num k => pure k
+              | _ => throw "the key stills must be a list of numbers"
+            if !stillsOk keys ks then
+              throw "the stills of a motion are keys of it, in increasing order, at least one and \
+                not every key"
+            pure (some ks)
+          | some _ => throw "the key stills must be a list of numbers"
+        pure (some { keys, cycle, captions, checks, errorsLeft, narrow, stills })
       | none => throw s!"the cycle {c} is not a non-negative number n or n/d in lowest terms"
     | some (.str "motion"), _, _ =>
       throw "a motion needs the numbers keys, captions and errorsLeft, the strings cycle and checks \
@@ -285,8 +303,9 @@ def keyStillOf? (path : String) : Option (String × Nat) := do
 
 /-- Why the entries `es` of one declaration, whose files record the motion `mo`, do not list its
 files as the record says, if they do not: the key stills of one stem `X` (the SVG and the PNG of
-each key `0` to `keys - 1`, and of no other) with the animated SVG `X.svg`, and, exactly when the
-record says the motion has a narrow rendition, the same for the stem `X-narrow`. -/
+each key `0` to `keys - 1`, or of each key the record's `stills` lists, and of no other) with the
+animated SVG `X.svg`, and, exactly when the record says the motion has a narrow rendition, the same
+for the stem `X-narrow`. -/
 def motionKeyProblem? (decl : String) (mo : MotionSummary) (es : Array ManifestEntry) :
     Option String :=
   let stills := es.filterMap fun m => (keyStillOf? m.path).map fun (s, k) => (s, k, m.format)
@@ -302,12 +321,22 @@ def motionKeyProblem? (decl : String) (mo : MotionSummary) (es : Array ManifestE
   else if !(stems.all fun stem => paths.contains (stem ++ ".svg")) then
     some s!"the files of {decl} record a motion but do not list its animated SVG at each width"
   else stems.findSome? fun stem =>
-    let want := (List.range mo.keys).flatMap fun k => [(k, "svg"), (k, "png")]
+    let keys := match mo.stills with
+      | some ks => ks.toList
+      | none => List.range mo.keys
+    let want := keys.flatMap fun k => [(k, "svg"), (k, "png")]
     let have_ := (stills.filter (·.1 == stem)).toList.map fun (_, k, f) => (k, f)
     if want.all have_.contains && have_.all want.contains && have_.length == want.length then
       none
-    else some s!"the files of {decl} record a motion of {mo.keys} keys but list the key stills \
-      {(have_.map (·.1)).eraseDups} of {stem}"
+    else
+      let name := fun (kf : Nat × String) => s!"{stem}-key-{kf.1}.{kf.2}"
+      let missing := (want.filter (!have_.contains ·)).map name
+      let extra := (have_.filter (!want.contains ·)).map name
+      let stillsWords := match mo.stills with
+        | some ks => s!", the stills {ks.toList}"
+        | none => ", every key a still"
+      some s!"the files of {decl} record a motion of {mo.keys} keys{stillsWords}, but its key \
+        stills of {stem} are not those: missing {missing}, extra {extra}"
 
 /-- Reads a manifest: its text must be JSON as `Json.parse` reads it, an object with a known
 `format` (`manifestFormat`; or `previousManifestFormat`, or one of the earlier

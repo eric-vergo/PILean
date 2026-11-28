@@ -231,9 +231,11 @@ not rational-valued.
   and the fade out last under a crossfade; `build_size_cut`, `build_size_crossfade`: so there are
   `2 n - 1` segments for `n` key frames under a cut and `2 n + 1` under a crossfade.
 * `build_segment_spec`, `build_move_spec`, `build_rest_spec`, `build_seam_spec`: the move of step
-  `j` lasts as long as step `j` and has its easing; the rest on key `0` lasts `firstHold`, the rest
-  on the last key `lastHold`, any other rest `hold`; the fades exist only under a crossfade `d` and
-  last `d / 2` each; rests and fades are not eased (a negative duration counts as zero).
+  `j` lasts as long as step `j` and has its easing; the rest on key `k` lasts `Pacing.restOf k`
+  (`restOf_own`: a key's own rest in `Pacing.holds`, for the first and the last key too;
+  `restOf_default`: otherwise `firstHold` on key `0`, `lastHold` on the last key, any other rest
+  `hold`); the fades exist only under a crossfade `d` and last `d / 2` each; rests and fades are
+  not eased (a negative duration counts as zero).
 * `build_start_zero`, `build_start_succ`, `build_stop_last`, `build_dur_nonneg`: the segments
   tile the cycle: the first starts at `0`, each starts where the one before it ends, the last ends
   at the end of the cycle, and no duration is negative (a negative one given counts as zero).
@@ -241,9 +243,21 @@ not rational-valued.
   boundaries as fractions of the cycle) are one more than the segments, start at `0`, never
   decrease, and end at `1` when the cycle is longer than zero, which it is when the first rest is
   (`build_cycle_pos`).
-* `wrap_mem`, `segmentAt_mem`, `progress_mem`, `locate_fst`: any rational time, brought into a
-  cycle longer than zero, lies in `[0, cycle)` and in the segment `segmentAt` names (from its
-  start, inclusive, to its end, exclusive), and the progress through that segment is in `[0, 1)`.
+* `divide_tiles`, `divide_dur_nonneg`: divided into any parts (`Timeline.divide`, which makes the
+  parts' ends sound first, `Segment.normalize`: `monoFrom_mono`, `monoFrom_last`), the segments
+  still tile the cycle (`Tiles`: the first starts at `0`, each starts where the one before it
+  ends, the last ends at the end of the cycle) and no part lasts less than zero
+  (`tiles_layout`, `tiles_partsFrom`, `tiles_divide`, `tiles_flatMap`, `partsFrom_dur_nonneg` are
+  the steps). `normalize_of_sound`, `divide_of_sound`: parts that are already sound
+  (`Segment.sound`) are kept exactly, so the repair changes nothing on them. The timeline a
+  motion's SVG is written on is `base.divide parts` (`MotionPlan.divideSegments_fst`,
+  `Motion.timeline_eq`; `MotionPanelsReport.timeline_divide`), so `Motion.timeline_tiles` and
+  `MotionPanelsReport.timeline_tiles` state of every motion and picture of panels that its
+  segments tile its cycle and none lasts less than zero. Not proved: that the writer's parts are
+  sound (a segment whose parts are not is an error of the motion, `unsoundProblems`, and the tests
+  require none for every test motion), that the phases at their boundaries belong to them (by
+  construction, tested), and anything about the easing of the parts (floating point,
+  `Easing.part`, `easedParts`; tested).
 
 What the SMIL builders write (`PILean/Anim/SmilProofs.lean`), for the same timelines:
 

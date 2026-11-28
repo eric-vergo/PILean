@@ -1023,7 +1023,8 @@ def main(argv):
 
         page.goto(base + "Figures/")
         items = page.locator(".pilean-figure-index > li")
-        c.check("the figures page lists twenty figures", items.count() == 20, str(items.count()))
+        c.check("the figures page lists twenty-two figures", items.count() == 22,
+                str(items.count()))
         thumbs = page.evaluate("""() => [...document.querySelectorAll('.pilean-index-thumb img')]
             .every(i => i.complete && i.naturalWidth > 0)""")
         c.check("the figures page's pictures load", thumbs)

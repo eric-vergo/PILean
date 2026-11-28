@@ -9,8 +9,9 @@ of PILean's site checks, `tools/site/`):
 SITE_DIR is the generator's `html-multi` folder; every page with a motion (`data-bp-motion`) is
 checked. DIR holds the expectations of every motion shown, `<file>.json` for the animated SVG
 `<file>.svg` of each rendition (`<decl>.json`, `<decl>-narrow.json`), in the form PILean's tests
-write them (`PILeanTest.MotionChecks.expectations`, `PILeanTest.MotionPanelsChecks.expectations`);
-a motion without its expectations fails. The site is served on 127.0.0.1 under a strict content
+write them (`PILeanTest.MotionChecks.expectations`, `PILeanTest.MotionPanelsChecks.expectations`),
+in format 3 (`FORMAT`; another format fails, saying which it found); a motion without its
+expectations fails. The site is served on 127.0.0.1 under a strict content
 policy (`site_browser.serve`) and checked in Chromium (Playwright, nothing installed or downloaded).
 `--engine firefox` runs the same checks in Playwright's Firefox, with the freeze control (a freeze
 seen in Chromium) and the PDF print (which Playwright makes in Chromium only) reported as not
@@ -22,17 +23,29 @@ Blueprint site (a caption with the switch's link) also the switch and the link. 
   quarter, a half and three quarters of every turn (0.05 px, a true arc) at the eased angle (0.5
   degrees), on the straight segment between its keys at the eased fraction at the same times of
   every slide (0.05 px; a motion may have no turn or no slide), every label and marker upright (0.01
-  degrees), and every panel of a picture of panels in phase with the others (0.05 px); this covers
-  the actors' anchors and the upright marks, not every pixel (`tools/motion-browser-check.py`
-  compares pixels);
+  degrees), every panel of a picture of panels in phase with the others (0.05 px), and at each
+  sample of every appearance and disappearance (the expectations' `opacities`: before, in the
+  middle of and after its window, in a step or a rest) the layer of its actor at the expected
+  opacity (`OPACITY_TOL`, 0.02), read as the product of the computed opacity of the layer and its
+  ancestors up to the picture's `svg` (`tools/motion-browser-check.py` shows that this is what
+  Chromium and Firefox draw, and gives the measured errors); every listed sample must be read, and
+  each line says how many were. The rests of keys that are not stills are checked like the
+  others, at the part of the rest in which the key is shown still. This covers the actors' anchors,
+  the upright marks and the layers' opacities, not every pixel (`tools/motion-browser-check.py`
+  compares pixels). On the first motion of each page that has fades the opacity check is shown to
+  catch a mark whose fade never starts (its group's opacity animation held at 0 in the page,
+  `opacity_mutation`);
 * every moving picture plays on its own clock; the wide rendition is shown at 1440 px and the
   narrow one at 360 px, the other hidden and taking no space;
 * switching the theme while the picture moves recolours it, and it keeps moving;
 * each way of turning motion off (the system's reduced motion, `data-motion="reduce"` on the root,
   the Blueprint's switch, print media, a printed PDF) hides the moving picture and shows the stills
-  with their captions; hovering, keyboard focus, a click and a tap show the poster key's still
-  (exactly one picture, the poster key's file in the page's theme, filling the picture's own box,
-  nothing around it moving) while the moving picture's text alternative stays in the
+  with their captions, every still loaded (each is brought into view in turn and waited for, at most
+  `STILL_WAIT_MS`, as a reader scrolling through a grid taller than the window loads it: the
+  example's two-panel motion with marks has a grid taller than the window at 1440 px); hovering,
+  keyboard focus, a click and a tap show the poster key's still (exactly one picture, the poster
+  key's file in the page's theme, filling the picture's own box, nothing around it moving) while the
+  moving picture's text alternative stays in the
   accessibility tree, in both themes, and the focused picture has a ring of at least 3:1 against
   the page, and a click holds the still after the pointer has left; after each of them ends the
   moving picture follows its clock again without being sought (the regression test for a picture
@@ -43,12 +56,25 @@ Blueprint site (a caption with the switch's link) also the switch and the link. 
   fails;
 * free-running, without seeking, every picture is where its keys have it inside two of its rests
   that differ, and its clock has advanced (`free_running`);
-* at seven widths from 1440 to 320 px the page does not scroll sideways, with motion on and off,
+* at seven widths from 1440 to 320 px the page does not scroll sideways, with motion on and off
+  (a failure names what reaches past the window and says whether it is outside any figure, the
+  page's own prose, or inside one: `overflow_words`, shown on two small pages by
+  `overflow_control`),
   and with motion off every still of every grid of stills (inline and on a figure's page) is
   shown at `STILL_FRACTION` of its natural width or more, or fills its column alone, and never
   larger than its natural width (`grid_checks`);
+* with motion off, at 1440 and 360 px, every still image of every grid of stills has the same box
+  (within 0.5 px) before its file has loaded as after (`intrinsic_checks`: the requests for the
+  stills' files are held while the boxes are first measured, then each image is brought into view,
+  loaded and decoded): a lazy still reserves the box it is drawn in, the narrow rendition's on a
+  phone, which needs each `source` element's own `width` and `height`; some still must have been
+  measured before loading. The check is shown to notice the defect (`intrinsic_control`: on the
+  first page with a narrow rendition and stills, served with the `source` elements' `width` and
+  `height` taken away, some still's box changes at 360 px);
 * the captions are in the accessibility tree while the stills are hidden, and nothing is
-  announced (no live region changes);
+  announced (no live region changes); the stills are those of the keys that are stills only (the
+  files `-key-k` are named by the key's index `k`, the poster `data-pilean-poster` is a key's
+  index too), and their captions `Step i of N` count the stills;
 * every id of the page once, and no `data-pilean-actor` in two pictures;
 * the caption's note, exactly `HINT` (a still replaces the picture while it is pointed at or
   focused, or after a click or tap until a click elsewhere), shown only while motion is on; on a
@@ -72,6 +98,11 @@ REST_TOL = 0.05
 RADIUS_TOL = 0.05
 ANGLE_TOL = 0.5
 UPRIGHT_TOL = 0.01
+# Half the window about the middle of a rest of 0.3 s or less in which a probe may read or switch,
+# when no two longer rests differ (`rest_window`, seconds).
+NEAR_REST = 0.1
+# the opacity of a layer (`tools/motion-browser-check.py` says why, with its measured errors)
+OPACITY_TOL = 0.02
 
 READ = """async ([sid, t]) => {
   const svg = document.getElementById(sid);
@@ -93,6 +124,45 @@ READ = """async ([sid, t]) => {
     uprights.push([Math.atan2(m.b, m.a) * 180 / Math.PI, at(m, x, y)]);
   }
   return {time: svg.getCurrentTime(), actors, uprights};
+}"""
+
+# The opacity a reader sees of the nth layer of an actor in the moving picture `sid`: the product
+# of the computed opacity of the element and of each of its ancestors up to the picture's `svg`;
+# `null` when there is no such element. The actor's id is the expectations' with the page's
+# prefix, as `READ` takes it away.
+OPACITY = """async ([sid, t, id, nth]) => {
+  const svg = document.getElementById(sid);
+  svg.setCurrentTime(t);
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const el = [...svg.querySelectorAll('[data-pilean-actor]')]
+    .filter(e => e.getAttribute('data-pilean-actor') === sid + '-' + id)[nth];
+  if (!el) return null;
+  let o = 1;
+  for (let e = el; e; e = e.parentElement) {
+    o *= parseFloat(getComputedStyle(e).opacity);
+    if (e === svg) break;
+  }
+  return o;
+}"""
+
+# The mutation of `opacity_mutation`: the opacity animation of the group nearest the nth layer of
+# an actor of the picture `sid` held at 0 (a mark whose fade never starts); whether it was found.
+FADE_NEVER_STARTS = """([sid, id, nth, shift]) => {
+  const svg = document.getElementById(sid);
+  const el = [...svg.querySelectorAll('[data-pilean-actor]')]
+    .filter(e => e.getAttribute('data-pilean-actor') === sid + '-' + id)[nth];
+  for (let g = el; g && g !== svg; g = g.parentElement) {
+    const a = [...g.children].find(c =>
+      c.localName === 'animate' && c.getAttribute('attributeName') === 'opacity');
+    if (a) {
+      const v = a.getAttribute('values').split(';');
+      // held at 0 (the fade never starts), or every value one boundary later (shifted: the
+      // mark shows at the wrong time)
+      a.setAttribute('values', (shift ? [v[0], ...v.slice(0, -1)] : v.map(() => '0')).join(';'));
+      return true;
+    }
+  }
+  return false;
 }"""
 
 PIXELS = """async ([a, b]) => {
@@ -244,6 +314,13 @@ def position_checks(c, page, sid, spec, label):
                 "at the eased fraction", slide_err <= REST_TOL,
                 f"{slide_err:.3g} px over {len(spec['slides'])} slides")
     c.check(f"{label}: labels and markers stay upright", upright <= UPRIGHT_TOL, f"{upright:.3g}")
+    if spec["opacities"]:
+        listed = 2 * sum(len(e["samples"]) for e in spec["opacities"])
+        err, read, off, gone = opacity_errors(page, sid, spec)
+        c.check(f"{label}: every appearance and disappearance has the expected opacity at each "
+                "of its samples", read == listed and off == 0 and not gone,
+                f"{err:.3g} over {read} of {listed} samples, {off} off, missing {gone[:3]}")
+        c.say(f"{label}: {read} opacity samples asserted, worst {err:.2e}")
     if spec.get("phase"):
         err, bad = 0.0, 0
         for off, sample in [(k * spec["cycle"], sm) for k in (0, 1) for sm in spec["phase"]]:
@@ -256,6 +333,49 @@ def position_checks(c, page, sid, spec, label):
         c.check(f"{label}: the panels are in phase", bad == 0 and err <= REST_TOL,
                 f"{err:.3g} px, {bad} times with other actors")
     page.evaluate("(sid) => document.getElementById(sid).unpauseAnimations()", sid)
+
+
+def opacity_errors(page, sid, spec):
+    """Every sample of the expectations' `opacities` in the moving picture `sid`, in its first
+    loop and one cycle later (the clock paused and set): the largest difference between the
+    opacity read (`OPACITY`) and the expected one, how many samples were read, how many were off
+    by more than `OPACITY_TOL`, and the ids not found."""
+    err, read, off, missing = 0.0, 0, 0, []
+    for e in spec["opacities"]:
+        for loop in (0, spec["cycle"]):
+            for s in e["samples"]:
+                o = page.evaluate(OPACITY, [sid, s["t"] + loop, e["id"], e["nth"]])
+                if o is None:
+                    missing.append(e["id"])
+                    continue
+                read += 1
+                err = max(err, abs(o - s["o"]))
+                off += abs(o - s["o"]) > OPACITY_TOL
+    return err, read, off, missing
+
+
+def opacity_mutation(c, browser, base, url, sid, spec, label, helpers):
+    """The opacity check must catch a mark whose fade never starts and one whose fade runs at the
+    wrong time: in a page of its own each, the opacity animation of the group nearest the layer of
+    the first entry of `opacities` is held at 0, or has its values shifted one boundary later
+    (`FADE_NEVER_STARTS`), before the clock is sought, and `opacity_errors` must find samples off
+    each time."""
+    new_page, goto = helpers["new_page"], helpers["goto"]
+    e = spec["opacities"][0]
+    for shift, words in [(False, "whose fade never starts (the fade of {} held at 0 in the page)"),
+                         (True, "whose fade runs at the wrong time (the values of the fade of {} "
+                          "shifted one boundary later)")]:
+        ctx, page = new_page(browser, viewport={"width": 1440, "height": 900})
+        goto(page, base + url)
+        page.evaluate("(sid) => document.getElementById(sid).pauseAnimations()", sid)
+        held = page.evaluate(FADE_NEVER_STARTS, [sid, e["id"], e["nth"], shift])
+        _, read, off, _ = opacity_errors(page, sid, spec)
+        ctx.close()
+        c.check(f"{label}: the opacity check catches a mark " + words.format(e["id"]),
+                held and off > 0, f"{off} of {read} samples off, the animation found: {held}")
+        if held and off > 0:
+            c.say(f"{label}: opacity mutation ({'shifted' if shift else 'held at 0'}) caught: "
+                  f"{off} of {read} samples off")
 
 
 def shot(page, sid):
@@ -281,28 +401,28 @@ def wait_clock(page, sid, t, cycle, early=0.0, late=0.15):
 # Seconds of the motion's clock. A state starts inside one rest and ends `SHOW_LEAD` before the
 # moment of comparison; that moment comes at least `MIN_HELD` after the start for a way of turning
 # motion off (so the state lasts 1.3 s or more, while its stills load) and at least `MIN_COVERED`
-# after it for hover, focus, a click or a tap (0.4 s or more). Without the rests' ends in the
-# expectations, a probe starts within `NEAR_REST` of a rest's middle.
+# after it for hover, focus, a click or a tap (0.4 s or more).
 SHOW_LEAD = 0.5
 MIN_HELD = 1.8
 MIN_COVERED = 0.9
-NEAR_REST = 0.25
 
 # The version of the expectations' format these checks read (`PILeanTest.MotionChecks
 # .expectationsFormat`), and what it has that an older one lacks.
-FORMAT = 2
+FORMAT = 3
 
 
 def spec_problem(spec):
-    """Why the expectations cannot be checked by this tool, or `None`: written in an older format
-    (a writer built with an older PILean, without the rests' ends, the slides, the declared moves
-    and the actors' drawings, so that a slide would go unchecked), or listing other turns or
-    slides than the motion declares (a writer that lost some)."""
-    if spec.get("format", 1) < FORMAT or "declared" not in spec or "slides" not in spec or \
-            any("shapes" not in r or "from" not in r for r in spec["rests"]):
+    """Why the expectations cannot be checked by this tool, or `None`: written in another format
+    than `FORMAT` (an older one has no opacities and no rests that are not stills, so that a fade
+    would go unchecked), or listing other turns or slides than the motion declares (a writer that
+    lost some)."""
+    if spec.get("format", 1) != FORMAT or "declared" not in spec or "slides" not in spec or \
+            "opacities" not in spec or \
+            any(k not in r for r in spec["rests"] for k in ("shapes", "from", "still")):
         return (f"the expectations are in format {spec.get('format', 1)}, this check reads format "
-                f"{FORMAT} (rests with their ends and drawings, slides, declared moves): rebuild "
-                "the expectations writer with this version of PILean")
+                f"{FORMAT} (rests with their ends, drawings and whether they are stills, slides, "
+                "opacities, declared moves): rebuild the expectations writer with this version "
+                "of PILean")
     d = spec["declared"]
     if d["turns"] != len(spec["turns"]) or d["slides"] != len(spec["slides"]):
         return (f"the motion declares {d['turns']} turns and {d['slides']} slides, the "
@@ -328,13 +448,16 @@ def undecided(spec):
             "pictures (same actors, anchors and drawings)")
 
 
-def rest_window(rest):
-    """The part of a rest (seconds of the clock) where a probe may read or switch: the rest less
-    0.1 s at each end, from its start and end in the expectations, else `NEAR_REST` about its
-    middle."""
-    if "from" in rest and rest["until"] - rest["from"] > 0.3:
+def rest_window(rest, short=False):
+    """The part of a rest (seconds of the clock) where a probe may read or switch: the part in
+    which the key is shown still (`from` to `until`, after the rest's fades) less 0.1 s at each
+    end; for a part of 0.3 s or less, `None`, or with `short` `NEAR_REST` about its middle (a
+    probe used only when fewer than two longer rests differ, `rest_pair`)."""
+    if rest["until"] - rest["from"] > 0.3:
         return rest["from"] + 0.1, rest["until"] - 0.1
-    return rest["t"] - NEAR_REST, rest["t"] + NEAR_REST
+    if short:
+        return rest["t"] - NEAR_REST, rest["t"] + NEAR_REST
+    return None
 
 
 def rest_pair(spec, start, least):
@@ -346,16 +469,21 @@ def rest_pair(spec, start, least):
     `None` when no two rests certainly differ."""
     cycle = spec["cycle"]
     best = None
-    for a in spec["rests"]:
-        lo_a, hi_a = rest_window(a)
+    # the rests whose key is shown still for more than 0.3 s; when no two of them differ, every
+    # rest, the short ones by their middle
+    short = not any(rests_differ(a, b) for a in spec["rests"] for b in spec["rests"]
+                    if rest_window(a) and rest_window(b))
+    rests = [r for r in spec["rests"] if rest_window(r, short)]
+    for a in rests:
+        lo_a, hi_a = rest_window(a, short)
         if (start - lo_a) % cycle <= hi_a - lo_a:
             wait, begin = 0.0, start
         else:
             wait, begin = (lo_a - start) % cycle, lo_a
-        for b in spec["rests"]:
+        for b in rests:
             if not rests_differ(a, b):
                 continue
-            lo_b, hi_b = rest_window(b)
+            lo_b, hi_b = rest_window(b, short)
             hi_b = max(lo_b, hi_b - 0.2)
             d = (lo_b - begin) % cycle
             if d >= least:
@@ -618,11 +746,10 @@ def state_checks(c, browser, base, url, sid, label, helpers, blueprint, spec=Non
             hidden_at = page.evaluate(clock, sid)
             enter_checked(c, label, page, state, stage, sid, prepared)
             if state in OFF:
-                # the stills are pictures loaded lazily: bring the list into view, as a reader who
-                # turned motion off sees it (Firefox loads a lazy picture only near the view)
-                page.evaluate("""(sid) => { const k = document.getElementById(sid)
-                  .closest('.pilean-motion').querySelector('.pilean-motion-keys');
-                  if (k) k.scrollIntoView({block: 'nearest'}); }""", sid)
+                # the stills are pictures loaded lazily: bring each into view in turn, as a reader
+                # who turned motion off scrolls through them (Firefox loads a lazy picture only
+                # near the view, so a grid taller than the window is not loaded by one scroll)
+                page.evaluate(LOAD_KEYS, [sid, STILL_WAIT_MS])
             if times:
                 wait_clock(page, sid, at - SHOW_LEAD, spec["cycle"])
             else:
@@ -710,6 +837,52 @@ GRID = """() => {
 }"""
 
 
+# What makes the page scroll sideways: the innermost elements that reach past the window's right
+# edge, each named (tag, id, classes) with whether it is inside a figure; at most five.
+OVERFLOW = """() => {
+  const w = window.innerWidth;
+  const out = [];
+  for (const e of document.body.querySelectorAll('*')) {
+    const r = e.getBoundingClientRect();
+    if (r.width === 0 || r.right <= w + 0.5) continue;
+    // a shape of an SVG picture reaches no further than its picture, which clips it
+    const own = e.ownerSVGElement;
+    if (own && own.getBoundingClientRect().right <= w + 0.5) continue;
+    if ([...e.children].some(k => k.getBoundingClientRect().right > w + 0.5)) continue;
+    const name = e.localName + (e.id ? '#' + e.id : '') +
+      (e.getAttribute('class') ? '.' + e.getAttribute('class').trim().split(/\\s+/)
+        .join('.') : '');
+    // where it is: in a figure's picture (2), in a figure but not its picture, its caption say (1),
+    // or outside any figure (0)
+    const picture = e.closest('svg, img, picture, .pilean-motion, .pilean-inline-svg, ' +
+      '.pilean-page-motion-keys');
+    const figure = e.closest('figure, .pilean-figure, .pilean-figure-page');
+    out.push([name, picture && figure ? 2 : figure ? 1 : 0]);
+    if (out.length === 5) break;
+  }
+  return out;
+}"""
+
+
+def overflow_words(page, px):
+    """Why the page scrolls sideways by `px` pixels: the elements that reach past the window, said
+    apart for those in a figure's picture, those in a figure but not its picture (its caption, its
+    math), and those outside any figure (the page's own prose), which the figures' pictures do not
+    cause."""
+    found = page.evaluate(OVERFLOW)
+    where = {k: [n for n, w in found if w == k] for k in (0, 1, 2)}
+    if where[2]:
+        words = f"{px} px: a figure's picture makes the page scroll sideways ({', '.join(where[2])})"
+    else:
+        words = (f"{px} px: the page scrolls sideways because of an element outside any figure's "
+                 "picture; the pictures are not the cause")
+    if where[1]:
+        words += f"; in a figure's caption or text: {', '.join(where[1])}"
+    if where[0]:
+        words += f"; outside any figure: {', '.join(where[0])}"
+    return words
+
+
 def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None):
     """At 1440, 1024, 768, 560, 390, 360 and 320 px the page does not scroll sideways with motion
     on, and with motion off: every still of every grid of stills (inline and on a figure's page)
@@ -722,7 +895,8 @@ def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None)
         ctx, page = new_page(browser, viewport={"width": width, "height": 900})
         goto(page, base + url)
         on = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
-        c.check(f"{label} {width} px: no sideways scrolling", on <= 0, f"{on} px")
+        c.check(f"{label} {width} px: no sideways scrolling", on <= 0,
+                overflow_words(page, on) if on > 0 else f"{on} px")
         page.evaluate("""() => { document.documentElement.setAttribute('data-motion', 'reduce');
           for (const i of document.querySelectorAll('.pilean-motion-keys img,'
             + ' .pilean-page-motion-keys img')) i.loading = 'eager'; }""")
@@ -749,7 +923,7 @@ def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None)
         c.check(f"{label} {width} px: with motion off no still is drawn larger than its natural "
                 "width", bool(grids) and not big, str(big[:3]))
         c.check(f"{label} {width} px: with motion off no sideways scrolling", wide <= 0,
-                f"{wide} px")
+                overflow_words(page, wide) if wide > 0 else f"{wide} px")
         if shots and width in (1440, 768, 560, 390):
             loc = page.locator(".pilean-motion:not(.pilean-motion-bare) ol.pilean-motion-keys,"
                                " ol.pilean-page-motion-keys")
@@ -757,6 +931,183 @@ def grid_checks(c, browser, base, url, label, helpers, shots=None, layouts=None)
                 stem = re.sub(r"[^A-Za-z0-9._-]", "_", (url or "root").strip("/"))
                 loc.nth(i).screenshot(path=f"{shots}/grid-{stem}-{i}-{width}.png")
         ctx.close()
+
+
+# The still images of every grid of stills of a page (inline and on a figure's page), in the
+# theme shown.
+GRID_STILLS = (".pilean-motion:not(.pilean-motion-bare) ol.pilean-motion-keys img,"
+               " ol.pilean-page-motion-keys img")
+
+# Each still image shown of a grid: its `src`, its box, and whether its file has loaded.
+STILL_BOXES = """(sel) => [...document.querySelectorAll(sel)].filter(i => i.offsetParent !== null)
+  .map(i => { const r = i.getBoundingClientRect();
+    return [i.getAttribute('src'), r.width, r.height, i.complete && i.naturalWidth > 0]; })"""
+
+# Brings each still image shown into view in turn and waits until it has loaded (10 s at most)
+# and is decoded; then each one's box, as `STILL_BOXES`.
+LOAD_STILLS = """async (sel) => {
+  const imgs = [...document.querySelectorAll(sel)].filter(i => i.offsetParent !== null);
+  for (const i of imgs) {
+    i.scrollIntoView({block: 'center'});
+    await new Promise(ok => {
+      if (i.complete && i.naturalWidth > 0) return ok();
+      const t = setTimeout(ok, 10000);
+      const done = () => { clearTimeout(t); ok(); };
+      i.addEventListener('load', done, {once: true});
+      i.addEventListener('error', done, {once: true});
+    });
+    await i.decode().catch(() => {});
+  }
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  return imgs.map(i => { const r = i.getBoundingClientRect();
+    return [i.getAttribute('src'), r.width, r.height, i.complete && i.naturalWidth > 0]; });
+}"""
+
+# The longest a still of a motion's own list is waited for once it is in view (milliseconds).
+STILL_WAIT_MS = 5000
+
+# Brings each still shown of the list of the motion `sid` into view in turn, waiting until it has
+# loaded (`STILL_WAIT_MS` at most each), then the list's start back into view: a grid of stills
+# taller than the window is loaded as a reader scrolling through it loads it.
+LOAD_KEYS = """async ([sid, wait]) => {
+  const k = document.getElementById(sid).closest('.pilean-motion')
+    .querySelector('.pilean-motion-keys');
+  if (!k) return;
+  for (const i of [...k.querySelectorAll('img')].filter(i => i.offsetParent !== null)) {
+    i.scrollIntoView({block: 'center'});
+    await new Promise(ok => {
+      if (i.complete && i.naturalWidth > 0) return ok();
+      const t = setTimeout(ok, wait);
+      const done = () => { clearTimeout(t); ok(); };
+      i.addEventListener('load', done, {once: true});
+      i.addEventListener('error', done, {once: true});
+    });
+  }
+  k.scrollIntoView({block: 'nearest'});
+}"""
+
+# A still's file (light or dark, wide or narrow), whose requests `still_boxes` holds.
+STILL_FILE = re.compile(r"-key-\d+(-dark)?\.svg(\?.*)?$")
+SOURCE_TAG = re.compile(r"<source\b[^>]*>")
+SIZE_ATTR = re.compile(r'\s(width|height)="[^"]*"')
+
+
+def still_boxes(browser, base, url, width, helpers, strip_sizes=False):
+    """The boxes of the still images of the page's grids at the viewport width `width`, with
+    motion off (`data-motion="reduce"`), before their files load and after: every request for a
+    still's file is held until the first boxes are measured, so that none has loaded then; then
+    each image is brought into view and waited for (`LOAD_STILLS`). With `strip_sizes`, the page
+    is served with the `width` and `height` of its `source` elements taken away (the defect the
+    check must notice). Returns `(before, after)`, lists of `[src, width, height, loaded]`."""
+    new_page, goto = helpers["new_page"], helpers["goto"]
+    ctx, page = new_page(browser, viewport={"width": width, "height": 900})
+    held, released = [], []
+
+    def hold(route):
+        if released:
+            route.continue_()
+        else:
+            held.append(route)
+    page.route(lambda u: bool(STILL_FILE.search(u)), hold)
+    if strip_sizes:
+        def rewrite(route):
+            r = route.fetch()
+            body = SOURCE_TAG.sub(lambda m: SIZE_ATTR.sub("", m.group(0)), r.text())
+            route.fulfill(response=r, body=body)
+        page.route(lambda u: u == base + url, rewrite)
+    # the held stills keep the page from reaching `load`: wait for its markup and layout only
+    page.goto(base + url, wait_until="domcontentloaded")
+    page.evaluate("document.documentElement.setAttribute('data-motion', 'reduce')")
+    page.wait_for_timeout(300)
+    before = page.evaluate(STILL_BOXES, GRID_STILLS)
+    released.append(True)
+    for route in held:
+        route.continue_()
+    after = page.evaluate(LOAD_STILLS, GRID_STILLS)
+    ctx.close()
+    return before, after
+
+
+def box_changes(before, after):
+    """The stills measured before they loaded (`still_boxes`), and of those, the ones whose box
+    differs after loading by more than 0.5 px in width or height, or that did not load."""
+    measured = [i for i, b in enumerate(before) if not b[3]]
+    changed = []
+    for i in measured:
+        a = after[i] if i < len(after) else None
+        if a is None or not a[3] or abs(a[1] - before[i][1]) > 0.5 or \
+                abs(a[2] - before[i][2]) > 0.5:
+            changed.append((os.path.basename(before[i][0] or "?"), before[i][1:3],
+                            a and a[1:4]))
+    return measured, changed
+
+
+def intrinsic_checks(c, browser, base, url, label, helpers):
+    """With motion off, at 1440 and 360 px, every still image of every grid of stills on the page
+    has the same box before its file has loaded as after (within 0.5 px): a lazy still reserves
+    the box it is drawn in, the narrow rendition's on a phone (each `source` carries its own
+    `width` and `height`); some still must have been measured before loading."""
+    for width in (1440, 360):
+        before, after = still_boxes(browser, base, url, width, helpers)
+        measured, changed = box_changes(before, after)
+        c.check(f"{label} {width} px: with motion off every still keeps its box when its file "
+                "loads (the box it reserves is the one it is drawn in)",
+                bool(measured) and len(after) == len(before) and not changed,
+                f"{len(measured)} of {len(before)} measured before loading; changed: "
+                f"{changed[:3]}")
+
+
+def overflow_control(c, browser):
+    """The sideways-scrolling message must tell the page's own prose and a figure's caption from a
+    figure's picture: on pages at 360 px whose prose, whose figure's picture and whose figure's
+    caption hold an element 500 px wide, it names each where it is."""
+    page = browser.new_page(viewport={"width": 360, "height": 800})
+    page.set_content('<body style="margin:0"><p><span class="math" style="display:inline-block;'
+                     'width:500px">x</span></p><figure><div>f</div></figure></body>')
+    prose = overflow_words(page, 140)
+    page.set_content('<body style="margin:0"><figure class="pilean-figure"><svg class="wide" '
+                     'width="500" height="10"></svg></figure></body>')
+    figure = overflow_words(page, 140)
+    page.close()
+    page = browser.new_page(viewport={"width": 360, "height": 800})
+    page.set_content('<body style="margin:0"><figure class="pilean-figure"><svg width="10" '
+                     'height="10"></svg><figcaption><span class="cap" style="display:'
+                     'inline-block;width:500px">x</span></figcaption></figure></body>')
+    caption = overflow_words(page, 140)
+    page.close()
+    c.check("the sideways-scrolling message names prose outside any figure as the cause",
+            "outside any figure: span.math" in prose and "not the cause" in prose, prose)
+    c.check("the sideways-scrolling message names a figure's picture that overflows",
+            "a figure's picture makes the page scroll sideways (svg.wide)" in figure, figure)
+    c.check("the sideways-scrolling message names a figure's caption, not its picture",
+            "not the cause" in caption and "caption or text: span.cap" in caption, caption)
+
+
+def intrinsic_control(c, browser, base, pages, site, helpers):
+    """The intrinsic-size check must notice stills whose `source` elements lack their own
+    `width` and `height`: on the first page with a motion that has a narrow rendition and a grid
+    of stills, served with those attributes taken away, at 360 px some still's box must change
+    when its file loads."""
+    for url in pages:
+        with open(os.path.join(site, url, "index.html"), encoding="utf-8") as f:
+            text = f.read()
+        # a still of a narrow rendition (the class name alone may be in the page's stylesheet)
+        if re.search(r'<source\b[^>]*-narrow-key-\d+', text) and re.search(
+                r'class="pilean-(page-)?motion-keys', text):
+            break
+    else:
+        c.check("the intrinsic-size control has a page with a narrow rendition and stills", False,
+                str(pages))
+        return
+    before, after = still_boxes(browser, base, url, 360, helpers, strip_sizes=True)
+    measured, changed = box_changes(before, after)
+    caught = bool(measured) and bool(changed)
+    c.check(f"the intrinsic-size check notices stills whose source elements lack their width "
+            f"and height ({url or '/'}, 360 px)", caught,
+            f"{len(measured)} measured before loading, none changed")
+    if caught:
+        c.say(f"intrinsic-size mutation caught on {url or '/'}: {len(changed)} of "
+              f"{len(measured)} stills change their box, e.g. {changed[0]}")
 
 
 def still_checks(c, browser, base, url, sids, label, helpers, shots=None):
@@ -934,6 +1285,11 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
             position_checks(c, npage, sid[:-len("-mw")] + "-mn", spec,
                             f"{label} {file_of(page, sid)}-narrow (360 px)")
         nctx.close()
+    # the opacity check catches a fade that never starts, on the page's first motion with fades
+    fading = next((s for s in sids if s in specs and specs[s]["opacities"]), None)
+    if fading:
+        opacity_mutation(c, browser, base, url, fading, specs[fading],
+                         f"{label} {file_of(page, fading)}", helpers)
     # ids, actors
     ids = page.evaluate("""() => { const all = [...document.querySelectorAll('[id]')]
       .map(e => e.id); return all.filter((v, i) => all.indexOf(v) !== i); }""")
@@ -1039,6 +1395,8 @@ def motion_checks(c, browser, base, url, label, helpers, expect=None, shots=None
         ctx.close()
     # sideways scrolling with motion on and off, and the grids of stills
     grid_checks(c, browser, base, url, label, helpers, shots, helpers.get("layouts"))
+    # the box a lazy still reserves is the one it is drawn in
+    intrinsic_checks(c, browser, base, url, label, helpers)
     # states, with the freeze check, on every motion of the page
     for sid in sids:
         state_checks(c, browser, base, url, sid, label, helpers, blueprint, specs.get(sid),
@@ -1160,6 +1518,9 @@ def main(argv):
         browser = site_browser.launch(p, engine)
         c.check("the site has pages with motions", bool(pages), site)
         c.section("freeze control", freeze_control, c, browser, engine)
+        c.section("overflow control", overflow_control, c, browser)
+        c.section("intrinsic-size control", intrinsic_control, c, browser, base, pages, site,
+                  helpers)
         motion_pages_checks(c, browser, base, [(u, u or "/", 1) for u in pages], helpers,
                             expect, shots, workers)
         browser.close()

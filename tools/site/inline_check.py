@@ -24,8 +24,9 @@ animated SVG file as `docs/TRUST.md` asks ("What a page that shows a motion must
 own `title` and `desc` (when it has them) are skipped, then its source record; its `style` element
 must be, character for character, the fixed reduced-motion rule (`Animation.reducedMotionStyle`);
 its last element must be the poster group, which must be, element for element, the still of the
-poster key the page names (`data-pilean-poster`; the file `-key-k.svg` beside the animated SVG, of
-the same rendition, listed in the manifest with its SHA-256) with every id prefixed `poster-`
+poster key the page names (`data-pilean-poster`, a key's index, which must be a key that is a still;
+the file `-key-k.svg` beside the animated SVG, of the same rendition, listed in the manifest with
+its SHA-256) with every id prefixed `poster-`
 (after the background and the titles the file draws before its moving picture, which a picture of
 panels does not repeat in it); and the page's picture must be the file's nodes between that
 `style` element and the poster group, element for element, once what the page adds is taken away
@@ -35,8 +36,10 @@ too: the still over the moving picture (`span.pilean-motion-still`) is exactly t
 still (`-key-k.svg` for the poster `k` the page names, with `-key-k-dark.svg` when the manifest
 lists it, and the narrow rendition's `-narrow-key-k.svg` and its dark twin as the sources for
 small screens when the motion has one), and the list of stills (`ol.pilean-motion-keys`, left out
-only on the figure's page, `pilean-motion-bare`) has one item for each key `k`, in order, showing
-exactly the files of key `k` likewise, with its caption `Step k+1 of N: …`.
+only on the figure's page, `pilean-motion-bare`) has one item for each key that is a still (the
+manifest's `stills`, every key when it lists none; still files exist for those keys only, named
+by the key's index), in order: item `i`, of key `k`, shows exactly the files of key `k` likewise,
+with its caption `Step i+1 of N: …`, `N` the number of stills.
 
 Exit status 0 when every picture holds, 1 otherwise (each failure is printed).
 """
@@ -262,6 +265,8 @@ def motion_problem(svg, data, figs, path, entry, manifest):
     poster = root.get("data-pilean-poster")
     if poster is None or not poster.isdigit():
         return "the page names no poster key (data-pilean-poster)"
+    if int(poster) not in still_keys(entry):
+        return f"the poster key {poster} is not one of the stills {still_keys(entry)}"
     live, lead, group = motion_parts(data)
     spath = still_path(path, poster)
     sentry = manifest.get(spath)
@@ -316,17 +321,26 @@ def stills_problem(text, end, path, manifest, entry, poster):
     if lm is None:
         return "no list of stills after the stage"
     items = re.findall(r'<li class="pilean-motion-key"[^>]*>(.*?)</li>', lm.group(1), re.S)
-    n = entry.get("keys")
+    stills = still_keys(entry)
+    n = len(stills)
     if len(items) != n:
-        return f"{len(items)} stills listed for {n} keys"
-    for k, li in enumerate(items):
+        return f"{len(items)} stills listed for the {n} keys that are stills {stills}"
+    for i, (k, li) in enumerate(zip(stills, items)):
         want = key_files(stem, k, manifest, narrow)
         have = (refs(li, "src"), refs(li, "srcset"))
+        if not want[0]:
+            return f"key {k} is a still, but the manifest lists no file {stem}-key-{k}.svg"
         if have != want:
-            return f"still {k} shows {have}, not {want}"
-        if f"Step {k + 1} of {n}: " not in li:
-            return f"still {k} has no caption Step {k + 1} of {n}"
+            return f"still {i + 1} (key {k}) shows {have}, not {want}"
+        if f"Step {i + 1} of {n}: " not in li:
+            return f"still {i + 1} (key {k}) has no caption Step {i + 1} of {n}"
     return None
+
+
+def still_keys(entry):
+    """The keys of a motion that are stills, in order, from its manifest entry: its `stills`, or
+    every key when it lists none."""
+    return list(entry.get("stills") or range(entry.get("keys") or 0))
 
 
 def main(site, figs=None):

@@ -226,9 +226,11 @@ def secondsText (q : Rat) : String :=
 
 /-- The table of a motion's steps: for each step, the keys it goes between, its duration, and
 each move with its panel (in a picture of panels), its actor and what it is
-(`MotionMoveRow.words`, which says when a move is drawn as a crossfade); an idle step says that
-nothing moves. Every string is text, which the HTML writer escapes. -/
-def motionStepTable (rows : Array MotionStepRow) : Html :=
+(`MotionMoveRow.words`, which says when a move is drawn as a crossfade, and the window of a fade in
+part of its step); an idle step says that nothing moves. The rest on a key that has fades, or on a
+key that is not a still, has a row of its own before the step that leaves the key (`rests`): its
+duration and its fades with their windows. Every string is text, which the HTML writer escapes. -/
+def motionStepTable (rows : Array MotionStepRow) (rests : Array MotionRestRow := #[]) : Html :=
   let head := Html.element "thead" #[] (.element "tr" #[] (.seq #[
     .element "th" #[("scope", "col")] (txt "Step"),
     .element "th" #[("scope", "col")] (txt "Duration"),
@@ -240,16 +242,27 @@ def motionStepTable (rows : Array MotionStepRow) : Html :=
       if r.panel.isEmpty then .empty
       else .seq #[el "span" "pilean-motion-panel" (txt r.panel), txt ": "],
       .element "code" #[] (txt r.actor), txt s!": {r.words}"])
-  let body := rows.map fun row =>
+  let restRow := fun (k : Nat) => match rests[k]? with
+    | some r =>
+      if r.fades.isEmpty && r.still then #[] else
+        #[Html.element "tr" #[("class", "pilean-motion-rest")] (.seq #[
+          .element "th" #[("scope", "row")]
+            (txt s!"Rest on key frame {k + 1}{if r.still then "" else " (not a still)"}"),
+          .element "td" #[] (txt (secondsText r.duration)),
+          .element "td" #[] (if r.fades.isEmpty then txt "Nothing moves."
+            else .element "ul" #[("class", "pilean-motion-moves")] (.seq (r.fades.map move)))])]
+    | Option.none => #[]
+  let body := rows.flatMap fun row =>
     let what : Html :=
       if row.moves.isEmpty then
         txt (if row.idle then "Nothing moves (it holds its key frame)." else "Nothing moves.")
       else .element "ul" #[("class", "pilean-motion-moves")] (.seq (row.moves.map move))
-    Html.element "tr" #[] (.seq #[
+    restRow row.step ++ #[Html.element "tr" #[] (.seq #[
       .element "th" #[("scope", "row")]
         (txt s!"{row.step + 1}: key frame {row.step + 1} to {row.step + 2}"),
       .element "td" #[] (txt (secondsText row.duration)),
-      .element "td" #[] what])
+      .element "td" #[] what])]
+  let body := body ++ restRow rows.size
   el "div" "pilean-motion-steps-wrap" (.element "table" #[("class", "pilean-motion-steps")]
     (.seq #[.element "caption" #[] (txt "The steps of the animation, from key frame to key frame"),
       head, .element "tbody" #[] (.seq body)]))
@@ -264,18 +277,20 @@ def motionSection (idBase : String) (m : MotionData) (n : Option MotionData)
     (files : Array FileInfo) : Html :=
   let captions := m.stills.stepCaptions
   let narrowOf := fun (k : Nat) => n.map fun _ => s!"-narrow-key-{k}"
-  let stills := (Array.range m.stills.frames.size).map fun k =>
+  let stills := (Array.range m.stills.frames.size).map fun i =>
+    let k := stillKeyOf m i
     Html.element "li" #[("class", "pilean-page-motion-key")] (.seq #[
       themedPictures files s!"-key-{k}" (narrowOf k) (lazy := true),
-      el "p" "pilean-motion-key-caption" (txt (motionStepText captions k))])
-  let wide := stillWidth? files s!"-key-{m.stills.poster}"
-  let small := n.bind fun _ => stillWidth? files s!"-narrow-key-{m.stills.poster}"
+      el "p" "pilean-motion-key-caption" (txt (motionStepText captions i))])
+  let poster := stillKeyOf m m.stills.poster
+  let wide := stillWidth? files s!"-key-{poster}"
+  let small := n.bind fun _ => stillWidth? files s!"-narrow-key-{poster}"
   let rules := stillColumnRules wide small
   el "section" "pilean-page-motion" (.seq #[
     el "h2" "pilean-page-h" (txt "Animation"),
     el "p" (if m.unchecked then "pilean-motion-words pilean-motion-unchecked"
       else "pilean-motion-words") (txt m.words),
-    motionStepTable m.steps,
+    motionStepTable m.steps m.rests,
     el "h3" "pilean-page-decl-title" (txt "Key frames"),
     el "ol" (s!"pilean-page-motion-keys {stillColumnClasses wide small}".trimAscii.toString)
       (.seq stills),

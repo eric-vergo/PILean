@@ -121,10 +121,14 @@ changes the speed of the whole picture by that fraction and nothing else, becaus
 uses the same text. -/
 def durText (cycle : Rat) : String := fmtNum (Exact.toFloat cycle) 6 ++ "s"
 
-/-- An easing as the text of one `keySplines` entry, `x₁ y₁ x₂ y₂`. -/
+/-- An easing as the text of one `keySplines` entry, `x₁ y₁ x₂ y₂`, each to six decimals (the part
+of an easing in a divided step, `Easing.part`, needs them: measured over thirteen curves on every
+part between two hundredths of a step, at six a turn stays within `2.85e-6` of its change from its
+eased angle, at four it would be off by up to about `7.5e-5`; `docs/DESIGN.md`, "Timelines and
+SMIL motions"). -/
 def splineText (e : Easing) : String :=
   let (x₁, y₁, x₂, y₂) := e.controls
-  s!"{fmtNum x₁ 4} {fmtNum y₁ 4} {fmtNum x₂ 4} {fmtNum y₂ 4}"
+  s!"{fmtNum x₁ 6} {fmtNum y₁ 6} {fmtNum x₂ 6} {fmtNum y₂ 6}"
 
 /-- The timing attributes of an element: the cycle as `dur`, the key times, one spline per
 interval, `calcMode="spline"`, indefinite repetition and `begin="0s"`. -/

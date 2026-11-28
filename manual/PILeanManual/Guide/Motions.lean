@@ -156,18 +156,18 @@ or more is an error unless the step sets `allowFullTurns`.
 tag := "motions-pacing"
 %%%
 
-The timing is exact: durations are rational numbers of seconds
-({name}`PILean.Anim.Pacing`, {name}`PILean.Anim.Timeline`), so the cycle, the start of every
-segment and the boundaries as fractions of the cycle are exact, and facts about them can be
-stated as theorems about rationals. A cycle rests on key `0` for `firstHold`; then, for each
-step, moves for the step's duration and rests on the next key for `hold` (`lastHold` after the last step). By
-default a step takes the pacing's time for the longest kind of move it has (`turn` 1 s; `slide`
+The timing is exact: durations are rational numbers of seconds ({name}`PILean.Anim.Pacing`,
+{name}`PILean.Anim.Timeline`), so the cycle, the start of every segment and the boundaries as
+fractions of the cycle are exact, and facts about them can be stated as theorems about rationals. A
+cycle rests on key `0` for `firstHold`; then, for each step, moves for the step's duration and rests
+on the next key for `hold` (`lastHold` after the last step). A key may rest as long as it says
+({name}`PILean.Plane.MotionKey`'s `rest`, in the motion's `keyOptions`), which wins over all three.
+By default a step takes the pacing's time for the longest kind of move it has (`turn` 1 s; `slide`
 0.8 s, which a morph takes too; `fade` 0.35 s for an appearance or a disappearance, and for a step
 with no moves); an idle step (`MotionStep.idle`) takes `idle` (0.9 s) and is not eased. A step can
-set its own `duration` and its own `easing`. Progress through every segment is
-eased by a cubic Bézier curve as in SMIL's `keySplines` and CSS:
-{name}`PILean.Anim.Easing.standard` (`ease-in-out`, the default), `Easing.linear`, or
-`Easing.spline x₁ y₁ x₂ y₂`.
+set its own `duration` and its own `easing`. Progress through every segment is eased by a cubic
+Bézier curve as in SMIL's `keySplines` and CSS: {name}`PILean.Anim.Easing.standard` (`ease-in-out`,
+the default), `Easing.linear`, or `Easing.spline x₁ y₁ x₂ y₂`.
 
 The loop closes with the *seam*: under `Seam.crossfade d` (the default, 0.4 s) the picture fades
 out at the end of the cycle and in at its start, and the jump from the last key back to the first
@@ -184,6 +184,122 @@ happens while nothing is visible; under `Seam.cut` the picture jumps.
 
 The cycle is the holds plus the steps plus the seam: 1.2 + 3.3 + 4 × 0.6 + 1.8 + 0.4 = 9.1 s; the
 key times are the 14 boundaries of the segments, as fractions of the cycle.
+
+# A Mark That Announces the Next Move
+%%%
+tag := "motions-announce"
+%%%
+
+A mark that announces the next move, an arrow of the sense of the next turn about its centre,
+should appear while everything else stands still, stay through the move and go after it, without
+lengthening the loop and without stills of the hand-over. Three things declared per key and per
+step give it ({name}`PILean.Plane.MotionKey`, in the motion's `keyOptions`, empty or one per key;
+`MotionStep.windows`):
+
+* a key's own `rest`, in seconds;
+* `fades` during the rest on a key: an actor appears (it is in the key and not in the one before)
+  or vanishes (it is in the key before and not in this one) in a {name}`PILean.Plane.Window` of the
+  rest: `Window.seconds a b`, `Window.first s`, `Window.last s` or `Window.fractions a b`. A key's
+  figure is the picture at the end of its rest, after its fades, so its still is the state the
+  reader studies, the mark of the next move already there;
+* `windows` of a step: an appearance or a disappearance in part of its step, eased as that part
+  of the step is, beside a turn of another actor in the same step.
+
+Here the triangle turns a quarter about `A` and then a quarter about `B`. On key 0 an arrow about
+`A` announces the first turn. The rest on key 1 lasts 0.9 s: in its first 0.2 s the arrow about
+`A` fades out, in the next 0.2 s the arrow about `B` fades in, and for 0.5 s the triangle stands
+with it; that arrow fades out in the last 0.3 s of the turn it announced. Each arrow is in one key
+only, so the motion needs no keys for the hand-over, and its stills are one per state:
+
+```lean
+/-- The centres `A` and `B` of the turns, faint, with their names. -/
+def centresAB : Array Item :=
+  #[Plane.Exact.point ((0, 0) : Q) |>.faint, Plane.Exact.label "A" ((0, 0) : Q) .below |>.faint,
+    Plane.Exact.point ((0, 2) : Q) |>.faint, Plane.Exact.label "B" ((0, 2) : Q) .above |>.faint]
+
+/-- A curved arrow of a counterclockwise turn about `c`, from the angle `θ₀` to `θ₁` (radians),
+the actor `id`. -/
+def senseArrow (id : String) (c : Point) (θ₀ θ₁ : Float) : Item :=
+  Plane.arc c 0.5 θ₀ θ₁ |>.withArrow |>.accent 1 |>.actor id
+
+/-- The key of `announce` with the triangle at `(a, b, c)` and the marks `marks`. -/
+def announceKey (a b c : Q) (marks : Array Item) : Plane.Figure :=
+  { items := centresAB ++
+      #[Plane.Exact.polygon [a, b, c] |>.filled |>.accent 0 |>.actor "T"] ++ marks,
+    width := 320 }
+
+/-- A triangle turned a quarter about `A`, then a quarter about `B`; an arrow announces each
+turn. -/
+@[figure illustration]
+def announce : Motion where
+  keys := #[announceKey (1, 0) (2, 0) (1, 1) #[senseArrow "toA" ⟨0, 0⟩ 1.9 3.9],
+    announceKey (0, 1) (0, 2) (-1, 1) #[senseArrow "toB" ⟨0, 2⟩ (-0.7) 1.3],
+    announceKey (1, 2) (0, 2) (1, 1) #[]]
+  captions := #["The arrow about A announces a quarter turn about A.",
+    "Turned about A; the arrow about B announces a quarter turn about B.",
+    "Turned about B."]
+  steps := #[{ moves := #[("T", Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4))] },
+    { moves := #[("T", Plane.Exact.turnAbout ((0, 2) : Q) (1 / 4)), ("toB", .vanish)],
+      windows := #[("toB", .last (3 / 10))] }]
+  keyOptions := #[{},
+    { rest := some (9 / 10),
+      fades := #[("toA", .vanish, .first (1 / 5)), ("toB", .appear, .seconds (1 / 5) (2 / 5))] },
+    {}]
+  info := { title := "Arrows that announce the next turn",
+            description := "A triangle turns about A, then about B; before each turn an arrow \
+              shows its sense about its centre." }
+```
+
+:::figure PILeanManual.Motions.announce (alt := "A triangle turns a quarter about A, then a quarter about B. Before each turn a curved arrow about its centre shows its sense; while the triangle rests between the turns, the arrow about A fades out and the arrow about B fades in.")
+An arrow that announces the next turn during a rest.
+:::
+
+The rest on key 1 is cut at the ends of the fades' windows, and the turn about `B` at 0.7 s of its
+second; every part of the turn is eased as that part of the whole turn is, so the triangle keeps
+its eased motion while the arrow fades. The key is shown still in the last part of its rest, after
+its fades: the rest check, the poster's time and the browser check use its middle.
+
+```lean (name := announceEx)
+#eval announce.problems.size
+#eval (announce.timeline.segments.filter (·.kind == .rest 1)).map (·.dur)
+#eval (announce.timeline.segments.filter (·.kind == .move 1)).map (·.dur)
+#eval announce.restRows.map fun r => (r.key, r.duration, r.fades.map (·.words))
+```
+
+```leanResult announceEx
+```
+
+The rules, each an error: an actor fades at most once in a rest, and does not move in the step
+before a rest it fades in (it is drawn as the key before draws it until it has gone); a window
+lies inside its rest or step and ends after it starts; the rest goes on after its last fade ends
+for at least 0.1 s ({name}`PILean.Plane.minStillPart`), so that the key is shown still long
+enough to be checked in a browser; the windows of one rest are apart or the same (across the
+panels of a picture too); and only an appearance or a disappearance runs in part of a step, never
+in a step sampled for a morph (in a picture of panels, by any panel). A turn, a slide or a morph
+runs through its whole step: one interval of the clock has one easing for every animation in it.
+
+Two cases need writing one way:
+
+* *A fade across the end of a step and the start of a rest* cannot be one window: a window lies
+  in one step or one rest. Write it as two fades of two actors, or choose one side: a mark that
+  should start fading in during a turn and finish in the rest after it fades in in the last part
+  of the turn (`MotionStep.windows`, `Window.last`), and is then simply there during the rest.
+* *An actor that fades during a rest cannot move in the step before it.* A mark that turns with
+  the figure and then fades out does so in the next step, or in a window of that step, not
+  during the rest; a mark that fades in during a rest may move in the steps after it, like any
+  actor of its key.
+
+The stills follow from the rule that a key's figure is the picture at the end of its rest: when
+marks announce the next move, every still shows the mark of the move that comes after it (the
+still of key 1 shows the triangle turned about `A` and the arrow about `B`). Write each caption
+for that state: what has happened, and what the mark says comes next, as `announce`'s captions
+do.
+
+A key that the motion only passes through can say so (`still := false`): it takes part in the
+motion and in every check, but it has no still files, is not in the grid of stills or the contact
+sheet, and is not counted in "Step k of N"; its caption can be empty. The poster is a still. The
+other stills keep their key's number in their files' names (`d-key-0`, `d-key-1`, `d-key-3` when
+key 2 is not a still).
 
 # Checks
 %%%
@@ -202,11 +318,14 @@ and include five groups of checks:
 * the *layout checks* of the plane figures on every key (overlaps, contrast, labels), after the
   automatic label placements are fixed on the first key where their actor appears, so that a label
   rides its actor on every later key;
-* the *rests*: at the middle of every key's rest the whole baked drawing, every path and every
-  text, is the key's still within 0.05 px, which bounds what the per-step tolerance can add up to
-  and catches a wrong counter-rotation or stacking order;
+* the *rests*: at the middle of every key's rest (of its last part, after its fades) the whole
+  baked drawing, every path and every text, is the key's still within 0.05 px, which bounds what
+  the per-step tolerance can add up to and catches a wrong counter-rotation or stacking order;
+* the *fades*: those of a rest and those in part of a step hold to their keys and their windows
+  ({ref "motions-announce"}[above]);
 * the *writer against the baker*: the written SVG, read back with the evaluator of SMIL timing, is
-  what the baker draws, at the middle of every rest and every move;
+  what the baker draws, every actor's position and opacity, at the middle of every part of every
+  rest and every move;
 * the *bounds*: nothing of any layer leaves the picture while it moves.
 
 A step that cannot be as declared is an example worth reading once:
@@ -232,9 +351,10 @@ The *level* of the checks is `Motion.checks`. Under `CheckLevel.fail`, the defau
 the motion: `svg?` gives the messages and nothing is written. Under `CheckLevel.warn` the errors
 are warnings on the animated SVG, and a move that misses its key is drawn as a crossfade between
 the two drawings; under `ignore` the checks are not reported. Whatever the level, a motion that is
-not well formed (a caption per key, one step fewer than keys, a poster among the keys), whose
-written picture would have an id twice (actor ids that differ but are written alike, `a b` and
-`a_b`), or whose panels use different text engines, is stopped.
+not well formed (a caption per key, one step fewer than keys, a poster among the keys, the
+options of no key or of every key), whose poster is not a still, whose written picture would have
+an id twice (actor ids that differ but are written alike, `a b` and `a_b`), or whose panels use
+different text engines, is stopped.
 
 A motion is *checked strictly* when it was built at `fail` and has no error left. By default a
 build writes only such motions: `pilean-build` refuses the others before it renders anything, and a
@@ -268,6 +388,9 @@ tag := "motions-questions"
   there is no opacity for strokes. For a fainter stroke use {name}`PILean.Plane.Item.faint`, or a
   colour role of the style (`PlaneStyle.roles`, {name}`PILean.Plane.Item.role`), which keeps a
   dark twin; a fixed colour with an alpha ({name}`PILean.Plane.Item.color`) has none.
+* *A mark that announces the next move.* Fade it in during the rest before the move and out in
+  the last part of the move, or during the next rest ({ref "motions-announce"}[A Mark That
+  Announces the Next Move]); it needs no keys of its own.
 * *A curved arrow.* An arc with an arrowhead is an element of its own:
   `Plane.arc c r θ₀ θ₁ |>.withArrow` ({name}`PILean.Plane.Item.withArrow`) ends in an arrowhead
   at `θ₁` (with `θ₁ < θ₀` it points clockwise), and {name}`PILean.Plane.angleMark` draws an angle
@@ -366,22 +489,24 @@ part of any statement. A figure's page says this in words.
 tag := "motions-outputs"
 %%%
 
-For a motion `d` with `n` keys, `pilean-build` writes the files below. A site build writes the same
-files and, for a motion with a dark twin, also the SVG of each key's still in the dark theme
-(`d-key-k-dark.svg`, and `d-narrow-key-k-dark.svg` for the narrow rendition), which is all a page
-shows of the dark motion:
+For a motion `d` with `n` keys, `pilean-build` writes the files below; the stills are those of the
+keys that are stills (every key, unless some key says `still := false`), each named by its key. A
+site build writes the same files and, for a motion with a dark twin, also the SVG of each still in
+the dark theme (`d-key-k-dark.svg`, and `d-narrow-key-k-dark.svg` for the narrow rendition), which
+is all a page shows of the dark motion:
 
 | File | What it is |
 |---|---|
 | `d.svg` | the animated SVG, with the poster key's still inside it |
 | `d-poster.png`, `d-poster.pdf` | the poster key's still |
-| `d-keys.svg`, `.png`, `.pdf` | the contact sheet: every key's still in a grid with its caption, for print |
+| `d-keys.svg`, `.png`, `.pdf` | the contact sheet: every still in a grid with its caption, for print |
 | `d-key-k.svg`, `.png` | the still of key `k` (from 0), byte for byte the SVG and PNG of the key figure |
 | `d-narrow.svg`, `d-narrow-key-k.svg`, `.png` | the narrow rendition and its stills (a picture of panels with `narrowWidth`) |
 | `d.png`, `d.gif` | the baked frames, only with `MotionFigure.rasters` |
 
 Every file records the motion in its source record: the number of keys, the cycle in seconds,
-the captions, the check level and the errors left. {name}`PILean.Plane.Motion.animation?` gives
+the captions, the check level and the errors left, and the keys that are stills when some key is
+not one. {name}`PILean.Plane.Motion.animation?` gives
 the baked frames as an {name}`PILean.Animation`, the route to APNG and GIF. A motion that is
 stopped writes none of these files.
 
@@ -401,21 +526,22 @@ of it needs a script. The reader sees:
   leave it stuck; focus is the keyboard, a click or a tap, and lasts until a click elsewhere, with
   a ring that is at least 3:1 against the page. The moving picture is only made transparent, so
   its text alternative stays, and its clock runs on: when the still goes, the picture is where
-  its clock has got to, not where it was covered.
+  its clock has got to, not where it was covered. The still is the poster's, one chosen state:
+  without a script, nothing can pause the picture's clock or tell where it is.
 * *Motion off*: under the Blueprint's switch (`data-motion="reduce"`), under the reader's
-  `prefers-reduced-motion: reduce`, and in print, the picture is hidden and the key stills are
-  shown in a grid, each with its caption. The grid has as many columns as fit with each column at
-  least three quarters of a still's width (one column for a wide picture of two panels, more for a
-  small one), so that the text in the stills stays legible; a still wider than the page's column
-  fills it. Assistive technology reads the list of key frames with
-  their captions; with motion on it
-  reads the picture's text alternative and then that list, once.
+  `prefers-reduced-motion: reduce`, and in print, the picture is hidden and the stills are shown in
+  a grid, each with its caption ("Step k of N", counting the stills). The grid has as many columns
+  as fit with each column at least three quarters of a still's width (one column for a wide picture
+  of two panels, more for a small one), so that the text in the stills stays legible; a still wider
+  than the page's column fills it. Assistive technology reads the list of key frames with their
+  captions; with motion on it reads the picture's text alternative and then that list, once.
 * *Small screens* (560 px or less): the narrow rendition and its stills, when the motion has one.
 
-A figure's page lists what the animation is in words, the table of its steps (each step's keys,
-its duration exactly, each move with its actor), the stills with their captions in the same kind
-of grid, and every file, among them the contact sheet. Its code comes after the animation, folded
-when it is longer than 60 lines.
+A figure's page lists what the animation is in words, the table of its steps (each step's keys, its
+duration exactly, each move with its actor and the window of a fade in part of its step, and a row
+for the rest on a key that has fades or is not a still), the stills with their captions in the same
+kind of grid, and every file, among them the contact sheet. Its code comes after the animation,
+folded when it is longer than 60 lines.
 
 The picture is hidden by `visibility` or `opacity`, never by `display: none`: Chromium freezes a
 picture whose `transform` is animated when it is hidden with `display: none` and shown again,
@@ -444,17 +570,18 @@ Python 3 and, for the browser checks, the `playwright` package with a Chromium i
   the picture's own;
 * `page_check.py` holds each figure's page to the manifest: a motion's files are exactly those
   the adapters write for it (the table above, with the dark twins of the key stills when the site
-  has a dark theme), `7 + 6n` files with a narrow rendition and a dark twin, `6 + 3n` with a dark
-  twin only, `7 + 4n` and `6 + 2n` without one; its sentence and its table of steps are there,
-  and its stills are listed with their
-  captions;
+  has a dark theme), `7 + 6s` files for `s` stills with a narrow rendition and a dark twin,
+  `6 + 3s` with a dark twin only, `7 + 4s` and `6 + 2s` without one; its sentence and its table
+  of steps are there, and its stills are listed with their captions;
 * `motion_browser.py SITE --expect DIR` loads every page with a motion in Chromium: the picture
   at the middle of every rest is where the key's still has it, labels and markers stay upright,
   motion off shows the stills with their captions, each still at three quarters of its width or
   more or as wide as its column, hover and focus show the poster's still in the picture's box, and
   in print the moving picture is hidden and a still is shown; after each of these the picture
   follows its clock, compared at two rests of the motion's timeline that certainly draw different
-  pictures, so that a frozen picture cannot pass.
+  pictures, so that a frozen picture cannot pass; every appearance and disappearance has, before,
+  in and after its window, the opacity the motion's plan has then; and a still keeps its box when
+  it loads, at every width.
 
 `DIR` holds, for each motion the site shows, `<decl>.json` (and `<decl>-narrow.json`) with the
 animated SVG, the stills of the keys and the poster's PNG beside it: the expectations. A site
@@ -462,36 +589,39 @@ writes them with its own few lines of Lean, as the example's `writeMotion` (a `P
 `writePanels` (a `Plane.MotionPanels`) do, in
 {sourceFile}`verso/example/ExampleTest.lean`, with the library's
 `PILeanTest.MotionChecks.expectations` and `PILeanTest.MotionPanelsChecks.expectations`, which
-list the rests, the turns and the slides (a slide's actor stays on the straight segment between
-its keys, at the eased fraction); a writer that calls them gets what they list by rebuilding.
+list the rests (the part of each in which its key is shown still, and whether the key is a
+still), the turns and the slides (a slide's actor stays on the straight segment between its keys,
+at the eased fraction) and the opacity of every fade before, in and after its window; a writer
+that calls them gets what they list by rebuilding.
 The files carry the version of their format; expectations written by an older version, or that
 list other turns or slides than the motion declares, fail the checks with a message that says so. A
 motion shown without its expectations fails the check. With `--workers N` the pages are checked N
 at a time.
 
-The checks have been run in Chromium, Firefox and WebKit. A continuous-integration gate runs them
-in Chromium. `--engine firefox` runs them in Playwright's Firefox (installed for Playwright
-first), where the freeze control (a freeze of Chromium's) and the PDF print (which Playwright
-makes in Chromium only) are reported as not applicable. On macOS, `tools/webkit/webkit_check.py
-DIR` checks the positions in the system's WebKit, the engine of Safari, from a transparent window
-that lets every click through and never takes the focus; it fails when the clock does not run,
-and is for a local run, not a Linux gate. A motion with no anchored actor, a morph alone, has no
-position to read there or in the site check's free-running reading, which say so; the browser
-check below holds it to its stills pixel by pixel.
+The checks have been run in Chromium, Firefox and WebKit. A continuous-integration gate runs them in
+Chromium. `--engine firefox` runs them in Playwright's Firefox (installed for Playwright first),
+where the freeze control (a freeze of Chromium's) and the PDF print (which Playwright makes in
+Chromium only) are reported as not applicable. On macOS, `tools/webkit/webkit_check.py DIR` checks
+the positions and the fades' opacities in the system's WebKit, the engine of Safari, from a
+transparent window that lets every click through and never takes the focus; it fails when the clock
+does not run, and is for a local run, not a Linux gate. A motion with no anchored actor, a morph
+alone, has no position to read there or in the site check's free-running reading, which say so; the
+browser check below holds it to its stills pixel by pixel.
 
 # The Browser Check
 %%%
 tag := "motions-browser"
 %%%
 
-{sourceFile}`tools/motion-browser-check.py` opens the animated SVG files by themselves, in
-headless Chromium, with the clock paused and set, and reads where every actor is. At the middle of
-each key's rest every actor is where the key's still has it; at a quarter, a half and three
-quarters of each turn the actor is on the turn's circle at the eased fraction of its angle; labels
-and markers are not turned; under reduced motion the poster's still is shown and the picture
-matches its PNG; turning reduced motion on inside one key's rest and off again for a moment inside a
-later key's rest whose picture differs shows the picture of the running clock, and
-the check fails when the two moments draw the same picture; the motion plays when it is not
+{sourceFile}`tools/motion-browser-check.py` opens the animated SVG files by themselves, in headless
+Chromium, with the clock paused and set, and reads where every actor is. At the middle of each key's
+rest every actor is where the key's still has it; at a quarter, a half and three quarters of each
+turn the actor is on the turn's circle at the eased fraction of its angle; every appearance and
+disappearance has, before, in and after its window, the opacity the plan has then (a fade that never
+starts fails it); labels and markers are not turned; under reduced motion the poster's still is
+shown and the picture matches its PNG; turning reduced motion on inside one key's rest and off again
+for a moment inside a later key's rest whose picture differs shows the picture of the running clock,
+and the check fails when the two moments draw the same picture; the motion plays when it is not
 paused; and, for panels, every panel is in phase and nothing leaves its panel while it moves.
 
 The pictures are compared with the stills pixel by pixel, with a rule that allows for what

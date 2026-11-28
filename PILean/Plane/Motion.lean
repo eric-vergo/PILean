@@ -41,10 +41,20 @@ This module holds the model and its checks.
   determined. A polygon whose vertex list is the same after a symmetry turn is refused: the next
   key must list the turned vertices in the turned order. A move that misses its key is an error,
   and is not animated as that move.
-* **The stills pin the animation.** At the middle of every key's rest, the whole baked drawing
-  (every path and every text, in order) must be the key's still within the rest tolerance
-  (`restProblems`, 0.05 px); this bounds what the per-step tolerance can add up to along a chain,
-  and catches a wrong counter-rotation or stacking order.
+* **The stills pin the animation.** At the middle of every key's rest (of its last part, after
+  its fades), the whole baked drawing (every path and every text, in order) must be the key's
+  still within the rest tolerance (`restProblems`, 0.05 px); this bounds what the per-step
+  tolerance can add up to along a chain, and catches a wrong counter-rotation or stacking order.
+* **What a key says of itself.** A key may rest as long as it says, fade actors in or out during
+  its rest, each in a window of it, and be a key the motion passes through that is not a still
+  (`MotionKey`, `Motion.keyOptions`); an appearance or a disappearance may run in a window of its
+  step (`MotionStep.windows`). A key's figure is the picture at the end of its rest. The rules are
+  checked by `Motion.keyRestProblems` and `Motion.stepProblems`: a rest longer than zero; an
+  actor that appears during the rest on key `k` is in key `k` and not in key `k - 1`, one that
+  vanishes the other way round, neither moving in the step before the rest; one fade or window
+  per actor; windows inside their rest or step, ending after they start; the rest going on after
+  its last fade; the windows of one rest apart or the same; a window only on an appearance or a
+  disappearance, in a step not sampled for a morph; and the poster a still.
 * **Labels and markers stay upright.** Their point rides the turns; they are not turned
   themselves (the anchors of a label and of a point are their points, and their look is compared
   unchanged).
@@ -58,13 +68,16 @@ This module holds the model and its checks.
 
 * `Move`, `MotionStep`, `MotionStep.idle`, `Motion`, `Item.actor`, `Plane.Exact.turnAbout`,
   `Plane.Exact.slideFromTo`.
+* `Window`, `WindowEdge`, `Fade`, `MotionKey`, `Motion.keyOption`, `Motion.isStill`,
+  `Motion.stillKeys`, `Motion.restPacing`, `Motion.restFadeOf`: what a key says of itself.
 * `Motion.WellFormed` (decidable), `Motion.animSteps`, `MotionKeys`, `Motion.keysOf`,
   `Motion.resolved`, `Motion.keyFigure`.
 * `Geom.turnAbout`, `Item.turnAbout`, `sweepAngles`, `Motion.sweptItems`: what a turn sweeps.
 * `MotionVersion`, `Motion.continuation`, `Motion.versions`: the layers of a motion (an actor for
   as long as its steps carry it, an item without an id for as long as the keys draw it alike).
 * `mergeOrder`, `inOrder`: one drawing order for the layers of all keys.
-* `anchors`, `leafKey`, `Move.pageAffine`, `arrival`, `Motion.stepProblems`, `Motion.keyProblems`
+* `anchors`, `leafKey`, `Move.pageAffine`, `arrival`, `Motion.stepProblems`,
+  `Motion.keyRestProblems`, `Motion.keyProblemsOn`, `Motion.keyProblems`
   (`Motion.problems`, with the rest check, `Motion.checkMessages` and `Motion.problemsFail` are
   in `PILean.Plane.MotionOutput`).
 * `Motion.turnsOf`, `Motion.turnSum`, `Motion.keyAngle`.
@@ -108,11 +121,112 @@ def Move.name : Move → String
 /-- The item as an actor of a motion: the item with the id `id` (`Item.withId`). -/
 def Item.actor (id : String) (it : Item) : Item := it.withId id
 
+/-- One end of the part of a step or of a rest in which a fade runs (`Window`). -/
+inductive WindowEdge where
+  /-- The fraction `q` of the step's (or the rest's) time. -/
+  | frac (q : Rat)
+  /-- `s` seconds after the step (or the rest) starts. -/
+  | after (s : Rat)
+  /-- `s` seconds before the step (or the rest) ends. -/
+  | before (s : Rat)
+  deriving Inhabited, Repr, DecidableEq
+
+/-- The part of a step or of a rest in which a fade runs, from `start` to `stop`: the whole of it
+by default. -/
+structure Window where
+  /-- Where the fade starts. -/
+  start : WindowEdge := .frac 0
+  /-- Where the fade ends. -/
+  stop : WindowEdge := .frac 1
+  deriving Inhabited, Repr, DecidableEq
+
+namespace Window
+
+/-- The whole step, or the whole rest. -/
+def whole : Window := {}
+
+/-- The first `s` seconds. -/
+def first (s : Rat) : Window := { stop := .after s }
+
+/-- The last `s` seconds. -/
+def last (s : Rat) : Window := { start := .before s }
+
+/-- From `a` to `b` seconds after the start. -/
+def seconds (a b : Rat) : Window := { start := .after a, stop := .after b }
+
+/-- From the fraction `a` to the fraction `b` of the time. -/
+def fractions (a b : Rat) : Window := { start := .frac a, stop := .frac b }
+
+/-- The edge as a fraction of a time `dur` seconds long. -/
+def _root_.PILean.Plane.WindowEdge.fracOf (dur : Rat) : WindowEdge → Rat
+  | .frac q => q
+  | .after s => s / dur
+  | .before s => 1 - s / dur
+
+/-- Whether an edge is given in seconds. -/
+def _root_.PILean.Plane.WindowEdge.inSeconds : WindowEdge → Bool
+  | .frac _ => false
+  | _ => true
+
+/-- The window as fractions of a time `dur` seconds long: where it starts and where it ends. -/
+def fracs (w : Window) (dur : Rat) : Rat × Rat := (w.start.fracOf dur, w.stop.fracOf dur)
+
+/-- What is wrong with the window in a time `dur` seconds long (`what`: `the step`, `the rest`),
+as the end of a sentence: an edge in seconds in a time of no length, an edge outside the time, or
+an end not after the start; `none` when it is a part of the time. -/
+def problem? (w : Window) (dur : Rat) (what : String) : Option String :=
+  if !(dur > 0) && (w.start.inSeconds || w.stop.inSeconds) then
+    some s!"is given in seconds, but {what} takes no time"
+  else
+    let (a, b) := w.fracs dur
+    if a < 0 || b > 1 then
+      some s!"runs outside {what} (from {a} to {b} of its time)"
+    else if !(a < b) then some s!"ends where it starts or before (from {a} to {b} of its time)"
+    else none
+
+end Window
+
+/-- What an actor does during the rest on a key: it appears (it is in the key and not in the one
+before), or it vanishes (it is in the key before and not in this one). -/
+inductive Fade where
+  /-- It fades in. -/
+  | appear
+  /-- It fades out. -/
+  | vanish
+  deriving Inhabited, Repr, DecidableEq
+
+/-- The fade in words. -/
+def Fade.name : Fade → String
+  | .appear => "appearance"
+  | .vanish => "disappearance"
+
+/-- What a key frame says of itself where it is not the motion's default: the length of its rest,
+whether it is a still, and the actors that appear or vanish during its rest.
+
+A key's figure is the picture at the end of its rest, after its fades: an actor that appears
+during the rest on key `k` is in key `k` (and not in key `k - 1`), one that vanishes is in key
+`k - 1` (and not in key `k`); the step before the rest arrives at key `k` with the first absent and
+the second still there, drawn as key `k - 1` draws it. Every key takes part in the motion and its
+checks; a key that is not a still (`still := false`) is not written as a still, not listed with
+the stills and not counted in their numbering, and needs no caption. -/
+structure MotionKey where
+  /-- The rest on the key, in seconds, where it is not the pacing's (`Anim.Pacing.restOf`). -/
+  rest : Option Rat := none
+  /-- Whether the key is a still (the default). -/
+  still : Bool := true
+  /-- The actors that appear or vanish during the rest on the key, each in its window of the
+  rest; the rest must go on after the last of them ends, the key shown still. -/
+  fades : Array (String × Fade × Window) := #[]
+  deriving Inhabited
+
 /-- A step between two consecutive key frames: the moves of its actors, whether anything moves,
 and its duration and easing when they are not the pacing's. -/
 structure MotionStep where
   /-- The actors (by id) and their moves; an actor not named does not move. -/
   moves : Array (String × Move) := #[]
+  /-- The part of the step in which an actor's appearance or disappearance runs, where it is not
+  the whole step: the actor's id and its window. The fade is eased as that part of the step is. -/
+  windows : Array (String × Window) := #[]
   /-- `idle` for a step in which nothing moves (it takes the pacing's `idle` time). -/
   kind : Anim.StepKind := .move
   /-- The duration in seconds; by default the pacing's, for the longest kind of move it has. -/
@@ -151,11 +265,14 @@ structure Motion where
   /-- How the problems of the motion (`Motion.problems`) apply when it is rendered: by default an
   error stops the rendering (`Motion.svg?` refuses to write the motion). -/
   checks : CheckLevel := .fail
-  /-- The key shown as the still (under reduced motion, and as the poster). -/
+  /-- The key shown as the still (under reduced motion, and as the poster); it must be a still. -/
   poster : Nat := 0
   /-- A prefix for every id, every reference to one and every `data-pilean-actor` of the
   motion's SVG, so that several pictures can be put inline in one page (none when empty). -/
   idPrefix : String := ""
+  /-- What each key says of itself (`MotionKey`): empty (every key a still, resting as the pacing
+  says, without fades), or one per key. -/
+  keyOptions : Array MotionKey := #[]
   deriving Inhabited
 
 namespace Exact
@@ -177,12 +294,35 @@ namespace Motion
 
 variable (m : Motion)
 
-/-- The motion has one more key than steps, a caption per key, and its poster among the keys. -/
+/-- The motion has one more key than steps, a caption per key, its poster among the keys, and the
+options of no key or of every key. -/
 def WellFormed : Prop :=
-  m.keys.size = m.steps.size + 1 ∧ m.captions.size = m.keys.size ∧ m.poster < m.keys.size
+  m.keys.size = m.steps.size + 1 ∧ m.captions.size = m.keys.size ∧ m.poster < m.keys.size ∧
+    (m.keyOptions.size = 0 ∨ m.keyOptions.size = m.keys.size)
 
 /-- Whether a motion is well formed is decided by comparing its sizes. -/
-instance : Decidable m.WellFormed := inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+instance : Decidable m.WellFormed := inferInstanceAs (Decidable (_ ∧ _ ∧ _ ∧ _))
+
+/-- The options of key `k` (`MotionKey`; the defaults when the motion gives none). -/
+def keyOption (k : Nat) : MotionKey := m.keyOptions.getD k {}
+
+/-- Whether key `k` is a still. -/
+def isStill (k : Nat) : Bool := (m.keyOption k).still
+
+/-- The keys that are stills, in order: those written and listed as stills. -/
+def stillKeys : Array Nat := (Array.range m.keys.size).filter m.isStill
+
+/-- The pacing of the motion's timeline: its pacing, with the rest of every key that gives its own
+(`MotionKey.rest`) in `Anim.Pacing.holds`. -/
+def restPacing : Anim.Pacing :=
+  if m.keyOptions.all (·.rest.isNone) then m.pacing
+  else { m.pacing with holds := (Array.range m.keys.size).map fun k =>
+    ((m.keyOptions[k]?).bind (·.rest)).orElse fun _ => (m.pacing.holds[k]?).join }
+
+/-- The fade of the actor `id` during the rest on key `k`, if it has one: the first the key
+declares. -/
+def restFadeOf (k : Nat) (id : String) : Option (Fade × Window) :=
+  ((m.keyOption k).fades.find? (·.1 == id)).map (·.2)
 
 /-- The timing of a step: an idle step takes the pacing's `idle` time unless it gives its own, not
 eased; a step that moves takes its own duration or the pacing's for the longest of its kinds of
@@ -202,7 +342,7 @@ def animSteps : Array Anim.Step := m.steps.map (animStep m.pacing)
 
 /-- The timeline of a well-formed motion has as many keys as the motion. -/
 theorem timeline_keys (h : m.WellFormed) :
-    (Anim.Timeline.build m.animSteps m.pacing).keys = m.keys.size := by
+    (Anim.Timeline.build m.animSteps m.restPacing).keys = m.keys.size := by
   simp [Anim.Timeline.build, animSteps, h.1]
 
 /-! ### Turns -/
@@ -836,9 +976,13 @@ def staticChanges (K : MotionKeys) (j : Nat) : Nat × Nat :=
     return n
   (missing a b, missing b a)
 
+/-- The duration of the first segment of kind `k` of the timeline `tl` (`0` when it has none). -/
+def _root_.PILean.Plane.kindDur (tl : Anim.Timeline) (k : Anim.SegKind) : Rat :=
+  ((tl.segments.find? (·.kind = k)).map (·.dur)).getD 0
+
 /-- The problems of one step (see the module docstring), `j` from key `j` to key `j + 1`, with the
-layers of the motion `vs` (`versions`). -/
-def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (j : Nat) :
+layers of the motion `vs` (`versions`), its windows resolved on the timeline `base`. -/
+def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (base : Anim.Timeline) (j : Nat) :
     Array MotionProblem := Id.run do
   let mut out : Array MotionProblem := #[]
   let err := fun (s : String) => ({ severity := .error, message := s } : MotionProblem)
@@ -909,15 +1053,37 @@ def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (j : Nat) :
       | none, _ => out := out.push (err s!"{name}: {id} has a {mv.name} but is not in key {j}")
       | _, none =>
         out := out.push (err s!"{name}: {id} has a {mv.name} but is not in key {j + 1}")
+  let dur := kindDur base (.move j)
+  let mut windowed : Array String := #[]
+  for (id, w) in s.windows do
+    if windowed.contains id then
+      out := out.push (err s!"{name}: {id} has more than one window; an actor's fade runs in one \
+        part of the step")
+    windowed := windowed.push id
+    match s.moves.find? (·.1 == id) with
+    | none => out := out.push (err s!"{name}: {id} has a window but no move in the step")
+    | some (_, .appear) | some (_, .vanish) => pure ()
+    | some (_, mv) =>
+      out := out.push (err s!"{name}: the {mv.name} of {id} has a window; only an appearance or a \
+        disappearance runs in part of a step (a turn, a slide or a morph runs through the whole \
+        step, on the step's easing)")
+    if let some why := w.problem? dur "the step" then
+      out := out.push (err s!"{name}: the window of {id} {why}")
+  if !s.windows.isEmpty && m.samplesOf K j > 1 then
+    out := out.push (err s!"{name}: a morph sampled with figures between its keys \
+      (`Motion.between`) cannot share its step with a fade in part of the step; the fades run \
+      through the whole step")
   for id in m.changed K j do
     out := out.push (actorFade s!"{name}: {id} changes without a declared move; it would be \
       crossfaded")
   for id in a.items.filterMap Item.actorId? do
-    if !b.hasActor id && (m.moveOf j id).isNone then
+    if !b.hasActor id && (m.moveOf j id).isNone &&
+        !(m.restFadeOf (j + 1) id).any (·.1 == .vanish) then
       out := out.push (actorFade s!"{name}: {id} leaves without a declared disappearance; it \
         would fade out")
   for id in b.items.filterMap Item.actorId? do
-    if !a.hasActor id && (m.moveOf j id).isNone then
+    if !a.hasActor id && (m.moveOf j id).isNone &&
+        !(m.restFadeOf (j + 1) id).any (·.1 == .appear) then
       out := out.push (actorFade s!"{name}: {id} comes without a declared appearance; it would \
         fade in")
   let (gone, come) := staticChanges K j
@@ -925,13 +1091,83 @@ def stepProblems (K : MotionKeys) (vs : Array MotionVersion) (j : Nat) :
     out := out.push (note s!"{name}: {gone} items without an id fade out and {come} fade in")
   return out
 
+/-- The least time a key whose rest has fades is shown still after its last fade (seconds): long
+enough for the browser checks to read it, also free-running (in WebKit the readings' jitter was
+measured at 36 ms, and a rest is read free-running only when its still part is longer than twice
+that plus 20 ms, `tools/webkit/webkit_check.py`). -/
+def _root_.PILean.Plane.minStillPart : Rat := 1 / 10
+
+/-- The problems of the rest on key `k`, its windows resolved on the timeline `base`: a rest of its
+own that is not longer than zero; an actor that fades more than once in it, that appears but is
+not in key `k` or is already in key `k - 1`, that vanishes but is not in key `k - 1` or is still in
+key `k` (or vanishes on key `0`, which no key comes before), or that also moves in the step before
+the rest; a window outside the rest; fades that run to the end of the rest, so that the key is
+never shown still, or shown still for less than `minStillPart`; windows that overlap without
+being the same. -/
+def keyRestProblems (base : Anim.Timeline) (k : Nat) : Array MotionProblem := Id.run do
+  let err := fun (s : String) => ({ severity := .error, message := s } : MotionProblem)
+  let o := m.keyOption k
+  let mut out : Array MotionProblem := #[]
+  if let some r := o.rest then
+    if !(r > 0) then
+      out := out.push (err s!"key {k}: its rest ({r} s) is not longer than zero; a key is shown, \
+        and checked, in the middle of its rest")
+  let name := s!"the rest on key {k}"
+  let here := m.keys.getD k default
+  let before := if k = 0 then none else m.keys[k - 1]?
+  let dur := kindDur base (.rest k)
+  let mut seen : Array String := #[]
+  let mut spans : Array (String × Rat × Rat) := #[]
+  for (id, f, w) in o.fades do
+    if seen.contains id then
+      out := out.push (err s!"{name}: {id} fades more than once; an actor's fade runs in one part \
+        of the rest")
+    seen := seen.push id
+    match f with
+    | .appear =>
+      if !here.hasActor id then
+        out := out.push (err s!"{name}: {id} appears but is not in key {k}")
+      if before.any (·.hasActor id) then
+        out := out.push (err s!"{name}: {id} appears but is already in key {k - 1}")
+    | .vanish =>
+      match before with
+      | none => out := out.push (err s!"{name}: {id} vanishes, but no key before key 0 shows it")
+      | some b =>
+        if !b.hasActor id then
+          out := out.push (err s!"{name}: {id} vanishes but is not in key {k - 1}")
+      if here.hasActor id then
+        out := out.push (err s!"{name}: {id} vanishes but is still in key {k}")
+    if k > 0 then
+      if let some mv := m.moveOf (k - 1) id then
+        out := out.push (err s!"{name}: {id} fades during the rest and also has a {mv.name} in \
+          step {k} (key {k - 1} to key {k}); an actor that fades during a rest does not move in \
+          the step before it")
+    match w.problem? dur "the rest" with
+    | some why => out := out.push (err s!"{name}: the window of the {f.name} of {id} {why}")
+    | none => spans := spans.push (id, w.fracs dur)
+  if spans.any (fun (_, _, b) => b ≥ 1) then
+    out := out.push (err s!"{name}: its fades run to its end, so key {k} is never shown still; \
+      end them before the rest ends")
+  else if !spans.isEmpty then
+    let still := dur * (1 - spans.foldl (fun m (_, _, b) => max m b) 0)
+    if still < minStillPart then
+      out := out.push (err s!"{name}: after its last fade key {k} is shown still for {still} s, \
+        less than {minStillPart} s; end the fades earlier or make the rest longer")
+  for (x, a, b) in spans do
+    for (y, c, d) in spans do
+      if x < y && a < d && c < b && !(a == c && b == d) then
+        out := out.push (err s!"{name}: the windows of {x} and {y} overlap without being the \
+          same; fades in one rest run one after another, or together")
+  return out
+
 /-- The problems of the motion that its keys and steps show (`Motion.problems` adds the checks of
-its layout against the stills): that it is not well formed (`WellFormed`); keys drawn in
-different frames; actor ids that are not unique in a key; the layout problems of every key as
-drawn (`resolved`, `Figure.problems`); a key that draws its layers in another order than the
-motion (`mergeOrder`); an empty title or description (the picture has `role="img"`); and the
-problems of each step (`stepProblems`). -/
-def keyProblems : Array MotionProblem := Id.run do
+its layout against the stills), its windows resolved on the timeline `base`: that it is not well
+formed (`WellFormed`); keys drawn in different frames; actor ids that are not unique in a key; the
+layout problems of every key as drawn (`resolved`, `Figure.problems`); a key that draws its layers
+in another order than the motion (`mergeOrder`); an empty title or description (the picture has
+`role="img"`); a poster that is not a still, a caption of a key that is not one; the problems of
+each rest (`keyRestProblems`) and of each step (`stepProblems`). -/
+def keyProblemsOn (base : Anim.Timeline) : Array MotionProblem := Id.run do
   let err := fun (s : String) => ({ severity := .error, message := s } : MotionProblem)
   if !decide m.WellFormed then
     let mut out := #[]
@@ -942,6 +1178,9 @@ def keyProblems : Array MotionProblem := Id.run do
       out := out.push (err s!"the motion has {m.captions.size} captions for {m.keys.size} keys")
     if !(m.poster < m.keys.size) then
       out := out.push (err s!"the poster is key {m.poster}, which the motion does not have")
+    if m.keyOptions.size != 0 && m.keyOptions.size != m.keys.size then
+      out := out.push (err s!"the motion gives the options of {m.keyOptions.size} keys; it has \
+        {m.keys.size}")
     return out
   let mut out : Array MotionProblem := #[]
   let K := m.keysOf
@@ -963,6 +1202,14 @@ def keyProblems : Array MotionProblem := Id.run do
   if m.info.description.isEmpty && m.captions.all (·.isEmpty) then
     out := out.push (strict "the motion has neither a description nor captions (its picture has \
       role=\"img\")")
+  if !m.isStill m.poster then
+    out := out.push (err s!"the poster is key {m.poster}, which is not a still; the poster is one \
+      of the stills")
+  for k in [0:m.keys.size] do
+    if !m.isStill k && !(m.captions.getD k "").isEmpty then
+      out := out.push { severity := .note, message := s!"key {k} is not a still; its caption is \
+        not shown" }
+    out := out ++ m.keyRestProblems base k
   let (vs, perKey) := m.versions K K.env
   let order := mergeOrder perKey
   for (k, seq) in perKey.mapIdx fun k seq => (k, seq) do
@@ -970,8 +1217,13 @@ def keyProblems : Array MotionProblem := Id.run do
       out := out.push (err s!"key {k} draws its items in another order (one above another) than \
         the earlier keys; the motion cannot show both orders")
   for j in [0:m.steps.size] do
-    out := out ++ m.stepProblems K vs j
+    out := out ++ m.stepProblems K vs base j
   return out
+
+/-- The problems of the motion that its keys and steps show (`keyProblemsOn`), on its own
+timeline. -/
+def keyProblems : Array MotionProblem :=
+  m.keyProblemsOn (Anim.Timeline.build m.animSteps m.restPacing)
 
 end Motion
 

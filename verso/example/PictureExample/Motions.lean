@@ -19,7 +19,12 @@ their key stills (the shapes of PILean's gallery of motions):
 * `twoFrames`: two panels on one clock, a point turned by fifths about two centres beside the pair
   of centres turned about the point's centre of the moment, with a narrow rendition stacked for
   small screens, an illustration;
-* `oddMotion`: two panels whose strings hold markup, shown on the page "Escaping".
+* `oddMotion`: two panels whose strings hold markup, shown on the page "Escaping";
+* `announceTurns`: a triangle turned about two centres in turn and slid, a ring marking the centre
+  of each turn before it: the rings handed over during a rest of its own, a ring that fades out in
+  the last part of a turn, and a key passed through that is not a still, an illustration;
+* `announcePanels`: the same beside a point moved alike, two panels on one clock with a narrow
+  rendition, an illustration.
 -/
 
 namespace Example
@@ -230,5 +235,90 @@ def oddMotion : MotionPanels where
     "</style><b>three</b> url(#x)."]
   info := { title := "<title>]]></title> & \"odd\"",
             description := "</desc><script>alert(2)</script> -- <!-- url(#x)" }
+
+/-! ### Marks that announce the next turn -/
+
+/-- The centres `A` and `B` of the turns of `announceTurns`, faint. -/
+def announceBackdrop : Array Item :=
+  #[Plane.Exact.point ((0, 0) : Q) |>.faint, Plane.Exact.label "A" ((0, 0) : Q) .belowLeft |>.faint,
+    Plane.Exact.point ((0, 2) : Q) |>.faint, Plane.Exact.label "B" ((0, 2) : Q) .aboveLeft |>.faint]
+
+/-- The ring that marks the centre `c` of the next turn, the actor `id`. -/
+def ring (id : String) (c : Q) : Item :=
+  Plane.Exact.circle c (3 / 10 : Rat) |>.accent 1 |>.actor id
+
+/-- The key options of the marks that announce the turns: the rest on key 1 lasts 0.9 s, and in
+it the ring `a` fades out in the first 0.2 s and the ring `b` in over the next 0.2 s; key 2 is
+passed through, a still of no step, resting 0.3 s. With `rests`, the rests and the still are
+given too (for a single motion; a picture of panels gives them for all its panels). -/
+def announceKeys (a b : String) (rests : Bool := true) : Array MotionKey :=
+  let hand : Array (String × Fade × Window) :=
+    #[(a, .vanish, .seconds 0 (1 / 5)), (b, .appear, .seconds (1 / 5) (2 / 5))]
+  if rests then
+    #[{}, { rest := some (9 / 10), fades := hand }, { still := false, rest := some (3 / 10) }, {}]
+  else #[{}, { fades := hand }, {}, {}]
+
+/-- The steps of the marks' motions: the actor `t` turned a quarter about `A`, then a quarter about
+`B` while the ring `b` fades out in the last 0.3 s of the turn, then slid down by 2 from `p`. -/
+def announceSteps (t b : String) (p : Q) : Array MotionStep :=
+  #[{ moves := #[(t, Plane.Exact.turnAbout ((0, 0) : Q) (1 / 4))] },
+    { moves := #[(t, Plane.Exact.turnAbout ((0, 2) : Q) (1 / 4)), (b, .vanish)],
+      windows := #[(b, .last (3 / 10))] },
+    { moves := #[(t, Plane.Exact.slideFromTo p (p.1, p.2 - 2))] }]
+
+/-- The keys of the triangle: turned a quarter about `A`, a quarter about `B`, then slid down by 2,
+the ring `mA` on key 0 and `mB` on key 1. -/
+def triangleKeys : Array Plane.Figure :=
+  let tri := fun (a b c : Q) => Plane.Exact.polygon [a, b, c] |>.filled |>.accent 0 |>.actor "T"
+  let k := fun (t : Item) (marks : Array Item) =>
+    ({ items := announceBackdrop ++ #[t] ++ marks, width := 320 } : Plane.Figure)
+  #[k (tri (1, 0) (2, 0) (1, 1)) #[ring "mA" (0, 0)],
+    k (tri (0, 1) (0, 2) (-1, 1)) #[ring "mB" (0, 2)],
+    k (tri (1, 2) (0, 2) (1, 1)) #[], k (tri (1, 0) (0, 0) (1, -1)) #[]]
+
+/-- A triangle turned a quarter about `A`, then a quarter about `B`, then slid down, a ring marking
+the centre of each turn before it: during the rest on key 1 (0.9 s, its own) the ring at `A` fades
+out and the ring at `B` fades in, then both stand still for 0.5 s; the ring at `B` fades out in
+the last 0.3 s of its turn; key 2 is passed through and is not a still. -/
+@[figure illustration]
+def announceTurns : Motion where
+  keys := triangleKeys
+  captions := #["The triangle; the ring at A marks the next turn, a quarter about A.",
+    "Turned a quarter about A; the ring at B marks the next turn, a quarter about B.", "",
+    "Turned a quarter about B, then slid down by 2."]
+  steps := announceSteps "T" "mB" (1, 2)
+  keyOptions := announceKeys "mA" "mB"
+  info := { title := "A mark that announces the next turn",
+            description := "A triangle turns about A, then about B, then slides down; a ring marks \
+              the centre of each turn before it." }
+
+/-- The keys of the point beside the triangle: moved as the triangle's vertex `(1, 0)` is, the ring
+`rA` on key 0 and `rB` on key 1. -/
+def pointKeys : Array Plane.Figure :=
+  let pt := fun (p : Q) =>
+    (group #[Plane.Exact.point p |>.accent 2, Plane.Exact.label "P" p .right |>.accent 2]).actor "P"
+  let k := fun (p : Q) (marks : Array Item) =>
+    ({ items := announceBackdrop ++ #[pt p] ++ marks } : Plane.Figure)
+  #[k (1, 0) #[ring "rA" (0, 0)], k (0, 1) #[ring "rB" (0, 2)], k (1, 2) #[], k (1, 0) #[]]
+
+/-- The triangle beside a point moved alike, on one clock, each with its rings: the rests and the
+still of the keys are the picture's; stacked on small screens. -/
+@[figure illustration]
+def announcePanels : MotionPanels where
+  panels := #[
+    { title := "The triangle",
+      motion := { keys := triangleKeys, steps := announceSteps "T" "mB" (1, 2),
+                  keyOptions := announceKeys "mA" "mB" false } },
+    { title := "A point",
+      motion := { keys := pointKeys, steps := announceSteps "P" "rB" (1, 2),
+                  keyOptions := announceKeys "rA" "rB" false } }]
+  captions := #["The start; the rings at A mark a turn about A.",
+    "A quarter about A; the rings at B mark a turn about B.", "",
+    "A quarter about B, then down by 2."]
+  keyOptions := #[{}, { rest := some (9 / 10) }, { still := false, rest := some (3 / 10) }, {}]
+  info := { title := "Marks that announce the next turn, in two panels",
+            description := "Left: a triangle turns about A, then about B, then slides down. Right: \
+              a point moves alike. Rings mark the centre of each turn before it." }
+  narrowWidth := some 360
 
 end Example

@@ -16,6 +16,9 @@ A timeline of `n + 1` key frames, from `n` steps, is the sequence of segments
 * for each step `i < n`, a move from key `i` to key `i + 1` (the step's duration), then a rest on
   key `i + 1` (`Pacing.hold`, or `Pacing.lastHold` after the last step);
 
+a key with a rest of its own (`Pacing.holds`) rests that long instead (`Pacing.restOf`), the
+first and the last key too;
+
 closed by the seam (`Seam`): under `Seam.cut` nothing is added and the picture jumps from the last
 key back to key `0` when the cycle repeats; under `Seam.crossfade d` the cycle starts with a fade
 in (`SegKind.seamIn`, `d / 2`) and ends with a fade out (`SegKind.seamOut`, `d / 2`), so that the
@@ -24,17 +27,22 @@ jump from the last key back to key `0` happens where the cycle repeats, while no
 Durations are exact rational numbers of seconds (`Rat`), so the start of every segment, the length
 of the cycle and the segment boundaries as fractions of the cycle (`Timeline.keyTimes`) are exact,
 and the statements about them (`PILean/Anim/TimelineProofs.lean`) are theorems about rationals.
+A segment can be divided into parts (`Timeline.divide`), which tile the cycle as the segments did;
+a part of an eased segment is eased by the part of its curve (`Easing.part`), so the parts follow
+the segment's eased progress exactly.
 A negative duration counts as zero. Floating point begins with the eased progress through a
 segment (`Easing.eval`, `Timeline.locate`).
 
 ## Main definitions
 
-* `Easing`, `Easing.eval`: the cubic Bézier timing functions of SMIL's `keySplines` and CSS.
-* `Pacing`, `Step`, `Seam`: the durations of a motion and how its loop closes.
+* `Easing`, `Easing.eval`, `Easing.part`: the cubic Bézier timing functions of SMIL's
+  `keySplines` and CSS, and their parts.
+* `Pacing`, `Pacing.restOf`, `Step`, `Seam`: the durations of a motion and how its loop closes.
 * `Segment`, `Timeline`, `Timeline.build`: the segments of a cycle, their kinds
   (`Timeline.kinds`) and their durations and easings (`Timeline.spec`).
 * `Timeline.segmentAt`, `Timeline.locate`: the segment at a time and the eased progress through it.
-* `Timeline.restTime`, `Timeline.keyTimes`.
+* `Timeline.restTime`, `Timeline.stillPart?`, `Timeline.keyTimes`.
+* `Segment.partsFrom`, `Segment.divide`, `Timeline.divide`: dividing segments into parts.
 
 ## References
 
@@ -103,6 +111,46 @@ def eval (e : Easing) (x : Float) : Float :=
       let (_, y₁, _, y₂) := e.controls
       bezier y₁ y₂ (e.solve x)
 
+/-- The blossom at `(u, v, w)` of one coordinate of the cubic Bézier curve with the control values
+`c₀ c₁ c₂ c₃`: de Casteljau's construction with the parameter `u`, then `v`, then `w`. At `(u, u,
+v)` and `(u, v, v)` it gives the inner control values of the part of the curve from `u` to `v`. -/
+def blossom (c₀ c₁ c₂ c₃ u v w : Float) : Float :=
+  let lerp := fun (a b t : Float) => a + (b - a) * t
+  let a₀ := lerp c₀ c₁ u
+  let a₁ := lerp c₁ c₂ u
+  let a₂ := lerp c₂ c₃ u
+  lerp (lerp a₀ a₁ v) (lerp a₁ a₂ v) w
+
+/-- The easing of the part of a segment from the fraction `a` to the fraction `b` of its time
+(`0 ≤ a < b ≤ 1`), as an easing of its own: progress through the part, eased so, is the eased
+progress through the whole segment between its values at `a` and at `b`. For a cubic Bézier curve
+it is the part of the curve between the parameters where its first coordinate is `a` and `b`
+(`solve`), its control points found by de Casteljau's construction (`blossom`) and scaled into the
+unit square; `none` when a scaled control value lies outside `[0, 1]` (beyond `1e-9`), which SMIL
+would clamp into another curve, or when the curve does not progress over the part. The identity's
+parts are the identity. -/
+def part (e : Easing) (a b : Float) : Option Easing :=
+  match e with
+  | .linear => some .linear
+  | .spline .. =>
+    let (x₁, y₁, x₂, y₂) := e.controls
+    let u := if a ≤ 0 then 0 else e.solve a
+    let v := if b ≥ 1 then 1 else e.solve b
+    let ctl := fun (c₁ c₂ : Float) =>
+      (blossom 0 c₁ c₂ 1 u u u, blossom 0 c₁ c₂ 1 u u v, blossom 0 c₁ c₂ 1 u v v,
+        blossom 0 c₁ c₂ 1 v v v)
+    let (X₀, X₁, X₂, X₃) := ctl x₁ x₂
+    let (Y₀, Y₁, Y₂, Y₃) := ctl y₁ y₂
+    let dx := X₃ - X₀
+    let dy := Y₃ - Y₀
+    if !(dx > 0) || !(dy > 0) then none
+    else
+      let cs := #[(X₁ - X₀) / dx, (Y₁ - Y₀) / dy, (X₂ - X₀) / dx, (Y₂ - Y₀) / dy]
+      if cs.all fun c => -1e-9 ≤ c && c ≤ 1 + 1e-9 then
+        some (.spline (clamp01 (cs.getD 0 0)) (clamp01 (cs.getD 1 0)) (clamp01 (cs.getD 2 1))
+          (clamp01 (cs.getD 3 1)))
+      else none
+
 end Easing
 
 /-! ### Pacing and steps -/
@@ -141,6 +189,9 @@ structure Pacing where
   firstHold : Rat := 1.2
   /-- The rest on the last key frame. -/
   lastHold : Rat := 1.8
+  /-- The rest on key `k` where it is not the one above: entry `k`, when it is `some d`, is the
+  rest on key `k` (for the first and the last key too, `restOf`). Empty by default. -/
+  holds : Array (Option Rat) := #[]
   /-- The easing the steps made from this pacing (`turnStep`, `slideStep`, `fadeStep`) get. -/
   easing : Easing := .standard
   /-- How the loop closes. -/
@@ -179,6 +230,13 @@ def seamHalf : Rat :=
   match p.seam with
   | .crossfade d => d / 2
   | .cut => 0
+
+/-- The rest on key `k` of a timeline whose last key is `last`: the key's own (`holds`) when it
+has one; otherwise `firstHold` on key `0`, `lastHold` on the last key and `hold` on any other. -/
+def restOf (k last : Nat) : Rat :=
+  match p.holds[k]? with
+  | some (some d) => d
+  | _ => if k = 0 then p.firstHold else if k = last then p.lastHold else p.hold
 
 end Pacing
 
@@ -238,12 +296,11 @@ def kinds (steps : Array Step) (p : Pacing) : List SegKind :=
   | .crossfade _ => .seamIn :: body ++ [.seamOut]
 
 /-- The duration (a negative one counting as zero once laid out) and the easing of the segment of
-kind `k`: the rest on key `0` lasts `firstHold`, the rest on the last key `lastHold`, any other rest
-`hold`; the move of step `j` lasts as long as the step, with its easing; a fade lasts half the
-seam. Rests and fades are not eased. -/
+kind `k`: the rest on key `k` lasts as `Pacing.restOf` says (the key's own rest, else `firstHold`
+on key `0`, `lastHold` on the last key, `hold` on any other); the move of step `j` lasts as long as
+the step, with its easing; a fade lasts half the seam. Rests and fades are not eased. -/
 def spec (steps : Array Step) (p : Pacing) : SegKind → Rat × Easing
-  | .rest k =>
-    (if k = 0 then p.firstHold else if k = steps.size then p.lastHold else p.hold, .linear)
+  | .rest k => (p.restOf k steps.size, .linear)
   | .move j =>
     match steps[j]? with
     | some s => (s.dur, s.easing)
@@ -309,13 +366,66 @@ def locate (t : Rat) : SegKind × Float :=
   | some s => (s.kind, s.easing.eval (Exact.toFloat (tl.progress t)))
   | none => (.rest 0, 0)
 
+/-- The last segment of the rest on key `k`: the rest itself, or its last part when it is divided
+(`divide`). -/
+def stillPart? (k : Nat) : Option Segment := tl.segments.findRev? (·.kind = .rest k)
+
 /-- The middle of the rest on key `k`, in seconds from the start of the cycle (the time of a still
-of that key); `0` if the timeline has no rest on key `k`. -/
+of that key), or of its last part when the rest is divided (`stillPart?`: the part after the
+fades that run in the rest); `0` if the timeline has no rest on key `k`. -/
 def restTime (k : Nat) : Rat :=
-  match tl.segments.find? (·.kind = .rest k) with
+  match tl.stillPart? k with
   | some s => s.start + s.dur / 2
   | none => 0
 
 end Timeline
+
+/-! ### Dividing segments -/
+
+/-- The parts of the segment `s` from the fraction `a` of its time: for each `(b, e)` of the list,
+in order, the part from where the one before it ends (`a` for the first) to the fraction `b`, of
+the segment's kind and eased with `e`. -/
+def Segment.partsFrom (s : Segment) : Rat → List (Rat × Easing) → List Segment
+  | _, [] => []
+  | a, (b, e) :: rest => ⟨s.kind, s.start + s.dur * a, s.dur * (b - a), e⟩ :: s.partsFrom b rest
+
+/-- The ends of parts made to never decrease and to lie in `[0, 1]`, from `a`: each end raised
+to the one before it (to `a` for the first) and lowered to `1`, and the last end `1`. On ends that
+already do so and end at `1` it changes nothing. -/
+def Segment.monoFrom : Rat → List (Rat × Easing) → List (Rat × Easing)
+  | _, [] => []
+  | _, [(_, e)] => [(1, e)]
+  | a, (b, e) :: p :: rest =>
+    let b' := min 1 (max a b)
+    (b', e) :: monoFrom b' (p :: rest)
+
+/-- The parts of a segment made sound (`monoFrom 0`): their ends never decrease from `0`, lie in
+`[0, 1]`, and the last is `1` (`PILean/Anim/TimelineProofs.lean`, `Timeline.monoFrom_last`,
+`Timeline.monoFrom_mono`); on parts that already are (`Segment.sound`) it changes nothing
+(`Timeline.normalize_of_sound`). -/
+def Segment.normalize (ps : List (Rat × Easing)) : List (Rat × Easing) := Segment.monoFrom 0 ps
+
+/-- Whether the ends of parts, from `a`, never decrease, lie in `[a, 1]` and end at `1`. -/
+def Segment.soundFrom : Rat → List (Rat × Easing) → Bool
+  | _, [] => true
+  | a, [(b, _)] => decide (a ≤ b) && decide (b = 1)
+  | a, (b, _) :: p :: rest => decide (a ≤ b) && decide (b ≤ 1) && Segment.soundFrom b (p :: rest)
+
+/-- Whether the parts of a segment are sound as given (`soundFrom 0`): the writer of a motion
+gives only such parts, and reports any other as an error (`PILean.Plane.divideSegments`). -/
+def Segment.sound (ps : List (Rat × Easing)) : Bool := Segment.soundFrom 0 ps
+
+/-- The segment `s` divided into parts, each given by the fraction of the segment's time at which
+it ends and its easing, made sound (`normalize`, which changes nothing on ends that never decrease
+in `[0, 1]` and end at `1`); the segment itself when the list is empty. -/
+def Segment.divide (s : Segment) (ps : List (Rat × Easing)) : List Segment :=
+  if ps.isEmpty then [s] else s.partsFrom 0 (Segment.normalize ps)
+
+/-- The timeline with each segment `s` divided into the parts `parts s` (`Segment.divide`): the
+same keys and cycle. The parts tile the cycle as the segments did, and none lasts less than zero,
+for any `parts` (`PILean/Anim/TimelineProofs.lean`, `Timeline.divide_tiles`,
+`Timeline.divide_dur_nonneg`). -/
+def Timeline.divide (tl : Timeline) (parts : Segment → List (Rat × Easing)) : Timeline :=
+  { tl with segments := (tl.segments.toList.flatMap fun s => s.divide (parts s)).toArray }
 
 end PILean.Anim

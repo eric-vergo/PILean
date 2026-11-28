@@ -21,12 +21,14 @@ element with `data-pilean-page`), and each page must agree with the manifest:
   page says "Tied to its object" or "proved by";
 * every verdict of `pilean-verify` it shows is `ok`;
 * for a motion (its files record `kind` `motion`): the motion's sentence, "An animation drawn
-  from N key frames; the stills are the key figures as drawn.", with N the manifest's `keys`,
-  followed by what the browser does between key frames; for a motion not checked strictly, what
-  that means ("It was built at the check level …"); for a linked motion, what a theorem about a
-  motion can state; the table of the steps (`table.pilean-motion-steps`) with one row for each of
-  the N - 1 steps; and the N key stills with their captions ("Step k of N: …"); and its files
-  are exactly those the adapters write for a motion (`motion_files`).
+  from N key frames; the stills are the key figures as drawn.", with N the manifest's `keys` (and
+  ", S of them shown as stills" after "key frames" when the manifest lists the S keys that are
+  stills, `stills`), followed by what the browser does between key frames; for a motion not
+  checked strictly, what that means ("It was built at the check level …"); for a linked motion,
+  what a theorem about a motion can state; the table of the steps (`table.pilean-motion-steps`)
+  with one row for each of the N - 1 steps (besides the rows of rests, `tr.pilean-motion-rest`);
+  and the S stills with their captions ("Step k of S: …", S = N when every key is a still); and
+  its files are exactly those the adapters write for a motion (`motion_files`).
 
 It prints one line per problem and exits 1 if there is any, 0 otherwise.
 """
@@ -70,7 +72,7 @@ class Page(html.parser.HTMLParser):
             self.steps = 0
         if tag == "tbody" and self.steps is not None:
             self.in_body = True
-        if tag == "tr" and self.in_body:
+        if tag == "tr" and self.in_body and "pilean-motion-rest" not in cls:
             self.steps += 1
         if tag == "li" and "pilean-page-motion-key" in cls:
             self.keys += 1
@@ -84,21 +86,24 @@ class Page(html.parser.HTMLParser):
 
 
 def motion_files(stem, keys, narrow, dark, rasters=False):
-    """The files the Verso adapters write for a motion whose animated SVG is `stem.svg`, with
-    `keys` key frames, a narrow rendition or not, a dark twin or not, and the APNG and GIF of its
-    baked frames or not (`MotionFigure.rasters`): the animated SVG, the poster's PNG and PDF, the
-    contact sheet's SVG, PNG and PDF, the SVG and PNG of each key; with a narrow rendition its
-    animated SVG and the SVG and PNG of each of its keys; with a dark twin the SVG of each key at
-    each width (`-key-k-dark.svg`), all a page shows of the dark motion. So `7 + 6 keys` files
-    with a narrow rendition and a dark twin, `6 + 3 keys` with a dark twin only, `7 + 4 keys` and
-    `6 + 2 keys` without one."""
+    """The files the Verso adapters write for a motion whose animated SVG is `stem.svg`, whose
+    stills are the keys `keys` (a number `n`: the keys `0` to `n - 1`, every key a still; or the
+    list of the keys that are stills, `stills` in the manifest), with a narrow rendition or not, a
+    dark twin or not, and the APNG and GIF of its baked frames or not (`MotionFigure.rasters`):
+    the animated SVG, the poster's PNG and PDF, the contact sheet's SVG, PNG and PDF, the SVG and
+    PNG of each still (`-key-k`, `k` its key); with a narrow rendition its animated SVG and the
+    SVG and PNG of each of its stills; with a dark twin the SVG of each still at each width
+    (`-key-k-dark.svg`), all a page shows of the dark motion. So `7 + 6 s` files for `s` stills
+    with a narrow rendition and a dark twin, `6 + 3 s` with a dark twin only, `7 + 4 s` and
+    `6 + 2 s` without one."""
+    keys = list(range(keys)) if isinstance(keys, int) else list(keys)
     out = [f"{stem}.svg", f"{stem}-poster.png", f"{stem}-poster.pdf", f"{stem}-keys.svg",
            f"{stem}-keys.png", f"{stem}-keys.pdf"]
     stems = [stem] + ([stem + "-narrow"] if narrow else [])
     if narrow:
         out.append(f"{stem}-narrow.svg")
     for s in stems:
-        for k in range(keys):
+        for k in keys:
             out += [f"{s}-key-{k}.svg", f"{s}-key-{k}.png"] + \
                 ([f"{s}-key-{k}-dark.svg"] if dark else [])
     if rasters:
@@ -175,9 +180,11 @@ def main(site, figs=None):
         motion = entries[0].get("kind") == "motion"
         if motion:
             n = entries[0].get("keys")
+            stills = entries[0].get("stills")
+            shown = len(stills) if stills is not None else n
             paths = sorted(e["path"] for e in entries)
             stem = min((p for p in paths if p.endswith(".svg")), key=len)[:-len(".svg")]
-            want = motion_files(stem, n, entries[0].get("narrow"),
+            want = motion_files(stem, stills if stills is not None else n, entries[0].get("narrow"),
                                 any(p.endswith("-dark.svg") for p in paths),
                                 f"{stem}.gif" in paths)
             if paths != want:
@@ -188,6 +195,9 @@ def main(site, figs=None):
                 problems.append(f"{where}: the motion's files are not those the adapters write: "
                                 f"{what}")
             frames = "key frame" if n == 1 else "key frames"
+            if stills is not None:
+                frames += (", 1 of them shown as a still" if shown == 1 else
+                           f", {shown} of them shown as stills")
             said = (f"An animation drawn from {n} {frames}; the stills are the key figures as "
                     "drawn.")
             if said not in text:
@@ -203,8 +213,10 @@ def main(site, figs=None):
                 problems.append(f"{where}: a linked motion without what its theorem can state")
             if p.steps != n - 1:
                 problems.append(f"{where}: a motion of {n} keys with {p.steps} rows of steps")
-            if p.keys != n or any(f"Step {k} of {n}:" not in text for k in range(1, n + 1)):
-                problems.append(f"{where}: a motion of {n} keys with {p.keys} captioned stills")
+            if p.keys != shown or \
+                    any(f"Step {k} of {shown}:" not in text for k in range(1, shown + 1)):
+                problems.append(f"{where}: a motion of {shown} stills with {p.keys} captioned "
+                                "stills")
         elif p.steps is not None or "An animation drawn from" in text:
             problems.append(f"{where}: motion words on the page of a figure that is no motion")
         for v in p.verdicts:
