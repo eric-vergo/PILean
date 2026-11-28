@@ -1086,12 +1086,13 @@ SMIL would clamp into another curve: on a grid of twentieths of a step, `0.83 0 
 of the 210 parts, `0.87 0 0.13 1` 30 and `0.85 0 0.15 1` 16 (`[0, 0.6]` of the first, for one).
 A refused part is halved, and each half divided so in turn (`easedParts`), at most
 `maxEasedDepth` (16) halvings deep: a smaller part of a curve is nearer a straight line, whose
-scaled control values lie inside `[0, 1]`. On every part of that grid of the curves the tests try
-(those three, `0.76 0 0.24 1`, the standard curve and `0.25 0.1 0.25 1`) one halving is the most
-needed, and on every part between two hundredths of a step of the thirteen curves below two (for
-`0.9 0 0.1 1`, which refuses 1164 of those 5050 parts); a part still refused at the last depth is drawn without easing and is an error of the
-motion. The value at every boundary the halving adds is the step's eased value there, as at
-every other boundary.
+scaled control values lie inside `[0, 1]`. On that grid, the curves the tests try (those three,
+`0.76 0 0.24 1`, the standard curve and `0.25 0.1 0.25 1`) need one halving at most. On the
+grid of hundredths (every part between two hundredths of a step, 5050 parts), the thirteen
+curves measured below need one halving at most, except the steepest, `0.9 0 0.1 1`, which
+refuses 1164 of those parts and needs two. A part still refused at the last depth is drawn
+without easing and is an error of the motion. The value at every boundary the halving adds is
+the step's eased value there, as at every other boundary.
 
 The control values are written to six decimals (`Smil.splineText`, each within `5e-7` of its
 value; a value with fewer decimals, such as the standard curve's `0.42 0 0.58 1`, is written with
