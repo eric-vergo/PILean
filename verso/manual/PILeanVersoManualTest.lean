@@ -3,6 +3,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Eric Vergo (Two-Circle Solutions), Claude (Anthropic)
 -/
 import ManualExample
+import ManualExample.NoExplorer
 import PILeanVersoManual
 import PILeanTest.Motion
 import PILeanTest.MotionPanels
@@ -66,6 +67,11 @@ def exampleConfig : RenderConfig :=
 /-- Generates the example manual with `args`. -/
 def generate (args : List String) : IO UInt32 :=
   PILeanVerso.Manual.withFigures (%doc ManualExample) site_figures% args fun doc args =>
+    manualMain doc (options := args) (config := exampleConfig)
+
+/-- Generates the example's manual without explorers (`ManualExample.NoExplorer`). -/
+def generateWithoutExplorers (args : List String) : IO UInt32 :=
+  PILeanVerso.Manual.withFigures (%doc ManualExample.NoExplorer) site_figures% args fun doc args =>
     manualMain doc (options := args) (config := exampleConfig)
 
 /-- A figure whose theorem names it but is not linked to it by `figure_links`. -/
@@ -426,6 +432,23 @@ def main (args : List String) : IO UInt32 := do
       "the explorer's script is a file of the site"
     check (← (out1 / "html-multi" / "-verso-data" / "pilean-explorer.js").pathExists)
       "the script file is written"
+    -- a manual without explorers carries neither their script nor their stylesheet
+    let out3 := tmp / "c"
+    let c3 ← generateWithoutExplorers ["--output", out3.toString]
+    check (c3 == 0) "a manual without explorers is generated"
+    let mut named : Array String := #[]
+    for f in ← (out3 / "html-multi").walkDir do
+      if ← f.isDir then continue
+      let text ← try IO.FS.readFile f catch _ => pure ""
+      if has f.toString "pilean-explorer" || has text "pilean-explorer" then
+        named := named.push f.toString
+    check named.isEmpty
+      s!"no page or file of a manual without explorers names their script or stylesheet \
+        ({named.take 3})"
+    let pics ← IO.FS.readFile (out3 / "html-multi" / "Pictures" / "index.html")
+    check (has pics ".pilean-inline-narrow { display: none; }" && has pics "pilean-inline-frame" &&
+      has pics "class=\"pilean-motion")
+      "without explorers, the inline picture keeps its stylesheet and the motion is shown"
     check (has ex "html[data-theme=\"dark\"] #radius-x-f0 [fill=\"#ffffff\"]{fill:#16181c}" &&
       has ex "@media (prefers-color-scheme: dark){html:not([data-theme=\"light\"])")
       "inline pictures carry their dark theme rules"

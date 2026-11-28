@@ -30,6 +30,7 @@ import PILeanTest.Trust
 import PILeanTest.TrustBuild
 import PILeanTest.Inert
 import PILeanTest.SpecMutations
+import PILeanTest.DivisionMutations
 import PILeanTest.Bounds
 import PILeanTest.Tools
 import PILeanTest.Diagrams

@@ -289,11 +289,19 @@ that end in `Unchecked`.
   are written. Whatever the level, a motion is stopped when it is not well formed (a caption per
   key, one step fewer than keys, the poster among the keys), when its written picture has an id
   twice (actor ids that differ but are written alike, such as `a b` and `a_b`), when its poster
-  is a key that is not a still (`MotionKey.still`), and, for a picture of panels, when its panels
-  use different text engines. A stopped motion renders no
+  is a key that is not a still (`MotionKey.still`), when PILean's writer divides a segment of its
+  timeline into parts whose ends are not sound (`unsoundSegments`: a fault of the writer, not of
+  the motion), and, for a picture of panels, when its panels use different text engines. A
+  stopped motion renders no
   file: every output fails with the messages of what stops it and has no inline picture, theme or
   page data, and `pilean-build` exits with status 1 having written nothing. A narrow rendition is
-  also stopped by its own errors under `fail`.
+  also stopped by its own errors under `fail`. The direct outputs of a motion or a picture of
+  panels (`svg?`, `animation?`) stop at every level for a motion that is not well formed and for
+  segments divided unsoundly, as the checked route does. A poster that is not a still is an
+  error of the motion: under `fail` it stops the direct outputs too, at `warn` and `ignore` only
+  the checked route. An id written twice and the panels of a picture drawn with different text
+  engines are not errors of the motion: they stop the checked route (`ToCheckedMotion`, the one
+  builds use) at every level and the direct outputs at none.
 * **What is recorded.** Every file of a motion has its own manifest entry with SHA-256 and
   fingerprint, and records the motion, in its source record (the key `motion`) and in its
   manifest entry (the keys `kind` … `narrow`), which `pilean-verify` compares: the number of key

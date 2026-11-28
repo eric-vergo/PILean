@@ -622,6 +622,12 @@ def divisionChecks : Array (String × Bool) := Id.run do
       1.6e-6 of the step's change as written",
     (Easing.spline 0.83 0 0.17 1).part 0 0.6 == none &&
       named.all fun e => let (ok, w) := worst e; ok && w < 1.6e-6)
+  r := r.push ("easing: a part that does not end after it starts is one part without easing, not \
+      halved into 2 ^ 16 parts",
+    named.all fun e =>
+      let back := PILean.Plane.easedParts e PILean.Plane.maxEasedDepth (3 / 4) (1 / 4)
+      let flat := PILean.Plane.easedParts e PILean.Plane.maxEasedDepth (1 / 2) (1 / 2)
+      back.length == 1 && flat.length == 1)
   return r
 
 /-- All checks. -/

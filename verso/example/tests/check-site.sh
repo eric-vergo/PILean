@@ -7,9 +7,11 @@
 # file and element, two builds write the same bytes, the checks fail on damaged folders and pages,
 # and the three link modes write the links they promise; the motions shown inline are their files'
 # moving pictures, their pages say what they are, and each of these checks fails on a page or a
-# folder damaged where it looks. It leaves the sites the browser check reads in SCRATCH: a (the
-# default mode), site, none and sbs (side by side, links into the site), the Manual adapter's
-# example in manual, and both examples' motions with their expectations in motions
+# folder damaged where it looks; a site of the example's figures without an explorer carries
+# neither the explorers' script nor their stylesheet. It leaves the sites the browser check reads
+# in SCRATCH: a (the default mode), site, none and sbs (side by side, links into the site), the
+# Manual adapter's example in manual, the site without explorers in no-explorer, and both
+# examples' motions with their expectations in motions
 # (`example-test --motion-out`, `pilean-verso-manual-test --motion-out`). The checks of a site that
 # are not about this example are PILean's site checks (tools/site), which it runs as one consumer.
 #
@@ -32,7 +34,7 @@ gen=./.lake/build/bin/example-blueprint
 fails=0
 check() { if "$@"; then echo "ok: ${desc}"; else echo "FAIL: ${desc}"; fails=$((fails + 1)); fi; }
 
-"$lake" build example-blueprint example-test >/dev/null
+"$lake" build example-blueprint example-no-explorer example-test >/dev/null
 (cd .. && cd .. && "$lake" build pilean-verify >/dev/null)
 verify=../../.lake/build/bin/pilean-verify
 (cd ../manual && "$lake" build pilean-site-links pilean-verso-manual-example \
@@ -56,6 +58,37 @@ desc="the manifest records the repository and commit"; check grep -q "\"commit\"
 desc="a second build writes the same bytes"
 "$gen" --output "$scratch/b" "${flags[@]}" >/dev/null
 check diff -r -q "$scratch/a" "$scratch/b"
+
+# The explorers' script and stylesheet: on every page of a site with an explorer, in no page or
+# file of a site without one (`example-no-explorer`: the diagrams, a plot, an inline picture, an
+# animation and motions).
+desc="a site with explorers loads their script on its pages and has its file"
+check bash -c "grep -q '<script src=\"-verso-data/pilean-explorer.js\" defer=\"defer\">' \
+    '$scratch/a/html-multi/Pictures-with-proofs/Explorers/index.html' &&
+  grep -q '<script src=\"-verso-data/pilean-explorer.js\"' \
+    '$scratch/a/html-multi/Figures/Example.radiusExplorer/index.html' &&
+  grep -q '\.pilean-explorer-frame' '$scratch/a/html-multi/Pictures-with-proofs/Explorers/index.html' &&
+  test -f '$scratch/a/html-multi/-verso-data/pilean-explorer.js'"
+plain="$scratch/no-explorer"
+rm -rf "$plain"
+desc="the site without explorers builds"
+check ./.lake/build/bin/example-no-explorer --output "$plain" "${flags[@]}"
+desc="without explorers, no page or file of the site names the explorers' script or stylesheet"
+check bash -c "test -f '$plain/html-multi/index.html' && ! grep -rlI 'pilean-explorer' '$plain' >/dev/null"
+desc="without explorers, the site has no file of the explorers' script"
+check bash -c "test -z \"\$(find '$plain' -name '*pilean-explorer*')\""
+desc="without explorers, the motions, the inline picture with its stylesheet and the figures' pages are there"
+check bash -c "grep -qE 'class=\"pilean-motion( |\")' '$plain/html-multi/Pictures/index.html' &&
+  grep -q 'class=\"pilean-inline-frame' '$plain/html-multi/Pictures/index.html' &&
+  grep -qF '.pilean-inline-narrow { display: none; }' '$plain/html-multi/Pictures/index.html' &&
+  grep -qF '.pilean-inline-narrow { display: none; }' \
+    '$plain/html-multi/Figures/Example.windowInline/index.html' &&
+  test \"\$(grep -l 'data-pilean-page=' '$plain'/html-multi/Figures/*/index.html | wc -l | tr -d ' ')\" = 9"
+desc="without explorers, the site's checks hold (markup, inline pictures, pages, links)"
+check bash -c "python3 -I '$site_checks'/markup_check.py '$plain/html-multi' >/dev/null &&
+  python3 -I '$site_checks'/inline_check.py '$plain/html-multi' >/dev/null &&
+  python3 -I '$site_checks'/page_check.py '$plain/html-multi' >/dev/null &&
+  '$links' '$plain/html-multi' --all >/dev/null"
 
 page="$scratch/a/html-multi/Pictures-with-proofs/A-function/index.html"
 desc="the page has the figure with its number"; check grep -q 'Figure 1.1.1' "$page"

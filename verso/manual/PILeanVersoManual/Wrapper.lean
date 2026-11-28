@@ -182,14 +182,15 @@ def figureFlags (o : SiteOptions) : Array String :=
 /-- How a genre's adapter puts figure pages into a document: the names of its figure blocks and
 of its figures page's block, the figures page's block, and a figure's page block. -/
 structure PageBlocks where
-  /-- The names of the genre's figure blocks. -/
+  /-- The names of the genre's figure blocks (explorers' among them). -/
   figures : Array Name
   /-- The name of the block of the figures page (`{figure_list}`). -/
   listName : Name
   /-- The block of the figures page. -/
   list : Doc.Block Manual
-  /-- The page block of a figure, from its declaration's name. -/
-  page : String → Doc.Block Manual
+  /-- The page block of a figure, from its declaration's name and whether the document shows it
+  as an explorer (whose page then carries the explorers' script and stylesheet). -/
+  page : String → Bool → Doc.Block Manual
 
 /-- Whether a block is, or holds, the block named `n`. -/
 partial def hasBlock (n : Name) : Doc.Block Manual → Bool
@@ -197,24 +198,27 @@ partial def hasBlock (n : Name) : Doc.Block Manual → Bool
   | .concat bs | .blockquote bs => bs.any (hasBlock n)
   | _ => false
 
-/-- The page of the figure `decl`: an unnumbered part titled with the name, in the file
-`pageSlug decl`, holding the figure's page block. -/
-def pagePart (b : PageBlocks) (decl : String) : Part Manual :=
+/-- The page of the figure `decl` (`explorer`: shown as an explorer in the document): an
+unnumbered part titled with the name, in the file `pageSlug decl`, holding the figure's page
+block. -/
+def pagePart (b : PageBlocks) (decl : String) (explorer : Bool) : Part Manual :=
   { title := #[.text decl], titleString := decl,
     metadata := some { number := false, file := some (pageSlug decl) },
-    content := #[b.page decl], subParts := #[] }
+    content := #[b.page decl explorer], subParts := #[] }
 
 /-- An unnumbered part "Figures" with the figures page's block and the parts `pages` below it. -/
 def figuresPart (b : PageBlocks) (pages : Array (Part Manual)) : Part Manual :=
   { title := #[.text "Figures"], titleString := "Figures", metadata := some { number := false },
     content := #[b.list], subParts := pages }
 
-/-- The document with a page for each of the figures `decls`, below the figures page: the
+/-- The document with a page for each of the figures `decls`, below the figures page (the page of
+one of `explorers`, the figures the document shows as explorers, with their script): the
 top-level part that holds the figures page's block, or a part "Figures" with that block added at
 the end of the document when it has none. -/
-def withPages (b : PageBlocks) (doc : Part Manual) (decls : Array String) : Part Manual :=
+def withPages (b : PageBlocks) (doc : Part Manual) (decls : Array String)
+    (explorers : Array String := #[]) : Part Manual :=
   if decls.isEmpty then doc else
-  let pages := decls.map (pagePart b)
+  let pages := decls.map fun d => pagePart b d (explorers.contains d)
   match doc.subParts.findIdx? (·.content.any (hasBlock b.listName)) with
   | some i =>
     let p := doc.subParts[i]!
@@ -348,7 +352,8 @@ def withFiguresFor (blocks : PageBlocks) (doc : Part Manual) (figures : SiteFigu
   siteRef.set (some site)
   unlinkedRef.set {}
   pageStatedRef.set {}
-  let code ← generate (withPages blocks doc decls) w.rest
+  let explorers := usedDecls (used.filter (·.explorer))
+  let code ← generate (withPages blocks doc decls explorers) w.rest
   siteRef.set none
   let unlinked := (← unlinkedRef.get).toArray.qsort (· < ·)
   unlinkedRef.set {}

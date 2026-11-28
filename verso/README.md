@@ -183,6 +183,14 @@ A link is never put inside another.
   frame shown first with script outlined; nothing in it is focusable but the links of its
   pictures, in the link modes that have them. The play button is a toggle (`aria-pressed`); keys
   with Ctrl, ⌘ or Alt held are left to the browser.
+* Which sites carry the explorers' script and stylesheet: only the blocks that show an explorer
+  (`figure_explorer`, and the page of a figure the document shows as one) register them; plain
+  figures, inline pictures, animations and motions register neither (every figure block registers
+  the stylesheet of inline pictures, which explorers share). Verso keeps a block type's
+  scripts and stylesheets in site-wide sets and writes them into every page, so a site that shows
+  an explorer carries both on all its pages, and a site without one carries neither, in any page
+  or file (the example's check builds such a site, `example-no-explorer`). The figures' own markup
+  never holds a script (`markup_check.py`).
 * "Figure 1.2" and the caption, numbered as the Blueprint numbers its blocks
   (`verso.blueprint.numbering`, `verso.blueprint.subNumberingPrefix`), with a counter of its own.
 * A source line: the declaration that made the picture and its file and line; the fingerprint
@@ -341,9 +349,12 @@ as one consumer:
   verdicts were changed), the page's theorem statement, code, source links and commands, the escaped
   page of the markup name; and a figure whose `figure_links` line is taken out: with the caption
   still naming the theorem the build fails, without it the page says it is an illustration; and a
-  weakened theorem that no longer names the figure, which `figure_links` refuses. It leaves five
-  sites in SCRATCH: `a` (the default links), `site`, `none`, `sbs` (side by side, links into the
-  site) and `manual` (the Manual adapter's example, `pilean-verso-manual-example`). In each, every
+  weakened theorem that no longer names the figure, which `figure_links` refuses; the explorers'
+  script and stylesheet on the pages of the site with explorers, and in no page or file of a site
+  of the example's other figures (`example-no-explorer`, whose markup, inline pictures, pages and
+  links are checked too). It leaves six sites in SCRATCH: `a` (the default links), `site`,
+  `none`, `sbs` (side by side, links into the site), `no-explorer` and `manual` (the Manual
+  adapter's example, `pilean-verso-manual-example`). In each, every
   link PILean writes (a class that starts with `pilean-`) must reach its file and the element its
   fragment names (`pilean-site-links`, below), and in `a`, `sbs` and `manual` every link of the
   site; a page whose anchor was taken away must be reported; and a figure's page link must name the
@@ -352,7 +363,8 @@ as one consumer:
   record, step table, words, an added event, link or unescaped string).
 * `python3 -I tests/browser_check.py SCRATCH/a/html-multi [SHOTS] --site-links
   SCRATCH/site/html-multi --no-links SCRATCH/none/html-multi --side-by-side SCRATCH/sbs/html-multi
-  --manual SCRATCH/manual/html-multi --motions SCRATCH/motions`:
+  --manual SCRATCH/manual/html-multi --no-explorer SCRATCH/no-explorer/html-multi --motions
+  SCRATCH/motions`:
   the pages in a headless Chromium under a strict content policy: both themes, reduced motion, the
   source links, the figures page, narrow windows, the explorers' controls, gestures, announcements
   and touch targets, no script, a policy that allows the pictures' `style` elements by hash only,
@@ -361,9 +373,14 @@ as one consumer:
   page's look unchanged, nothing highlighted), the anchor adding no space above a figure page's
   picture (at 1440 and 390 px, in both adapters' examples: the picture's place is the same with the
   anchor removed), centring and overflow (wide, in the side-by-side text column, at 360 px) and
-  hostile strings; and, on every page of both examples that shows a motion, the motion checks of
+  hostile strings; in the site without explorers, no page loading an explorer's script, overflow
+  and the inline figure's narrow rendition at 320 and 360 px, and centring wide, at 360 and at
+  320 px; and, on every page of both examples that shows a motion, the motion checks of
   `tools/site/motion_browser.py` with the expectations in `SCRATCH/motions` (a motion without its
   expectations fails).
+* `python3 -I ../../tools/site/motion_browser.py SCRATCH/no-explorer/html-multi --expect
+  SCRATCH/motions --workers 4` (and with `--engine firefox`): the motion checks on the site
+  without explorers, whose pages carry the stylesheet of inline pictures but not the explorers'.
 
 ## Site checks
 

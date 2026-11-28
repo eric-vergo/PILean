@@ -566,7 +566,8 @@ structure MotionPanelsReport where
   /-- The steps whose easing cannot be divided exactly at the ends of the windows of the panels'
   fades (`divideSegments`). -/
   inexact : Array Nat := #[]
-  /-- The segments of the shared timeline divided unsoundly (`unsoundSegments`). -/
+  /-- The segments of the shared timeline divided unsoundly (`unsoundSegments`): they stop the
+  picture at every level, and the shared timeline is then not divided (`MotionDivision.soundOn`). -/
   unsound : Array SegKind := #[]
   /-- The shared timeline. -/
   timeline : Timeline
@@ -646,7 +647,7 @@ private def laidOut : MotionPanelsReport :=
   let division : MotionDivision :=
     { samples := fun j => samples.getD j 1, stepWindows := union (fs.map (·.steps)),
       restWindows := union (fs.map (·.rests)), restEasing := P.pacing.easing }
-  let (segs, inexact) := divideSegments base division
+  let (segs, inexact) := divideSegments base (division.soundOn base)
   let tl := P.timelineOn segs
   let phases := Motion.phasesOf segs
   { figure := P, layout := L, samples, conflicts := shared.filterMap (·.2),
@@ -971,7 +972,8 @@ private def panelProblems : Array MotionProblem :=
   let P := r.figure
   r.panels.zipIdx.flatMap fun (pr, i) =>
     let f := pr.keys.env.frame
-    let own := pr.motion.keyProblemsOn P.baseTimeline ++ (if !decide P.WellFormed then #[] else
+    let own := pr.motion.keyProblemsOn P.baseTimeline ++
+      (if !decide P.WellFormed || !r.unsound.isEmpty then #[] else
       pr.motion.restProblems pr.keys pr.ownPlan ++ Motion.writerProblems pr.ownPlan ++
         boundsProblems pr.ownPlan ⟨0, 0, f.width, f.height⟩ "its panel")
     own.map fun p => { p with message := s!"panel {P.name i}: {p.message}" }
@@ -1023,16 +1025,26 @@ def checkMessages : Array String :=
     | .note => s!"note: {p.message}"
 
 /-- Whether the problems stop the picture from being rendered: an error under `CheckLevel.fail`
-(the default). -/
-def problemsFail : Bool := r.figure.checks == .fail && r.problems.any (·.severity == .error)
+(the default), and at every level a picture that is not well formed (`MotionPanels.WellFormed`)
+or a segment of the shared timeline divided unsoundly (`unsound`, a fault of the writer). -/
+def problemsFail : Bool :=
+  (r.figure.checks == .fail && r.problems.any (·.severity == .error)) ||
+    !decide r.figure.WellFormed || !r.unsound.isEmpty
 
 /-- The messages of the errors. -/
 def errors : Array String := (r.problems.filter (·.severity == .error)).map (·.message)
 
+/-- The messages of the errors that stop the picture (`problemsFail`): every error under
+`CheckLevel.fail` or of a picture that is not well formed, those of the segments divided unsoundly
+at the other levels. -/
+def stopErrors : Array String :=
+  if r.figure.checks == .fail || !decide r.figure.WellFormed then r.errors
+  else (unsoundProblems r.unsound).map (·.message)
+
 /-- The picture's animated SVG, or, when its problems stop it (`problemsFail`), the messages of its
 errors. -/
 def svg? : Except (Array String) String :=
-  if r.problemsFail then .error r.errors else .ok r.toSvgUnchecked
+  if r.problemsFail then .error r.stopErrors else .ok r.toSvgUnchecked
 
 /-- The picture as an `Animation` of its baked drawings, whatever its problems (they travel with
 it): one cycle at `fps` frames a second, the poster at the middle of the poster key's rest. -/
@@ -1050,10 +1062,11 @@ def toAnimationUnchecked (fps : Nat := 30) : Animation :=
 /-- The picture as an `Animation` (`toAnimationUnchecked`), or the messages of the errors that stop
 it. -/
 def animation? (fps : Nat := 30) : Except (Array String) Animation :=
-  if r.problemsFail then .error r.errors else .ok (r.toAnimationUnchecked fps)
+  if r.problemsFail then .error r.stopErrors else .ok (r.toAnimationUnchecked fps)
 
 /-- The shared timeline is the picture's base timeline divided (`Timeline.divide`), as its
-panels' fades and sampled morphs divide it. -/
+panels' fades and sampled morphs divide it (not divided when that division is unsound,
+`MotionDivision.soundOn`). -/
 theorem timeline_divide (P : MotionPanels) :
     ∃ f, P.report.timeline = P.baseTimeline.divide f := by
   simp only [MotionPanels.report, MotionPanels.laidOut, MotionPanels.timelineOn,

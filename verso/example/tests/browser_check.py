@@ -3,13 +3,14 @@
 """Checks the example site's figures in a headless Chromium (Playwright).
 
     python3 -I tests/browser_check.py SITE [SHOTS] [--site-links DIR] [--no-links DIR]
-        [--side-by-side DIR] [--manual DIR] [--motions DIR] [--workers N]
+        [--side-by-side DIR] [--manual DIR] [--no-explorer DIR] [--motions DIR] [--workers N]
 
 SITE is the generator's `html-multi` folder, built with `--figure-repo` and the default link mode
 (`ideil`); SHOTS, if given, is a folder for screenshots. The other folders are the same site
 built with `--figure-lean-links site`, with `--figure-lean-links none`, and with
 `--side-by-side --figure-lean-links site`; `--manual` names the Manual adapter's example
-(`pilean-verso-manual-example`), and `--motions` the expectations of the motions of both examples
+(`pilean-verso-manual-example`), `--no-explorer` the site of the example's figures without an
+explorer (`example-no-explorer`), and `--motions` the expectations of the motions of both examples
 (the example's `example-test --motion-out DIR` and the Manual
 adapter's `pilean-verso-manual-test --motion-out DIR`, into one folder). The checks of a folder not
 given are skipped, but the motions are checked on every page that shows one (`--workers N` pages at
@@ -36,7 +37,9 @@ into the site that a click follows to an existing anchor (also in the side-by-si
 links. Everything a figure shows is centred in its container and stays within it: wide, in the
 narrow column of the side-by-side layout, and at 360 px, also with a word of 240 letters in a
 caption and in the figures page's list. Hostile captions, names and ids show as text and run
-nothing.
+nothing. In the site without explorers, which carries no explorer's script or stylesheet: no page
+loads the script or scrolls sideways at 320 and 360 px, the inline figure shows its narrow
+rendition there, and every figure's parts are centred and within it, wide, at 360 and at 320 px.
 """
 
 import os
@@ -941,6 +944,43 @@ def code_fold_checks(c, browser, base, shots):
     ctx.close()
 
 
+def figure_pages(site):
+    """The addresses, relative to the site's root, of its pages that show a PILean figure."""
+    out = []
+    for root, _, files in os.walk(site):
+        if "index.html" in files:
+            with open(os.path.join(root, "index.html"), encoding="utf-8") as f:
+                if 'class="pilean-figure' in f.read():
+                    rel = os.path.relpath(root, site)
+                    out.append("" if rel == "." else rel.replace(os.sep, "/") + "/")
+    return sorted(out)
+
+
+def no_explorer_checks(c, browser, base, pages):
+    """The site without explorers (`example-no-explorer`), whose pages carry no explorer's script
+    or stylesheet: no page loads the script; at 320 and 360 px no page scrolls sideways and the
+    inline figure shows its narrow rendition; wide, at 360 and at 320 px every figure's parts are
+    centred and within it."""
+    for width in [320, 360]:
+        ctx, page = new_page(browser, viewport={"width": width, "height": 800})
+        for url in pages:
+            goto(page, base + url)
+            wide = page.evaluate("document.documentElement.scrollWidth - window.innerWidth")
+            c.check(f"no explorer {width} px: {url} does not scroll sideways", wide <= 0,
+                    f"{wide} px")
+            scripts = page.evaluate("""() => [...document.scripts].map(s => s.src)
+              .filter(s => s.includes('pilean-explorer'))""")
+            c.check(f"no explorer {width} px: {url} loads no explorer's script", not scripts,
+                    str(scripts))
+        goto(page, base + "Pictures/")
+        narrow = page.evaluate("""() => [...document.querySelectorAll('figure#inline svg')]
+          .filter(s => s.getBoundingClientRect().width > 0).map(s => s.id)""")
+        c.check(f"no explorer {width} px: the inline figure shows its narrow rendition",
+                narrow == ["inline-svg-narrow"], str(narrow))
+        ctx.close()
+    centring_checks(c, browser, base, "no explorer", [1100, 360, 320], pages)
+
+
 def main(argv):
     site = argv[0]
     rest = argv[1:]
@@ -948,6 +988,7 @@ def main(argv):
     sites = {"ideil": site, "site": option(rest, "--site-links"),
              "none": option(rest, "--no-links"), "side-by-side": option(rest, "--side-by-side")}
     manual = option(rest, "--manual")
+    plain = option(rest, "--no-explorer")
     motions = option(rest, "--motions")
     workers = int(option(rest, "--workers") or "1")
     # Chromium only: some sections drive Chromium's DevTools protocol (event listeners, touch and
@@ -1088,6 +1129,12 @@ def main(argv):
                                           for url in motion_browser.motion_pages(manual)],
                 manual_helpers, motions, shots, workers)
             manual_server.shutdown()
+
+        if plain:
+            plain_server, plain_base = serve(plain)
+            c.section("no explorer", no_explorer_checks, c, browser, plain_base,
+                      figure_pages(plain))
+            plain_server.shutdown()
 
         for width in [320, 360, 375, 600]:
             ctx = browser.new_context(viewport={"width": width, "height": 800})

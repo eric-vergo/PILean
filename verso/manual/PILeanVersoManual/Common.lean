@@ -272,11 +272,16 @@ def explorerProblem? (decl : Name) : CoreM (Option MessageData) := do
   return some m!"{decl} has the type {ty}, not PILean.Explorer: figure_explorer shows an \
     explorer (made with Plane.slider, Plane.stepper or Explorer.grid); use figure for a picture"
 
-/-- How the directives of one genre differ: the block a figure becomes, whether `alt` must be
-given, and the numbering of the figures (`numbering` and `subPrefix` of `FigureData`). -/
+/-- How the directives of one genre differ: the blocks a figure and an explorer become, whether
+`alt` must be given, and the numbering of the figures (`numbering` and `subPrefix` of
+`FigureData`). -/
 structure FigureGenre where
   /-- The constant of the genre's figure block, applied to the block's data as JSON text. -/
   block : Name
+  /-- The constant of the genre's explorer block (`figure_explorer`), applied likewise: the
+  figure block with the explorers' script and stylesheet, so that only a site that shows an
+  explorer carries them. -/
+  explorerBlock : Name
   /-- Whether the directive must give `alt` and the figure a caption or a doc string; otherwise
   the doc string is the default text alternative, with a warning when there is none. -/
   requireAlt : Bool
@@ -326,7 +331,8 @@ def expandFigure (g : FigureGenre) (explorer : Bool) : DirectiveExpanderOf Figur
       docCaption := if contents.isEmpty then summary else none,
       proves, numbering, subPrefix, inline := cfg.inline.getD false, explorer }
     let body ← contents.mapM elabBlock
-    ``(Verso.Doc.Block.other ($(mkCIdent g.block) $(quote (toJson data).compress)) #[$body,*])
+    let block := if explorer then g.explorerBlock else g.block
+    ``(Verso.Doc.Block.other ($(mkCIdent block) $(quote (toJson data).compress)) #[$body,*])
 
 /-! ### Traversal: numbers, anchors, files -/
 

@@ -45,16 +45,16 @@ namespace PILeanVerso.Manual
 
 open Lean Verso Doc Genre Manual PILean.Trust PILeanVerso
 
-/-- How this genre's documents get the figures' pages: its figure block, its figures page's
-block, and its page block. -/
+/-- How this genre's documents get the figures' pages: its figure and explorer blocks, its figures
+page's block, and its page blocks. -/
 def pageBlocks : PageBlocks where
-  figures := #[``Block.figure]
+  figures := #[``Block.figure, ``Block.explorer]
   listName := ``Block.figureList
   list := .other Block.figureList #[]
-  page := fun d => .other (Block.figurePage d) #[]
+  page d explorer := .other (if explorer then Block.explorerPage d else Block.figurePage d) #[]
 
 /-- The figures a document's figure blocks use, in document order. -/
-def usedFigures (p : Part Manual) : Array FigureUse := partFigures #[``Block.figure] p
+def usedFigures (p : Part Manual) : Array FigureUse := partFigures pageBlocks.figures p
 
 /-- Renders the figures `doc` uses from the table `figures` (`site_figures%`), adds a page for
 each below the figures page, runs the generator `generate` on that document and the remaining
