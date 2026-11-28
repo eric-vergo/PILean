@@ -289,8 +289,10 @@ that end in `Unchecked`.
   are written. Whatever the level, a motion is stopped when it is not well formed (a caption per
   key, one step fewer than keys, the poster among the keys), when its written picture has an id
   twice (actor ids that differ but are written alike, such as `a b` and `a_b`), when its poster
-  is a key that is not a still (`MotionKey.still`), and, for a picture of panels, when its panels
-  use different text engines. A stopped motion renders no
+  is a key that is not a still (`MotionKey.still`), when PILean's writer divides a segment of its
+  timeline into parts whose ends are not sound (`unsoundSegments`: a fault of the writer, not of
+  the motion), and, for a picture of panels, when its panels use different text engines. A
+  stopped motion renders no
   file: every output fails with the messages of what stops it and has no inline picture, theme or
   page data, and `pilean-build` exits with status 1 having written nothing. A narrow rendition is
   also stopped by its own errors under `fail`.

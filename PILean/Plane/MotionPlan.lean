@@ -60,9 +60,10 @@ motion out in a frame of its own (its origin shifted) on the timeline they share
 
 * `MotionPhase`, `MotionClock`, `MotionLink`, `MotionLayer`, `MotionUpright`,
   `MotionPlan`, `Motion.planLayers`, `Motion.planOn`, `Motion.planIn`, `Motion.plan`.
-* `MotionDivision`, `cutsOf`, `divideSegments`, `sampledSegments`, `MotionFades`, `LayerFades`,
-  `Motion.baseTimeline`, `Motion.fadesOn`, `Motion.divisionOn`, `Motion.segments`,
-  `Motion.inexactSteps`, `Motion.timelineOf`, `Motion.phasesOf`, `Motion.timeline`, `seamOf`.
+* `MotionDivision`, `cutsOf`, `divideSegments`, `sampledSegments`, `unsoundSegments`,
+  `MotionDivision.soundOn`, `MotionFades`, `LayerFades`, `Motion.baseTimeline`, `Motion.fadesOn`,
+  `Motion.divisionOn`, `Motion.segments`, `Motion.inexactSteps`, `Motion.timelineOf`,
+  `Motion.phasesOf`, `Motion.timeline`, `seamOf`.
 * `MotionPlan.toNodesUnchecked`, `MotionPlan.contentNodes`, `MotionPlan.figureAtUnchecked`,
   `MotionPlan.contentAt`, `MotionPlan.markersAt`.
 
@@ -70,6 +71,8 @@ motion out in a frame of its own (its origin shifted) on the timeline they share
 
 * `Motion.planOn_timeline`: a plan laid out on a timeline has that timeline.
 * `MotionPlan.anim_eq`: every animation element of a plan has the timing of its timeline.
+* `Motion.timeline_eq_of_sound`: the timeline of a motion whose division is sound is its base
+  timeline divided into exactly the division's parts.
 
 The motion's checked outputs (`Motion.report`, `Motion.svg?`, `Motion.animation?`) and its checks
 against the stills and between writer and baker (`Motion.problems`) are in
@@ -162,15 +165,20 @@ it is divided into (`Easing.part`), each ending at its fraction: the part itself
 part is a timing curve; otherwise its two halves, each so, at most `fuel` halvings deep, and at
 the last depth the part with `none` (no exact easing). Halving a part of a cubic Bézier curve
 brings its scaled control values towards those of a straight line, inside `[0, 1]`; the tests
-show the curves that refuse a part divided within a few halvings. -/
+show the curves that refuse a part divided within a few halvings. A part that does not end after
+it starts (`b ≤ a`) is not halved: halving cannot mend it, and every half would be refused down
+to the last depth, `2 ^ fuel` parts; it is the part with `none`, and its ends make the division
+unsound (`unsoundSegments`). -/
 def easedParts (e : Easing) : Nat → Rat → Rat → List (Rat × Option Easing)
   | 0, a, b => [(b, e.part (Exact.toFloat a) (Exact.toFloat b))]
   | fuel + 1, a, b =>
     match e.part (Exact.toFloat a) (Exact.toFloat b) with
     | some q => [(b, some q)]
     | none =>
-      let m := (a + b) / 2
-      easedParts e fuel a m ++ easedParts e fuel m b
+      if b ≤ a then [(b, none)]
+      else
+        let m := (a + b) / 2
+        easedParts e fuel a m ++ easedParts e fuel m b
 
 /-- How the division `d` divides the segment `s` of a timeline whose last key is `last`: its parts
 (each ending at its fraction of the segment's time, with its easing; none when it is not divided),
@@ -236,7 +244,7 @@ whose easing could not be divided exactly (their refused parts are then not ease
 def divideSegments (base : Timeline) (d : MotionDivision) :
     Array (Segment × MotionPhase × MotionPhase) × Array Nat :=
   let last := base.keys - 1
-  let phases := base.segments.toList.flatMap fun s => (divisionOf d last s).2.1
+  let phases := (base.segments.toList.flatMap fun s => (divisionOf d last s).2.1).toArray
   ((base.divide (d.parts last)).segments.mapIdx fun i seg => (seg, phases.getD i default),
     base.segments.filterMap fun s => (divisionOf d last s).2.2)
 
@@ -248,12 +256,25 @@ def divideSegments (base : Timeline) (d : MotionDivision) :
 def unsoundSegments (base : Timeline) (d : MotionDivision) : Array SegKind :=
   (base.segments.filter fun s => !Segment.sound (d.parts (base.keys - 1) s)).map (·.kind)
 
-/-- The segments divided unsoundly (`unsoundSegments`), as errors. -/
+/-- The segments divided unsoundly (`unsoundSegments`), as errors. They stop the motion at every
+check level, since the fault is the writer's, not the motion's. -/
 def unsoundProblems (kinds : Array SegKind) : Array MotionProblem :=
   kinds.map fun k =>
     { severity := .error, message := s!"the segment {reprStr k} is divided into parts whose ends \
         are not sound (they must not decrease, lie in [0, 1] and end at 1); this is a fault of \
         the writer, not of the motion" }
+
+/-- The division `d` when it divides every segment of the timeline `base` soundly
+(`unsoundSegments`), and otherwise no division (every segment whole): what a motion is laid out
+on, so that its plan is never computed on unsound parts, whose number has no bound (a motion so
+divided is stopped at every level, `unsoundProblems`). -/
+def MotionDivision.soundOn (d : MotionDivision) (base : Timeline) : MotionDivision :=
+  if (unsoundSegments base d).isEmpty then d else {}
+
+/-- A division that divides every segment soundly is kept as it is (`MotionDivision.soundOn`). -/
+theorem MotionDivision.soundOn_of_sound {d : MotionDivision} {base : Timeline}
+    (h : (unsoundSegments base d).isEmpty) : d.soundOn base = d := by
+  simp [MotionDivision.soundOn, h]
 
 /-- The segments `divideSegments` gives are those of `Timeline.divide` with the division's parts:
 the writer's timeline is a divided timeline, which tiles the cycle (`Timeline.divide_tiles`). -/
@@ -333,18 +354,19 @@ def divisionOn (K : MotionKeys) (base : Timeline) : MotionDivision :=
 
 /-- The segments of the motion's timeline with the phases at their start and end: those of
 `baseTimeline`, a sampled morph's move divided into `samplesOf` segments, and steps and rests cut
-at the ends of the windows of their fades (`divideSegments`). -/
+at the ends of the windows of their fades (`divideSegments`); those of `baseTimeline` undivided
+when the division is unsound (`MotionDivision.soundOn`). -/
 def segments (K : MotionKeys) : Array (Segment × MotionPhase × MotionPhase) :=
-  (divideSegments m.baseTimeline (m.divisionOn K m.baseTimeline)).1
+  (divideSegments m.baseTimeline ((m.divisionOn K m.baseTimeline).soundOn m.baseTimeline)).1
 
 /-- The segments of the motion's timeline divided unsoundly (`unsoundSegments`). -/
 def unsoundOf (K : MotionKeys) : Array SegKind :=
   unsoundSegments m.baseTimeline (m.divisionOn K m.baseTimeline)
 
 /-- The steps whose easing the motion's timeline cannot divide exactly at the ends of the windows
-of their fades (`divideSegments`). -/
+of their fades (`divideSegments`; none when the division is unsound, `MotionDivision.soundOn`). -/
 def inexactSteps (K : MotionKeys) : Array Nat :=
-  (divideSegments m.baseTimeline (m.divisionOn K m.baseTimeline)).2
+  (divideSegments m.baseTimeline ((m.divisionOn K m.baseTimeline).soundOn m.baseTimeline)).2
 
 /-- The timeline of segments `segs` (see `segments`). -/
 def timelineOf (segs : Array (Segment × MotionPhase × MotionPhase)) : Timeline :=
@@ -360,11 +382,19 @@ def phasesOf (segs : Array (Segment × MotionPhase × MotionPhase)) : Array Moti
 /-- The timeline of the motion (see `segments`). -/
 def timeline : Timeline := m.timelineOf (m.segments m.keysOf)
 
-/-- The timeline the motion's SVG is written on is its base timeline divided as its division says
-(`Timeline.divide`). -/
+/-- The timeline of the motion is its base timeline divided as its division says when that is
+sound, and not divided otherwise (`Timeline.divide`, `MotionDivision.soundOn`). -/
 theorem timeline_eq : m.timeline = m.baseTimeline.divide
-    ((m.divisionOn m.keysOf m.baseTimeline).parts (m.baseTimeline.keys - 1)) := by
+    (((m.divisionOn m.keysOf m.baseTimeline).soundOn m.baseTimeline).parts
+      (m.baseTimeline.keys - 1)) := by
   simp only [timeline, timelineOf, segments, divideSegments_fst, Timeline.divide]
+
+/-- The timeline a motion's SVG is written on (one whose division is sound: an unsound one stops
+the motion, `unsoundProblems`) is its base timeline divided as its division says. -/
+theorem timeline_eq_of_sound (h : (m.unsoundOf m.keysOf).isEmpty) :
+    m.timeline = m.baseTimeline.divide
+      ((m.divisionOn m.keysOf m.baseTimeline).parts (m.baseTimeline.keys - 1)) := by
+  rw [timeline_eq, MotionDivision.soundOn_of_sound h]
 
 /-- The segments of the motion's timeline, whatever its fades and sampled morphs, tile its
 cycle: the first starts at `0`, each starts where the one before it ends, and the last ends at

@@ -36,9 +36,10 @@ For a motion `m` declared as `d`, with `n` keys, the files are (`docs/DESIGN.md`
 
 A motion that is stopped renders none of them: every output fails with the messages of what stops
 it, and has no inline picture, no theme and no page data. It is stopped by an error under
-`CheckLevel.fail` (the default), and at every level when it is not well formed, when its written
-picture has an id twice (actor ids that differ but are written alike), when its poster is not a
-still, or, for a picture of panels, when its panels use different text engines. Every output records
+`CheckLevel.fail` (the default), and at every level when it is not well formed, when its writer
+divides a segment of its timeline unsoundly (`Plane.unsoundSegments`), when its written picture has
+an id twice (actor ids that differ but are written alike), when its poster is not a still, or, for
+a picture of panels, when its panels use different text engines. Every output records
 the motion (`Output.motion`: keys, cycle, captions, check level, whether errors were left, and the
 stills when some key is not one), in its source record and in the manifest; the animated SVG also
 carries what a page needs to show it inline (`Output.motionPage`).
@@ -52,8 +53,9 @@ carries what a page needs to show it inline (`Output.motionPage`).
 * `stillOutputs`, `MotionFigure`, `motionOutputs`, and the instances for `Plane.Motion`,
   `Plane.MotionPanels` and `MotionFigure`.
 * `Plane.moveRows`, `Plane.Motion.stepRows`, `Plane.Motion.restRows`,
-  `Plane.Motion.stepWindowSeconds`, `Plane.Motion.restFadeRows`, `Plane.Motion.checked`,
-  `Plane.MotionPanels.checked`, `Plane.Motion.withStyle`, `Plane.MotionPanels.withStyle`.
+  `Plane.Motion.stepWindowSeconds`, `Plane.Motion.restFadeRows`, `Plane.MotionReport.stops`,
+  `Plane.MotionPanelsReport.stops`, `Plane.Motion.checked`, `Plane.MotionPanels.checked`,
+  `Plane.Motion.withStyle`, `Plane.MotionPanels.withStyle`.
 -/
 
 namespace PILean.Trust
@@ -531,27 +533,32 @@ level when that is `fail`, else those of the motion checked at `fail`. -/
 def Motion.strictErrors (m : Motion) (r : MotionReport) : Nat :=
   if m.checks == .fail then r.errors.size else ({ m with checks := .fail } : Motion).report.errors.size
 
-/-- The checked motion of one motion, its report (`Motion.report`) computed here: the animated
-SVG of the checked route (`MotionReport.svg?`), the body of its root for a page (`liveNodes`), the
-stills (the keys that are stills as drawn, `Motion.keyFigure`, through `ExplorerFrame.ofPlane`),
-the step table and the rests,
-the warnings, what stops it (its errors under `fail`, and at every level the errors of a motion
-that is not well formed, `Motion.WellFormed`, an id written twice, `idStops`, and a poster that is
-not a still), and the errors
-the strict level finds that did not stop it (`Motion.strictErrors`). It takes the motion, not a
-report, so that what it says of the checks is the checks' own. A single motion has no narrow
-rendition. -/
-def Motion.checked (m : Motion) : CheckedMotion :=
-  let r := m.report
-  let f := r.plan.env.frame
-  let errors := r.errors
+/-- What stops the motion of the report `r` (`Motion.checked`): its errors under `fail`, and at
+every level the errors of a motion that is not well formed (`Motion.WellFormed`), the segments its
+writer divided unsoundly (`MotionReport.unsound`, `MotionReport.stopErrors`), an id written twice
+(`idStops`), and a poster that is not a still. -/
+def MotionReport.stops (r : MotionReport) : Array String :=
+  let m := r.motion
   let wellFormed := decide m.WellFormed
   let idProblems := match r.svg? with
     | .ok doc => idStops doc m.actorIds
     | .error _ => #[]
   let posterStops := if wellFormed && !m.isStill m.poster then
       #[s!"the poster is key {m.poster}, which is not a still"] else #[]
-  let stops := (if r.problemsFail || !wellFormed then errors else #[]) ++ idProblems ++ posterStops
+  (if !wellFormed then r.errors else if r.problemsFail then r.stopErrors else #[]) ++
+    idProblems ++ posterStops
+
+/-- The checked motion of one motion, its report (`Motion.report`) computed here: the animated
+SVG of the checked route (`MotionReport.svg?`), the body of its root for a page (`liveNodes`), the
+stills (the keys that are stills as drawn, `Motion.keyFigure`, through `ExplorerFrame.ofPlane`),
+the step table and the rests, the warnings, what stops it (`MotionReport.stops`), and the errors
+the strict level finds that did not stop it (`Motion.strictErrors`). It takes the motion, not a
+report, so that what it says of the checks is the checks' own. A single motion has no narrow
+rendition. -/
+def Motion.checked (m : Motion) : CheckedMotion :=
+  let r := m.report
+  let f := r.plan.env.frame
+  let stops := r.stops
   let st := (r.keys.figure 0).style
   { title := m.info.title, keyCount := m.keys.size, stillKeys := m.stillKeys,
     captions := m.captions, poster := m.poster,
@@ -592,6 +599,12 @@ def MotionPanelsReport.writeStops (r : MotionPanelsReport) : Array String :=
       | .error _ => #[]) ++
     (if decide r.figure.WellFormed && !r.figure.isStill r.figure.poster then
       #[s!"the poster is key {r.figure.poster}, which is not a still"] else #[])
+
+/-- What stops a picture of panels (its report `r`) from being written: its errors under `fail`,
+and at every level the segments of its shared timeline divided unsoundly
+(`MotionPanelsReport.stopErrors`) and `writeStops`. -/
+def MotionPanelsReport.stops (r : MotionPanelsReport) : Array String :=
+  (if r.problemsFail then r.stopErrors else #[]) ++ r.writeStops
 
 /-- The still of key `k` of a picture of panels: the picture's key (`stillNodes`, whose document
 is `keyStillSvg k`; `keyStillPng k`), its PDF drawn from the same shapes (`stillShape`, text by
@@ -646,18 +659,16 @@ def MotionPanels.strictErrors (P : MotionPanels) (r : MotionPanelsReport) : Nat 
   else ({ P with checks := .fail } : MotionPanels).report.errors.size
 
 /-- The checked motion of a picture of panels, its report (`MotionPanels.report`) and that of its
-narrow rendition (`MotionPanels.narrow`) computed here: the main rendition stopped by the
-picture's errors under `fail` and by `writeStops`; the narrow one also by its own errors under
-`fail` and its own `writeStops`; the errors the strict level finds in each rendition that is not
-stopped are the errors left (`MotionPanels.strictErrors`). It takes the picture, not a report, so
-that what it says of the checks is the checks' own. -/
+narrow rendition (`MotionPanels.narrow`) computed here: the main rendition stopped by what
+stops the picture (`MotionPanelsReport.stops`), the narrow one also by what stops it; the errors the strict level
+finds in each rendition that is not stopped are the errors left (`MotionPanels.strictErrors`). It
+takes the picture, not a report, so that what it says of the checks is the checks' own. -/
 def MotionPanels.checked (P : MotionPanels) : CheckedMotion :=
   let r := P.report
   let narrowP := P.narrow
   let narrow := narrowP.map (·.report)
-  let stops := (if r.problemsFail then r.errors else #[]) ++ r.writeStops
-  let narrowStops := fun (n : MotionPanelsReport) =>
-    ((if n.problemsFail then n.errors else #[]) ++ n.writeStops).map ("narrow rendition: " ++ ·)
+  let stops := r.stops
+  let narrowStops := fun (n : MotionPanelsReport) => n.stops.map ("narrow rendition: " ++ ·)
   let narrowLeft := match narrowP, narrow with
     | some nP, some n => if (stops ++ narrowStops n).isEmpty then nP.strictErrors n else 0
     | _, _ => 0

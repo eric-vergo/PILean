@@ -1058,19 +1058,24 @@ step or a rest cut at the ends of the windows of its fades (below). `Timeline.di
 ends sound first (`Segment.normalize`: each raised to the one before it, kept in `[0, 1]`, the last
 `1`), so for any parts the divided segments tile the cycle as the segments did and none lasts less
 than zero (`Timeline.divide_tiles`, `Timeline.divide_dur_nonneg`). That repair would hide a writer
-that gives wrong ends, so the writer does not rely on it: the timeline a motion's SVG is written on
-is `base.divide parts` (`MotionPlan.divideSegments_fst`, `Motion.timeline_eq`;
-`MotionPanelsReport.timeline_divide`), and every segment whose parts are not already sound
-(`Segment.sound`: ends that never decrease, lie in `[0, 1]` and end at `1`) is an error of the
-motion (`unsoundSegments`, `unsoundProblems`). When there is none, which the tests check for every
-golden and test motion, the repair changes nothing (`Timeline.normalize_of_sound`,
-`Timeline.divide_of_sound`): the timeline written is divided into exactly the writer's parts, and
-it tiles the cycle (`Motion.timeline_tiles`, `MotionPanelsReport.timeline_tiles`). Proved: the
-tiling, the durations, and that sound parts are kept as they are. Checked at run time, not proved:
-that the parts `divisionOf` gives are sound (a change to it that reversed its ends is reported as
-an error and fails the tests), and that the phases it gives at the parts' boundaries are those of
-its parts (by construction; the writer-against-baker check and the tests of opacities and angles
-at the boundaries hold it).
+that gives wrong ends, so the writer does not rely on it: every segment whose parts are not
+already sound (`Segment.sound`: ends that never decrease, lie in `[0, 1]` and end at `1`) is an
+error of the motion (`unsoundSegments`, `unsoundProblems`) that stops it at every check level, as
+a fault of the writer, not of the author. The check runs before anything else is done with the
+parts: a motion so divided is laid out on its base timeline undivided
+(`MotionDivision.soundOn`), and its plan is not checked further, since unsound parts have no
+bound on their number (a part of a step that ends before it starts would be halved by
+`easedParts` into `2 ^ 16` refused parts; it is not halved). The timeline of a motion whose
+division is sound is `base.divide parts` (`MotionPlan.divideSegments_fst`,
+`Motion.timeline_eq_of_sound`; `MotionPanelsReport.timeline_divide`), and the repair changes
+nothing on it (`Timeline.normalize_of_sound`, `Timeline.divide_of_sound`): the timeline written is
+divided into exactly the writer's parts, and it tiles the cycle (`Motion.timeline_tiles`,
+`MotionPanelsReport.timeline_tiles`); the tests check that every golden and test motion is so
+divided. Proved: the tiling, the durations, and that sound parts are kept as they are. Checked at
+run time, not proved: that the parts `divisionOf` gives are sound (a change to it that reversed
+its ends is reported as an error at once and fails the tests), and that the phases it gives at
+the parts' boundaries are those of its parts (by construction; the writer-against-baker check and
+the tests of opacities and angles at the boundaries hold it).
 
 A part of a step keeps the step's eased motion exactly: its easing is the part of the step's
 curve between the parameters where its first coordinate is the part's ends (`Easing.part`, de

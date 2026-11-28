@@ -348,6 +348,10 @@ structure MotionReport where
   keys : MotionKeys
   /-- Its plan. -/
   plan : MotionPlan
+  /-- The segments its timeline's division divides unsoundly (`Motion.unsoundOf`; none for a
+  motion that is not well formed): they stop it at every level, and its plan is then laid out on
+  its base timeline undivided (`MotionDivision.soundOn`). -/
+  unsound : Array SegKind := #[]
   /-- Its problems (`Motion.problems`). -/
   problems : Array MotionProblem
 
@@ -356,19 +360,26 @@ namespace Motion
 variable (m : Motion)
 
 /-- The motion checked: the problems of its keys and steps (`keyProblems`) and, for a well-formed
-motion, a step whose easing its windows cannot divide exactly (`inexactProblems`), and the
-problems of its plan against the stills (`restProblems`), of its writer against its baker
-(`writerProblems`) and of what leaves the picture while it moves (`boundsProblems`). -/
+motion, the segments its writer divides unsoundly (`unsoundProblems`); when there are none, a
+step whose easing its windows cannot divide exactly (`inexactProblems`), and the problems of its
+plan against the stills (`restProblems`), of its writer against its baker (`writerProblems`) and
+of what leaves the picture while it moves (`boundsProblems`); otherwise a note that these were not
+checked. -/
 def report : MotionReport :=
   let K := m.keysOf
   let p := m.planIn K K.env
   let base := m.keyProblems
   let f := p.env.frame
+  let unsound := if decide m.WellFormed then m.unsoundOf K else #[]
   let problems := if !decide m.WellFormed then base
-    else base ++ unsoundProblems (m.unsoundOf K) ++ inexactProblems (m.inexactSteps K) ++
+    else if !unsound.isEmpty then
+      base ++ unsoundProblems unsound |>.push { severity := .note, message := "the motion was \
+        not checked against its stills, its writer against its baker or its bounds, because its \
+        timeline is divided unsoundly" }
+    else base ++ inexactProblems (m.inexactSteps K) ++
       m.restProblems K p ++ writerProblems p ++
       boundsProblems p ⟨0, 0, f.width, f.height⟩ "the picture"
-  { motion := m, keys := K, plan := p, problems }
+  { motion := m, keys := K, plan := p, unsound, problems }
 
 /-- The problems of the motion (`report`). -/
 def problems : Array MotionProblem := m.report.problems
@@ -388,16 +399,23 @@ def checkMessages : Array String :=
     | .note => s!"note: {p.message}"
 
 /-- Whether the problems stop the motion from being rendered: an error under `CheckLevel.fail`
-(the default). -/
-def problemsFail : Bool := r.motion.checks == .fail && r.problems.any (·.severity == .error)
+(the default), and at every level a segment divided unsoundly (`unsound`, a fault of the
+writer). -/
+def problemsFail : Bool :=
+  (r.motion.checks == .fail && r.problems.any (·.severity == .error)) || !r.unsound.isEmpty
 
-/-- The messages of the errors that stop the motion. -/
+/-- The messages of the errors. -/
 def errors : Array String := (r.problems.filter (·.severity == .error)).map (·.message)
+
+/-- The messages of the errors that stop the motion (`problemsFail`): every error under
+`CheckLevel.fail`, those of the segments divided unsoundly at the other levels. -/
+def stopErrors : Array String :=
+  if r.motion.checks == .fail then r.errors else (unsoundProblems r.unsound).map (·.message)
 
 /-- The motion's animated SVG, or, when its problems stop it (`problemsFail`), the messages of its
 errors: a motion that contradicts its keys is not written. -/
 def svg? : Except (Array String) String :=
-  if r.problemsFail then .error r.errors
+  if r.problemsFail then .error r.stopErrors
   else .ok ("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" ++
     Svg.render 0 (r.motion.svgRootIn r.keys r.plan) ++ "\n")
 
@@ -418,7 +436,7 @@ def toAnimationUnchecked (fps : Nat := 30) : Animation :=
 /-- The motion as an `Animation` of its baked drawings (`toAnimationUnchecked`), or, when its
 problems stop it, the messages of its errors. -/
 def animation? (fps : Nat := 30) : Except (Array String) Animation :=
-  if r.problemsFail then .error r.errors else .ok (r.toAnimationUnchecked fps)
+  if r.problemsFail then .error r.stopErrors else .ok (r.toAnimationUnchecked fps)
 
 end MotionReport
 

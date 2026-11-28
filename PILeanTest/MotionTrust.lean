@@ -385,6 +385,42 @@ def routeChecks : Array (String × Bool) :=
         !(ToCheckedMotion.checked (atLevel broken .warn)).stopped &&
         (ToCheckedMotion.checked (atLevel broken .warn)).errorsLeft == 1)]
 
+/-- A timeline its writer divided unsoundly, put into the reports of a motion and of a picture of
+panels: it stops them at every check level (no SVG, no animation, what stops them its message
+only), where an ordinary error stops them under `fail` only. -/
+def unsoundChecks : Array (String × Bool) :=
+  let bad : Anim.SegKind := .move 0
+  let msgs := (unsoundProblems #[bad]).map (·.message)
+  let levels := #[CheckLevel.fail, .warn, .ignore]
+  let motionAt := fun (l : CheckLevel) =>
+    let r := (atLevel turnMotion l).report
+    { r with unsound := #[bad], problems := r.problems ++ unsoundProblems #[bad] }
+  let panelsAt := fun (l : CheckLevel) =>
+    let r := ({ PILeanTest.MotionPanelsChecks.framesPanels with checks := l } : MotionPanels).report
+    { r with unsound := #[bad], problems := r.problems ++ unsoundProblems #[bad] }
+  let erred := fun (l : CheckLevel) =>
+    let r := (atLevel turnMotion l).report
+    { r with problems := r.problems.push { severity := .error, message := "an error" } }
+  #[("motion unsound: the writer divides the timelines of the motions tested soundly",
+      turnMotion.report.unsound.isEmpty &&
+        PILeanTest.MotionPanelsChecks.framesPanels.report.unsound.isEmpty),
+    ("motion unsound: a timeline divided unsoundly stops a motion at every level, with its \
+        message",
+      levels.all fun l =>
+        let r := motionAt l
+        r.problemsFail && r.svg?.toOption.isNone && (r.animation? 10).toOption.isNone &&
+          r.toAnimationUnchecked.problemsFail && r.stopErrors == msgs && r.stops == msgs),
+    ("motion unsound: an ordinary error stops a motion under fail only",
+      (erred .fail).problemsFail && !(erred .fail).stops.isEmpty &&
+        #[CheckLevel.warn, .ignore].all fun l =>
+          !(erred l).problemsFail && (erred l).svg?.toOption.isSome && (erred l).stops.isEmpty),
+    ("panels unsound: a shared timeline divided unsoundly stops a picture of panels at every \
+        level, with its message",
+      levels.all fun l =>
+        let r := panelsAt l
+        r.problemsFail && r.svg?.toOption.isNone && (r.animation? 10).toOption.isNone &&
+          r.stopErrors == msgs && r.stops == msgs)]
+
 /-- A manifest entry of a motion's file. -/
 def motionEntry (path : String) (motion : Option MotionSummary) : ManifestEntry :=
   { path, format := if path.endsWith ".png" then "png" else "svg", bytes := 1,
@@ -565,7 +601,7 @@ example (P : MotionPanels) : CheckedMotion :=
 /-- The checks that need no files. -/
 def checks : Array (String × Bool) :=
   (golden.flatMap fun (n, m) => outputChecks n m) ++ panelChecks ++ sheetChecks ++ wordChecks ++
-    routeChecks ++ recordChecks ++ inertChecks ++
+    routeChecks ++ unsoundChecks ++ recordChecks ++ inertChecks ++
     #[("renderer: the identity covers the motions, the panels and their outputs",
         ["PILean.Anim.Timeline", "PILean.Anim.Smil", "PILean.Plane.Motion",
           "PILean.Plane.MotionPlan", "PILean.Plane.MotionOutput", "PILean.Plane.MotionPanels",
