@@ -10,7 +10,8 @@ import Lake
 A small Blueprint project whose chapters show figures made by PILean, each the value of a Lean
 declaration, most with a theorem about it: function and data plots, graphs and diagrams,
 explorers, an animation and motions of plane figures shown inline. `PictureExample` holds the
-figures and theorems, `ExampleBlueprint` the document, `example-blueprint` the site's generator.
+figures and theorems, `ExampleBlueprint` the document, `example-blueprint` the site's generator;
+`example-no-explorer` builds a second document (`ExampleBlueprint.NoExplorer`) without explorers.
 -/
 
 open Lake DSL
@@ -36,4 +37,11 @@ lean_exe «example-test» where
 /-- The site's generator: `lake exe example-blueprint --output _out/site`. -/
 lean_exe «example-blueprint» where
   root := `ExampleMain
+  supportInterpreter := true
+
+/-- The generator of a site of the example's figures without an explorer, whose pages carry
+neither the explorers' script nor their stylesheet:
+`lake exe example-no-explorer --output _out/no-explorer`. -/
+lean_exe «example-no-explorer» where
+  root := `NoExplorerMain
   supportInterpreter := true

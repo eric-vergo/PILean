@@ -183,6 +183,13 @@ A link is never put inside another.
   frame shown first with script outlined; nothing in it is focusable but the links of its
   pictures, in the link modes that have them. The play button is a toggle (`aria-pressed`); keys
   with Ctrl, ⌘ or Alt held are left to the browser.
+* Which sites carry the explorers' script and stylesheet: only the blocks that show an explorer
+  (`figure_explorer`, and the page of a figure the document shows as one) register them; plain
+  figures, inline pictures, animations and motions register neither. Verso keeps a block type's
+  scripts and stylesheets in site-wide sets and writes them into every page, so a site that shows
+  an explorer carries both on all its pages, and a site without one carries neither, in any page
+  or file (the example's check builds such a site, `example-no-explorer`). The figures' own markup
+  never holds a script (`markup_check.py`).
 * "Figure 1.2" and the caption, numbered as the Blueprint numbers its blocks
   (`verso.blueprint.numbering`, `verso.blueprint.subNumberingPrefix`), with a counter of its own.
 * A source line: the declaration that made the picture and its file and line; the fingerprint
@@ -341,9 +348,12 @@ as one consumer:
   verdicts were changed), the page's theorem statement, code, source links and commands, the escaped
   page of the markup name; and a figure whose `figure_links` line is taken out: with the caption
   still naming the theorem the build fails, without it the page says it is an illustration; and a
-  weakened theorem that no longer names the figure, which `figure_links` refuses. It leaves five
-  sites in SCRATCH: `a` (the default links), `site`, `none`, `sbs` (side by side, links into the
-  site) and `manual` (the Manual adapter's example, `pilean-verso-manual-example`). In each, every
+  weakened theorem that no longer names the figure, which `figure_links` refuses; the explorers'
+  script and stylesheet on the pages of the site with explorers, and in no page or file of a site
+  of the example's other figures (`example-no-explorer`, whose markup, inline pictures, pages and
+  links are checked too). It leaves six sites in SCRATCH: `a` (the default links), `site`,
+  `none`, `sbs` (side by side, links into the site), `no-explorer` and `manual` (the Manual
+  adapter's example, `pilean-verso-manual-example`). In each, every
   link PILean writes (a class that starts with `pilean-`) must reach its file and the element its
   fragment names (`pilean-site-links`, below), and in `a`, `sbs` and `manual` every link of the
   site; a page whose anchor was taken away must be reported; and a figure's page link must name the
