@@ -401,9 +401,13 @@ def unsoundChecks : Array (String × Bool) :=
   let erred := fun (l : CheckLevel) =>
     let r := (atLevel turnMotion l).report
     { r with problems := r.problems.push { severity := .error, message := "an error" } }
-  #[("motion unsound: the writer divides the timelines of the motions tested soundly",
-      turnMotion.report.unsound.isEmpty &&
-        PILeanTest.MotionPanelsChecks.framesPanels.report.unsound.isEmpty),
+  #[("motion unsound: the writer divides soundly the timelines of motions it divides (fades in \
+        a rest and in part of a step, in one motion and in a picture of panels)",
+      announceMotion.report.unsound.isEmpty &&
+        (announceMotion.baseTimeline.segments.size < announceMotion.timeline.segments.size) &&
+        PILeanTest.MotionPanelsChecks.announcePanels.report.unsound.isEmpty &&
+        PILeanTest.MotionPanelsChecks.announcePanels.baseTimeline.segments.size <
+          PILeanTest.MotionPanelsChecks.announcePanels.report.timeline.segments.size),
     ("motion unsound: a timeline divided unsoundly stops a motion at every level, with its \
         message",
       levels.all fun l =>
@@ -414,6 +418,16 @@ def unsoundChecks : Array (String × Bool) :=
       (erred .fail).problemsFail && !(erred .fail).stops.isEmpty &&
         #[CheckLevel.warn, .ignore].all fun l =>
           !(erred l).problemsFail && (erred l).svg?.toOption.isSome && (erred l).stops.isEmpty),
+    ("motion direct route: at every level a motion or a picture of panels that is not well \
+        formed gives no SVG and no animation, with its errors",
+      levels.all fun l =>
+        let m : Motion := { turnMotion with checks := l, poster := 9 }
+        let P : MotionPanels :=
+          { PILeanTest.MotionPanelsChecks.framesPanels with checks := l, poster := 9 }
+        m.svg?.toOption.isNone && (m.animation? 10).toOption.isNone &&
+          m.report.stopErrors == m.report.errors && !m.report.errors.isEmpty &&
+          P.svg?.toOption.isNone && (P.animation? 10).toOption.isNone &&
+          P.report.stopErrors == P.report.errors && !P.report.errors.isEmpty),
     ("panels unsound: a shared timeline divided unsoundly stops a picture of panels at every \
         level, with its message",
       levels.all fun l =>

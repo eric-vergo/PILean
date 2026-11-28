@@ -29,6 +29,7 @@ import PILeanTest.Bounds
 import PILeanTest.Tools
 import PILeanTest.Axioms
 import PILeanTest.SpecMutations
+import PILeanTest.DivisionMutations
 import PILeanTest.Diagrams
 import PILeanTest.AlgebraDiagrams
 import PILeanTest.NumberDiagrams
@@ -52,7 +53,9 @@ import PILeanTest.MotionPanels
 `PILeanTest.TrustBuild`, `PILeanTest.Inert`, `PILeanTest.Exact`, `PILeanTest.Plane`,
 `PILeanTest.Diagrams`, `PILeanTest.AlgebraDiagrams`, `PILeanTest.NumberDiagrams`,
 `PILeanTest.Standing`, `PILeanTest.Pdf`, `PILeanTest.Explorers`), the
-changes to the figures that their specifications must catch (`PILeanTest.SpecMutations`), and
+changes to the figures that their specifications must catch (`PILeanTest.SpecMutations`), the
+changes to the writer's division that must stop the motions they reach
+(`PILeanTest.DivisionMutations`), and
 compares every gallery figure's SVG and PNG, every gallery plane figure's (the diagrams' among
 them) and graph's SVG and
 PNG, every gallery animation's SVG, APNG, GIF and poster, and the SVG of every golden motion of
@@ -180,7 +183,8 @@ def main (args : List String) : IO UInt32 := do
     (← TrustBuild.ioChecks) ++ Inert.checks ++ (← Inert.ioChecks) ++ ExactChecks.checks ++
     Enclosures.checks ++ FigureChecks.checks ++ (← FigureChecks.ioChecks) ++
     PlaneChecks.checks ++ (← Bounds.ioChecks) ++ (← Tools.ioChecks) ++ (← Axioms.ioChecks) ++
-    (← SpecMutations.ioChecks) ++ Axioms.coverageChecks driverModules ++ Diagrams.checks ++ AlgebraDiagrams.checks ++
+    (← SpecMutations.ioChecks) ++ (← DivisionMutations.ioChecks) ++
+    Axioms.coverageChecks driverModules ++ Diagrams.checks ++ AlgebraDiagrams.checks ++
     NumberDiagrams.checks ++
     Standing.checks ++ Standing.manifestChecks ++ (← Standing.ioChecks) ++ PdfChecks.checks ++
     Explorers.checks ++
