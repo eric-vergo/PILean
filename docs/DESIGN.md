@@ -1067,7 +1067,9 @@ parts: a motion so divided is laid out on its base timeline undivided
 bound on their number (a part of a step that ends before it starts would be halved by
 `easedParts` into `2 ^ 16` refused parts; it is not halved). The timeline of a motion whose
 division is sound is `base.divide parts` (`MotionPlan.divideSegments_fst`,
-`Motion.timeline_eq_of_sound`; `MotionPanelsReport.timeline_divide`), and the repair changes
+`Motion.timeline_eq_of_sound`), and so is that of every motion whose SVG is written
+(`Motion.timeline_eq_of_svg`); a picture of panels' is a divided base timeline
+(`MotionPanelsReport.timeline_divide`). The repair changes
 nothing on it (`Timeline.normalize_of_sound`, `Timeline.divide_of_sound`): the timeline written is
 divided into exactly the writer's parts, and it tiles the cycle (`Motion.timeline_tiles`,
 `MotionPanelsReport.timeline_tiles`); the tests check that every golden and test motion is so

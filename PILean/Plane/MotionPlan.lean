@@ -283,10 +283,11 @@ theorem divideSegments_fst (base : Timeline) (d : MotionDivision) :
   apply Array.ext <;> simp [divideSegments]
 
 /-- The segments of the timeline `base` with the phases at their start and end, the move of each
-step `j` divided into `samples j` segments when that is more than one (`divideSegments`). -/
+step `j` divided into `samples j` segments when that is more than one (`divideSegments`), and not
+divided when that division is unsound (`MotionDivision.soundOn`), as a motion's own timeline is. -/
 def sampledSegments (base : Timeline) (samples : Nat → Nat) :
     Array (Segment × MotionPhase × MotionPhase) :=
-  (divideSegments base { samples }).1
+  (divideSegments base (({ samples } : MotionDivision).soundOn base)).1
 
 /-- The fades of a motion that run in part of a step or of a rest, as the plan draws them
 (`Motion.fadesOn`): for each step and for each rest, the actors with their fade and its window, as

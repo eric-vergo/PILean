@@ -1025,18 +1025,21 @@ def checkMessages : Array String :=
     | .note => s!"note: {p.message}"
 
 /-- Whether the problems stop the picture from being rendered: an error under `CheckLevel.fail`
-(the default), and at every level a segment of the shared timeline divided unsoundly (`unsound`,
-a fault of the writer). -/
+(the default), and at every level a picture that is not well formed (`MotionPanels.WellFormed`)
+or a segment of the shared timeline divided unsoundly (`unsound`, a fault of the writer). -/
 def problemsFail : Bool :=
-  (r.figure.checks == .fail && r.problems.any (·.severity == .error)) || !r.unsound.isEmpty
+  (r.figure.checks == .fail && r.problems.any (·.severity == .error)) ||
+    !decide r.figure.WellFormed || !r.unsound.isEmpty
 
 /-- The messages of the errors. -/
 def errors : Array String := (r.problems.filter (·.severity == .error)).map (·.message)
 
 /-- The messages of the errors that stop the picture (`problemsFail`): every error under
-`CheckLevel.fail`, those of the segments divided unsoundly at the other levels. -/
+`CheckLevel.fail` or of a picture that is not well formed, those of the segments divided unsoundly
+at the other levels. -/
 def stopErrors : Array String :=
-  if r.figure.checks == .fail then r.errors else (unsoundProblems r.unsound).map (·.message)
+  if r.figure.checks == .fail || !decide r.figure.WellFormed then r.errors
+  else (unsoundProblems r.unsound).map (·.message)
 
 /-- The picture's animated SVG, or, when its problems stop it (`problemsFail`), the messages of its
 errors. -/

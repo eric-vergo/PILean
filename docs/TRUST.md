@@ -295,7 +295,11 @@ that end in `Unchecked`.
   stopped motion renders no
   file: every output fails with the messages of what stops it and has no inline picture, theme or
   page data, and `pilean-build` exits with status 1 having written nothing. A narrow rendition is
-  also stopped by its own errors under `fail`.
+  also stopped by its own errors under `fail`. The direct outputs of a motion or a picture of
+  panels (`svg?`, `animation?`) stop at every level for a motion that is not well formed and for
+  segments divided unsoundly, as the checked route does; an id written twice, a poster that is
+  not a still and different text engines stop only the checked route (`ToCheckedMotion`), which
+  is the one builds use.
 * **What is recorded.** Every file of a motion has its own manifest entry with SHA-256 and
   fingerprint, and records the motion, in its source record (the key `motion`) and in its
   manifest entry (the keys `kind` … `narrow`), which `pilean-verify` compares: the number of key

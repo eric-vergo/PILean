@@ -545,8 +545,7 @@ def MotionReport.stops (r : MotionReport) : Array String :=
     | .error _ => #[]
   let posterStops := if wellFormed && !m.isStill m.poster then
       #[s!"the poster is key {m.poster}, which is not a still"] else #[]
-  (if !wellFormed then r.errors else if r.problemsFail then r.stopErrors else #[]) ++
-    idProblems ++ posterStops
+  (if r.problemsFail then r.stopErrors else #[]) ++ idProblems ++ posterStops
 
 /-- The checked motion of one motion, its report (`Motion.report`) computed here: the animated
 SVG of the checked route (`MotionReport.svg?`), the body of its root for a page (`liveNodes`), the
@@ -584,14 +583,14 @@ them). -/
 instance : ToOutputs Motion where
   outputs m := motionOutputs m.checked
 
-/-- What stops a picture of panels from being written as recorded, at every level: the errors of
-a picture that is not well formed, panels drawn with different text engines (its stills and its
-sheet are drawn with one), an id written twice (`idStops`), and a poster that is not a still. -/
+/-- What stops a picture of panels from being written as recorded, at every level, besides what
+its report's `problemsFail` covers (a picture that is not well formed, segments divided
+unsoundly): panels drawn with different text engines (its stills and its sheet are drawn with
+one), an id written twice (`idStops`), and a poster that is not a still. -/
 def MotionPanelsReport.writeStops (r : MotionPanelsReport) : Array String :=
   let engines := (r.panels.map (·.keys.env.style.text.id)).toList.eraseDups
   let actors := r.figure.panels.flatMap (·.motion.actorIds)
-  (if decide r.figure.WellFormed then #[] else r.errors) ++
-    (if engines.length > 1 then
+  (if engines.length > 1 then
       #["the panels are drawn with different text engines; a picture of panels uses one"]
     else #[]) ++
     (match r.svg? with
@@ -601,8 +600,8 @@ def MotionPanelsReport.writeStops (r : MotionPanelsReport) : Array String :=
       #[s!"the poster is key {r.figure.poster}, which is not a still"] else #[])
 
 /-- What stops a picture of panels (its report `r`) from being written: its errors under `fail`,
-and at every level the segments of its shared timeline divided unsoundly
-(`MotionPanelsReport.stopErrors`) and `writeStops`. -/
+and at every level the errors of a picture that is not well formed and the segments of its shared
+timeline divided unsoundly (`MotionPanelsReport.stopErrors`), and `writeStops`. -/
 def MotionPanelsReport.stops (r : MotionPanelsReport) : Array String :=
   (if r.problemsFail then r.stopErrors else #[]) ++ r.writeStops
 
@@ -660,9 +659,10 @@ def MotionPanels.strictErrors (P : MotionPanels) (r : MotionPanelsReport) : Nat 
 
 /-- The checked motion of a picture of panels, its report (`MotionPanels.report`) and that of its
 narrow rendition (`MotionPanels.narrow`) computed here: the main rendition stopped by what
-stops the picture (`MotionPanelsReport.stops`), the narrow one also by what stops it; the errors the strict level
-finds in each rendition that is not stopped are the errors left (`MotionPanels.strictErrors`). It
-takes the picture, not a report, so that what it says of the checks is the checks' own. -/
+stops the picture (`MotionPanelsReport.stops`), the narrow one also by what stops it; the
+errors the strict level finds in each rendition that is not stopped are the errors left
+(`MotionPanels.strictErrors`). It takes the picture, not a report, so that what it says of the
+checks is the checks' own. -/
 def MotionPanels.checked (P : MotionPanels) : CheckedMotion :=
   let r := P.report
   let narrowP := P.narrow

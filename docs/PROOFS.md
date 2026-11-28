@@ -249,11 +249,14 @@ not rational-valued.
   ends, the last ends at the end of the cycle) and no part lasts less than zero
   (`tiles_layout`, `tiles_partsFrom`, `tiles_divide`, `tiles_flatMap`, `partsFrom_dur_nonneg` are
   the steps). `normalize_of_sound`, `divide_of_sound`: parts that are already sound
-  (`Segment.sound`) are kept exactly, so the repair changes nothing on them. The timeline a
-  motion's SVG is written on is `base.divide parts` (`MotionPlan.divideSegments_fst`,
-  `Motion.timeline_eq_of_sound`; `MotionPanelsReport.timeline_divide`), so
-  `Motion.timeline_tiles` and `MotionPanelsReport.timeline_tiles` state of every motion and
-  picture of panels that its segments tile its cycle and none lasts less than zero. Not proved:
+  (`Segment.sound`) are kept exactly, so the repair changes nothing on them. The timeline of a
+  motion whose SVG is written (`Motion.svg?` gives one) is `base.divide parts` with the writer's
+  own parts (`Motion.timeline_eq_of_svg`, from `MotionReport.wellFormed_of_svg`: such a motion is
+  well formed and has no segment divided unsoundly, `Motion.report_unsound` and
+  `Motion.timeline_eq_of_sound`); a picture of panels' shared timeline is a divided base timeline
+  (`MotionPanelsReport.timeline_divide`). So `Motion.timeline_tiles` and
+  `MotionPanelsReport.timeline_tiles` state of every motion and picture of panels that its
+  segments tile its cycle and none lasts less than zero. Not proved:
   that the writer's parts are sound (a segment whose parts are not is an error that stops the
   motion at every level, `unsoundProblems`, and the tests require none for every test motion),
   that the phases at their boundaries belong to them (by construction, tested), and anything

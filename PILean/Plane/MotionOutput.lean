@@ -34,6 +34,12 @@ id of its SVG, for several pictures in one page.
 * `Drawn`, `drawnOf`, `drawingDiff`, `restTolerance`, `Motion.restProblems`, `inexactProblems`.
 * `writtenMarkers`, `markersDiff`, `writerDiff`, `Motion.writerProblems`.
 * `shapePoints`, `boundsTolerance`, `boundsProblems`.
+
+## Main results
+
+* `MotionReport.wellFormed_of_svg`, `Motion.report_unsound`, `Motion.timeline_eq_of_svg`: a
+  motion that gives an SVG is well formed, has no segment divided unsoundly, and is written on its
+  base timeline divided into exactly its writer's parts.
 -/
 
 namespace PILean.Plane
@@ -399,18 +405,21 @@ def checkMessages : Array String :=
     | .note => s!"note: {p.message}"
 
 /-- Whether the problems stop the motion from being rendered: an error under `CheckLevel.fail`
-(the default), and at every level a segment divided unsoundly (`unsound`, a fault of the
-writer). -/
+(the default), and at every level a motion that is not well formed (`Motion.WellFormed`) or a
+segment divided unsoundly (`unsound`, a fault of the writer). -/
 def problemsFail : Bool :=
-  (r.motion.checks == .fail && r.problems.any (·.severity == .error)) || !r.unsound.isEmpty
+  (r.motion.checks == .fail && r.problems.any (·.severity == .error)) ||
+    !decide r.motion.WellFormed || !r.unsound.isEmpty
 
 /-- The messages of the errors. -/
 def errors : Array String := (r.problems.filter (·.severity == .error)).map (·.message)
 
 /-- The messages of the errors that stop the motion (`problemsFail`): every error under
-`CheckLevel.fail`, those of the segments divided unsoundly at the other levels. -/
+`CheckLevel.fail` or of a motion that is not well formed, those of the segments divided unsoundly
+at the other levels. -/
 def stopErrors : Array String :=
-  if r.motion.checks == .fail then r.errors else (unsoundProblems r.unsound).map (·.message)
+  if r.motion.checks == .fail || !decide r.motion.WellFormed then r.errors
+  else (unsoundProblems r.unsound).map (·.message)
 
 /-- The motion's animated SVG, or, when its problems stop it (`problemsFail`), the messages of its
 errors: a motion that contradicts its keys is not written. -/
@@ -460,6 +469,45 @@ def animation? (fps : Nat := 30) : Except (Array String) Animation := m.report.a
 
 /-- The motion as an `Animation`, whatever its problems (`MotionReport.toAnimationUnchecked`). -/
 def toAnimationUnchecked (fps : Nat := 30) : Animation := m.report.toAnimationUnchecked fps
+
+end Motion
+
+/-- A report that gives an SVG is of a well-formed motion with no segment divided unsoundly
+(`MotionReport.problemsFail`). -/
+theorem MotionReport.wellFormed_of_svg {r : MotionReport} {s : String} (h : r.svg? = .ok s) :
+    r.motion.WellFormed ∧ r.unsound.isEmpty = true := by
+  unfold MotionReport.svg? at h
+  split at h
+  · cases h
+  · rename_i hp
+    simp only [MotionReport.problemsFail, Bool.or_eq_true, Bool.not_eq_true',
+      decide_eq_false_iff_not, not_or] at hp
+    obtain ⟨⟨_, hw⟩, hu⟩ := hp
+    simp only [Bool.not_eq_false] at hw hu
+    exact ⟨of_decide_eq_true (by simpa using hw), by simpa using hu⟩
+
+namespace Motion
+
+variable (m : Motion)
+
+/-- The report of a motion is of that motion. -/
+theorem report_motion : m.report.motion = m := rfl
+
+/-- The segments the report of a well-formed motion holds as divided unsoundly are those of its
+timeline's division (`Motion.unsoundOf`). -/
+theorem report_unsound (h : m.WellFormed) : m.report.unsound = m.unsoundOf m.keysOf := by
+  change (if decide m.WellFormed then m.unsoundOf m.keysOf else #[]) = _
+  simp [h]
+
+/-- The timeline of a motion that gives an SVG (`Motion.svg?`) is its base timeline divided into
+exactly the division's parts. -/
+theorem timeline_eq_of_svg {s : String} (h : m.svg? = .ok s) :
+    m.timeline = m.baseTimeline.divide
+      ((m.divisionOn m.keysOf m.baseTimeline).parts (m.baseTimeline.keys - 1)) := by
+  obtain ⟨hw, hu⟩ := MotionReport.wellFormed_of_svg (r := m.report) h
+  rw [report_motion] at hw
+  rw [report_unsound m hw] at hu
+  exact timeline_eq_of_sound m hu
 
 end Motion
 
