@@ -64,7 +64,8 @@ it one (`PILeanVerso.LeanLinks`), with a visible focus ring. A link is never put
 
 ## Main definitions
 
-* `domSafe`, `prefixNode`, `inlineSvgText`, `themeCss`, `explorerHtml`, `explorerJs`, `explorerCss`.
+* `domSafe`, `prefixNode`, `inlineSvgText`, `themeCss`, `inlineCss`, `explorerHtml`, `explorerJs`,
+  `explorerCss`.
 * `motionCss`, `motionOffRules`, `motionHiddenRendition`: the stylesheet of motions shown in a page.
 * `stillFraction`, `stillColumnMin`, `stillColumnClasses`, `stillColumnRules`, `stillColumnCss`,
   `stillColumns`: the
@@ -459,9 +460,10 @@ def explorerJs : String := r##"// PILean explorers: one frame at a time, a slide
 })();
 "##
 
-/-- The stylesheet of inline pictures and explorers. Everything is centred in its container and
-kept within its width, also in a narrow column. -/
-def explorerCss : String := r##"
+/-- The stylesheet of inline pictures (also those of explorers and motions, and the pictures of
+figures' pages): centred in their container and kept within its width, also in a narrow column,
+the narrow rendition on small screens, and the focus of their links. -/
+def inlineCss : String := r##"
 .pilean-inline-svg {
   display: block; max-width: 100%; height: auto; margin-left: auto; margin-right: auto;
 }
@@ -479,6 +481,11 @@ a.pilean-decl-link:focus-visible {
   outline: 3px solid var(--pilean-focus, #2563eb); outline-offset: 2px;
 }
 a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
+"##
+
+/-- The stylesheet of explorers, beside `inlineCss`: their frames, controls and view, centred in
+their container and kept within its width, also in a narrow column. -/
+def explorerCss : String := r##"
 .pilean-explorer { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .pilean-explorer-view { max-width: 100%; border-radius: 6px; }
 .pilean-explorer-live .pilean-explorer-view { touch-action: pan-x pan-y; }

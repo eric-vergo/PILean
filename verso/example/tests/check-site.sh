@@ -77,9 +77,12 @@ desc="without explorers, no page or file of the site names the explorers' script
 check bash -c "test -f '$plain/html-multi/index.html' && ! grep -rlI 'pilean-explorer' '$plain' >/dev/null"
 desc="without explorers, the site has no file of the explorers' script"
 check bash -c "test -z \"\$(find '$plain' -name '*pilean-explorer*')\""
-desc="without explorers, the motions, the inline picture and the figures' pages are there"
+desc="without explorers, the motions, the inline picture with its stylesheet and the figures' pages are there"
 check bash -c "grep -qE 'class=\"pilean-motion( |\")' '$plain/html-multi/Pictures/index.html' &&
   grep -q 'class=\"pilean-inline-frame' '$plain/html-multi/Pictures/index.html' &&
+  grep -qF '.pilean-inline-narrow { display: none; }' '$plain/html-multi/Pictures/index.html' &&
+  grep -qF '.pilean-inline-narrow { display: none; }' \
+    '$plain/html-multi/Figures/Example.windowInline/index.html' &&
   test \"\$(grep -l 'data-pilean-page=' '$plain'/html-multi/Figures/*/index.html | wc -l | tr -d ' ')\" = 9"
 desc="without explorers, the site's checks hold (markup, inline pictures, pages, links)"
 check bash -c "python3 -I '$site_checks'/markup_check.py '$plain/html-multi' >/dev/null &&

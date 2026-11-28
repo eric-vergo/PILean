@@ -112,7 +112,7 @@ block_extension Block.figure (serialized : String) where
     let caption ← contents.mapM goB
     pure (.seq #[.raw "\\begin{quote}\\emph{", .text s!"Figure {name}", .raw "} (in the HTML \
       version). ", .seq caption, .raw "\\end{quote}\n"])
-  extraCss := [figureCss, motionCss]
+  extraCss := [figureCss, inlineCss, motionCss]
 
 -- The block of an explorer (`figure_explorer`): the figure block with the explorers' script and
 -- stylesheet, which Verso then writes into every page of the site; a site without an explorer
@@ -122,7 +122,7 @@ block_extension Block.explorer (serialized : String) where
   traverse := Block.figure.descr.traverse
   toHtml := Block.figure.descr.toHtml
   toTeX := Block.figure.descr.toTeX
-  extraCss := [figureCss, explorerCss]
+  extraCss := [figureCss, inlineCss, explorerCss]
   extraJsFiles := {explorerJsFile}
 
 /-- How this genre's figure directives differ from the Blueprint's: their block, a required

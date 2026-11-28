@@ -185,7 +185,8 @@ A link is never put inside another.
   with Ctrl, ⌘ or Alt held are left to the browser.
 * Which sites carry the explorers' script and stylesheet: only the blocks that show an explorer
   (`figure_explorer`, and the page of a figure the document shows as one) register them; plain
-  figures, inline pictures, animations and motions register neither. Verso keeps a block type's
+  figures, inline pictures, animations and motions register neither (every figure block registers
+  the stylesheet of inline pictures, which explorers share). Verso keeps a block type's
   scripts and stylesheets in site-wide sets and writes them into every page, so a site that shows
   an explorer carries both on all its pages, and a site without one carries neither, in any page
   or file (the example's check builds such a site, `example-no-explorer`). The figures' own markup

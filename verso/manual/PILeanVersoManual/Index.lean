@@ -58,7 +58,7 @@ block_extension Block.figurePage (decl : String) via withHighlighting where
     let st ← HtmlT.state
     figurePageHtmlWith style "pilean-math" st site decl (st.htmlId id)
   toTeX := some fun _ _ _ _ _ => pure (.text "The figure's page is in the HTML version.")
-  extraCss := [figureCss, motionCss, pageCss]
+  extraCss := [figureCss, inlineCss, motionCss, pageCss]
 
 -- The block of the page of a figure shown as an explorer somewhere in the document: the page
 -- block with the explorers' script and stylesheet (see `Block.explorer`).
@@ -67,7 +67,7 @@ block_extension Block.explorerPage (decl : String) via withHighlighting where
   traverse := Block.figurePage.descr.traverse
   toHtml := Block.figurePage.descr.toHtml
   toTeX := Block.figurePage.descr.toTeX
-  extraCss := [figureCss, explorerCss, pageCss]
+  extraCss := [figureCss, inlineCss, explorerCss, pageCss]
   extraJsFiles := {explorerJsFile}
 
 open Verso Doc Elab Syntax in
