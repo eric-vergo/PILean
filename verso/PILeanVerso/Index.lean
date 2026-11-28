@@ -13,8 +13,9 @@ picture, its number and caption, the declaration that made it with its file and 
 fingerprint, the files with their formats, the theorem when there is one, and a link to the
 manifest. It is the place to see at a glance where every picture comes from.
 
-Below it, each figure has a page of its own (`Block.figurePage`, `PILeanVersoManual.Page`): the
-picture, its files, its standing, its code and its provenance.
+Below it, each figure has a page of its own (`Block.figurePage`, `PILeanVersoManual.Page`; a
+figure the document shows as an explorer, `Block.explorerPage`): the picture, its files, its
+standing, its code and its provenance.
 
 `{figref "label"}[]` refers to the figure with that label: "Figure 2.1", linked to it; text in the
 brackets replaces the default.
@@ -57,7 +58,16 @@ block_extension Block.figurePage (decl : String) via withHighlighting where
     let st ← HtmlT.state
     figurePageHtmlWith blueprintDeclStyle "bp_math inline" st site decl (st.htmlId id)
   toTeX := some fun _ _ _ _ _ => pure (.text "The figure's page is in the HTML version.")
-  extraCss := [figureCss, explorerCss, motionCss, pageCss]
+  extraCss := [figureCss, motionCss, pageCss]
+
+-- The block of the page of a figure shown as an explorer somewhere in the document: the page
+-- block with the explorers' script and stylesheet (see `Block.explorer`).
+block_extension Block.explorerPage (decl : String) via withHighlighting where
+  data := .str decl
+  traverse := Block.figurePage.descr.traverse
+  toHtml := Block.figurePage.descr.toHtml
+  toTeX := Block.figurePage.descr.toTeX
+  extraCss := [figureCss, explorerCss, pageCss]
   extraJsFiles := {explorerJsFile}
 
 open Verso Doc Elab Syntax in

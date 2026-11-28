@@ -140,7 +140,17 @@ block_extension Block.figure (serialized : String) where
     let caption ← contents.mapM goB
     pure (.seq #[.raw "\\begin{quote}\\emph{", .text s!"Figure {name}", .raw "} (in the HTML \
       version). ", .seq caption, .raw "\\end{quote}\n"])
-  extraCss := [figureCss, explorerCss, motionCss]
+  extraCss := [figureCss, motionCss]
+
+-- The block of an explorer (`figure_explorer`): the figure block with the explorers' script and
+-- stylesheet, which Verso then writes into every page of the site; a site without an explorer
+-- carries neither.
+block_extension Block.explorer (serialized : String) where
+  data := (Lean.Json.parse serialized).toOption.getD .null
+  traverse := Block.figure.descr.traverse
+  toHtml := Block.figure.descr.toHtml
+  toTeX := Block.figure.descr.toTeX
+  extraCss := [figureCss, explorerCss]
   extraJsFiles := {explorerJsFile}
 
 /-! ### The directives -/
@@ -160,7 +170,8 @@ def blueprintNumbering : CoreM (String × String) := do
 /-- How a Blueprint's figure directives differ from the Manual genre's: their block, the doc
 string as the default text alternative, the Blueprint's numbering. -/
 def blueprintGenre : FigureGenre :=
-  { block := ``Block.figure, requireAlt := false, numbering := blueprintNumbering }
+  { block := ``Block.figure, explorerBlock := ``Block.explorer, requireAlt := false,
+    numbering := blueprintNumbering }
 
 /-- The expansion of a figure directive (`explorer`: of `figure_explorer`). -/
 def figureWith (explorer : Bool) : DirectiveExpanderOf FigureConfig :=
