@@ -363,7 +363,8 @@ as one consumer:
   record, step table, words, an added event, link or unescaped string).
 * `python3 -I tests/browser_check.py SCRATCH/a/html-multi [SHOTS] --site-links
   SCRATCH/site/html-multi --no-links SCRATCH/none/html-multi --side-by-side SCRATCH/sbs/html-multi
-  --manual SCRATCH/manual/html-multi --motions SCRATCH/motions`:
+  --manual SCRATCH/manual/html-multi --no-explorer SCRATCH/no-explorer/html-multi --motions
+  SCRATCH/motions`:
   the pages in a headless Chromium under a strict content policy: both themes, reduced motion, the
   source links, the figures page, narrow windows, the explorers' controls, gestures, announcements
   and touch targets, no script, a policy that allows the pictures' `style` elements by hash only,
@@ -372,9 +373,14 @@ as one consumer:
   page's look unchanged, nothing highlighted), the anchor adding no space above a figure page's
   picture (at 1440 and 390 px, in both adapters' examples: the picture's place is the same with the
   anchor removed), centring and overflow (wide, in the side-by-side text column, at 360 px) and
-  hostile strings; and, on every page of both examples that shows a motion, the motion checks of
+  hostile strings; in the site without explorers, no page loading an explorer's script, overflow
+  and the inline figure's narrow rendition at 320 and 360 px, and centring wide, at 360 and at
+  320 px; and, on every page of both examples that shows a motion, the motion checks of
   `tools/site/motion_browser.py` with the expectations in `SCRATCH/motions` (a motion without its
   expectations fails).
+* `python3 -I ../../tools/site/motion_browser.py SCRATCH/no-explorer/html-multi --expect
+  SCRATCH/motions --workers 4` (and with `--engine firefox`): the motion checks on the site
+  without explorers, whose pages carry the stylesheet of inline pictures but not the explorers'.
 
 ## Site checks
 
