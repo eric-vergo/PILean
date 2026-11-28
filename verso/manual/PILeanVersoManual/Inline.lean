@@ -481,6 +481,9 @@ a.pilean-decl-link:focus-visible {
   outline: 3px solid var(--pilean-focus, #2563eb); outline-offset: 2px;
 }
 a.pilean-decl-link:focus-visible > * { stroke: var(--pilean-focus, #2563eb); }
+@media (prefers-reduced-motion: reduce) {
+  .pilean-inline-svg * { transition: none !important; animation: none !important; }
+}
 "##
 
 /-- The stylesheet of explorers, beside `inlineCss`: their frames, controls and view, centred in
@@ -547,9 +550,7 @@ def explorerCss : String := r##"
 .pilean-explorer-counter { font-variant-numeric: tabular-nums; }
 .pilean-explorer-caption { font-style: italic; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) {
-  .pilean-explorer *, .pilean-inline-svg * {
-    transition: none !important; animation: none !important;
-  }
+  .pilean-explorer * { transition: none !important; animation: none !important; }
 }
 "##
 
