@@ -1054,14 +1054,23 @@ into `[0, 1]`, so it never overshoots.
 
 A segment can be divided into parts (`Timeline.divide`, `Segment.divide`), each given by the
 fraction of the segment's time where it ends and its easing: a step sampled for a morph, and a
-step or a rest cut at the ends of the windows of its fades (below). The ends are made sound first
-(`Segment.normalize`: each raised to the one before it, kept in `[0, 1]`, the last `1`; this
-changes nothing on the ends the motions give, which already are), so for any parts the divided
-segments tile the cycle as the segments did and none lasts less than zero
-(`Timeline.divide_tiles`, `Timeline.divide_dur_nonneg`). The timeline a motion's SVG is written
-on is such a divided timeline (`Motion.timeline_eq`, through `divideSegments_fst`; for a picture of
-panels `MotionPanelsReport.timeline_divide`), so its segments tile its cycle
-(`Motion.timeline_tiles`, `MotionPanelsReport.timeline_tiles`).
+step or a rest cut at the ends of the windows of its fades (below). `Timeline.divide` makes the
+ends sound first (`Segment.normalize`: each raised to the one before it, kept in `[0, 1]`, the last
+`1`), so for any parts the divided segments tile the cycle as the segments did and none lasts less
+than zero (`Timeline.divide_tiles`, `Timeline.divide_dur_nonneg`). That repair would hide a writer
+that gives wrong ends, so the writer does not rely on it: the timeline a motion's SVG is written on
+is `base.divide parts` (`MotionPlan.divideSegments_fst`, `Motion.timeline_eq`;
+`MotionPanelsReport.timeline_divide`), and every segment whose parts are not already sound
+(`Segment.sound`: ends that never decrease, lie in `[0, 1]` and end at `1`) is an error of the
+motion (`unsoundSegments`, `unsoundProblems`). When there is none, which the tests check for every
+golden and test motion, the repair changes nothing (`Timeline.normalize_of_sound`,
+`Timeline.divide_of_sound`): the timeline written is divided into exactly the writer's parts, and
+it tiles the cycle (`Motion.timeline_tiles`, `MotionPanelsReport.timeline_tiles`). Proved: the
+tiling, the durations, and that sound parts are kept as they are. Checked at run time, not proved:
+that the parts `divisionOf` gives are sound (a change to it that reversed its ends is reported as
+an error and fails the tests), and that the phases it gives at the parts' boundaries are those of
+its parts (by construction; the writer-against-baker check and the tests of opacities and angles
+at the boundaries hold it).
 
 A part of a step keeps the step's eased motion exactly: its easing is the part of the step's
 curve between the parameters where its first coordinate is the part's ends (`Easing.part`, de
@@ -1074,21 +1083,25 @@ A refused part is halved, and each half divided so in turn (`easedParts`), at mo
 `maxEasedDepth` (16) halvings deep: a smaller part of a curve is nearer a straight line, whose
 scaled control values lie inside `[0, 1]`. On every part of that grid of the curves the tests try
 (those three, `0.76 0 0.24 1`, the standard curve and `0.25 0.1 0.25 1`) one halving is the most
-needed; a part still refused at the last depth is drawn without easing and is an error of the
+needed, and on every part between two hundredths of a step of the thirteen curves below two (for
+`0.9 0 0.1 1`, which refuses 1164 of those 5050 parts); a part still refused at the last depth is drawn without easing and is an error of the
 motion. The value at every boundary the halving adds is the step's eased value there, as at
 every other boundary.
 
 The control values are written to six decimals (`Smil.splineText`, each within `5e-7` of its
 value; a value with fewer decimals, such as the standard curve's `0.42 0 0.58 1`, is written with
-those). The error this leaves is measured, not proved: over every part of a step on the grid of
-twentieths (halved where refused, 21 points in each part) of the twelve curves of the tests'
-probe (the six above, CSS's `ease-in` and `ease-out`, and the in-and-out curves `0.37 0 0.63 1`,
-`0.45 0 0.55 1`, `0.65 0 0.35 1`, `0.68 0 0.32 1`), the written pieces are within `1.53e-6` of the
-step's change (the steep curves; `7.3e-7` at most for the others). So a turn of less than a whole
-turn is within `5.5e-4°` of its eased angle, and a point at radius `R` pixels within `9.6e-6 R`
-pixels of its place: `0.01` px at a radius of 1000 pixels, a fifth of the browser checks'
-`0.05` px. The tests require `1.6e-6` on six of those curves. At four decimals the same parts
-would be off by up to about `7.5e-5` of the change.
+those). The error this leaves is measured, not proved, on two grids of parts (each part halved
+where refused, 21 points in each part), over thirteen curves: the six above, CSS's `ease-in` and
+`ease-out`, the in-and-out curves `0.37 0 0.63 1`, `0.45 0 0.55 1`, `0.65 0 0.35 1`,
+`0.68 0 0.32 1` and the steepest tried, `0.9 0 0.1 1`. On the grid of hundredths of a step (every
+part between two hundredths, 5050 parts), the written pieces are within `2.85e-6` of the step's
+change (the steepest curve; `1.33e-6` at most for the curves that refuse no part, `8.2e-7` for
+`0.45 0 0.55 1`); on that grid, a turn of less than a whole turn is within `1.03e-3°` of its eased
+angle, and a point at radius `R` pixels within `1.8e-5 R` pixels of its place: `0.018` px at a
+radius of 1000 pixels, a third of the browser checks' `0.05` px. A window can end anywhere, not
+only on hundredths; nearer ends were not measured. The tests check the grid of twentieths (210
+parts) on six of the curves and require `1.6e-6` there (measured at most `1.53e-6`). At four
+decimals the same parts would be off by up to about `7.5e-5` of the change.
 
 `PILean/Anim/Smil.lean` writes SMIL animation elements on a timeline: `animateRotate` (values
 `θ cx cy` of an `animateTransform` of type `rotate`), `animateTranslate`, `animateOpacity`,

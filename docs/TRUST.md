@@ -374,7 +374,13 @@ that end in `Unchecked`.
   `tools/motion-browser-check.py` measures it in Chromium and Firefox (and
   `tools/webkit/webkit_check.py` the positions and opacities in WebKit), outside `lake test`:
   positions at every rest and through every turn and slide, and the opacity of every appearance
-  and disappearance before, in and after its window. An illustration
+  and disappearance before, in and after its window. Pixels are compared with the stills at the
+  rests only: an item drawn where it should not be, visible only in the middle of a step (a layer
+  left at some opacity between two rests that show it at none, or drawn in the wrong place
+  between two places that are right), is not seen by a pixel comparison; the writer-against-baker
+  check holds every marked actor's position and opacity at the middle of every segment, and the
+  opacity samples hold each declared fade, but an item that is no actor is held only at the
+  rests. An illustration
   carries no theorem, and a linked theorem says what its statement says.
 * **What a page that shows a motion must do.** A page adapter:
   1. reads `Output.motionPage` only from an output whose `renderOutput` succeeded (a stopped or

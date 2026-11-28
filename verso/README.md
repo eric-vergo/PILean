@@ -155,10 +155,10 @@ A link is never put inside another.
   elements that name a declaration link to it (see "Links to Lean"), and one picture serves both
   themes through a `style` element inside it. No script is needed for an inline picture.
 * Order of the stylesheets: Verso keeps the stylesheets of its extensions, the adapters' among
-  them, in a hash set, and writes them in the set's order, so a change to the text of one of them
-  can move it among the `<style>` elements of the head (a change to the stills' rules moved the
-  motions' and the figure pages' stylesheets). Two builds of the same sources write the same
-  order (the example's check builds twice and compares the bytes). A site's own rule that is
+  them, in a hash set, and writes them in the set's order, so the place of one of them among the
+  `<style>` elements of the head depends on its text and changes when its text does. Two builds
+  of the same sources write the same order (the example's check builds twice and compares the
+  bytes). A site's own rule that is
   meant to override one of PILean's must therefore win by its selector's specificity, not by
   coming later.
 * Content policy: the figures' stylesheets are `<style>` elements in the page's head (as Verso

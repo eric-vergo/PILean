@@ -248,13 +248,16 @@ not rational-valued.
   still tile the cycle (`Tiles`: the first starts at `0`, each starts where the one before it
   ends, the last ends at the end of the cycle) and no part lasts less than zero
   (`tiles_layout`, `tiles_partsFrom`, `tiles_divide`, `tiles_flatMap`, `partsFrom_dur_nonneg` are
-  the steps). The timeline a motion's SVG is written on is such a timeline
-  (`MotionPlan.divideSegments_fst`, `Motion.timeline_eq`; `MotionPanelsReport.timeline_divide`), so
-  `Motion.timeline_tiles` and `MotionPanelsReport.timeline_tiles` state it of every motion and
-  picture of panels: their segments tile their cycle and none lasts less than zero. Not proved:
-  that the ends a motion gives already are sound (so that `normalize` changes nothing on them;
-  the golden files, unchanged, show it for theirs), and anything about the easing of the parts
-  (floating point, `Easing.part`, `easedParts`; tested).
+  the steps). `normalize_of_sound`, `divide_of_sound`: parts that are already sound
+  (`Segment.sound`) are kept exactly, so the repair changes nothing on them. The timeline a
+  motion's SVG is written on is `base.divide parts` (`MotionPlan.divideSegments_fst`,
+  `Motion.timeline_eq`; `MotionPanelsReport.timeline_divide`), so `Motion.timeline_tiles` and
+  `MotionPanelsReport.timeline_tiles` state of every motion and picture of panels that its
+  segments tile its cycle and none lasts less than zero. Not proved: that the writer's parts are
+  sound (a segment whose parts are not is an error of the motion, `unsoundProblems`, and the tests
+  require none for every test motion), that the phases at their boundaries belong to them (by
+  construction, tested), and anything about the easing of the parts (floating point,
+  `Easing.part`, `easedParts`; tested).
 
 What the SMIL builders write (`PILean/Anim/SmilProofs.lean`), for the same timelines:
 

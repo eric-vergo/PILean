@@ -571,6 +571,44 @@ theorem monoFrom_mono (a : Rat) (ha : a ≤ 1) (ps : List (Rat × Easing)) :
       · rw [hz]; exact hb₁
       · exact Rat.le_trans hb₁ ((List.pairwise_cons.mp hr).1 z hz)
 
+/-- Parts that are sound from `a` are kept as they are when made sound from `a`. -/
+theorem monoFrom_of_soundFrom (a : Rat) (ps : List (Rat × Easing))
+    (h : Segment.soundFrom a ps = true) : Segment.monoFrom a ps = ps := by
+  induction ps generalizing a with
+  | nil => rfl
+  | cons x ps ih =>
+    obtain ⟨b, e⟩ := x
+    cases ps with
+    | nil =>
+      simp only [Segment.soundFrom, Bool.and_eq_true, decide_eq_true_eq] at h
+      simp [Segment.monoFrom, h.2]
+    | cons y ps =>
+      simp only [Segment.soundFrom, Bool.and_eq_true, decide_eq_true_eq] at h
+      obtain ⟨⟨hab, hb⟩, hr⟩ := h
+      have hb' : min 1 (max a b) = b := by grind
+      simp only [Segment.monoFrom, hb', ih b hr]
+
+/-- Sound parts are not changed by `Segment.divide`: a segment divided into sound parts is divided
+into exactly those parts. -/
+theorem normalize_of_sound (ps : List (Rat × Easing)) (h : Segment.sound ps = true) :
+    Segment.normalize ps = ps :=
+  monoFrom_of_soundFrom 0 ps h
+
+/-- A timeline divided into sound parts (`Segment.sound`) is divided into exactly those parts:
+`Segment.normalize` repairs nothing. -/
+theorem divide_of_sound (tl : Timeline) (parts : Segment → List (Rat × Easing))
+    (h : ∀ s ∈ tl.segments.toList, Segment.sound (parts s) = true) :
+    tl.divide parts = { tl with segments := (tl.segments.toList.flatMap fun s =>
+      if (parts s).isEmpty then [s] else s.partsFrom 0 (parts s)).toArray } := by
+  simp only [divide, Segment.divide]
+  congr 2
+  generalize tl.segments.toList = l at h ⊢
+  induction l with
+  | nil => rfl
+  | cons s l ih =>
+    simp only [List.flatMap_cons]
+    rw [normalize_of_sound _ (h s (by simp)), ih fun x hx => h x (by simp [hx])]
+
 /-- Making parts sound keeps their number. -/
 theorem length_monoFrom (a : Rat) (ps : List (Rat × Easing)) :
     (Segment.monoFrom a ps).length = ps.length := by

@@ -566,6 +566,8 @@ structure MotionPanelsReport where
   /-- The steps whose easing cannot be divided exactly at the ends of the windows of the panels'
   fades (`divideSegments`). -/
   inexact : Array Nat := #[]
+  /-- The segments of the shared timeline divided unsoundly (`unsoundSegments`). -/
+  unsound : Array SegKind := #[]
   /-- The shared timeline. -/
   timeline : Timeline
   /-- The phase at each boundary of the shared timeline. -/
@@ -649,6 +651,7 @@ private def laidOut : MotionPanelsReport :=
   let phases := Motion.phasesOf segs
   { figure := P, layout := L, samples, conflicts := shared.filterMap (·.2),
     timeline := tl, phases, problems := #[], inexact,
+    unsound := unsoundSegments base division,
     panels := mks.mapIdx (P.panelReport L tl phases samples) }
 
 end MotionPanels
@@ -904,6 +907,7 @@ private def figureProblems : Array MotionProblem := Id.run do
         without being the same; fades in one rest run one after another, or together")
   for j in r.inexact do
     out := out ++ inexactProblems #[j]
+  out := out ++ unsoundProblems r.unsound
   if !P.shares.isEmpty then
     if P.shares.size != P.panels.size then
       out := out.push (err s!"the picture gives {P.shares.size} shares for {P.panels.size} \

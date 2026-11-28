@@ -400,9 +400,20 @@ def Segment.monoFrom : Rat → List (Rat × Easing) → List (Rat × Easing)
     (b', e) :: monoFrom b' (p :: rest)
 
 /-- The parts of a segment made sound (`monoFrom 0`): their ends never decrease from `0`, lie in
-`[0, 1]`, and the last is `1` (`PILean/Anim/TimelineProofs.lean`, `Timeline.normalize_last`,
-`Timeline.normalize_mono`). -/
+`[0, 1]`, and the last is `1` (`PILean/Anim/TimelineProofs.lean`, `Timeline.monoFrom_last`,
+`Timeline.monoFrom_mono`); on parts that already are (`Segment.sound`) it changes nothing
+(`Timeline.normalize_of_sound`). -/
 def Segment.normalize (ps : List (Rat × Easing)) : List (Rat × Easing) := Segment.monoFrom 0 ps
+
+/-- Whether the ends of parts, from `a`, never decrease, lie in `[a, 1]` and end at `1`. -/
+def Segment.soundFrom : Rat → List (Rat × Easing) → Bool
+  | _, [] => true
+  | a, [(b, _)] => decide (a ≤ b) && decide (b = 1)
+  | a, (b, _) :: p :: rest => decide (a ≤ b) && decide (b ≤ 1) && Segment.soundFrom b (p :: rest)
+
+/-- Whether the parts of a segment are sound as given (`soundFrom 0`): the writer of a motion
+gives only such parts, and reports any other as an error (`PILean.Plane.divideSegments`). -/
+def Segment.sound (ps : List (Rat × Easing)) : Bool := Segment.soundFrom 0 ps
 
 /-- The segment `s` divided into parts, each given by the fraction of the segment's time at which
 it ends and its easing, made sound (`normalize`, which changes nothing on ends that never decrease

@@ -240,6 +240,21 @@ def divideSegments (base : Timeline) (d : MotionDivision) :
   ((base.divide (d.parts last)).segments.mapIdx fun i seg => (seg, phases.getD i default),
     base.segments.filterMap fun s => (divisionOf d last s).2.2)
 
+/-- The segments of the timeline `base` whose parts the division `d` gives unsound (not ending at
+`1`, or with ends that decrease or leave `[0, 1]`, `Segment.sound`): a fault of the writer, which
+`Timeline.divide` would repair into another division; the motion reports each as an error
+(`unsoundProblems`). With none, the timeline written is divided into exactly the division's parts
+(`Timeline.divide_of_sound`). -/
+def unsoundSegments (base : Timeline) (d : MotionDivision) : Array SegKind :=
+  (base.segments.filter fun s => !Segment.sound (d.parts (base.keys - 1) s)).map (·.kind)
+
+/-- The segments divided unsoundly (`unsoundSegments`), as errors. -/
+def unsoundProblems (kinds : Array SegKind) : Array MotionProblem :=
+  kinds.map fun k =>
+    { severity := .error, message := s!"the segment {reprStr k} is divided into parts whose ends \
+        are not sound (they must not decrease, lie in [0, 1] and end at 1); this is a fault of \
+        the writer, not of the motion" }
+
 /-- The segments `divideSegments` gives are those of `Timeline.divide` with the division's parts:
 the writer's timeline is a divided timeline, which tiles the cycle (`Timeline.divide_tiles`). -/
 theorem divideSegments_fst (base : Timeline) (d : MotionDivision) :
@@ -321,6 +336,10 @@ def divisionOn (K : MotionKeys) (base : Timeline) : MotionDivision :=
 at the ends of the windows of their fades (`divideSegments`). -/
 def segments (K : MotionKeys) : Array (Segment × MotionPhase × MotionPhase) :=
   (divideSegments m.baseTimeline (m.divisionOn K m.baseTimeline)).1
+
+/-- The segments of the motion's timeline divided unsoundly (`unsoundSegments`). -/
+def unsoundOf (K : MotionKeys) : Array SegKind :=
+  unsoundSegments m.baseTimeline (m.divisionOn K m.baseTimeline)
 
 /-- The steps whose easing the motion's timeline cannot divide exactly at the ends of the windows
 of their fades (`divideSegments`). -/

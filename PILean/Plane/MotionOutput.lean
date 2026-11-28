@@ -365,7 +365,8 @@ def report : MotionReport :=
   let base := m.keyProblems
   let f := p.env.frame
   let problems := if !decide m.WellFormed then base
-    else base ++ inexactProblems (m.inexactSteps K) ++ m.restProblems K p ++ writerProblems p ++
+    else base ++ unsoundProblems (m.unsoundOf K) ++ inexactProblems (m.inexactSteps K) ++
+      m.restProblems K p ++ writerProblems p ++
       boundsProblems p ⟨0, 0, f.width, f.height⟩ "the picture"
   { motion := m, keys := K, plan := p, problems }
 

@@ -819,6 +819,57 @@ def outputChecks : Array (String × Bool) := Id.run do
 
 /-! ### Rests of their own, fades in part of a step or a rest, and keys that are not stills -/
 
+/-- A motion with what real motions have and the golden ones lack, for the browser checks: five
+points that appear together in one step (one opacity animation for five layers), a faint thin
+segment that appears over a disk that slides under it (overlapping actors), a translucent
+triangle that vanishes during a rest, a point that slides next to where another fades in, an
+item without an id that changes between two keys (crossfaded, a note), and many fades in a long
+cycle. -/
+def crowdMotion : Motion where
+  keys :=
+    let pts := (List.range 5).toArray.map fun (i : Nat) =>
+      Plane.Exact.point (((i : Rat), (2 : Rat)) : Q) |>.accent 1 |>.actor s!"B{i}"
+    let disk := fun (x : Rat) => Plane.Exact.disk ((x, (0 : Rat)) : Q) (1 / 2 : Rat) |>.accent 0
+      |>.actor "D"
+    let seg := Plane.Exact.segment ((0, 0) : Q) ((4, 0) : Q) |>.faint |>.actor "S"
+    let tri := Plane.Exact.polygon [((1, -1) : Q), (3, -1), (2, -2)] |>.filled |>.fillOpacity 0.3
+      |>.accent 2 |>.actor "T"
+    let mover := fun (x : Rat) => Plane.Exact.point ((x, (13 / 5 : Rat)) : Q) |>.accent 3
+      |>.actor "M"
+    let target := Plane.Exact.point ((3, 3) : Q) |>.accent 1 |>.actor "G"
+    let mark := fun (y : Rat) => Plane.Exact.point (((-1 : Rat), y) : Q) |>.faint
+    let corners := #[Plane.Exact.point ((-2, -3) : Q) |>.faint, Plane.Exact.point ((5, 4) : Q)
+      |>.faint]
+    #[{ items := corners ++ #[mark 0, disk 0, tri, mover 0] },
+      { items := corners ++ #[mark 0, disk 0, tri, mover 0] ++ pts },
+      { items := corners ++ #[mark 1, disk 2, tri, mover 0, seg] ++ pts },
+      { items := corners ++ #[mark 1, disk 2, mover 3, seg, target] ++ pts },
+      { items := corners ++ #[mark 1, disk 4, mover 3, target] ++ pts }]
+  captions := #["Start.", "Five points appear.", "A segment appears over the sliding disk.",
+    "The triangle fades; a point slides next to where another appears.", "The segment vanishes."]
+  steps := #[{ moves := (List.range 5).toArray.map fun i => (s!"B{i}", .appear) },
+    { moves := #[("D", Plane.Exact.slideFromTo ((0, 0) : Q) (2, 0)), ("S", .appear)],
+      windows := #[("S", .fractions (1 / 4) (3 / 4))] },
+    { moves := #[("M", Plane.Exact.slideFromTo ((0, 13 / 5) : Q) (3, 13 / 5)), ("G", .appear)] },
+    { moves := #[("D", Plane.Exact.slideFromTo ((2, 0) : Q) (4, 0)), ("S", .vanish)] }]
+  keyOptions := #[{}, {}, {}, { rest := some (6 / 5), fades := #[("T", .vanish, .first (1 / 2))] },
+    {}]
+  info := testInfo
+  checks := .warn
+
+/-- A disk that grows through exact figures between its keys, sampled in twelve intervals, while a
+point slides across in the same step: the slide follows the step's eased motion piecewise linearly
+through the samples, and its expectations sample the whole step, not its first interval. -/
+def morphSlideMotion : Motion :=
+  let fig := fun (q : Rat) =>
+    let items := corners ++ #[Plane.disk ⟨0, 0⟩ (1 + Exact.toFloat q) |>.actor "D",
+      Plane.Exact.point ((-3 + 6 * q, (5 / 2 : Rat)) : Q) |>.accent 1 |>.actor "S"]
+    ({ items } : Figure)
+  { keys := #[fig 0, fig 1], captions := #["Start.", "End."], info := testInfo,
+    steps := #[{ moves := #[("D", .morph),
+      ("S", Plane.Exact.slideFromTo ((-3, 5 / 2) : Q) (3, 5 / 2))], duration := some (6 / 5) }],
+    morphSamples := 12, between := fun j q => if j == 0 then some (fig q) else none }
+
 /-- `turnMotion` with its turn on a steep curve (`0.83 0 0.17 1`) and a mark that vanishes in
 the first 0.6 of that step: the part of the curve over `[0, 0.6]` is no timing curve, so it is
 halved (`easedParts`), and the turn is checked inside each part and at every boundary. -/
@@ -998,6 +1049,13 @@ def featureChecks : Array (String × Bool) := Id.run do
     sm.problems.isEmpty && parts.size == 3 && sm.inexactSteps sm.keysOf == #[] &&
       modelAgrees sm &&
       (Easing.spline 0.83 0 0.17 1).part 0 0.6 == none)
+  r := r.push ("motion division: the writer divides every segment into sound parts, so the \
+      timeline written is divided into exactly them (`Timeline.divide_of_sound`)",
+    (golden.map (·.2) ++ #[steepMotion, crowdMotion, morphSlideMotion, sampledMotion]).all fun mm =>
+      (mm.unsoundOf mm.keysOf).isEmpty &&
+        (mm.baseTimeline.segments.all fun sg =>
+          Segment.sound ((mm.divisionOn mm.keysOf mm.baseTimeline).parts
+            (mm.baseTimeline.keys - 1) sg)))
   -- the outputs of a motion with a key that is not a still
   let c := PILean.Trust.ToCheckedMotion.checked m
   let names := (PILean.Trust.motionOutputs c).map fun o => s!"{o.name}.{o.format.name}"
@@ -1244,57 +1302,6 @@ def expectations (name : String) (m : Motion) : String :=
     \"rests\": [{", ".intercalate rests}], \"turns\": [{", ".intercalate turns}], \
     \"slides\": [{", ".intercalate slides}], \
     \"opacities\": [{", ".intercalate (opacitiesJson m p F base)}]}\n"
-
-/-- A motion with what real motions have and the golden ones lack, for the browser checks: five
-points that appear together in one step (one opacity animation for five layers), a faint thin
-segment that appears over a disk that slides under it (overlapping actors), a translucent
-triangle that vanishes during a rest, a point that slides next to where another fades in, an
-item without an id that changes between two keys (crossfaded, a note), and many fades in a long
-cycle. -/
-def crowdMotion : Motion where
-  keys :=
-    let pts := (List.range 5).toArray.map fun (i : Nat) =>
-      Plane.Exact.point (((i : Rat), (2 : Rat)) : Q) |>.accent 1 |>.actor s!"B{i}"
-    let disk := fun (x : Rat) => Plane.Exact.disk ((x, (0 : Rat)) : Q) (1 / 2 : Rat) |>.accent 0
-      |>.actor "D"
-    let seg := Plane.Exact.segment ((0, 0) : Q) ((4, 0) : Q) |>.faint |>.actor "S"
-    let tri := Plane.Exact.polygon [((1, -1) : Q), (3, -1), (2, -2)] |>.filled |>.fillOpacity 0.3
-      |>.accent 2 |>.actor "T"
-    let mover := fun (x : Rat) => Plane.Exact.point ((x, (13 / 5 : Rat)) : Q) |>.accent 3
-      |>.actor "M"
-    let target := Plane.Exact.point ((3, 3) : Q) |>.accent 1 |>.actor "G"
-    let mark := fun (y : Rat) => Plane.Exact.point (((-1 : Rat), y) : Q) |>.faint
-    let corners := #[Plane.Exact.point ((-2, -3) : Q) |>.faint, Plane.Exact.point ((5, 4) : Q)
-      |>.faint]
-    #[{ items := corners ++ #[mark 0, disk 0, tri, mover 0] },
-      { items := corners ++ #[mark 0, disk 0, tri, mover 0] ++ pts },
-      { items := corners ++ #[mark 1, disk 2, tri, mover 0, seg] ++ pts },
-      { items := corners ++ #[mark 1, disk 2, mover 3, seg, target] ++ pts },
-      { items := corners ++ #[mark 1, disk 4, mover 3, target] ++ pts }]
-  captions := #["Start.", "Five points appear.", "A segment appears over the sliding disk.",
-    "The triangle fades; a point slides next to where another appears.", "The segment vanishes."]
-  steps := #[{ moves := (List.range 5).toArray.map fun i => (s!"B{i}", .appear) },
-    { moves := #[("D", Plane.Exact.slideFromTo ((0, 0) : Q) (2, 0)), ("S", .appear)],
-      windows := #[("S", .fractions (1 / 4) (3 / 4))] },
-    { moves := #[("M", Plane.Exact.slideFromTo ((0, 13 / 5) : Q) (3, 13 / 5)), ("G", .appear)] },
-    { moves := #[("D", Plane.Exact.slideFromTo ((2, 0) : Q) (4, 0)), ("S", .vanish)] }]
-  keyOptions := #[{}, {}, {}, { rest := some (6 / 5), fades := #[("T", .vanish, .first (1 / 2))] },
-    {}]
-  info := testInfo
-  checks := .warn
-
-/-- A disk that grows through exact figures between its keys, sampled in twelve intervals, while a
-point slides across in the same step: the slide follows the step's eased motion piecewise linearly
-through the samples, and its expectations sample the whole step, not its first interval. -/
-def morphSlideMotion : Motion :=
-  let fig := fun (q : Rat) =>
-    let items := corners ++ #[Plane.disk ⟨0, 0⟩ (1 + Exact.toFloat q) |>.actor "D",
-      Plane.Exact.point ((-3 + 6 * q, (5 / 2 : Rat)) : Q) |>.accent 1 |>.actor "S"]
-    ({ items } : Figure)
-  { keys := #[fig 0, fig 1], captions := #["Start.", "End."], info := testInfo,
-    steps := #[{ moves := #[("D", .morph),
-      ("S", Plane.Exact.slideFromTo ((-3, 5 / 2) : Q) (3, 5 / 2))], duration := some (6 / 5) }],
-    morphSamples := 12, between := fun j q => if j == 0 then some (fig q) else none }
 
 /-- The motions written for the browser check besides the golden ones: a long first hold, a long
 cycle, and a morph alone (a disk whose radius grows, its anchor unchanged). -/
