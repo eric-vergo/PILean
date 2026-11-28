@@ -428,6 +428,27 @@ def unsoundChecks : Array (String × Bool) :=
           m.report.stopErrors == m.report.errors && !m.report.errors.isEmpty &&
           P.svg?.toOption.isNone && (P.animation? 10).toOption.isNone &&
           P.report.stopErrors == P.report.errors && !P.report.errors.isEmpty),
+    ("motion poster: a poster that is not a still stops the direct outputs under fail only, the \
+        checked route at every level, and is listed once among the stops",
+      levels.all fun l =>
+        let m : Motion := { announceMotion with checks := l, poster := 2 }
+        let P : MotionPanels :=
+          { PILeanTest.MotionPanelsChecks.announcePanels with checks := l, poster := 2 }
+        let once := fun (c : CheckedMotion) =>
+          (c.stops.filter fun t => (t.splitOn "which is not a still").length > 1).size == 1
+        let direct := l != .fail
+        m.svg?.toOption.isSome == direct && (m.animation? 10).toOption.isSome == direct &&
+          P.svg?.toOption.isSome == direct && (P.animation? 10).toOption.isSome == direct &&
+          once m.checked && once P.checked),
+    ("panels text engines: panels drawn with different text engines stop the checked route at \
+        every level, the direct outputs at none",
+      levels.all fun l =>
+        let F := PILeanTest.MotionPanelsChecks.framesPanels
+        let other := { F.style.text with id := "another engine" }
+        let P : MotionPanels := { F with checks := l, panels := F.panels.modify 1 fun p =>
+          { p with motion := p.motion.withStyle { p.motion.style with text := other } } }
+        P.svg?.toOption.isSome && (P.animation? 10).toOption.isSome &&
+          P.checked.stops.any fun t => (t.splitOn "different text engines").length > 1),
     ("panels unsound: a shared timeline divided unsoundly stops a picture of panels at every \
         level, with its message",
       levels.all fun l =>

@@ -16,7 +16,10 @@ package's build for everything else (symbolic links), and for each motion it rea
 `PILeanTest/DivisionMutationsRun.lean` with Lean's interpreter on that search path, under a CPU
 limit and a wall-clock watchdog: the interpreter runs the imported code of the motions against
 the changed writer. Each run must print only `ok:` lines and exit with status 0, within
-`maxUserMs` of user CPU time.
+`maxUserMs` of user CPU time; a failed run is reported with its cause (the CPU limit, the
+watchdog, `/usr/bin/time` absent). Each run is capped at 20 s of CPU time; the copies and links
+live in a temporary folder that the check removes, and a `lake test` killed while it runs can
+leave that folder (about 10 MB) behind.
 
 ## Main definitions
 
@@ -44,7 +47,8 @@ def file : System.FilePath := "PILean" / "Plane" / "MotionPlan.lean"
 in reverse order, and the samples of a morph in reverse order. -/
 def mutations : Array DivisionMutation :=
   #[{ what := "the parts of a step cut by its windows run backwards",
-      edit := ("(easedParts s.easing maxEasedDepth a b)", "(easedParts s.easing maxEasedDepth b a)"),
+      edit := ("(easedParts s.easing maxEasedDepth a b)",
+        "(easedParts s.easing maxEasedDepth b a)"),
       motions := #["announce", "steep", "announce-panels"] },
     { what := "the parts of a rest are in reverse order",
       edit := ("      ((starts.zip ends).map fun (a, b) =>
@@ -70,7 +74,8 @@ other entry. -/
 def overlay (lib dir : System.FilePath) : IO Bool := do
   let script := "set -e; b=$1; d=$2; mkdir -p \"$d/PILean/Plane\"; " ++
     "ln -s \"$b/PILean.olean\" \"$d/PILean.olean\"; ln -s \"$b/PILeanTest\" \"$d/PILeanTest\"; " ++
-    "for e in \"$b\"/PILean/*; do n=${e##*/}; [ \"$n\" = Plane ] || ln -s \"$e\" \"$d/PILean/$n\"; " ++
+    "for e in \"$b\"/PILean/*; do n=${e##*/}; " ++
+    "[ \"$n\" = Plane ] || ln -s \"$e\" \"$d/PILean/$n\"; " ++
     "done; for e in \"$b\"/PILean/Plane/*; do n=${e##*/}; case $n in MotionPlan.*) ;; " ++
     "*) ln -s \"$e\" \"$d/PILean/Plane/$n\";; esac; done"
   let r ← IO.Process.output
@@ -86,6 +91,16 @@ structure Run where
   out : String
   /-- The user CPU time. -/
   userMs : Option Nat
+
+/-- Why a run failed, from its exit status: killed by the wall-clock watchdog (no status), stopped
+by the CPU limit (`SIGXCPU`, or `SIGKILL` at the hard limit), `/usr/bin/time` or the program not
+run (126, 127), or another status. -/
+def Run.cause (r : Run) : String :=
+  match r.status with
+  | none => s!"killed by the wall-clock watchdog after {maxWallMs} ms"
+  | some 152 | some 137 => s!"stopped by the CPU limit of {maxUserMs / 1000} s"
+  | some 126 | some 127 => "/usr/bin/time or the interpreter could not be run"
+  | some n => s!"exit status {n}"
 
 /-- Runs `cmd args` with the environment `env` in its own process group under a CPU limit of
 `cpuS` seconds, the group killed after `wallMs` milliseconds, measured with `/usr/bin/time`; its
@@ -120,6 +135,8 @@ made in `scratch`. -/
 def check (lean : String) (lib : System.FilePath) (path : List System.FilePath)
     (scratch : System.FilePath) (m : DivisionMutation) (k : Nat) :
     IO (Except String Unit) := do
+  unless ← System.FilePath.pathExists "/usr/bin/time" do
+    return .error "/usr/bin/time is absent: the runs' CPU time cannot be measured"
   let text ← IO.FS.readFile file
   let (old, new) := m.edit
   if (text.splitOn old).length != 2 then return .error s!"{old.quote} does not occur once"
@@ -144,7 +161,7 @@ def check (lean : String) (lib : System.FilePath) (path : List System.FilePath)
       #[("LEAN_PATH", some runPath)] (maxUserMs / 1000) maxWallMs scratch s!"run{k}-{name}"
     let fails := (r.out.splitOn "\n").filter (!·.startsWith "ok:") |>.filter (!·.isEmpty)
     if r.status != some 0 || !fails.isEmpty then
-      return .error s!"{name}: status {r.status}: {"; ".intercalate (fails.take 4)}"
+      return .error s!"{name}: {r.cause}: {"; ".intercalate (fails.take 4)}"
     match r.userMs with
     | none => return .error s!"{name}: no CPU time was measured"
     | some t =>

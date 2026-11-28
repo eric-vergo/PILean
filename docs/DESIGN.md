@@ -1068,16 +1068,17 @@ bound on their number (a part of a step that ends before it starts would be halv
 `easedParts` into `2 ^ 16` refused parts; it is not halved). The timeline of a motion whose
 division is sound is `base.divide parts` (`MotionPlan.divideSegments_fst`,
 `Motion.timeline_eq_of_sound`), and so is that of every motion whose SVG is written
-(`Motion.timeline_eq_of_svg`); a picture of panels' is a divided base timeline
-(`MotionPanelsReport.timeline_divide`). The repair changes
-nothing on it (`Timeline.normalize_of_sound`, `Timeline.divide_of_sound`): the timeline written is
-divided into exactly the writer's parts, and it tiles the cycle (`Motion.timeline_tiles`,
-`MotionPanelsReport.timeline_tiles`); the tests check that every golden and test motion is so
-divided. Proved: the tiling, the durations, and that sound parts are kept as they are. Checked at
-run time, not proved: that the parts `divisionOf` gives are sound (a change to it that reversed
-its ends is reported as an error at once and fails the tests), and that the phases it gives at
-the parts' boundaries are those of its parts (by construction; the writer-against-baker check and
-the tests of opacities and angles at the boundaries hold it).
+(`Motion.timeline_eq_of_svg`). On a motion's sound division the repair changes nothing
+(`Timeline.normalize_of_sound`, `Timeline.divide_of_sound`): the timeline a motion's SVG is
+written on is divided into exactly the writer's parts. Of a picture of panels, what is proved is
+that its shared timeline is its base timeline divided by some parts
+(`MotionPanelsReport.timeline_divide`), not that they are the writer's. Both tile their cycle
+(`Motion.timeline_tiles`, `MotionPanelsReport.timeline_tiles`); the tests check that every golden
+and test motion is divided soundly. Proved: the tiling, the durations, and that sound parts are
+kept as they are. Checked at run time, not proved: that the parts `divisionOf` gives are sound
+(a change to it that reversed its ends is reported as an error at once and fails the tests), and
+that the phases it gives at the parts' boundaries are those of its parts (by construction; the
+writer-against-baker check and the tests of opacities and angles at the boundaries hold it).
 
 A part of a step keeps the step's eased motion exactly: its easing is the part of the step's
 curve between the parameters where its first coordinate is the part's ends (`Easing.part`, de

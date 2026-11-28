@@ -536,14 +536,15 @@ def Motion.strictErrors (m : Motion) (r : MotionReport) : Nat :=
 /-- What stops the motion of the report `r` (`Motion.checked`): its errors under `fail`, and at
 every level the errors of a motion that is not well formed (`Motion.WellFormed`), the segments its
 writer divided unsoundly (`MotionReport.unsound`, `MotionReport.stopErrors`), an id written twice
-(`idStops`), and a poster that is not a still. -/
+(`idStops`), and a poster that is not a still (an error of the motion, so under `fail` it is
+among its errors and is not listed again). -/
 def MotionReport.stops (r : MotionReport) : Array String :=
   let m := r.motion
   let wellFormed := decide m.WellFormed
   let idProblems := match r.svg? with
     | .ok doc => idStops doc m.actorIds
     | .error _ => #[]
-  let posterStops := if wellFormed && !m.isStill m.poster then
+  let posterStops := if wellFormed && !r.problemsFail && !m.isStill m.poster then
       #[s!"the poster is key {m.poster}, which is not a still"] else #[]
   (if r.problemsFail then r.stopErrors else #[]) ++ idProblems ++ posterStops
 
@@ -586,7 +587,8 @@ instance : ToOutputs Motion where
 /-- What stops a picture of panels from being written as recorded, at every level, besides what
 its report's `problemsFail` covers (a picture that is not well formed, segments divided
 unsoundly): panels drawn with different text engines (its stills and its sheet are drawn with
-one), an id written twice (`idStops`), and a poster that is not a still. -/
+one), an id written twice (`idStops`), and a poster that is not a still (an error of the picture,
+listed here only when the errors do not already stop it). -/
 def MotionPanelsReport.writeStops (r : MotionPanelsReport) : Array String :=
   let engines := (r.panels.map (·.keys.env.style.text.id)).toList.eraseDups
   let actors := r.figure.panels.flatMap (·.motion.actorIds)
@@ -596,7 +598,7 @@ def MotionPanelsReport.writeStops (r : MotionPanelsReport) : Array String :=
     (match r.svg? with
       | .ok doc => idStops doc actors
       | .error _ => #[]) ++
-    (if decide r.figure.WellFormed && !r.figure.isStill r.figure.poster then
+    (if decide r.figure.WellFormed && !r.problemsFail && !r.figure.isStill r.figure.poster then
       #[s!"the poster is key {r.figure.poster}, which is not a still"] else #[])
 
 /-- What stops a picture of panels (its report `r`) from being written: its errors under `fail`,
